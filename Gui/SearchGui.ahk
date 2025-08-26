@@ -68,7 +68,7 @@ class SearchGui {
         PosX += 50
         this.RemarkCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 5, 150), "")
 
-        PosY += 25
+        PosY += 30
         PosX := 10
         con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY, 25), "F1")
         con.Enabled := false
@@ -189,7 +189,7 @@ class SearchGui {
         btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 40), "确定")
         btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
         MyGui.OnEvent("Close", (*) => this.ToggleFunc(false))
-        MyGui.Show(Format("w{} h{}", 640, 415))
+        MyGui.Show(Format("w{} h{}", 640, 420))
     }
 
     Init(cmd) {
@@ -430,7 +430,6 @@ class SearchGui {
             return
         this.SaveSearchData()
         tableItem := MySoftData.SpecialTableItem
-        tableItem.CmdActionArr[1] := []
         tableItem.KilledArr[1] := false
         tableItem.PauseArr[1] := 0
         tableItem.ActionCount[1] := 0

@@ -10,7 +10,7 @@ class TableItem {
         this.RemarkArr := []
         this.TriggerTypeArr := []
         this.TKConArr := []
-        this.InfoConArr := []
+        this.MacroConArr := []
         this.KeyBtnConArr := []
         this.MacroBtnConArr := []
         this.DeleteBtnConArr := []
@@ -27,7 +27,6 @@ class TableItem {
         this.TimingSerialArr := []
 
         this.SerialArr := []
-        this.CmdActionArr := []
         this.HoldKeyArr := []
         this.KilledArr := []
         this.PauseArr := []         ;暂停

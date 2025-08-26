@@ -307,13 +307,15 @@ OnFinishRecordMacro() {
             ToolCheckInfo.RecordMacroStr .= "按键_" keyName "_2,"
         }
     }
+    macroStr := Trim(ToolCheckInfo.RecordMacroStr, ",")
+    macroStr := SimpleRecordMacroStr(macroStr)
 
-    macro := Trim(ToolCheckInfo.RecordMacroStr, ",")
     if (MySoftData.MacroEditGui != "") {
-        MySoftData.MacroEditGui.InitTreeView(macro)
+        MySoftData.MacroEditGui.InitTreeView(macroStr)
     }
-    ToolCheckInfo.ToolTextCtrl.Value := macro
-    A_Clipboard := macro
+    macroLineStr := StrReplace(macroStr, ",", "`n")
+    ToolCheckInfo.ToolTextCtrl.Value := macroLineStr
+    A_Clipboard := macroLineStr
 }
 
 OnChangeSrollValue(*) {

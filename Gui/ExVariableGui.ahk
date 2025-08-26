@@ -269,7 +269,6 @@ class ExVariableGui {
         this.SaveExVariableData()
         CommandStr := this.GetCommandStr()
         tableItem := MySoftData.SpecialTableItem
-        tableItem.CmdActionArr[1] := []
         tableItem.KilledArr[1] := false
         tableItem.PauseArr[1] := 0
         tableItem.ActionCount[1] := 0

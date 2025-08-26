@@ -34,7 +34,6 @@ GetClosureAction(tableItem, macro, index, func) {     ;获取闭包函数
 
 ;按键宏命令
 OnTriggerMacroKeyAndInit(tableItem, macro, index) {
-    tableItem.CmdActionArr[index] := []
     tableItem.KilledArr[index] := false
     tableItem.PauseArr[index] := false
     tableItem.ActionCount[index] := 0

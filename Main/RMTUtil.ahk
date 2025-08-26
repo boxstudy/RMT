@@ -93,7 +93,7 @@ OnTableDelete(tableItem, index) {
     tableItem.ModeConArr.RemoveAt(index)
     tableItem.ForbidConArr.RemoveAt(index)
     tableItem.TKConArr.RemoveAt(index)
-    tableItem.InfoConArr.RemoveAt(index)
+    tableItem.MacroConArr.RemoveAt(index)
     tableItem.ProcessNameConArr.RemoveAt(index)
     tableItem.LoopCountConArr.RemoveAt(index)
     tableItem.RemarkConArr.RemoveAt(index)
@@ -102,14 +102,14 @@ OnTableDelete(tableItem, index) {
 }
 
 OnTableEditMacro(tableItem, index) {
-    macro := tableItem.InfoConArr[index].Value
-    MyMacroGui.SureBtnAction := (sureMacro) => tableItem.InfoConArr[index].Value := sureMacro
+    macro := tableItem.MacroConArr[index].Value
+    MyMacroGui.SureBtnAction := (sureMacro) => tableItem.MacroConArr[index].Value := sureMacro
     MyMacroGui.ShowGui(macro, true)
 }
 
 OnTableEditReplaceKey(tableItem, index) {
-    replaceKey := tableItem.InfoConArr[index].Value
-    MyReplaceKeyGui.SureBtnAction := (sureReplaceKey) => tableItem.InfoConArr[index].Value := sureReplaceKey
+    replaceKey := tableItem.MacroConArr[index].Value
+    MyReplaceKeyGui.SureBtnAction := (sureReplaceKey) => tableItem.MacroConArr[index].Value := sureReplaceKey
     MyReplaceKeyGui.ShowGui(replaceKey)
 }
 
@@ -166,7 +166,7 @@ SwapTableContent(tableItem, indexA, indexB) {
     SwapArrValue(tableItem.ForbidConArr, indexA, indexB, 2)
     SwapArrValue(tableItem.HoldTimeArr, indexA, indexB)
     SwapArrValue(tableItem.TKConArr, indexA, indexB, 2)
-    SwapArrValue(tableItem.InfoConArr, indexA, indexB, 2)
+    SwapArrValue(tableItem.MacroConArr, indexA, indexB, 2)
     SwapArrValue(tableItem.TriggerTypeConArr, indexA, indexB, 2)
     SwapArrValue(tableItem.SerialArr, indexA, indexB)
     SwapArrValue(tableItem.LoopCountConArr, indexA, indexB, 3)
@@ -595,4 +595,31 @@ RepairPath(FilePath, DataType) {
         }
     }
     return hasRepair
+}
+
+SimpleRecordMacroStr(MacroStr) {
+    CmdArr := SplitMacro(MacroStr)
+    SimpleCmdArr := []
+    loop CmdArr.Length {
+        paramArr := SplitKeyCommand(CmdArr[A_Index])
+        isPressKey := paramArr[1] == "按键" && paramArr[3] == 1
+        if (isPressKey && A_Index + 1 < CmdArr.Length) {
+            next1ParamArr := SplitKeyCommand(CmdArr[A_Index + 1])
+            next2ParamArr := SplitKeyCommand(CmdArr[A_Index + 2])
+            isMatchFormat := next1ParamArr[1] == "间隔" && next2ParamArr[1] == "按键"
+            if (isMatchFormat && paramArr[2] == next2ParamArr[2] && next2ParamArr[3] == 2) {
+                SimpleCmdStr := Format("按键_{}_3_{}", paramArr[2], next1ParamArr[2])
+                SimpleCmdArr.Push(SimpleCmdStr)
+                A_Index := A_Index + 2
+                continue
+            }
+        }
+        SimpleCmdArr.Push(CmdArr[A_Index])
+    }
+    resultStr := ""
+    loop SimpleCmdArr.Length {
+        resultStr .= SimpleCmdArr[A_Index] ","
+    }
+    resultStr := Trim(resultStr, ",")
+    return resultStr
 }

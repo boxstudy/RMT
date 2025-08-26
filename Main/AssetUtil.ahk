@@ -124,24 +124,13 @@ GetImageSize(imageFile) {
     return [width, height]
 }
 
-SplitMacro(info) {
+SplitMacro(macroStr) {
+    cmdArr := StrSplit(macroStr, [",", "，", "`n", "⫶"])
     resultArr := []
-    lastSymbolIndex := 0
 
-    loop parse info {
-
-        if (A_LoopField == ",") {
-            curCmd := SubStr(info, lastSymbolIndex + 1, A_Index - lastSymbolIndex - 1)
-            if (curCmd != "")
-                resultArr.Push(curCmd)
-            lastSymbolIndex := A_Index
-        }
-
-        if (A_Index == StrLen(info)) {
-            curCmd := SubStr(info, lastSymbolIndex + 1, A_Index - lastSymbolIndex)
-            resultArr.Push(curCmd)
-        }
-
+    for value in cmdArr {
+        if (value != "")
+            resultArr.Push(value)
     }
     return resultArr
 }
@@ -412,6 +401,9 @@ ReadTableItemInfo(index) {
         str := IniRead(MacroFile, IniSection, symbol "MacroArr" A_Index, "")
         if (str == "" && !MySoftData.HasSaved && A_Index == 1)
             str := GetGetTableItemDefaultMacro(index)
+        else {
+            str := StrReplace(str, "⫶", "`n")
+        }
         tableItem.MacroArr.Push(str)
     }
 }
@@ -548,10 +540,11 @@ SaveTableItemMacro(index) {
     tableItem := MySoftData.TableInfo[index]
     symbol := GetTableSymbol(index)
     loop tableItem.ModeArr.Length {
-        MacroStr := tableItem.InfoConArr.Has(A_Index) ? tableItem.InfoConArr[A_Index].Value : ""
+        MacroStr := tableItem.MacroConArr.Has(A_Index) ? tableItem.MacroConArr[A_Index].Value : ""
+        MacroStr := Trim(MacroStr)
         MacroStr := Trim(MacroStr, "`n")
         MacroStr := Trim(MacroStr, ",")
-        MacroStr := StrReplace(MacroStr, "`n", ",")
+        MacroStr := StrReplace(MacroStr, "`n", "⫶")
         IniWrite(MacroStr, MacroFile, IniSection, symbol "MacroArr" A_Index)
     }
 }
@@ -632,7 +625,6 @@ InitTableItemState() {
 }
 
 InitSingleTableState(tableItem) {
-    tableItem.CmdActionArr := []
     tableItem.KilledArr := []
     tableItem.ActionCount := []
     tableItem.HoldKeyArr := []
@@ -644,7 +636,6 @@ InitSingleTableState(tableItem) {
     for index, value in tableItem.ModeArr {
         tableItem.KilledArr.Push(false)
         tableItem.PauseArr.Push(false)
-        tableItem.CmdActionArr.Push([])
         tableItem.ActionCount.Push(0)
         tableItem.HoldKeyArr.Push(Map())
         tableItem.ToggleStateArr.Push(false)
@@ -685,12 +676,6 @@ KillTableItemMacro(tableItem, index) {
             SendGameMouseKey(key, 0, tableItem, index)
         }
     }
-
-    loop tableItem.CmdActionArr[index].Length {
-        action := tableItem.CmdActionArr[index][A_Index]
-        SetTimer action, 0
-    }
-    tableItem.CmdActionArr[index] := []
 
     ; 如果是开关型按键宏，重置其开关状态
     if (tableItem.TriggerTypeArr.Length >= index && tableItem.TriggerTypeArr[index] == 4) {
@@ -735,67 +720,6 @@ GetItemSaveCountValue(tableIndex, Index) {
         }
     }
     return 1
-}
-
-GetRecordMacroEditStr(macro) {
-    CommandArr := SplitMacro(macro)
-    macroEditStr := ""
-    processedIndex := 0
-    for index, value in CommandArr {
-        if (processedIndex >= index)
-            continue
-        processedIndex := index
-        isInterval := StrCompare(SubStr(value, 1, 2), "间隔", false) == 0
-        if (isInterval) {
-            SubCommandArr := StrSplit(value, "_")
-            intervalValue := Integer(SubCommandArr[2])
-            loop {
-                curIndex := index + A_Index
-                if (curIndex > CommandArr.Length)
-                    break
-
-                SubCommandArr := StrSplit(CommandArr[curIndex], "_")
-                isIntervalAgain := StrCompare(SubStr(SubCommandArr[1], 1, 2), "间隔", false) == 0
-                if (!isIntervalAgain)
-                    break
-                intervalValue += Integer(SubCommandArr[2])
-                processedIndex := curIndex
-            }
-            macroEditStr := index == 1 ? macroEditStr : macroEditStr ","
-            macroEditStr .= "间隔_" intervalValue "`n"
-            continue
-        }
-
-        isPressKey := StrCompare(SubStr(value, 1, 2), "按键", false) == 0
-        if (isPressKey) {
-            macroEditStr .= value
-            loop {
-                curIndex := index + A_Index
-                if (curIndex > CommandArr.Length)
-                    break
-
-                SubCommandArr := StrSplit(CommandArr[curIndex], "_")
-                isPressKeyAgain := StrCompare(SubStr(SubCommandArr[1], 1, 2), "按键", false) == 0
-                if (!isPressKeyAgain)
-                    break
-                macroEditStr .= "," CommandArr[curIndex]
-                processedIndex := curIndex
-            }
-        }
-
-        isMouseMove := StrCompare(SubStr(value, 1, 2), "移动", false) == 0
-        if (isMouseMove) {
-            macroEditStr .= value
-        }
-
-        nextIndex := processedIndex + 1
-        isNextInterval := nextIndex <= CommandArr.Length
-        isNextInterval := isNextInterval && StrCompare(SubStr(CommandArr[nextIndex], 1, 2), "间隔", false) == 0
-        if (!isNextInterval) {
-            macroEditStr .= "`n"
-        }
-    }
-    return macroEditStr
 }
 
 GetTimingTableIndex() {
