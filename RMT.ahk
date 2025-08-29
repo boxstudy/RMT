@@ -8,6 +8,7 @@
 #Include Gui\TriggerKeyGui.ahk
 #Include Gui\TriggerStrGui.ahk
 #Include Gui\TimingGui.ahk
+#Include Gui\VerticalSlider.ahk
 #Include Gui\SettingMgrGui.ahk
 #Include Gui\EditHotkeyGui.ahk
 #Include Gui\FreePasteGui.ahk
@@ -50,6 +51,7 @@ global MySettingMgrGui := SettingMgrGui()
 global MyFrontInfoGui := FrontInfoGui()
 global MyCMDTipGui := CMDTipGui()
 global MyTimingGui := TimingGui()
+global MySlider := VerticalSlider()
 global MyCMDTipSettingGui := CMDTipSettingGui()
 global MyToolRecordSettingGui := ToolRecordSettingGui()
 global IniFile := A_WorkingDir "\Setting\MainSettings.ini"

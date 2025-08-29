@@ -35,8 +35,9 @@ class TableItem {
         this.ToggleActionArr := []   ; 触发键开关Action
         this.VariableMapArr := []    ;  每条宏对应的变量映射
         this.UnderPosY := 0
-        this.Index := 0             ;tableIndex
-        this.SliderValue := 0       ;滑动值
+        this.Index := 0             ;   tableIndex
+        this.SliderValue := 0       ;   滑动值
+        this.OffSetPosY := 0        ;   偏移值
         this.IsWorkIndexArr := []        ;work正在执行中
     }
 }

@@ -66,9 +66,21 @@ AddUI() {
     height := GetTabHeight()
     MySoftData.TabCtrl.Move(MySoftData.TabPosX, MySoftData.TabPosY, 910, height)
 
-    SB := ScrollBar(MyGui, 100, 100)
-    MySoftData.SB := SB
-    SB.AddFixedControls(MySoftData.FixedCons)
+    AddSliderUI()
+    ; SB := ScrollBar(MyGui, 100, 100)
+    ; MySoftData.SB := SB
+    ; SB.AddFixedControls(MySoftData.FixedCons)
+}
+
+AddSliderUI() {
+    MyGui := MySoftData.MyGui
+    areaCon := MyGui.Add("Pic", Format("x{} y{} w{} h{} +Background0x{}", 1030, 37, 8, 491, "282c34"), "")
+    overlayCon := MyGui.Add("Text", Format("x{} y{} w{} h{} +BackgroundTrans", 1030, 37, 8, 491), "")
+    barCon := MyGui.Add("Pic", Format("x{} y{} w{} h{} +Background0x{}", 1030, 37, 8, 250, "da6873"), "")
+    overlayBarCon := MyGui.Add("Pic", Format("x{} y{} w{} h{} +Background0x{}", 1028, 37, 12, 250, "5da9ef"), "")
+    tableItem := MySoftData.TableInfo[MySoftData.TableIndex]
+    MySlider.SetSliderCon(areaCon, overlayCon, barCon, overlayBarCon)
+    MySlider.SwitchTab(tableItem)
 }
 
 AddOperBtnUI() {
@@ -293,7 +305,7 @@ OnAddSetting(*) {
         return
     }
 
-    MySoftData.SB.ResetVerticalValue()
+    ; MySoftData.SB.ResetVerticalValue()
     MyGui := MySoftData.MyGui
     tableItem := MySoftData.TableInfo[TableIndex]
     TabPosX := MySoftData.TabPosX
@@ -404,7 +416,7 @@ OnAddSetting(*) {
     MySoftData.TabCtrl.UseTab()
     height := GetTabHeight()
     MySoftData.TabCtrl.Move(MySoftData.TabPosX, MySoftData.TabPosY, 910, height)
-    MySoftData.SB.UpdateScrollBars()
+    ; MySoftData.SB.UpdateScrollBars()
     IniWrite(MySoftData.TabCtrl.Value, IniFile, IniSection, "TableIndex")
 
     RefreshGui()
