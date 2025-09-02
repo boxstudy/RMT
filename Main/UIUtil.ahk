@@ -67,9 +67,6 @@ AddUI() {
     MySoftData.TabCtrl.OnEvent("Change", OnTabValueChanged)
 
     AddSliderUI()
-    ; SB := ScrollBar(MyGui, 100, 100)
-    ; MySoftData.SB := SB
-    ; SB.AddFixedControls(MySoftData.FixedCons)
 }
 
 AddSliderUI() {
@@ -86,62 +83,49 @@ AddOperBtnUI() {
     MyGui := MySoftData.MyGui
     posY := 10
     con := MyGui.Add("GroupBox", Format("x{} y{} w{} h{} center", 10, posY, 110, 95), "当前配置")
-    MySoftData.FixedCons.Push(con)
-    MySoftData.GroupFixedCons.Push(con)
 
     ; 当前配置
     posY += 25
     con := MyGui.Add("Text", Format("x{} y{} w{} h{} Center", 15, posY, 100, 40), MySoftData.CurSettingName)
-    MySoftData.FixedCons.Push(con)
     posY += 30
     con := MyGui.Add("Button", Format("x{} y{} w{} h{} center", 15, posY, 100, 30), "配置管理")
     con.OnEvent("Click", (*) => MySettingMgrGui.ShowGui())
-    MySoftData.FixedCons.Push(con)
 
     posY += 50
     con := MyGui.Add("GroupBox", Format("x{} y{} w{} h{} center", 10, posY, 110, 415), "全局操作")
-    MySoftData.FixedCons.Push(con)
-    MySoftData.GroupFixedCons.Push(con)
 
     posY += 25
     ; 休眠
     MySoftData.SuspendToggleCtrl := MyGui.Add("CheckBox", Format("x{} y{} w{} h{}", 15, posY, 100, 20), "休眠")
     MySoftData.SuspendToggleCtrl.Value := MySoftData.IsSuspend
     MySoftData.SuspendToggleCtrl.OnEvent("Click", OnSuspendHotkey)
-    MySoftData.FixedCons.Push(MySoftData.SuspendToggleCtrl)
     posY += 20
     CtrlType := GetHotKeyCtrlType(MySoftData.SuspendHotkey)
     con := MyGui.Add(CtrlType, Format("x{} y{} w{}", 15, posY, 100), MySoftData.SuspendHotkey)
     con.Enabled := false
-    MySoftData.FixedCons.Push(con)
     posY += 40
 
     ; 暂停
     MySoftData.PauseToggleCtrl := MyGui.Add("CheckBox", Format("x{} y{} w{} h{}", 15, posY, 100, 20), "暂停")
     MySoftData.PauseToggleCtrl.Value := MySoftData.IsPause
     MySoftData.PauseToggleCtrl.OnEvent("Click", OnPauseHotKey)
-    MySoftData.FixedCons.Push(MySoftData.PauseToggleCtrl)
     posY += 20
     CtrlType := GetHotKeyCtrlType(MySoftData.PauseHotkey)
     con := MyGui.Add(CtrlType, Format("x{} y{} w{}", 15, posY, 100), MySoftData.PauseHotkey)
     con.Enabled := false
-    MySoftData.FixedCons.Push(con)
     posY += 40
 
     ;终止模块
     con := MyGui.Add("Button", Format("x{} y{} w{} h{} center", 15, posY, 100, 30), "终止所有宏")
     con.OnEvent("Click", OnKillAllMacro)
-    MySoftData.FixedCons.Push(con)
     posY += 31
     CtrlType := GetHotKeyCtrlType(MySoftData.KillMacroHotkey)
     con := MyGui.Add(CtrlType, Format("x{} y{} w{}", 15, posY, 100), MySoftData.KillMacroHotkey)
     con.Enabled := false
-    MySoftData.FixedCons.Push(con)
     posY += 40
 
     ReloadBtnCtrl := MyGui.Add("Button", Format("x{} y{} w{} h{} center", 15, posY, 100, 30), "重载")
     ReloadBtnCtrl.OnEvent("Click", MenuReload)
-    MySoftData.FixedCons.Push(ReloadBtnCtrl)
     posY += 40
 
     MySoftData.BtnAdd := MyGui.Add("Button", Format("x{} y{} w{} h{} center", 15, posY, 100, 30), "新增宏")
@@ -151,9 +135,6 @@ AddOperBtnUI() {
     posY := 490
     MySoftData.BtnSave := MyGui.Add("Button", Format("x{} y{} w{} h{} center", 15, posY, 100, 30), "应用并保存")
     MySoftData.BtnSave.OnEvent("Click", OnSaveSetting)
-
-    MySoftData.FixedCons.Push(MySoftData.BtnAdd)
-    MySoftData.FixedCons.Push(MySoftData.BtnSave)
 
     MyTriggerKeyGui.SureFocusCon := MySoftData.BtnSave
     MyTriggerStrGui.SureFocusCon := MySoftData.BtnSave

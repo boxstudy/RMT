@@ -215,9 +215,6 @@ class SoftData {
         this.DataCacheMap := Map()
         this.TestCount := 0
 
-        this.GroupFixedCons := []
-        this.FixedCons := []
-        this.SB := ""
         this.GlobalVariMap := Map() ;UI下拉显示变量
         this.VariableMap := Map()
 

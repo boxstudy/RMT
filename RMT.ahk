@@ -18,7 +18,6 @@
 #Include Gui\CMDTipGui.ahk
 #Include Gui\FrontInfoGui.ahk
 #Include Gui\CMDTipSettingGui.ahk
-#Include Gui\ScrollBar.ahk
 #Include Main\Gdip_All.ahk
 #Include Main\DataClass.ahk
 #Include Main\AssetUtil.ahk

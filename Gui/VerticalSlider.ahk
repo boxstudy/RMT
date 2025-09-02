@@ -36,7 +36,7 @@ class VerticalSlider {
 
     SwitchTab(tableItem) {
         this.tableItem := tableItem
-        this.ContentHeight := tableItem.UnderPosY - this.BaseOffsetY
+        this.ContentHeight := tableItem.UnderPosY - this.BaseOffsetY + 5
         this.BarHeight := ((this.AeraHeight + 2 * this.Vindent) / this.ContentHeight) * this.AeraHeight
         this.BarMaxPosY := this.AeraHeight - this.BarHeight
         this.CurBarOffsetPosY := this.tableItem.SliderValue * this.BarMaxPosY
@@ -50,6 +50,25 @@ class VerticalSlider {
         this.BarCon.GetPos(&Bx, &By, &Bw, &Bh)
         PosY := Ay + this.CurBarOffsetPosY + this.Vindent
         this.BarCon.Move(Ax + this.Hindent, PosY, Aw - this.Hindent * 2, this.BarHeight)
+    }
+
+    RefreshTab() {
+        this.ContentHeight := this.tableItem.UnderPosY - this.BaseOffsetY + 5
+        this.BarHeight := ((this.AeraHeight + 2 * this.Vindent) / this.ContentHeight) * this.AeraHeight
+        this.BarMaxPosY := this.AeraHeight - this.BarHeight
+        this.CurBarOffsetPosY := this.tableItem.SliderValue * this.BarMaxPosY
+        this.ShowSlider := this.ContentHeight > this.AeraHeight
+        this.AreaCon.Visible := this.ShowSlider
+        this.BarCon.Visible := this.ShowSlider
+        if (!this.ShowSlider)
+            return
+
+        this.AreaCon.GetPos(&Ax, &Ay, &Aw, &Ah)
+        this.BarCon.GetPos(&Bx, &By, &Bw, &Bh)
+        PosY := Ay + this.CurBarOffsetPosY + this.Vindent
+        this.BarCon.Move(Ax + this.Hindent, PosY, Aw - this.Hindent * 2, this.BarHeight)
+        this.tableItem.OffSetPosY := (this.ContentHeight - this.AeraHeight - 2 * this.Vindent) * this.tableItem.SliderValue
+        RefreshTabContent(this.tableItem, true)
     }
 
     OnValueChange(isDown) {

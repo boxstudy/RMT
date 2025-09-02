@@ -1,12 +1,3 @@
-BindScrollHotkey(key, action) {
-    if (MySoftData.SB == "")
-        return
-
-    HotIfWinActive("RMTv")
-    Hotkey(key, action)
-    HotIfWinActive
-}
-
 BindShortcut(triggerInfo, action) {
     if (triggerInfo == "")
         return

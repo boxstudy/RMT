@@ -9,10 +9,6 @@ BindKey() {
     BindShortcut(ToolCheckInfo.ScreenShotHotKey, OnToolScreenShot)
     BindShortcut(ToolCheckInfo.FreePasteHotKey, OnToolFreePaste)
     BindShortcut(ToolCheckInfo.ToolRecordMacroHotKey, OnHotToolRecordMacro)
-    ; BindScrollHotkey("~WheelUp", OnChangeSrollValue)
-    ; BindScrollHotkey("~WheelDown", OnChangeSrollValue)
-    ; BindScrollHotkey("~+WheelUp", OnChangeSrollValue)
-    ; BindScrollHotkey("~+WheelDown", OnChangeSrollValue)
     BindTabHotKey()
     BindSave()
     OnExit(OnExitSoft)
@@ -335,13 +331,6 @@ OnFinishRecordMacro() {
     macroLineStr := StrReplace(macroStr, ",", "`n")
     ToolCheckInfo.ToolTextCtrl.Value := macroLineStr
     A_Clipboard := macroLineStr
-}
-
-OnChangeSrollValue(*) {
-    wParam := InStr(A_ThisHotkey, "Down") ? 1 : 0
-    lParam := 0
-    msg := GetKeyState("Shift") ? 0x114 : 0x115
-    MySoftData.SB.ScrollMsg(wParam, lParam, msg, MySoftData.MyGui.Hwnd)
 }
 
 ;绑定热键
