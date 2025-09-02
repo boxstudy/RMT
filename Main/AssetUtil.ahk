@@ -11,21 +11,35 @@ global WM_DEL_VARI := 0x506    ;删除变量
 
 ; 功能函数
 GetFloatTime(oriTime, floatValue) {
+    hasAdd := InStr(floatValue, "+")
+    hasReduce := InStr(floatValue, "-")
+    if (!hasAdd && !hasReduce) {
+        hasAdd := true
+        hasReduce := true
+    }
+
     oriTime := Integer(oriTime)
     floatValue := Integer(floatValue)
     value := Abs(oriTime * (floatValue * 0.01))
-    maxValue := oriTime + value
-    minValue := oriTime - value
+    maxValue := hasAdd ? oriTime + value : oriTime
+    minValue := hasReduce ? oriTime - value : oriTime
     result := Max(0, Random(minValue, maxValue))
     return result
 }
 
 GetFloatValue(oriValue, floatValue) {
+    hasAdd := InStr(floatValue, "+")
+    hasReduce := InStr(floatValue, "-")
+    if (!hasAdd && !hasReduce) {
+        hasAdd := true
+        hasReduce := true
+    }
+
     oriValue := Integer(oriValue)
     value := Abs(floatValue)
-    max := oriValue + value
-    min := oriValue - value
-    return Random(min, max)
+    maxValue := hasAdd ? oriValue + value : oriValue
+    minValue := hasReduce ? oriValue - value : oriValue
+    return Random(minValue, maxValue)
 }
 
 GetCurMSec() {

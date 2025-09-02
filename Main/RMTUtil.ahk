@@ -3,6 +3,10 @@
 ;资源保存
 OnSaveSetting(*) {
     global MySoftData
+    isValid := CheckFloatSettingValid()
+    if (!isValid)
+        return
+
     MyWorkPool.Clear()
     loop MySoftData.TabNameArr.Length {
         SaveTableItemInfo(A_Index)
@@ -56,6 +60,35 @@ OnSaveSetting(*) {
     MySoftData.CMDFontSize := IniWrite(MySoftData.CMDFontSize, IniFile, IniSection, "CMDFontSize")
 
     Reload()
+}
+
+CheckFloatSettingValid() {
+    if (IsFloat(MySoftData.HoldFloatCtrl.Value)) {
+        MsgBox("按住时间浮动值只能是整数")
+        return false
+    }
+
+    if (IsFloat(MySoftData.PreIntervalFloatCtrl.Value)) {
+        MsgBox("每次间隔浮动值只能是整数")
+        return false
+    }
+
+    if (IsFloat(MySoftData.IntervalFloatCtrl.Value)) {
+        MsgBox("间隔指令浮动值只能是整数")
+        return false
+    }
+
+    if (IsFloat(MySoftData.CoordXFloatCon.Value)) {
+        MsgBox("坐标X浮动值只能是整数")
+        return false
+    }
+
+    if (IsFloat(MySoftData.CoordYFloatCon.Value)) {
+        MsgBox("坐标Y浮动值只能是整数")
+        return false
+    }
+
+    return true
 }
 
 OnTableDelete(tableItem, index) {

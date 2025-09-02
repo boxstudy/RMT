@@ -138,8 +138,8 @@ class SearchGui {
         PosX := 10
         this.ColorTipCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), "搜索颜色:")
         PosX += 80
-        this.HexColorCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 80), "FFFFFF")
-        PosX += 90
+        this.HexColorCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 120), "FFFFFF")
+        PosX += 130
         this.HexColorTipCon := MyGui.Add("Text", Format("x{} y{} w{} Background{}", PosX, PosY, 20, "FF0000"), "")
 
         PosY := SplitPosY
@@ -163,7 +163,7 @@ class SearchGui {
         PosX := 330
         this.TextTipCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), "搜索文本:")
         PosX += 80
-        this.TextCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 3, 80), "检索文本")
+        this.TextCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 3, 120), "检索文本")
         PosY += 35
         TempPosY := PosY
         PosX := 10
