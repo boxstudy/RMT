@@ -25,6 +25,7 @@ OnSaveSetting(*) {
     IniWrite(MySoftData.ShowWinCtrl.Value, IniFile, IniSection, "IsExecuteShow")
     IniWrite(MySoftData.BootStartCtrl.Value, IniFile, IniSection, "IsBootStart")
     IniWrite(MySoftData.MutiThreadNumCtrl.Value, IniFile, IniSection, "MutiThreadNum")
+    IniWrite(MySoftData.SoftBGColorCon.Value, IniFile, IniSection, "SoftBGColor")
     IniWrite(MySoftData.NoVariableTipCtrl.Value, IniFile, IniSection, "NoVariableTip")
     IniWrite(MySoftData.CMDTipCtrl.Value, IniFile, IniSection, "CMDTip")
     IniWrite(MySoftData.ScreenShotTypeCtrl.Value, IniFile, IniSection, "ScreenShotType")
@@ -580,7 +581,6 @@ SimpleRecordMacroStr(MacroStr) {
     return resultStr
 }
 
-;还要递归处理
 FullCopyCmd(cmd) {
     paramArr := SplitKeyCommand(cmd)
     if (InStr(paramArr[1], "间隔"))
@@ -596,17 +596,11 @@ FullCopyCmd(cmd) {
         "输出", OutputFile, "运行", RunFile, "变量", VariableFile, "变量提取", ExVariableFile, "运算", OperationFile,
         "如果", CompareFile, "宏操作", SubMacroFile, "后台鼠标", BGMouseFile)
 
-    dataFile := Map(paramArr[1])
+    dataFile := DataFileMap[paramArr[1]]
     Data := GetMacroCMDData(dataFile, paramArr[2])
-    Data.SerialStr .= "C"
-    saveStr := JSON.stringify(Data, 0)
+    Data.SerialStr := SubStr(Data.SerialStr, 1, StrLen(Data.SerialStr) - 7) GetRandomStr(7)
     paramArr[2] := Data.SerialStr
-    result := ""
-    for index, value in paramArr {
-        result .= value
-        if (index != paramArr.Length)
-            result .= "_"
-    }
+    
     if (ObjHasOwnProp(Data, "TrueMacro")) {
         Data.TrueMacro := FullCopyMacro(Data.TrueMacro)
     }
@@ -614,12 +608,21 @@ FullCopyCmd(cmd) {
     if (ObjHasOwnProp(Data, "FalseMacro")) {
         Data.FalseMacro := FullCopyMacro(Data.FalseMacro)
     }
-
+    saveStr := JSON.stringify(Data, 0)
     IniWrite(saveStr, dataFile, IniSection, Data.SerialStr)
+
+    result := ""
+    for index, value in paramArr {
+        result .= value
+        if (index != paramArr.Length)
+            result .= "_"
+    }
     return result
 }
 
 FullCopyMacro(MacroStr) {
+    if (MacroStr == "")
+        return MacroStr
     cmdArr := SplitMacro(MacroStr)
     loop cmdArr.Length {
         cmdArr[A_Index] := FullCopyCmd(cmdArr[A_Index])

@@ -318,6 +318,7 @@ LoadMainSetting() {
     MySoftData.IsExecuteShow := IniRead(IniFile, IniSection, "IsExecuteShow", true)
     MySoftData.IsBootStart := IniRead(IniFile, IniSection, "IsBootStart", false)
     MySoftData.MutiThreadNum := IniRead(IniFile, IniSection, "MutiThreadNum", 3)
+    MySoftData.SoftBGColor := IniRead(IniFile, IniSection, "SoftBGColor", "f0f0f0")
     MySoftData.NoVariableTip := IniRead(IniFile, IniSection, "NoVariableTip", true)
     MySoftData.CMDTip := IniRead(IniFile, IniSection, "CMDTip", false)
     MySoftData.ScreenShotType := IniRead(IniFile, IniSection, "ScreenShotType", 1)
@@ -351,6 +352,30 @@ SetFontList() {
         if (SubStr(StrGet(lpelf + 28), 1, 1) != "@")
             MySoftData.FontList.push(StrGet(lpelf + 28))
         return 1
+    }
+
+    if (MySoftData.FontList.Length == 0)
+        return
+
+    DefaultFontMap := Map("微软雅黑", 0, "Arial", 0, "Consolas", 0, "SimHei", 0, "Dotum", 0, "Meiryo", 0)
+    if (DefaultFontMap.Has(MySoftData.FontType)) {
+        for index, value in MySoftData.FontList {
+            if (DefaultFontMap.Has(value))
+                DefaultFontMap[value] := index
+        }
+    }
+    if (DefaultFontMap.Has(MySoftData.FontType)) {
+        if (DefaultFontMap[MySoftData.FontType] != 0)
+            return
+
+        for key, value in DefaultFontMap {
+            if (value != 0) {
+                MySoftData.FontType := key
+                return
+            }
+        }
+
+        MySoftData.FontType := MySoftData.FontList[1]
     }
 }
 
@@ -426,7 +451,7 @@ ReadTableItemInfo(index) {
 
         if (tableItem.FrontInfoArr.Length == 0)
             tableItem.FrontInfoArr := [""]
-    
+
         if (tableItem.RemarkArr.Length == 0)
             tableItem.RemarkArr := [""]
     }
@@ -612,7 +637,7 @@ GetSavedTableItemInfo(index) {
         ForbidArrStr .= tableItem.ForbidConArr[A_Index].Value
         HoldTimeArrStr .= tableItem.HoldTimeArr[A_Index]
         FrontInfoArrStr .= tableItem.ProcessNameConArr[A_Index].Value
-        RemarkArrStr .=  tableItem.RemarkConArr[A_Index].Value
+        RemarkArrStr .= tableItem.RemarkConArr[A_Index].Value
         TriggerTypeArrStr .= tableItem.TriggerTypeConArr[A_Index].Value
         LoopCountArrStr .= GetItemSaveCountValue(tableItem.Index, A_Index)
         SerialArrStr .= tableItem.SerialArr[A_Index]
@@ -1248,6 +1273,17 @@ GetSerialStr(CmdStr) {
     currentDateTime := FormatTime(, "HHmmss")
     randomNum := Random(0, 9)
     return CmdStr CurrentDateTime randomNum
+}
+
+GetRandomStr(length) {
+    result := Random(1, 9)
+    loop length {
+        if (A_Index + 1 > length)
+            break
+
+        result .= Random(0, 9)
+    }
+    return result
 }
 
 WaitIfPaused(tableIndex, itemIndex) {

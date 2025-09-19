@@ -4,11 +4,16 @@ InitUI() {
     MyGui := Gui()
     MyGui.Title := "RMTv1.0.8BateF1"
     MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
-    MySoftData.MyGui := MyGui
+    isValidCollor := RegExMatch(MySoftData.SoftBGColor, "^([0-9A-Fa-f]{6})$")
+    BGColor := isValidCollor ? MySoftData.SoftBGColor : "f0f0f0"
+    if (BGColor != "f0f0f0")
+        MyGui.BackColor := BGColor
 
+    MySoftData.MyGui := MyGui
     AddUI()
     CustomTrayMenu()
     OnOpen()
+
 }
 
 OnOpen() {
@@ -76,7 +81,6 @@ AddUI() {
     MySoftData.TabCtrl.UseTab()
     MySoftData.TabCtrl.Move(MySoftData.TabPosX, MySoftData.TabPosY, 920, 520)
     MySoftData.TabCtrl.OnEvent("Change", OnTabValueChanged)
-
     AddSliderUI()
 }
 
@@ -389,7 +393,7 @@ AddSettingUI(index) {
 
     posY += 40
     posX := MySoftData.TabPosX
-    MyGui.Add("GroupBox", Format("x{} y{} w870 h100", posX + 10, posY), "默认数值")
+    MyGui.Add("GroupBox", Format("x{} y{} w870 h140", posX + 10, posY), "数值选项")
     posY += 30
     MyGui.Add("Text", Format("x{} y{}", posX + 25, posY), "按住时间浮动(%):")
     MySoftData.HoldFloatCtrl := MyGui.Add("Edit", Format("x{} y{} w100 center", posX + 145, posY - 4), MySoftData.HoldFloat
@@ -415,6 +419,11 @@ AddSettingUI(index) {
     MyGui.Add("Text", Format("x{} y{}", posX + 635, posY), "多线程数(0~5):")
     MySoftData.MutiThreadNumCtrl := MyGui.Add("Edit", Format("x{} y{} w100 center", posX + 760, posY - 4), MySoftData
     .MutiThreadNum)
+
+    posY += 40
+    MyGui.Add("Text", Format("x{} y{}", posX + 25, posY), "软件背景颜色:")
+    MySoftData.SoftBGColorCon := MyGui.Add("Edit", Format("x{} y{} w100 center", posX + 145, posY - 4), MySoftData.SoftBGColor
+    )
 
     posY += 40
     MyGui.Add("GroupBox", Format("x{} y{} w870 h100", posX + 10, posY), "开关选项")

@@ -231,6 +231,8 @@ class SoftData {
         this.CoordYFloatCon := ""
         this.CoordXFloat := 0
         this.CoordYFloat := 0
+        this.SoftBGColorCon := ""
+        this.SoftBGColor := ""
         this.IsLastSaved := false
         this.TableIndex := 1
         this.HasSaved := false

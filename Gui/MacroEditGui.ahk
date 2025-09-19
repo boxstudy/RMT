@@ -34,7 +34,6 @@ class MacroEditGui {
         this.EditModeType := 1  ;1添加指令 2修改当前指令 3向上插入指令 4 向下插入指令
         this.CurItemID := ""  ;当前操作itemID
         this.LastItemID := "" ;最后的itemID
-        this.TreeBranchMap := Map()
         this.ContextMenu := ""
         this.BranchContextMenu := ""
         this.RecordMacroCon := ""
@@ -275,7 +274,6 @@ class MacroEditGui {
         this.ShowSaveBtn := ShowSaveBtn
         this.SubMacroLastIndex := 0
         this.SaveBtnCtrl.Visible := this.ShowSaveBtn
-        this.TreeBranchMap.Clear()
         this.InitTreeView(CommandStr)
     }
 
@@ -436,9 +434,7 @@ class MacroEditGui {
     RefreshTree(itemID) {
         CommandStr := this.MacroTreeViewCon.GetText(itemID)
         paramsArr := StrSplit(CommandStr, "_")
-        if (this.TreeBranchMap.Has(paramsArr[2])) {
-            this.TreeBranchMap.Delete(paramsArr[2])
-        }
+
         subItem := this.MacroTreeViewCon.GetChild(this.CurItemID)
         while (subItem) {
             this.MacroTreeViewCon.Delete(subItem)
@@ -454,8 +450,17 @@ class MacroEditGui {
         IsSearchPro := StrCompare(paramArr[1], "搜索Pro", false) == 0
         IsIf := StrCompare(paramArr[1], "如果", false) == 0
 
-        if (this.TreeBranchMap.Has(paramArr[2]))
-            return
+        ParentID := this.MacroTreeViewCon.GetParent(root)
+        while (ParentID != 0) {
+            itemText := this.MacroTreeViewCon.GetText(ParentID)
+            itemParamArr := StrSplit(itemText, "_")
+            ParentID := this.MacroTreeViewCon.GetParent(ParentID)
+            if (itemParamArr.Length == 1)
+                continue
+
+            if (itemParamArr[2] == paramArr[2])
+                return
+        }
 
         TrueMacro := ""
         FalseMacro := ""
@@ -479,10 +484,6 @@ class MacroEditGui {
 
             TrueMacro := Data.TrueMacro
             FalseMacro := Data.FalseMacro
-        }
-
-        if (TrueMacro != "" || FalseMacro != "") {
-            this.TreeBranchMap[paramArr[2]] := root
         }
 
         if (TrueMacro != "") {
@@ -561,9 +562,6 @@ class MacroEditGui {
         RealItemID := this.MacroTreeViewCon.GetParent(ParentID)
         RealCommandStr := this.MacroTreeViewCon.GetText(RealItemID)
         this.CurItemID := RealItemID
-        if (this.TreeBranchMap.Has(paramsArr[2])) {
-            this.TreeBranchMap.Delete(paramsArr[2])
-        }
 
         this.SaveCommandData(RealCommandStr, macroStr, isTrueMacro, false)
         this.RefreshTree(this.CurItemID)
@@ -604,9 +602,9 @@ class MacroEditGui {
         ParentID := this.MacroTreeViewCon.GetParent(this.CurItemID)
         PreItemID := this.MacroTreeViewCon.GetPrev(this.CurItemID)
         Seq := PreItemID == 0 ? "First" : PreItemID
-        this.MacroTreeViewCon.Add(CommandStr, ParentID, Seq)
+        newItemID := this.MacroTreeViewCon.Add(CommandStr, ParentID, Seq)
         if (ParentID == 0) {
-            this.TreeAddBranch(this.CurItemID, CommandStr)
+            this.TreeAddBranch(newItemID, CommandStr)
             return
         }
 
@@ -626,7 +624,7 @@ class MacroEditGui {
             this.LastItemID := newItemID
 
         if (ParentID == 0) {
-            this.TreeAddBranch(this.CurItemID, CommandStr)
+            this.TreeAddBranch(newItemID, CommandStr)
             return
         }
 
