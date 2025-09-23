@@ -506,9 +506,10 @@ class SearchProGui {
             A_Clipboard := ""  ; 清空剪贴板
             Run("ms-screenclip:")
             SetTimer(this.CheckClipboardAction, 500)  ; 每 500 毫秒检查一次剪贴板
+            TogGetSelectArea(true, this.OnGetArea.Bind(this))
         }
         else {
-            MySoftData.SelectAereaAction := this.OnScreenShotGetArea.Bind(this)
+            TogSelectArea(true, this.OnScreenShotGetArea.Bind(this))
         }
     }
 
@@ -527,6 +528,14 @@ class SearchProGui {
         }
     }
 
+    OnGetArea(x1, y1, x2, y2) {
+        AreaX1 := Max(0, x1 - 20)
+        AreaX2 := Min(A_ScreenWidth, x2 + 20)
+        AreaY1 := Max(0, y1 - 20)
+        AreaY2 := Min(A_ScreenHeight, y2 + 20)
+        this.OnSetSearchArea(AreaX1, AreaY1, AreaX2, AreaY2)
+    }
+
     OnScreenShotGetArea(x1, y1, x2, y2) {
         CurrentDateTime := FormatTime(, "HHmmss")
         filePath := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\Images\ScreenShot\" CurrentDateTime ".png"
@@ -534,11 +543,7 @@ class SearchProGui {
         this.ImageCon.Value := filePath
         this.Data.SearchImagePath := filePath
 
-        AreaX1 := Max(0, x1 - 20)
-        AreaX2 := Min(A_ScreenWidth, x2 + 20)
-        AreaY1 := Max(0, y1 - 20)
-        AreaY2 := Min(A_ScreenHeight, y2 + 20)
-        this.OnSetSearchArea(AreaX1, AreaY1, AreaX2, AreaY2)
+        this.OnGetArea(x1, y1, x2, y2)
     }
 
     OnSureFoundMacroBtnClick(CommandStr) {
@@ -641,14 +646,14 @@ class SearchProGui {
     OnClickSelectToggle() {
         state := this.SelectToggleCon.Value
         if (state == 1)
-            MySoftData.SelectAereaAction := this.SetAreaAction
+            TogSelectArea(true, this.SetAreaAction)
         else
-            MySoftData.SelectAereaAction := ""
+            TogSelectArea(false)
     }
 
     OnF1() {
         this.SelectToggleCon.Value := 1
-        MySoftData.SelectAereaAction := this.SetAreaAction
+        TogSelectArea(true, this.SetAreaAction)
     }
 
     OnSetSearchArea(x1, y1, x2, y2) {

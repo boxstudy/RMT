@@ -184,8 +184,12 @@ class TriggerKeyData {
         }
 
         if (this.Key == "lbutton") {
-            if (MySoftData.SelectAereaAction != "") {
+            if (MySoftData.SelectAreaAction != "") {
                 SelectArea()
+            }
+
+            if (MySoftData.GetAreaAction != "") {
+                OnGetSelectAreaDown(this.Key)
             }
         }
     }
@@ -197,6 +201,10 @@ class TriggerKeyData {
         if (this.Key == "lbutton") {
             if (MyMouseInfo.CheckIfMatch("RMT-Target⎖⎖")) {
                 MyTargetGui.OnLButtonUp(this.Key)
+            }
+
+            if (MySoftData.GetAreaAction != "") {
+                OnGetSelectAreaUp(this.Key)
             }
         }
 

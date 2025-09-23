@@ -466,9 +466,53 @@ OnToolTextCheckScreenShot() {
     }
 }
 
+TogGetSelectArea(isEnable, action := "") {
+    if (isEnable && action != "") {
+        MySoftData.GetAreaAction := action
+    }
+    else {
+        MySoftData.GetAreaAction := ""
+    }
+}
+
+OnGetSelectAreaDown(kye, *) {
+    CoordMode("Mouse", "Screen")
+    MouseGetPos(&startX, &startY)
+    MySoftData.StartAreaPosX := startX
+    MySoftData.StartAreaPosY := startY
+}
+
+OnGetSelectAreaUp(key, *) {
+    action := MySoftData.GetAreaAction
+    TogGetSelectArea(false)
+    CoordMode("Mouse", "Screen")
+    MouseGetPos(&endX, &endY)
+
+    x1 := Min(MySoftData.StartAreaPosX, endX)
+    y1 := Min(MySoftData.StartAreaPosY, endY)
+    x2 := Max(MySoftData.StartAreaPosX, endX)
+    y2 := Max(MySoftData.StartAreaPosY, endY)
+    action(x1, y1, x2, y2)
+}
+
+TogSelectArea(isEnable, action := "") {
+    if (isEnable && action != "") {
+        MySoftData.SelectAreaAction := action
+        ToolTipContent("请框选截图范围")
+        actionDown := OnSoftKeyDown.Bind("LButton")
+        Hotkey("LButton", actionDown)
+    }
+    else {
+        MySoftData.ToolTipEndTime := 0
+        MySoftData.SelectAreaAction := ""
+    }
+}
+
 SelectArea() {
-    action := MySoftData.SelectAereaAction
-    MySoftData.SelectAereaAction := ""
+    action := MySoftData.SelectAreaAction
+    TogSelectArea(false)
+    actionDown := OnSoftKeyDown.Bind("LButton")
+    Hotkey("~LButton", actionDown, "On")
     ; 获取起始点坐标
     startX := startY := endX := endY := 0
     CoordMode("Mouse", "Screen")

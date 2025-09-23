@@ -138,7 +138,7 @@ OnToolTextFilterScreenShot(*) {
         SetTimer(OnToolTextCheckScreenShot, 500)  ; 每 500 毫秒检查一次剪贴板
     }
     else {
-        MySoftData.SelectAereaAction := OnToolTextFilterGetArea
+        TogSelectArea(true, OnToolTextFilterGetArea)
     }
 }
 
@@ -147,7 +147,7 @@ OnToolScreenShot(*) {
         Run("ms-screenclip:")
     }
     else {
-        MySoftData.SelectAereaAction := OnToolScreenShotGetArea
+        TogSelectArea(true, OnToolScreenShotGetArea)
     }
 }
 

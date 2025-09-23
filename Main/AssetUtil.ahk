@@ -422,14 +422,16 @@ ReadTableItemInfo(index) {
             savedSerialStr := defaultInfo[9]
         if (savedTimingSerialStr == "")
             savedTimingSerialStr := GetSerialStr("Timing")
-        if (savedFoldInfoStr == "") {
-            defaultFoldInfo := ItemFoldInfo()
-            defaultFoldInfo.RemarkArr := ["RMT默认初始化配置"]
-            defaultFoldInfo.IndexSpanArr := ["1-1"]
-            defaultFoldInfo.FoldStateArr := [false]
-            defaultFoldInfo.ForbidStateArr := [false]
-            savedFoldInfoStr := JSON.stringify(defaultFoldInfo, 0)
-        }
+    }
+
+    if (savedFoldInfoStr == "") {
+        defaultFoldInfo := ItemFoldInfo()
+        defaultFoldInfo.RemarkArr := ["RMT默认初始化配置"]
+        IndexSpanValue := savedModeArrStr == "" ? "无-无" : "1-1"
+        defaultFoldInfo.IndexSpanArr := [IndexSpanValue]
+        defaultFoldInfo.FoldStateArr := [false]
+        defaultFoldInfo.ForbidStateArr := [false]
+        savedFoldInfoStr := JSON.stringify(defaultFoldInfo, 0)
     }
 
     tableItem := MySoftData.TableInfo[index]
