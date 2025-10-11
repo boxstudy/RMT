@@ -213,6 +213,7 @@ OnToolRecordMacro(isHotkey, *) {
     }
 
     if (state) {
+        MySoftData.IsTogStartRecord := isHotkey
         if (ToolCheckInfo.RecordJoy)
             RecordJoy()
 
@@ -220,6 +221,7 @@ OnToolRecordMacro(isHotkey, *) {
             RecordMouseTrail
     }
     else {
+        MySoftData.IsTogEndRecord := isHotkey
         OnFinishRecordMacro()
     }
 }

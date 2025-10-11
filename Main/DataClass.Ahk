@@ -296,6 +296,9 @@ class SoftData {
         this.GetAreaAction := ""    ;左键框选范围回调   不显示框选范围
         this.StartAreaPosX := ""
         this.StartAreaPosY := ""
+        
+        this.IsTogStartRecord := false  ;通过开关触发录制
+        this.IsTogEndRecord := false    ;通过开关结束录制
     }
 }
 

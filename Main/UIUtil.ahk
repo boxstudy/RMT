@@ -372,7 +372,7 @@ AddToolUI(index) {
     con := ToolCheckInfo.ToolTextCtrl := MyGui.Add("Edit", Format("x{} y{} w{} h{}", posX + 20, posY, 800, 100), "")
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
-    
+
     posY += 20
     MySoftData.TableInfo[index].underPosY := posY
 }
@@ -380,169 +380,298 @@ AddToolUI(index) {
 ;设置
 AddSettingUI(index) {
     MyGui := MySoftData.MyGui
+    tableItem := MySoftData.TableInfo[index]
     posY := MySoftData.TabPosY
     posX := MySoftData.TabPosX
 
     posY += 30
     posX := MySoftData.TabPosX
-    MyGui.Add("GroupBox", Format("x{} y{} w870 h140", posX + 10, posY), "快捷键修改")
+    con := MyGui.Add("GroupBox", Format("x{} y{} w870 h140", posX + 10, posY), "快捷键修改")
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
+    tableItem.AllGroup.Push(con)
+
     posY += 30
     con := MyGui.Add("Text", Format("x{} y{}", posX + 25, posY), "软件休眠:")
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
     CtrlType := GetHotKeyCtrlType(MySoftData.SuspendHotkey)
     showCon := MyGui.Add(CtrlType, Format("x{} y{} w130", posX + 100, posY - 4), MySoftData.SuspendHotkey)
     showCon.Enabled := false
-    MySoftData.SuspendHotkeyCtrl := MyGui.Add("Text", Format("x{} y{} w130", posX + 100, posY), MySoftData.SuspendHotkey
-    )
+    conInfo := ItemConInfo(showCon, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
+    con := MyGui.Add("Text", Format("x{} y{} w130", posX + 100, posY), MySoftData.SuspendHotkey)
+    MySoftData.SuspendHotkeyCtrl := con
     MySoftData.SuspendHotkeyCtrl.Visible := false
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
+
     con := MyGui.Add("Button", Format("x{} y{} w50", posX + 235, posY - 5), "编辑")
     con.OnEvent("Click", OnOpenEditHotkeyGui.Bind(showCon, MySoftData.SuspendHotkeyCtrl, true))
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
 
     con := MyGui.Add("Text", Format("x{} y{}", posX + 315, posY), "暂停宏:")
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
     CtrlType := GetHotKeyCtrlType(MySoftData.PauseHotkey)
     showCon := MyGui.Add(CtrlType, Format("x{} y{} w130", posX + 385, posY - 4), MySoftData.PauseHotkey)
     showCon.Enabled := false
-    MySoftData.PauseHotkeyCtrl := MyGui.Add("Text", Format("x{} y{} w130", posX + 385, posY), MySoftData.PauseHotkey
-    )
+    conInfo := ItemConInfo(showCon, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
+    con := MyGui.Add("Text", Format("x{} y{} w130", posX + 385, posY), MySoftData.PauseHotkey)
+    MySoftData.PauseHotkeyCtrl := con
     MySoftData.PauseHotkeyCtrl.Visible := false
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
     con := MyGui.Add("Button", Format("x{} y{} center w50", posX + 520, posY - 5), "编辑")
     con.OnEvent("Click", OnOpenEditHotkeyGui.Bind(showCon, MySoftData.PauseHotkeyCtrl, false))
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
 
-    MyGui.Add("Text", Format("x{} y{}", posX + 605, posY), "终止宏:")
+    con := MyGui.Add("Text", Format("x{} y{}", posX + 605, posY), "终止宏:")
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
     CtrlType := GetHotKeyCtrlType(MySoftData.KillMacroHotkey)
     showCon := MyGui.Add(CtrlType, Format("x{} y{} w130", posX + 680, posY - 4), MySoftData.KillMacroHotkey)
     showCon.Enabled := false
-    MySoftData.KillMacroHotkeyCtrl := MyGui.Add("Text", Format("x{} y{} w130", posX + 680, posY), MySoftData.KillMacroHotkey
-    )
+    conInfo := ItemConInfo(showCon, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
+    con := MyGui.Add("Text", Format("x{} y{} w130", posX + 680, posY), MySoftData.KillMacroHotkey)
+    MySoftData.KillMacroHotkeyCtrl := con
     MySoftData.KillMacroHotkeyCtrl.Visible := false
     con := MyGui.Add("Button", Format("x{} y{} center w50", posX + 815, posY - 5), "编辑")
     con.OnEvent("Click", OnOpenEditHotkeyGui.Bind(showCon, MySoftData.KillMacroHotkeyCtrl, false))
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
 
     posY += 40
     con := MyGui.Add("Text", Format("x{} y{}", posX + 25, posY), "指令录制:")
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
     CtrlType := GetHotKeyCtrlType(ToolCheckInfo.ToolRecordMacroHotKey)
     showCon := MyGui.Add(CtrlType, Format("x{} y{} w130", posX + 100, posY - 4),
     ToolCheckInfo.ToolRecordMacroHotKey)
     showCon.Enabled := false
-    ToolCheckInfo.ToolRecordMacroHotKeyCtrl := MyGui.Add("Text", Format("x{} y{} w130", posX + 100, posY),
-    ToolCheckInfo.ToolRecordMacroHotKey)
+    conInfo := ItemConInfo(showCon, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
+    con := MyGui.Add("Text", Format("x{} y{} w130", posX + 100, posY), ToolCheckInfo.ToolRecordMacroHotKey)
+    ToolCheckInfo.ToolRecordMacroHotKeyCtrl := con
     ToolCheckInfo.ToolRecordMacroHotKeyCtrl.Visible := false
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
     con := MyGui.Add("Button", Format("x{} y{} center w50", posX + 235, posY - 5), "编辑")
     con.OnEvent("Click", OnOpenEditHotkeyGui.Bind(showCon, ToolCheckInfo.ToolRecordMacroHotKeyCtrl, false))
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
 
     con := MyGui.Add("Text", Format("x{} y{}", posX + 315, posY), "文本提取:")
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
     CtrlType := GetHotKeyCtrlType(ToolCheckInfo.ToolTextFilterHotKey)
     showCon := MyGui.Add(CtrlType, Format("x{} y{} w130", posX + 385, posY - 4),
     ToolCheckInfo.ToolTextFilterHotKey)
     showCon.Enabled := false
-    ToolCheckInfo.ToolTextFilterHotKeyCtrl := MyGui.Add("Text", Format("x{} y{} w130", posX + 385, posY),
-    ToolCheckInfo.ToolTextFilterHotKey)
+    conInfo := ItemConInfo(showCon, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
+    con := MyGui.Add("Text", Format("x{} y{} w130", posX + 385, posY), ToolCheckInfo.ToolTextFilterHotKey)
+    ToolCheckInfo.ToolTextFilterHotKeyCtrl := con
     ToolCheckInfo.ToolTextFilterHotKeyCtrl.Visible := false
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
     con := MyGui.Add("Button", Format("x{} y{} center w50", posX + 520, posY - 5), "编辑")
     con.OnEvent("Click", OnOpenEditHotkeyGui.Bind(showCon, ToolCheckInfo.ToolTextFilterHotKeyCtrl, false))
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
 
-    MyGui.Add("Text", Format("x{} y{}", posX + 605, posY), "屏幕截图:")
+    con := MyGui.Add("Text", Format("x{} y{}", posX + 605, posY), "屏幕截图:")
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
     CtrlType := GetHotKeyCtrlType(ToolCheckInfo.ScreenShotHotKey)
     showCon := MyGui.Add(CtrlType, Format("x{} y{} w130", posX + 680, posY - 4),
     ToolCheckInfo.ScreenShotHotKey)
     showCon.Enabled := false
-    ToolCheckInfo.ScreenShotHotKeyCtrl := MyGui.Add("Text", Format("x{} y{} w130", posX + 680, posY),
-    ToolCheckInfo.ScreenShotHotKey)
+    conInfo := ItemConInfo(showCon, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
+    con := MyGui.Add("Text", Format("x{} y{} w130", posX + 680, posY), ToolCheckInfo.ScreenShotHotKey)
+    ToolCheckInfo.ScreenShotHotKeyCtrl := con
     ToolCheckInfo.ScreenShotHotKeyCtrl.Visible := false
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
     con := MyGui.Add("Button", Format("x{} y{} center w50", posX + 815, posY - 5), "编辑")
     con.OnEvent("Click", OnOpenEditHotkeyGui.Bind(showCon, ToolCheckInfo.ScreenShotHotKeyCtrl, false))
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
 
     posY += 40
     con := MyGui.Add("Text", Format("x{} y{}", posX + 25, posY), "自由贴:")
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
     CtrlType := GetHotKeyCtrlType(ToolCheckInfo.FreePasteHotKey)
     showCon := MyGui.Add(CtrlType, Format("x{} y{} w130", posX + 100, posY - 4),
     ToolCheckInfo.FreePasteHotKey)
     showCon.Enabled := false
-    ToolCheckInfo.FreePasteHotKeyCtrl := MyGui.Add("Text", Format("x{} y{} w130", posX + 100, posY),
-    ToolCheckInfo.FreePasteHotKey)
+    conInfo := ItemConInfo(showCon, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
+    con := MyGui.Add("Text", Format("x{} y{} w130", posX + 100, posY), ToolCheckInfo.FreePasteHotKey)
+    ToolCheckInfo.FreePasteHotKeyCtrl := con
     ToolCheckInfo.FreePasteHotKeyCtrl.Visible := false
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
     con := MyGui.Add("Button", Format("x{} y{} center w50", posX + 235, posY - 5), "编辑")
     con.OnEvent("Click", OnOpenEditHotkeyGui.Bind(showCon, ToolCheckInfo.FreePasteHotKeyCtrl, false))
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
 
     con := MyGui.Add("Text", Format("x{} y{}", posX + 315, posY), "鼠标信息:")
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
     CtrlType := GetHotKeyCtrlType(ToolCheckInfo.ToolCheckHotkey)
     showCon := MyGui.Add(CtrlType, Format("x{} y{} w130", posX + 385, posY - 4),
     ToolCheckInfo.ToolCheckHotkey)
     showCon.Enabled := false
-    ToolCheckInfo.ToolCheckHotKeyCtrl := MyGui.Add("Text", Format("x{} y{} w130", posX + 385, posY),
-    ToolCheckInfo.ToolCheckHotkey)
+    conInfo := ItemConInfo(showCon, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
+    con := MyGui.Add("Text", Format("x{} y{} w130", posX + 385, posY), ToolCheckInfo.ToolCheckHotkey)
+    ToolCheckInfo.ToolCheckHotKeyCtrl := con
     ToolCheckInfo.ToolCheckHotKeyCtrl.Visible := false
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
     con := MyGui.Add("Button", Format("x{} y{} center w50", posX + 520, posY - 5), "编辑")
     con.OnEvent("Click", OnOpenEditHotkeyGui.Bind(showCon, ToolCheckInfo.ToolCheckHotKeyCtrl, false))
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
 
     posY += 40
     posX := MySoftData.TabPosX
-    MyGui.Add("GroupBox", Format("x{} y{} w870 h140", posX + 10, posY), "数值选项")
+    con := MyGui.Add("GroupBox", Format("x{} y{} w870 h140", posX + 10, posY), "数值选项")
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
+    tableItem.AllGroup.Push(con)
     posY += 30
-    MyGui.Add("Text", Format("x{} y{}", posX + 25, posY), "按住时间浮动(%):")
-    MySoftData.HoldFloatCtrl := MyGui.Add("Edit", Format("x{} y{} w100 center", posX + 145, posY - 4), MySoftData.HoldFloat
-    )
+    con := MyGui.Add("Text", Format("x{} y{}", posX + 25, posY), "按住时间浮动(%):")
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
+    con := MyGui.Add("Edit", Format("x{} y{} w100 center", posX + 145, posY - 4), MySoftData.HoldFloat)
+    MySoftData.HoldFloatCtrl := con
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
 
-    MyGui.Add("Text", Format("x{} y{}", posX + 315, posY), "每次间隔浮动(%):")
-    MySoftData.PreIntervalFloatCtrl := MyGui.Add("Edit", Format("x{} y{} w100 center", posX + 440, posY - 4),
-    MySoftData.PreIntervalFloat)
+    con := MyGui.Add("Text", Format("x{} y{}", posX + 315, posY), "每次间隔浮动(%):")
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
+    con := MyGui.Add("Edit", Format("x{} y{} w100 center", posX + 440, posY - 4), MySoftData.PreIntervalFloat)
+    MySoftData.PreIntervalFloatCtrl := con
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
 
-    MyGui.Add("Text", Format("x{} y{}", posX + 635, posY), "间隔指令浮动(%):")
-    MySoftData.IntervalFloatCtrl := MyGui.Add("Edit", Format("x{} y{} w100 center", posX + 760, posY - 4), MySoftData.IntervalFloat
-    )
-
-    posY += 40
-    MyGui.Add("Text", Format("x{} y{}", posX + 25, posY), "坐标X浮动(px):")
-    MySoftData.CoordXFloatCon := MyGui.Add("Edit", Format("x{} y{} w100 center", posX + 145, posY - 4), MySoftData.CoordXFloat
-    )
-
-    MyGui.Add("Text", Format("x{} y{}", posX + 315, posY), "坐标Y浮动(px):")
-    MySoftData.CoordYFloatCon := MyGui.Add("Edit", Format("x{} y{} w100 center", posX + 440, posY - 4),
-    MySoftData.CoordYFloat)
-
-    MyGui.Add("Text", Format("x{} y{}", posX + 635, posY), "多线程数(0~5):")
-    MySoftData.MutiThreadNumCtrl := MyGui.Add("Edit", Format("x{} y{} w100 center", posX + 760, posY - 4), MySoftData
-    .MutiThreadNum)
-
-    posY += 40
-    MyGui.Add("Text", Format("x{} y{}", posX + 25, posY), "软件背景颜色:")
-    MySoftData.SoftBGColorCon := MyGui.Add("Edit", Format("x{} y{} w100 center", posX + 145, posY - 4), MySoftData.SoftBGColor
-    )
+    con := MyGui.Add("Text", Format("x{} y{}", posX + 635, posY), "间隔指令浮动(%):")
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
+    con := MyGui.Add("Edit", Format("x{} y{} w100 center", posX + 760, posY - 4), MySoftData.IntervalFloat)
+    MySoftData.IntervalFloatCtrl := con
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
 
     posY += 40
-    MyGui.Add("GroupBox", Format("x{} y{} w870 h100", posX + 10, posY), "开关选项")
+    con := MyGui.Add("Text", Format("x{} y{}", posX + 25, posY), "坐标X浮动(px):")
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
+    con := MyGui.Add("Edit", Format("x{} y{} w100 center", posX + 145, posY - 4), MySoftData.CoordXFloat)
+    MySoftData.CoordXFloatCon := con
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
+
+    con := MyGui.Add("Text", Format("x{} y{}", posX + 315, posY), "坐标Y浮动(px):")
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
+    con := MyGui.Add("Edit", Format("x{} y{} w100 center", posX + 440, posY - 4), MySoftData.CoordYFloat)
+    MySoftData.CoordYFloatCon := con
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
+
+    con := MyGui.Add("Text", Format("x{} y{}", posX + 635, posY), "多线程数(0~5):")
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
+    con := MyGui.Add("Edit", Format("x{} y{} w100 center", posX + 760, posY - 4), MySoftData.MutiThreadNum)
+    MySoftData.MutiThreadNumCtrl := con
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
+
+    posY += 40
+    con := MyGui.Add("Text", Format("x{} y{}", posX + 25, posY), "软件背景颜色:")
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
+    con := MyGui.Add("Edit", Format("x{} y{} w100 center", posX + 145, posY - 4), MySoftData.SoftBGColor)
+    MySoftData.SoftBGColorCon := con
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
+
+    posY += 40
+    con := MyGui.Add("GroupBox", Format("x{} y{} w870 h100", posX + 10, posY), "开关选项")
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
+    tableItem.AllGroup.Push(con)
     posY += 30
-    MySoftData.ShowWinCtrl := MyGui.Add("CheckBox", Format("x{} y{}", posX + 25, posY), "运行后显示窗口")
+    con := MyGui.Add("CheckBox", Format("x{} y{}", posX + 25, posY), "运行后显示窗口")
+    MySoftData.ShowWinCtrl := con
     MySoftData.ShowWinCtrl.Value := MySoftData.IsExecuteShow
     MySoftData.ShowWinCtrl.OnEvent("Click", OnShowWinChanged)
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
 
-    MySoftData.BootStartCtrl := MyGui.Add("CheckBox", Format("x{} y{}", posX + 315, posY), "开机自启")
+    con := MyGui.Add("CheckBox", Format("x{} y{}", posX + 315, posY), "开机自启")
+    MySoftData.BootStartCtrl := con
     MySoftData.BootStartCtrl.Value := MySoftData.IsBootStart
     MySoftData.BootStartCtrl.OnEvent("Click", OnBootStartChanged)
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
 
-    MySoftData.CMDTipCtrl := MyGui.Add("CheckBox", Format("x{} y{} -Wrap w15", posX + 635, posY), "")
+    con := MyGui.Add("CheckBox", Format("x{} y{} -Wrap w15", posX + 635, posY), "")
+    MySoftData.CMDTipCtrl := con
     MySoftData.CMDTipCtrl.Value := MySoftData.CMDTip
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
     con := MyGui.Add("Button", Format("x{} y{}", posX + 635 + 15, posY - 5), "指令显示")
     con.OnEvent("Click", (*) => OnEditCMDTipGui())
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
 
     posY += 40
-    MySoftData.NoVariableTipCtrl := MyGui.Add("CheckBox", Format("x{} y{}", posX + 25, posY), "无变量提醒")
+    con := MyGui.Add("CheckBox", Format("x{} y{}", posX + 25, posY), "无变量提醒")
+    MySoftData.NoVariableTipCtrl := con
     MySoftData.NoVariableTipCtrl.Value := MySoftData.NoVariableTip
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
 
     posY += 40
-    MyGui.Add("GroupBox", Format("x{} y{} w870 h100", posX + 10, posY), "下拉框选项")
+    con := MyGui.Add("GroupBox", Format("x{} y{} w870 h100", posX + 10, posY), "下拉框选项")
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
+    tableItem.AllGroup.Push(con)
     posY += 30
-    MyGui.Add("Text", Format("x{} y{}", posX + 25, posY), "软件字体：")
-    MySoftData.FontTypeCtrl := MyGui.Add("DropDownList", Format("x{} y{} w180", posX + 100, posY - 5), [])
+    con := MyGui.Add("Text", Format("x{} y{}", posX + 25, posY), "软件字体：")
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
+    con := MyGui.Add("DropDownList", Format("x{} y{} w180", posX + 100, posY - 5), [])
+    MySoftData.FontTypeCtrl := con
     MySoftData.FontTypeCtrl.Delete()
     MySoftData.FontTypeCtrl.Add(MySoftData.FontList)
     MySoftData.FontTypeCtrl.Text := MySoftData.FontType
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
 
-    MyGui.Add("Text", Format("x{} y{}", posX + 315, posY), "软件截图方式：")
-    MySoftData.ScreenShotTypeCtrl := MyGui.Add("DropDownList", Format("x{} y{} w100", posX + 410, posY - 5), ["微软截图",
+    con := MyGui.Add("Text", Format("x{} y{}", posX + 315, posY), "软件截图方式：")
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
+    con := MyGui.Add("DropDownList", Format("x{} y{} w100", posX + 410, posY - 5), ["微软截图",
         "RMT截图"])
+    MySoftData.ScreenShotTypeCtrl := con 
     MySoftData.ScreenShotTypeCtrl.Value := MySoftData.ScreenShotType
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
 
-    posY += 90
+    posY += 70
     tableItem := MySoftData.TableInfo[index]
     tableItem.UnderPosY := posY
 }
@@ -550,6 +679,7 @@ AddSettingUI(index) {
 ;帮助
 AddHelpUI(index) {
     MyGui := MySoftData.MyGui
+    tableItem := MySoftData.TableInfo[index]
     posY := MySoftData.TabPosY
     posX := MySoftData.TabPosX
 
@@ -558,106 +688,161 @@ AddHelpUI(index) {
     con := MyGui.Add("Text", Format("x{} y{} w{} h{} Center", posX, posY, 700, 25),
     "免责声明")
     con.SetFont((Format("S{} W{} Q{}", 14, 600, 2)))
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
 
     posY += 25
     posX := MySoftData.TabPosX + 15
     con := MyGui.Add("Text", Format("x{} y{} w{} h{} Center", posX, posY, 700, 35),
     "本文件是对 GNU Affero General Public License v3.0 的补充说明，不影响原协议效力")
     con.SetFont((Format("S{} W{} Q{}", 10, 600, 0)))
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
 
     posY += 40
     posX := MySoftData.TabPosX + 15
     con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 800, 25),
     '1. 本软件按"原样"提供，开发者不承担因使用、修改或分发导致的任何法律责任。')
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
 
     posY += 25
     posX := MySoftData.TabPosX + 15
     con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 800, 25),
     '2. 严禁用于违法用途，包括但不限于:游戏作弊、未经授权的系统访问或数据篡改')
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
 
     posY += 25
     posX := MySoftData.TabPosX + 15
     con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 800, 25),
     '3. 使用者需自行承担所有风险，开发者对因违反法律或第三方条款导致的后果概不负责。')
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
 
     posY += 25
     posX := MySoftData.TabPosX + 15
     con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 800, 50),
     '4. 通过使用本软件，您确认：不会将其用于任何非法目的、已充分了解并接受所有潜在法律风险、同意免除开发者因滥用行为导致的一切追责权利')
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
 
     posY += 50
     posX := MySoftData.TabPosX + 15
     con := MyGui.Add("Text", Format("x{} y{} w{} h{} Center", posX, posY, 800, 35),
     "若不同意上述条款，请立即停止使用本软件。")
     con.SetFont((Format("cRed  S{} W{} Q{}", 12, 600, 0)))
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
 
     posY += 50
     posX := MySoftData.TabPosX + 15
     con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 140, 35),
+    "更新视频合集：")
+    con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
+    con := MyGui.Add("Link", Format("x{} y{} w{} h{}", posX + 140, posY, 500, 35),
+    '<a href="https://www.bilibili.com/video/BV1oWVRzaEzk">版本更新视频，直播交流问答</a>')
+    con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
+
+    posY += 30
+    posX := MySoftData.TabPosX + 15
+    con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 140, 35),
     "操作说明文档：")
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
     con := MyGui.Add("Link", Format("x{} y{} w{} h{}", posX + 140, posY, 500, 35),
     '<a href="https://zclucas.github.io/RMT/">帮助你快速上手，理解词条，10分钟秒变大神</a>')
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
 
     posY += 30
     posX := MySoftData.TabPosX + 15
     con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 140, 30),
     "国内开源网址：")
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
     con := MyGui.Add("Link", Format("x{} y{} w{} h{}", posX + 140, posY, 500, 30),
     '<a href="https://gitee.com/fateman/RMT">https://gitee.com/fateman/RMT</a>')
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
 
     posY += 30
     posX := MySoftData.TabPosX + 15
     con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 140, 30),
     "国外开源网址：")
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
     con := MyGui.Add("Link", Format("x{} y{} w{} h{}", posX + 140, posY, 500, 30),
     '<a href="https://github.com/zclucas/RMT">https://github.com/zclucas/RMT</a>')
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
 
     posY += 30
     posX := MySoftData.TabPosX + 15
     con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 140, 30),
     "软件检查更新：")
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
     con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX + 140, posY, 500, 30),
     "浏览开源网址，查看右侧发行版处即可知道软件最新版本")
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
 
     posY += 30
     posX := MySoftData.TabPosX + 15
     con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 140, 30),
     "软件交流渠道：")
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
     con := MyGui.Add("Link", Format("x{} y{} w{} h{}", posX + 140, posY, 700, 30),
     '<a href="https://qm.qq.com/q/DgpDumEPzq">[1群]837661891</a>、<a href="https://qm.qq.com/q/uZszuxabPW">[2群]1050141694</a>、<a href="https://pd.qq.com/s/5wyjvj7zw">[频道]pd63973680</a>'
     )
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
 
     posY += 30
     posX := MySoftData.TabPosX + 15
     con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 140, 30),
     "软件反馈表格：")
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
     con := MyGui.Add("Link", Format("x{} y{} w{} h{}", posX + 140, posY, 700, 30),
     '<a href="https://docs.qq.com/sheet/DVWJIdEVMV1pHUVJj">bug文档</a>、<a href="https://docs.qq.com/sheet/DVWRQaXBFUVV5bERo">需求文档</a>、<a href="https://docs.qq.com/sheet/DVVNwWHJEd3NOWXhR?tab=BB08J2">使用备注</a>(问题反馈，提出优化方案)'
     )
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
 
     posY += 30
     posX := MySoftData.TabPosX + 15
     con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 140, 30),
     "软件开源协议：")
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
     con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX + 140, posY, 500, 30), "AGPL-3.0")
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
 
     posY += 35
     MySoftData.TableInfo[index].underPosY := posY
@@ -666,6 +851,7 @@ AddHelpUI(index) {
 ;打赏
 AddRewardUI(index) {
     MyGui := MySoftData.MyGui
+    tableItem := MySoftData.TableInfo[index]
     posY := MySoftData.TabPosY
     posX := MySoftData.TabPosX
 
@@ -674,23 +860,35 @@ AddRewardUI(index) {
     con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 800, 60),
     "RMT(若梦兔)完全免费的开源软件，如果你觉得它提升了你的效率，欢迎请我喝杯咖啡~ `n你的打赏会让我更有动力持续更新和维护这个项目！")
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
 
     posY += 60
     posX := MySoftData.TabPosX + 100
     con := MyGui.Add("Picture", Format("x{} y{} w{} h{} center", posX, posY, 220, 220), "Images\Soft\WeiXin.png")
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
     con := MyGui.Add("Text", Format("x{} y{} w{} h{} center", posX, posY + 230, 220, 50), "微信打赏")
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
 
     posX += 450
     con := MyGui.Add("Picture", Format("x{} y{} w{} h{} center", posX, posY, 220, 220), "Images\Soft\ZhiFuBao.png")
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
     con := MyGui.Add("Text", Format("x{} y{} w{} h{} center", posX, posY + 230, 220, 50), "支付宝打赏")
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
 
     posY += 300
     posX := MySoftData.TabPosX + 15
     con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 860, 80),
     "当然，如果你暂时不方便，分享给朋友也是很棒的支持~`n开发不易，感谢你的每一份温暖！")
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
 
     posY += 35
     MySoftData.TableInfo[index].underPosY := posY

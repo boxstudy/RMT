@@ -54,7 +54,9 @@ class VerticalSlider {
 
     RefreshTab() {
         this.SwitchTab(this.tableItem)
-        this.tableItem.OffSetPosY := (this.ContentHeight - this.AeraHeight - 2 * this.Vindent) * this.tableItem.SliderValue
+        ShowSlider := this.ContentHeight > this.AeraHeight
+        OffSetPosY := (this.ContentHeight - this.AeraHeight - 2 * this.Vindent) * this.tableItem.SliderValue
+        this.tableItem.OffSetPosY := ShowSlider ? OffSetPosY : 0
         UpdateItemConPos(this.tableItem, true)
     }
 

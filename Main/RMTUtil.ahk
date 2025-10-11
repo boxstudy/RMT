@@ -621,6 +621,24 @@ SimpleRecordMacroStr(MacroStr) {
     return resultStr
 }
 
+DiscardTriggerKey(MacroStr) {
+    CmdArr := SplitMacro(MacroStr)
+    SimpleCmdArr := []
+    isDiscardStart := false
+    loop CmdArr.Length {
+        if (!isDiscardStart) {
+            if (MySoftData.IsTogStartRecord) {
+                isDiscardStart := true
+            }
+            else{
+                if (InStr(CmdArr[A_Index], "间隔"))
+            }
+        }
+
+        SimpleCmdArr.Push(CmdArr[A_Index])
+    }
+}
+
 FullCopyCmd(cmd, CopyedMap := Map()) {
     paramArr := SplitKeyCommand(cmd)
     if (InStr(paramArr[1], "间隔"))
