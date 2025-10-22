@@ -43,9 +43,9 @@ class MacroEditGui {
         this.CMDStrArr := ["间隔", "按键", "搜索", "搜索Pro", "移动", "移动Pro", "输出", "运行", "变量", "变量提取", "运算", "如果", "宏操作",
             "RMT指令",
             "后台鼠标"]
-        this.IconMap := Map("间隔", "Icon1", "按键", "Icon2", "搜索", "Icon3", "搜索Pro", "Icon3", "移动", "Icon5", "移动Pro",
+        this.IconMap := Map("间隔", "Icon1", "按键", "Icon2", "搜索", "Icon3", "搜索Pro", "Icon4", "移动", "Icon5", "移动Pro",
             "Icon6", "输出", "Icon7",
-            "运行", "Icon8", "变量", "Icon9", "变量提取", "Icon10", "运算", "Icon11", "如果", "Icon12", "宏操作", "Icon13", "RMT指令",
+            "运行", "Icon8", "变量", "Icon9", "变量提取", "Icon10", "运算", "Icon11", "如果", "Icon12", "RMT指令", "Icon13", "宏操作",
             "Icon14", "后台鼠标", "Icon15", "真", "Icon16", "假", "Icon17")
 
         this.InitSubGui()
@@ -122,21 +122,23 @@ class MacroEditGui {
             this.AddGui()
             ImageListID := IL_Create(15)
             this.MacroTreeViewCon.SetImageList(ImageListID)
-            IL_Add(ImageListID, "Images\Soft\Key.png")
             IL_Add(ImageListID, "Images\Soft\Interval.png")
-            IL_Add(ImageListID, "Images\Soft\Search.png")       ;移动
-            IL_Add(ImageListID, "Images\Soft\SearchPro.png")    ;移动Pro
+            IL_Add(ImageListID, "Images\Soft\Key.png")
             IL_Add(ImageListID, "Images\Soft\Search.png")
             IL_Add(ImageListID, "Images\Soft\SearchPro.png")
+            IL_Add(ImageListID, "Images\Soft\Move.png")
+            IL_Add(ImageListID, "Images\Soft\MovePro.png")
             IL_Add(ImageListID, "Images\Soft\Output.png")
             IL_Add(ImageListID, "Images\Soft\Run.png")
-            IL_Add(ImageListID, "Images\Soft\Search.png")       ;变量
-            IL_Add(ImageListID, "Images\Soft\SearchPro.png")    ;变量提取
-            IL_Add(ImageListID, "Images\Soft\Operation.png")    
-            IL_Add(ImageListID, "Images\Soft\SearchPro.png")    ;如果
-            IL_Add(ImageListID, "Images\Soft\Search.png")       ;RMT指令
-            IL_Add(ImageListID, "Images\Soft\SearchPro.png")    ;宏操作
-            IL_Add(ImageListID, "Images\Soft\SearchPro.png")    ;后台鼠标
+            IL_Add(ImageListID, "Images\Soft\Var.png")
+            IL_Add(ImageListID, "Images\Soft\Extract.png")
+            IL_Add(ImageListID, "Images\Soft\Operation.png")
+            IL_Add(ImageListID, "Images\Soft\If.png")
+            IL_Add(ImageListID, "Images\Soft\rabit.png")
+            IL_Add(ImageListID, "Images\Soft\Sub.png")
+            IL_Add(ImageListID, "Images\Soft\Mouse.png")
+            IL_Add(ImageListID, "Images\Soft\True.png")
+            IL_Add(ImageListID, "Images\Soft\False.png")
         }
 
         MySoftData.RecordToggleCon := this.RecordMacroCon

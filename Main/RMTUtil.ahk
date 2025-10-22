@@ -211,11 +211,21 @@ InitFilePath() {
     ;图标
     FileInstall("Images\Soft\Key.png", "Images\Soft\Key.png", 1)
     FileInstall("Images\Soft\Interval.png", "Images\Soft\Interval.png", 1)
-    FileInstall("Images\Soft\Operation.png", "Images\Soft\Operation.png", 1)
-    FileInstall("Images\Soft\Output.png", "Images\Soft\Output.png", 1)
-    FileInstall("Images\Soft\Run.png", "Images\Soft\Run.png", 1)
     FileInstall("Images\Soft\Search.png", "Images\Soft\Search.png", 1)
     FileInstall("Images\Soft\SearchPro.png", "Images\Soft\SearchPro.png", 1)
+    FileInstall("Images\Soft\Move.png", "Images\Soft\Move.png", 1)
+    FileInstall("Images\Soft\MovePro.png", "Images\Soft\MovePro.png", 1)
+    FileInstall("Images\Soft\Output.png", "Images\Soft\Output.png", 1)
+    FileInstall("Images\Soft\Run.png", "Images\Soft\Run.png", 1)
+    FileInstall("Images\Soft\Var.png", "Images\Soft\Var.png", 1)
+    FileInstall("Images\Soft\Extract.png", "Images\Soft\Extract.png", 1)
+    FileInstall("Images\Soft\Operation.png", "Images\Soft\Operation.png", 1)
+    FileInstall("Images\Soft\If.png", "Images\Soft\If.png", 1)
+    FileInstall("Images\Soft\rabit.png", "Images\Soft\rabit.png", 1)
+    FileInstall("Images\Soft\Sub.png", "Images\Soft\Sub.png", 1)
+    FileInstall("Images\Soft\Mouse.png", "Images\Soft\Mouse.png", 1)
+    FileInstall("Images\Soft\True.png", "Images\Soft\True.png", 1)
+    FileInstall("Images\Soft\False.png", "Images\Soft\False.png", 1)
 
     global VBSPath := A_WorkingDir "\VBS\PlayAudio.vbs"
     global MacroFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\MacroFile.ini"
