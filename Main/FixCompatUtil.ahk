@@ -6,7 +6,13 @@ Compat1_0_8F4FlodInfo(FoldInfo) {
         return
 
     FoldInfo.FrontInfoArr := []
+    FoldInfo.TKTypeArr := []
+    FoldInfo.TKArr := []
+    FoldInfo.HoldTimeArr := []
     loop FoldInfo.RemarkArr.Length {
         FoldInfo.FrontInfoArr.Push("")
+        FoldInfo.TKTypeArr.Push(1)
+        FoldInfo.TKArr.Push("")
+        FoldInfo.HoldTimeArr.Push(500)
     }
 }

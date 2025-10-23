@@ -422,37 +422,30 @@ ReadTableItemInfo(index) {
     savedTimingSerialStr := IniRead(MacroFile, IniSection, symbol "TimingSerialArr", "")
     savedFoldInfoStr := IniRead(MacroFile, IniSection, symbol "FoldInfo", "")
 
-    if (!MySoftData.HasSaved) {
-        if (savedTKArrStr == "")
-            savedTKArrStr := defaultInfo[1]
-        if (savedHoldTimeArrStr == "")
-            savedHoldTimeArrStr := defaultInfo[2]
-        if (savedModeArrStr == "")
-            savedModeArrStr := defaultInfo[3]
-        if (savedForbidArrStr == "")
-            savedForbidArrStr := defaultInfo[4]
-        if (savedFrontInfoArrStr == "")
-            savedFrontInfoArrStr := defaultInfo[5]
-        if (savedRemarkArrStr == "")
-            savedRemarkArrStr := defaultInfo[6]
-        if (savedLoopCountStr == "")
-            savedLoopCountStr := defaultInfo[7]
-        if (savedTriggerTypeArrStr == "")
-            savedTriggerTypeArrStr := defaultInfo[8]
-        if (savedSerialStr == "")
-            savedSerialStr := defaultInfo[9]
-        if (savedTimingSerialStr == "")
-            savedTimingSerialStr := GetSerialStr("Timing")
-    }
-
+    ;不存在折叠筐就初始化，并读取默认配置
     if (savedFoldInfoStr == "") {
+        savedTKArrStr := defaultInfo[1]
+        savedHoldTimeArrStr := defaultInfo[2]
+        savedModeArrStr := defaultInfo[3]
+        savedForbidArrStr := defaultInfo[4]
+        savedFrontInfoArrStr := defaultInfo[5]
+        savedRemarkArrStr := defaultInfo[6]
+        savedLoopCountStr := defaultInfo[7]
+        savedTriggerTypeArrStr := defaultInfo[8]
+        savedSerialStr := defaultInfo[9]
+        savedTimingSerialStr := defaultInfo[10]
+
         defaultFoldInfo := ItemFoldInfo()
         defaultFoldInfo.RemarkArr := ["RMT默认初始化配置"]
         defaultFoldInfo.FrontInfoArr := [""]
-        IndexSpanValue := savedModeArrStr == "" ? "无-无" : "1-1"
+        IndexSpanValue := savedModeArrStr == "" ? "无-无" : savedModeArrStr == "1" ? "1-1" : "1-6"
         defaultFoldInfo.IndexSpanArr := [IndexSpanValue]
         defaultFoldInfo.FoldStateArr := [false]
         defaultFoldInfo.ForbidStateArr := [false]
+
+        defaultFoldInfo.TKTypeArr := [1]
+        defaultFoldInfo.TKArr := [""]
+        defaultFoldInfo.HoldTimeArr := [500]
         savedFoldInfoStr := JSON.stringify(defaultFoldInfo, 0)
     }
 
@@ -543,6 +536,7 @@ GetTableItemDefaultInfo(index) {
     savedHoldTimeArrStr := ""
     savedTriggerTypeStr := ""
     savedSerialeArrStr := ""
+    savedTimingSerialStr := ""
     symbol := GetTableSymbol(index)
 
     if (symbol == "Normal") {
@@ -555,6 +549,7 @@ GetTableItemDefaultInfo(index) {
         savedLoopCountStr := "1"
         savedTriggerTypeStr := "1"
         savedSerialeArrStr := "000001"
+        savedTimingSerialStr := "Timing000001"
     }
     else if (symbol == "String") {
         savedTKArrStr := ":?*:AA"
@@ -566,6 +561,19 @@ GetTableItemDefaultInfo(index) {
         savedLoopCountStr := "1"
         savedTriggerTypeStr := "1"
         savedSerialeArrStr := "000002"
+        savedTimingSerialStr := "Timing000002"
+    }
+    else if (symbol == "Menu") {
+        savedTKArrStr := "πππππ"
+        savedHoldTimeArrStr := "500π500π500π500π500π500"
+        savedModeArrStr := "1π1π1π1π1π1"
+        savedForbidArrStr := "0π0π0π0π0π0"
+        savedProcessNameStr := "πππππ"
+        savedRemarkArrStr := "πππππ"
+        savedLoopCountStr := "1π1π1π1π1π1"
+        savedTriggerTypeStr := "1π1π1π1π1π1"
+        savedSerialeArrStr := "000003π000004π000005π000006π000007π00008"
+        savedTimingSerialStr := "Timing000003πTiming000004πTiming000005πTiming000006πTiming000007πTiming000008"
     }
     else if (symbol == "Timing") {
         savedTKArrStr := ""
@@ -576,7 +584,8 @@ GetTableItemDefaultInfo(index) {
         savedRemarkArrStr := "通过定时或宏操作调用"
         savedLoopCountStr := "1"
         savedTriggerTypeStr := "1"
-        savedSerialeArrStr := "000003"
+        savedSerialeArrStr := "000009"
+        savedTimingSerialStr := "Timing000009"
     }
     else if (symbol == "SubMacro") {
         savedTKArrStr := ""
@@ -587,7 +596,8 @@ GetTableItemDefaultInfo(index) {
         savedRemarkArrStr := "只能通过宏操作调用"
         savedLoopCountStr := "1"
         savedTriggerTypeStr := "1"
-        savedSerialeArrStr := "000004"
+        savedSerialeArrStr := "0000010"
+        savedTimingSerialStr := "Timing000010"
     }
     else if (symbol == "Replace") {
         savedTKArrStr := "l"
@@ -598,11 +608,12 @@ GetTableItemDefaultInfo(index) {
         savedRemarkArrStr := "将l按键替换成其他按键"
         savedTriggerTypeStr := "1"
         savedLoopCountStr := "1"
-        savedSerialeArrStr := "000005"
+        savedSerialeArrStr := "000011"
+        savedTimingSerialStr := "Timing000011"
     }
     return [savedTKArrStr, savedHoldTimeArrStr, savedModeArrStr, savedForbidArrStr,
         savedProcessNameStr, savedRemarkArrStr,
-        savedLoopCountStr, savedTriggerTypeStr, savedSerialeArrStr]
+        savedLoopCountStr, savedTriggerTypeStr, savedSerialeArrStr, savedTimingSerialStr]
 }
 
 SaveTableItemInfo(index) {
@@ -866,6 +877,13 @@ CheckIsStringMacroTable(index) {
 CheckIsTimingMacroTable(index) {
     symbol := GetTableSymbol(index)
     if (symbol == "Timing")
+        return true
+    return false
+}
+
+CheckIsMenuMacroTable(index) {
+    symbol := GetTableSymbol(index)
+    if (symbol == "Menu")
         return true
     return false
 }

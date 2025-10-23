@@ -51,11 +51,16 @@ class TableItem {
 
 class ItemFoldInfo {
     __New() {
-        this.RemarkArr := []    ;折叠框备注
+        this.RemarkArr := []        ;折叠框备注
         this.FrontInfoArr := []     ;折叠框前台信息
         this.IndexSpanArr := []     ;范围索引
         this.ForbidStateArr := []   ;禁用状态
         this.FoldStateArr := []    ;折叠状态
+        
+        ;菜单栏功能
+        this.TKTypeArr := []    ;触发类型
+        this.TKArr := []        ;触发按键，菜单栏功能
+        this.HoldTimeArr := []  ;长按时间
     }
 }
 
