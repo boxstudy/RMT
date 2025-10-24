@@ -13,6 +13,7 @@
 #Include Gui\EditHotkeyGui.ahk
 #Include Gui\FreePasteGui.ahk
 #Include Gui\MacroEditGui.ahk
+#Include Gui\MenuWheelGui.ahk
 #Include Gui\ReplaceKeyGui.ahk
 #Include Gui\TargetGui.ahk
 #Include Gui\ToolRecordSettingGui.ahk
@@ -52,6 +53,7 @@ global MyTriggerKeyGui := TriggerKeyGui()
 global MyTriggerStrGui := TriggerStrGui()
 global MyEditHotkeyGui := EditHotkeyGui()
 global MyMacroGui := MacroEditGui()
+global MyMenuWheel := MenuWheelGui()
 global MyReplaceKeyGui := ReplaceKeyGui()
 global MyFreePasteGui := FreePasteGui()
 global MySettingMgrGui := SettingMgrGui()

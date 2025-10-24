@@ -10,6 +10,7 @@ BindKey() {
     BindShortcut(ToolCheckInfo.FreePasteHotKey, OnToolFreePaste)
     BindShortcut(ToolCheckInfo.ToolRecordMacroHotKey, OnHotToolRecordMacro)
     BindTabHotKey()
+    BindMenuHotKey()
     BindSoftHotKey()
     BindSave()
     OnExit(OnExitSoft)
@@ -102,7 +103,6 @@ OnKillAllMacro(*) {
 
     KillSingleTableMacro(MySoftData.SpecialTableItem)
 
-    
     tipStr := "终止所有宏"
     if (MySoftData.CMDTip)
         MyCMDReportAciton(tipStr)
@@ -368,12 +368,53 @@ OnExitSoft(*) {
     MyWorkPool.Clear()
 }
 
+BindMenuHotKey() {
+    tableItem := MySoftData.TableInfo[3]
+    FoldInfo := tableItem.FoldInfo
+    for Index, IndexSpanStr in FoldInfo.IndexSpanArr {
+        if (FoldInfo.ForbidStateArr[Index] || FoldInfo.TKArr[index] == "")
+            continue
+
+        key := "$*" tableItem.TKArr[index]
+        actionArr := GetMacroAction(tableIndex, index)
+        isJoyKey := RegExMatch(tableItem.TKArr[index], "Joy")
+        isHotstring := SubStr(tableItem.TKArr[index], 1, 1) == ":"
+        frontInfo := GetItemFrontInfo(tableItem, index)
+
+        if (frontInfo != "") {
+            HotIfWinActive(GetParamsWinInfoStr(frontInfo))
+        }
+
+        if (isJoyKey) {
+            MyJoyMacro.AddMacro(tableItem.TKArr[index], actionArr[1], frontInfo)
+        }
+        else if (isHotstring) {
+            Hotstring(tableItem.TKArr[index], actionArr[1])
+        }
+        else {
+            if (actionArr[1] != "")
+                Hotkey(key, actionArr[1])
+
+            if (actionArr[2] != "")
+                Hotkey(key " up", actionArr[2])
+        }
+
+        if (frontInfo != "") {
+            HotIfWinActive
+        }
+    }
+
+}
+
 BindTabHotKey() {
     tableIndex := 0
     InitTriggerKeyMap()
     loop MySoftData.TabNameArr.Length {
         tableItem := MySoftData.TableInfo[A_Index]
         tableIndex := A_Index
+        if (tableIndex > 2)
+            return
+
         for index, value in tableItem.ModeArr {
             if (GetItemFoldForbidState(tableItem, index))
                 continue
