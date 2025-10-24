@@ -72,7 +72,7 @@ class TriggerStrGui {
     }
 
     ;UI相关
-    ShowGui(triggerKey, args) {
+    ShowGui(triggerKey, holdTime,  IsToolEdit) {
 
         if (this.Gui != "") {
             this.Gui.Show()
@@ -81,7 +81,7 @@ class TriggerStrGui {
             this.AddGui()
         }
 
-        showSaveBtn := !args.IsToolEdit
+        showSaveBtn := !IsToolEdit
         this.Init(triggerKey, showSaveBtn)
         this.Refresh()
     }

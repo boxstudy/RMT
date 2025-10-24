@@ -43,13 +43,11 @@ class EditHotkeyGui {
     OnEditHotKey(gui) {
         triggerKey := this.KeyCon.Value
         gui.SureBtnAction := this.OnSubSureBtn.Bind(this)
-        args := TriggerKeyGuiArgs()
-        args.IsToolEdit := true
-        gui.ShowGui(triggerKey, args)
+        gui.ShowGui(triggerKey, 0, true)
         this.Gui.Hide()
     }
 
-    OnSubSureBtn(sureTriggerStr) {
+    OnSubSureBtn(sureTriggerStr, holdTime) {
         if (sureTriggerStr != "" && SubStr(sureTriggerStr, 1, 1) == "~") {
             sureTriggerStr := SubStr(sureTriggerStr, 2)
         }

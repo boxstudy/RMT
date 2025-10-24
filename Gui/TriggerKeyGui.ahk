@@ -15,7 +15,8 @@ class TriggerKeyGui {
         this.SaveBtnCtrl := {}
         this.showSaveBtn := false
 
-        this.Args := ""
+        this.IsToolEdit := ""
+        this.HoldTime := ""
         this.HoldTimeLabelCon := ""
         this.HoldTimeCon := ""
         this.HoldTimeTipCon := ""
@@ -167,12 +168,12 @@ class TriggerKeyGui {
             con.Value := 1
         }
 
-        this.showSaveBtn := !this.Args.IsToolEdit
-        this.HoldTimeCon.Visible := !this.Args.IsToolEdit
-        this.HoldTimeLabelCon.Visible := !this.Args.IsToolEdit
-        this.HoldTimeTipCon.Visible := !this.Args.IsToolEdit
-        if (!this.Args.IsToolEdit) {
-            this.HoldTimeCon.Value := this.Args.tableItem.HoldTimeArr[this.Args.tableIndex]
+        this.showSaveBtn := !this.IsToolEdit
+        this.HoldTimeCon.Visible := !this.IsToolEdit
+        this.HoldTimeLabelCon.Visible := !this.IsToolEdit
+        this.HoldTimeTipCon.Visible := !this.IsToolEdit
+        if (!this.IsToolEdit) {
+            this.HoldTimeCon.Value := this.HoldTime
         }
         else {
             this.EnableTriggerKeyCon.Value := false
@@ -214,10 +215,10 @@ class TriggerKeyGui {
             MsgBox("当前配置无效,请浏览勾选规则后，检查配置,有异议请联系UP: 浮生若梦的兔子。")
             return false
         }
-        this.TrySaveHoldTime()
         triggerKey := this.GetTriggerKey()
+        holdTime := this.HoldTimeCon.Value
         action := this.SureBtnAction
-        action(triggerKey)
+        action(triggerKey, holdTime)
         this.Gui.Hide()
         this.SureFocusCon.Focus()
     }
@@ -228,10 +229,11 @@ class TriggerKeyGui {
             MsgBox("当前配置无效,请浏览勾选规则后，检查配置,有异议请联系UP: 浮生若梦的兔子。")
             return false
         }
-        this.TrySaveHoldTime()
+
         triggerKey := this.GetTriggerKey()
+        holdTime := this.HoldTimeCon.Value
         action := this.SureBtnAction
-        action(triggerKey)
+        action(triggerKey, holdTime)
         this.Gui.Hide()
 
         action := this.SaveBtnAction
@@ -239,23 +241,16 @@ class TriggerKeyGui {
         this.SureFocusCon.Focus()
     }
 
-    TrySaveHoldTime() {
-        if (this.Args.IsToolEdit)
-            return
-
-        this.Args.tableItem.HoldTimeArr[this.Args.tableIndex] := this.HoldTimeCon.Value
-    }
-
     ;UI相关
-    ShowGui(triggerKey, Args) {
-
+    ShowGui(triggerKey, HoldTime, IsToolEdit) {
         if (this.Gui != "") {
             this.Gui.Show()
         }
         else {
             this.AddGui()
         }
-        this.Args := Args
+        this.HoldTime := HoldTime
+        this.IsToolEdit := IsToolEdit
         this.Init(triggerKey)
         this.Refresh()
     }
@@ -1300,7 +1295,7 @@ class TriggerKeyGui {
             }
         }
 
-        if (hasJoy || this.Args.IsToolEdit) {
+        if (hasJoy || this.IsToolEdit) {
             this.EnableTriggerKeyCon.Value := 0
             this.EnableTriggerKeyCon.Enabled := false
         }
@@ -1323,13 +1318,5 @@ class TriggerKeyGui {
 
     OnChangeEnableTriggerKey() {
         this.Refresh()
-    }
-}
-
-class TriggerKeyGuiArgs {
-    __New() {
-        this.IsToolEdit := false
-        this.tableItem := ""
-        this.tableIndex := ""
     }
 }

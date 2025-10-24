@@ -157,7 +157,7 @@ LoadItemFoldTK(tableItem, foldIndex, PosY) {
 
     btnStr := "触发键"
     TKBtnCon := MyGui.Add("Button", Format("x{} y{} w60 h29", MySoftData.TabPosX + 280, posY - 4), btnStr)
-    TKBtnCon.OnEvent("Click", OnFlodTKEditClick.Bind(tableItem))
+    TKBtnCon.OnEvent("Click", OnFlodTKEditClick.Bind(TkCon, tableItem))
     conInfo := ItemConInfo(TKBtnCon, tableItem, foldIndex)
     conInfo.IsTitle := true
     tableItem.AllConArr.Push(conInfo)
@@ -580,21 +580,21 @@ OnItemEditTriggerStr(tableItem, btn, *) {
     index := tableItem.ConIndexMap[btn].index
     triggerStr := tableItem.TKConArr[index].Value
     MyTriggerStrGui.SureBtnAction := (sureTriggerStr) => tableItem.TKConArr[index].Value := sureTriggerStr
-    args := TriggerKeyGuiArgs()
-    args.IsToolEdit := false
-    MyTriggerStrGui.ShowGui(triggerStr, args)
+    MyTriggerStrGui.ShowGui(triggerStr, 0, false)
 }
 
 ;编辑按键宏触发键
 OnItemEditTriggerKey(tableItem, btn, *) {
     index := tableItem.ConIndexMap[btn].index
     triggerKey := tableItem.TKConArr[index].Value
-    MyTriggerKeyGui.SureBtnAction := (sureTriggerKey) => tableItem.TKConArr[index].Value := sureTriggerKey
-    args := TriggerKeyGuiArgs()
-    args.IsToolEdit := false
-    args.tableItem := tableItem
-    args.tableIndex := index
-    MyTriggerKeyGui.ShowGui(triggerKey, args)
+
+    SureAction(sureTriggerKey, holdTime) {
+        tableItem.TKConArr[index].Value := sureTriggerKey
+        tableItem.HoldTimeArr[index] := holdTime
+    }
+
+    MyTriggerKeyGui.SureBtnAction := SureAction
+    MyTriggerKeyGui.ShowGui(triggerKey, tableItem.HoldTimeArr[index], false)
 }
 
 ;编辑定时器
@@ -680,8 +680,9 @@ OnFoldBtnClick(tableItem, btn, *) {
 
     tableItem.AllGroup[foldIndex].Move(, , , afterHei)
 
-    MySlider.SwitchTab(tableItem)
-    UpdateItemConPos(tableItem, true)
+    ; MySlider.SwitchTab(tableItem)
+    ; UpdateItemConPos(tableItem, true)
+    MySlider.RefreshTab()
 }
 
 OnFlodTKTypeChange(tableItem, con, *) {
@@ -696,17 +697,17 @@ OnFlodTKChange(tableItem, con, *) {
     foldInfo.TKArr[foldIndex] := con.Value
 }
 
-OnFlodTKEditClick(TKEditCon,tableItem, con, *) {
-    index := tableItem.ConIndexMap[con].index
-    triggerKey := tableItem.TKConArr[index].Value
-    MyTriggerKeyGui.SureBtnAction := (sureTriggerKey, holdTime) => {
-        
+OnFlodTKEditClick(TKEditCon, tableItem, con, *) {
+    foldInfo := tableItem.FoldInfo
+    foldIndex := tableItem.ConIndexMap[con].itemConInfo.FoldIndex
+    SureAction(sureTriggerKey, holdTime) {
+        TKEditCon.Value := sureTriggerKey
+        foldInfo.TKArr[foldIndex] := sureTriggerKey
+        foldInfo.HoldTimeArr[foldIndex] := holdTime
     }
-    args := TriggerKeyGuiArgs()
-    args.IsToolEdit := false
-    args.tableItem := tableItem
-    args.tableIndex := index
-    MyTriggerKeyGui.ShowGui(TKEditCon.Value, args)
+
+    MyTriggerKeyGui.SureBtnAction := SureAction
+    MyTriggerKeyGui.ShowGui(TKEditCon.Value, foldInfo.HoldTimeArr[foldIndex], false)
 }
 
 ;刷新函数
