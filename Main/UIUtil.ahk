@@ -650,6 +650,13 @@ AddSettingUI(index) {
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
 
+    con := MyGui.Add("CheckBox", Format("x{} y{}", posX + 315, posY), "菜单轮位置固定")
+    MySoftData.FixedMenuWheelCtrl := con
+    MySoftData.FixedMenuWheelCtrl.Value := MySoftData.FixedMenuWheel
+    MySoftData.FixedMenuWheelCtrl.OnEvent("Click", OnMenuWheelPosChanged)
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
+
     posY += 40
     con := MyGui.Add("GroupBox", Format("x{} y{} w870 h100", posX + 10, posY), "下拉框选项")
     conInfo := ItemConInfo(con, tableItem, 1)

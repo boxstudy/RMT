@@ -485,7 +485,7 @@ OnItemAddFoldBtnClick(tableItem, btn, *) {
 }
 
 OnItemAddMenuItem(tableItem, foldIndex) {
-    loop 6 {
+    loop 8 {
         foldInfo := tableItem.FoldInfo
         isMenu := CheckIsMenuMacroTable(tableItem.Index)
         titleHeight := isMenu ? 85 : 55

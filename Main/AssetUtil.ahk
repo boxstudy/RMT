@@ -343,6 +343,7 @@ LoadMainSetting() {
     ToolCheckInfo.OCRTypeValue := IniRead(IniFile, IniSection, "OCRType", 1)
     MySoftData.IsExecuteShow := IniRead(IniFile, IniSection, "IsExecuteShow", true)
     MySoftData.IsBootStart := IniRead(IniFile, IniSection, "IsBootStart", false)
+    MySoftData.FixedMenuWheel := IniRead(IniFile, IniSection, "FixedMenuWheel", false)
     MySoftData.MutiThreadNum := IniRead(IniFile, IniSection, "MutiThreadNum", 3)
     MySoftData.SoftBGColor := IniRead(IniFile, IniSection, "SoftBGColor", "f0f0f0")
     MySoftData.NoVariableTip := IniRead(IniFile, IniSection, "NoVariableTip", true)
@@ -445,7 +446,7 @@ ReadTableItemInfo(index) {
         defaultFoldInfo := ItemFoldInfo()
         defaultFoldInfo.RemarkArr := ["RMT默认初始化配置"]
         defaultFoldInfo.FrontInfoArr := [""]
-        IndexSpanValue := savedModeArrStr == "" ? "无-无" : savedModeArrStr == "1" ? "1-1" : "1-6"
+        IndexSpanValue := savedModeArrStr == "" ? "无-无" : savedModeArrStr == "1" ? "1-1" : "1-8"
         defaultFoldInfo.IndexSpanArr := [IndexSpanValue]
         defaultFoldInfo.FoldStateArr := [false]
         defaultFoldInfo.ForbidStateArr := [false]
@@ -571,16 +572,16 @@ GetTableItemDefaultInfo(index) {
         savedTimingSerialStr := "Timing000002"
     }
     else if (symbol == "Menu") {
-        savedTKArrStr := "πππππ"
-        savedHoldTimeArrStr := "500π500π500π500π500π500"
-        savedModeArrStr := "1π1π1π1π1π1"
-        savedForbidArrStr := "0π0π0π0π0π0"
-        savedProcessNameStr := "πππππ"
-        savedRemarkArrStr := "πππππ"
-        savedLoopCountStr := "1π1π1π1π1π1"
-        savedTriggerTypeStr := "1π1π1π1π1π1"
-        savedSerialeArrStr := "000003π000004π000005π000006π000007π00008"
-        savedTimingSerialStr := "Timing000003πTiming000004πTiming000005πTiming000006πTiming000007πTiming000008"
+        savedTKArrStr := "πππππππ"
+        savedHoldTimeArrStr := "500π500π500π500π500π500π500π500"
+        savedModeArrStr := "1π1π1π1π1π1π1π1"
+        savedForbidArrStr := "0π0π0π0π0π0π0π0"
+        savedProcessNameStr := "πππππππ"
+        savedRemarkArrStr := "πππππππ"
+        savedLoopCountStr := "1π1π1π1π1π1π1π1"
+        savedTriggerTypeStr := "1π1π1π1π1π1π1π1"
+        savedSerialeArrStr := "000003π000004π000005π000006π000007π00008π0000012π000013"
+        savedTimingSerialStr := "Timing000003πTiming000004πTiming000005πTiming000006πTiming000007πTiming000008πTiming0000012πTiming0000013"
     }
     else if (symbol == "Timing") {
         savedTKArrStr := ""

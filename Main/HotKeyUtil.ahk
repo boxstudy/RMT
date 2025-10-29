@@ -929,6 +929,12 @@ OnBootStartChanged(*) {
     IniWrite(MySoftData.BootStartCtrl.Value, IniFile, IniSection, "IsBootStart")
 }
 
+OnMenuWheelPosChanged(*) {
+    global MySoftData ; 访问全局变量
+    MySoftData.FixedMenuWheel := !MySoftData.FixedMenuWheel
+    IniWrite(MySoftData.FixedMenuWheel, IniFile, IniSection, "FixedMenuWheel")
+}
+
 ;按键模拟
 SendGameModeKeyClick(KeyArrStr, holdTime, tableItem, index, keyType) {
     KeyArr := GetPressKeyArr(KeyArrStr)

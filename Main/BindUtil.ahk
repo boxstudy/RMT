@@ -407,8 +407,9 @@ BindTabHotKey() {
     loop MySoftData.TabNameArr.Length {
         tableItem := MySoftData.TableInfo[A_Index]
         tableIndex := A_Index
-        if (tableIndex > 2)
-            return
+        canBind := tableIndex == 1 || tableIndex == 2 || tableIndex == 6
+        if (!canBind)
+            continue
 
         for index, value in tableItem.ModeArr {
             if (GetItemFoldForbidState(tableItem, index))

@@ -211,6 +211,8 @@ class SoftData {
         this.ShowWinCtrl := ""
         this.IsBootStart := false
         this.BootStartCtrl := ""
+        this.FixedMenuWheel := false
+        this.FixedMenuWheelCtrl := ""
         this.NoVariableTip := false
         this.NoVariableTipCtrl := ""
         this.ScreenShotType := 1
