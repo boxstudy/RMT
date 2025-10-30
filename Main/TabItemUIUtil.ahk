@@ -78,7 +78,7 @@ LoadItemFoldTitle(tableItem, foldIndex, PosY) {
     tableItem.ConIndexMap[FrontCon] := MacroItemInfo(-10000, conInfo)
 
     con := MyGui.Add("Button", Format("x{} y{}", MySoftData.TabPosX + 422, posY - 3), "编辑")
-    con.OnEvent("Click", OnFoldFrontInfoEdit.Bind(FrontCon))
+    con.OnEvent("Click", OnFoldFrontInfoEdit.Bind(tableItem, FrontCon))
     conInfo := ItemConInfo(con, tableItem, foldIndex)
     conInfo.IsTitle := true
     tableItem.AllConArr.Push(conInfo)
@@ -655,7 +655,10 @@ OnFoldFrontInfoChange(tableItem, con, *) {
     foldInfo.FrontInfoArr[foldIndex] := con.text
 }
 
-OnFoldFrontInfoEdit(FrontCon, con, *) {
+OnFoldFrontInfoEdit(tableItem, FrontCon, con, *) {
+    foldInfo := tableItem.FoldInfo
+    foldIndex := tableItem.ConIndexMap[con].itemConInfo.FoldIndex
+    MyFrontInfoGui.SureAction := ()=> foldInfo.FrontInfoArr[foldIndex] := FrontCon.text
     MyFrontInfoGui.ShowGui(FrontCon)
 }
 

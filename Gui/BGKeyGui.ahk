@@ -860,6 +860,7 @@ class BGKeyGui {
     OnSureHotkey() {
         triggerKey := this.HotkeyCon.Value
         triggerKey := StrReplace(triggerKey, ",", "逗号")
+        triggerKey := StrReplace(triggerKey, "Insert", "Ins")
 
         this.CheckedBox := GetComboKeyArr(triggerKey)
         this.RefreshCheckedBox()

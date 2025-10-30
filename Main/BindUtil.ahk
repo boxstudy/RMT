@@ -425,10 +425,11 @@ BindTabHotKey() {
             actionArr := GetMacroAction(tableIndex, index)
             isJoyKey := RegExMatch(tableItem.TKArr[index], "Joy")
             isHotstring := SubStr(tableItem.TKArr[index], 1, 1) == ":"
-            frontInfo := GetItemFrontInfo(tableItem, index)
+            frontInfo := GetParamsWinInfoStr(GetItemFrontInfo(tableItem, index))
+            realFrontStr := GetParamsWinInfoStr(frontInfo)
 
-            if (frontInfo != "") {
-                HotIfWinActive(GetParamsWinInfoStr(frontInfo))
+            if (realFrontStr != "") {
+                HotIfWinActive(realFrontStr)
             }
 
             if (isJoyKey) {
@@ -472,7 +473,7 @@ InitTriggerKeyMap() {
         }
         info := TriggerKeyInfo()
         info.macroType := 1
-        info.itemIndex := tableItem.Index
+        info.tableIndex := tableItem.Index
         info.itemIndex := index
         MySoftData.TriggerKeyMap[key].AddData(info)
     }

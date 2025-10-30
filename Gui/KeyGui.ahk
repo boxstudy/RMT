@@ -33,6 +33,7 @@ class KeyGui {
     OnSureHotkey() {
         triggerKey := this.HotkeyCon.Value
         triggerKey := StrReplace(triggerKey, ",", "逗号")
+        triggerKey := StrReplace(triggerKey, "Insert", "Ins")
         this.RefreshCheckBox(triggerKey)
 
         this.Refresh()

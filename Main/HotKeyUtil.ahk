@@ -402,14 +402,14 @@ OnOutput(tableItem, cmd, index) {
     Data := GetMacroCMDData(OutputFile, paramArr[2])
     Content := ""
     if (Data.ContentType == 1)
-        Content := GetOutPutContent(tableItem, index, Data.Text)
+        Content := GetReplaceVarText(tableItem, index, Data.Text)
     else if (Data.ContentType == 2) {
         hasValue := TryGetVariableValue(&Content, tableItem, index, Data.VariName)
         if (!hasValue)
             return
     }
     else if (Data.ContentType == 3) {
-        Content := GetOutPutContent(tableItem, index, Data.Text)
+        Content := GetReplaceVarText(tableItem, index, Data.Text)
         hasValue := TryGetVariableValue(&VariValue, tableItem, index, Data.VariName, false)
         if (hasValue)
             Content := Content "" VariValue
@@ -593,10 +593,10 @@ OnExVariableOnce(tableItem, index, Data) {
         allText .= value.text "`n"
     }
     allText := Trim(allText)
-
+    ExtractStr := GetReplaceVarText(tableItem, index, Data.ExtractStr)
     for _, value in TextObjs {
-        VariableValueArr := ExtractNumbers(value.Text, Data.ExtractStr)
-        VariableValueArr := Data.ExtractStr == "" && allText != "" ? [allText] : VariableValueArr
+        VariableValueArr := ExtractNumbers(value.Text, ExtractStr)
+        VariableValueArr := ExtractStr == "" && allText != "" ? [allText] : VariableValueArr
         if (VariableValueArr == "")
             continue
 

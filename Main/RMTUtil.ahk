@@ -814,6 +814,9 @@ FormatIntegerWithCommas(num) {
 }
 
 OpenMenuWheel(MenuIndex) {
+    if (MySoftData.CurMenuWheelIndex == MenuIndex)
+        return
+
     MySoftData.CurMenuWheelIndex := MenuIndex
     MyMenuWheel.ShowGui(MenuIndex)
 }
@@ -825,6 +828,9 @@ CloseMenuWheel() {
 
     style := WinGetStyle(MyMenuWheel.Gui.Hwnd)
     isVisible := (style & 0x10000000)  ; 0x10000000 = WS_VISIBLE
-    if (isVisible)
+    if (isVisible) {
+        MyMenuWheel.ToggleFunc(false)
         MyMenuWheel.Gui.Hide()
+    }
+
 }

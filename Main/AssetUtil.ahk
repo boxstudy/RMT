@@ -1344,7 +1344,7 @@ GetMacroCMDData(fileName, serialStr) {
     return Data
 }
 
-GetOutPutContent(tableItem, tableIndex, text) {
+GetReplaceVarText(tableItem, tableIndex, text) {
     matches := []  ; 初始化空数组
     pos := 1  ; 从字符串开头开始搜索
 

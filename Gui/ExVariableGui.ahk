@@ -317,9 +317,10 @@ class ExVariableGui {
 
         NameArr := []
         ValueArr := []
+        ExtractStr := this.GetReplaceVarText(Data.ExtractStr)
         for _, value in TextObjs {
-            VariableValueArr := ExtractNumbers(value.Text, Data.ExtractStr)
-            VariableValueArr := Data.ExtractStr == "" && allText != "" ? [allText] : VariableValueArr
+            VariableValueArr := ExtractNumbers(value.Text, ExtractStr)
+            VariableValueArr := ExtractStr == "" && allText != "" ? [allText] : VariableValueArr
             if (VariableValueArr == "")
                 continue
 
@@ -392,5 +393,47 @@ class ExVariableGui {
         if (MySoftData.DataCacheMap.Has(this.Data.SerialStr)) {
             MySoftData.DataCacheMap.Delete(this.Data.SerialStr)
         }
+    }
+
+    GetReplaceVarText(text) {
+        matches := []  ; 初始化空数组
+        pos := 1  ; 从字符串开头开始搜索
+
+        while (pos := RegExMatch(text, "\{(.*?)\}", &match, pos)) {
+            matches.Push(match[1])  ; 把花括号内的内容存入数组
+            pos += match.Len  ; 移动到匹配结束位置，继续搜索
+        }
+
+        Content := text
+        for index, value in matches {
+            hasValue := this.TryGetVariableValue(&variValue, value, false)
+            if (hasValue)
+                Content := StrReplace(Content, "{" value "}", variValue)
+        }
+        return Content
+    }
+
+    TryGetVariableValue(&Value, variableName, variTip := true) {
+        if (IsNumber(variableName)) {
+            Value := variableName
+            return true
+        }
+
+        if (variableName == "当前鼠标坐标X" || variableName == "当前鼠标坐标Y") {
+            CoordMode("Mouse", "Screen")
+            MouseGetPos &mouseX, &mouseY
+            Value := variableName == "当前鼠标坐标X" ? mouseX : mouseY
+            return true
+        }
+
+        GlobalVariableMap := MySoftData.VariableMap
+        if (GlobalVariableMap.Has(variableName)) {
+            Value := GlobalVariableMap[variableName]
+            return true
+        }
+
+        if (variTip)
+            ShowNoVariableTip(variableName)
+        return false
     }
 }

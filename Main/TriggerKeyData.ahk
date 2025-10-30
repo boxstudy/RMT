@@ -64,7 +64,8 @@ class TriggerKeyData {
         tableItem := MySoftData.TableInfo[1]
         for index, value in OriArr {
             infoStr := value.GetFrontStr()
-            if (infoStr == "")
+            realInfoStr := GetParamsWinInfoStr(infoStr)
+            if (realInfoStr == "")
                 continue
 
             if (MyMouseInfo.CheckIfMatch(infoStr, false))
@@ -74,7 +75,9 @@ class TriggerKeyData {
         ; 如果没有找到任何符合条件的窗口
         if (ResArr.Length == 0) {
             for index, value in OriArr {
-                if (value.GetFrontStr() == "")
+                infoStr := value.GetFrontStr()
+                realInfoStr := GetParamsWinInfoStr(infoStr)
+                if (realInfoStr == "")
                     ResArr.Push(value)
             }
         }
@@ -208,7 +211,7 @@ class TriggerKeyInfo {
     GetFrontStr() {
         tableItem := MySoftData.TableInfo[this.tableIndex]
         if (this.macroType == 1)
-            return GetItemFrontInfo(tableItem, this.tableIndex)
+            return GetItemFrontInfo(tableItem, this.itemIndex)
         else if (this.macroType == 2) {
             return tableItem.FoldInfo.FrontInfoArr[this.foldIndex]
         }

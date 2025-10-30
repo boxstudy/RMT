@@ -4,6 +4,7 @@ class FrontInfoGui {
     __new() {
         this.Gui := ""
         this.InfoAction := () => this.RefreshMouseInfo()
+        this.SureAction := ""
         this.frontInfoCon := ""
         this.InfoTogCon := ""
         this.TopTogCon := ""
@@ -39,7 +40,6 @@ class FrontInfoGui {
 
         this.OnTogClick()
     }
-
 
     AddGui() {
         MyGui := Gui(, "前台信息编辑器")
@@ -203,6 +203,11 @@ class FrontInfoGui {
         this.frontInfoCon.Value := this.GetInfoStr()
         this.ToggleFunc(false)
         this.Gui.Hide()
+        if (this.SureAction != "") {
+            action := this.SureAction
+            action()
+            this.SureAction := ""
+        }
     }
 
     OnTogClick(*) {
