@@ -40,6 +40,7 @@
 #Include Main\VariableUtil.ahk
 #Include Main\FixCompatUtil.ahk
 #Include Main\TriggerKeyData.ahk
+#Include Main\FolderPackager.ahk
 SetWorkingDir A_ScriptDir
 DetectHiddenWindows true
 Persistent

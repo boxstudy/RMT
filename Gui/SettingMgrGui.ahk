@@ -54,11 +54,16 @@ class SettingMgrGui {
 
         PosX += 80
         this.OperSettingCon := MyGui.Add("DropDownList", Format("x{} y{} w{} R5", PosX, PosY - 3, 200), [])
-        PosX := 80
+        PosX := 40
         PosY += 35
         con := MyGui.Add("Button", Format("x{} y{} w100", PosX, PosY), "加载配置")
         con.OnEvent("Click", this.OnLoadBtnClick.Bind(this))
-        PosX := 270
+
+        PosX := 160
+        con := MyGui.Add("Button", Format("x{} y{} w100", PosX, PosY), "导出配置")
+        con.OnEvent("Click", this.OnPackBtnClick.Bind(this))
+
+        PosX := 280
         con := MyGui.Add("Button", Format("x{} y{} w100", PosX, PosY), "删除配置")
         con.OnEvent("Click", this.OnDelBtnClick.Bind(this))
 
@@ -72,12 +77,17 @@ class SettingMgrGui {
 
         PosX += 80
         this.OperNameEditCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 3, 200), "")
-        PosX := 70
+        PosX := 40
         PosY += 35
         con := MyGui.Add("Button", Format("x{} y{} w100", PosX, PosY), "新增配置")
         con.OnEvent("Click", this.OnAddBtnClick.Bind(this))
-        PosX := 250
-        con := MyGui.Add("Button", Format("x{} y{} w120", PosX, PosY), "复制当前配置")
+
+        PosX := 160
+        con := MyGui.Add("Button", Format("x{} y{} w100", PosX, PosY), "导入配置")
+        con.OnEvent("Click", this.OnLoadBtnClick.Bind(this))
+
+        PosX := 280
+        con := MyGui.Add("Button", Format("x{} y{} w100", PosX, PosY), "复制配置")
         con.OnEvent("Click", this.OnCopyBtnClick.Bind(this))
 
         MyGui.Show(Format("w{} h{}", 420, 300))
@@ -96,6 +106,41 @@ class SettingMgrGui {
                 "- 此操作是针对覆盖配置文件后，调整当前配置的路径`n"
             )
             MsgBox(tipStr)
+        }
+    }
+
+    OnPackBtnClick(*) {
+        folderPath := A_WorkingDir "\Setting\" this.OperSettingCon.Text
+        outputFile := A_Desktop "\" this.OperSettingCon.Text ".rmt"
+        FolderPackager.PackFolder(folderPath, outputFile)
+    }
+
+    OnUnpackBtnClick(*) {
+        ; 选择 .rmt 文件
+        selectedFile := FileSelect(1, , "选择要导入的 RMT 文件", "RMT Files (*.rmt)")
+        if selectedFile == ""  ; 用户取消了选择
+            return
+
+        ; 获取文件的绝对路径和文件名（不含扩展名）
+        SplitPath selectedFile, &fileName, , &fileExt, &fileNameNoExt
+
+        ; 检查文件扩展名
+        if fileExt != "rmt" {
+            MsgBox("请选择 .rmt 文件！", "错误", 0x10)
+            return
+        }
+
+        ; 设置输出文件夹路径
+        outputFolder := A_WorkingDir "\Setting\" fileNameNoExt
+
+        try {
+            ; 解包文件
+            FolderPackager.UnpackFile(selectedFile, outputFolder)
+            RepairPath(fileNameNoExt, SearchFile, 1)
+            RepairPath(fileNameNoExt, SearchProFile, 1)
+            MsgBox("解包完成！`n文件: " fileName "`n输出到: " outputFolder, "成功", 0x40)
+        } catch as e {
+            MsgBox("解包失败: " e.Message, "错误", 0x10)
         }
     }
 
