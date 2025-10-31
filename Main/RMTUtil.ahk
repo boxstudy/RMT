@@ -589,7 +589,7 @@ SelectArea() {
 }
 
 ;DataType 1:SearchData
-RepairPath(FilePath, DataType) {
+RepairPath(SettingName, FilePath, DataType) {
     SymbolArr := ["Search"]
     Symbol := SymbolArr[DataType]
     if (!FileExist(FilePath))
@@ -614,8 +614,19 @@ RepairPath(FilePath, DataType) {
         if (DataType == 1 && Data.SearchImagePath != "") {
             StartPos := InStr(Data.SearchImagePath, "Setting", 1)
             SubPath := SubStr(Data.SearchImagePath, StartPos)
-            NewPath := A_WorkingDir "\" SubPath
-            if (!FileExist(Data.SearchImagePath) && FileExist(NewPath)) {
+            NewPath1 := A_WorkingDir "\" SubPath
+
+            FileNameArr := StrSplit(NewPath1, "\")
+            NewPath2 := ""
+            for index, value in FileNameArr {
+                if (value == "Setting" && index + 2 <= FileNameArr.Length && FileNameArr[index + 2] == "Images") {
+                    FileNameArr[index + 1] := SettingName
+                }
+                NewPath2 .= value "\"
+            }
+
+            NewPath := RTrim(NewPath2, "\")
+            if (FileExist(NewPath)) {
                 Data.SearchImagePath := NewPath
                 saveStr := JSON.stringify(Data, 0)
                 IniWrite(saveStr, SearchProFile, IniSection, Data.SerialStr)

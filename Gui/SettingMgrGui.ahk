@@ -84,8 +84,8 @@ class SettingMgrGui {
     }
 
     OnRepairBtnClick(*) {
-        hasRepair := RepairPath(SearchFile, 1)
-        hasRepair := hasRepair || RepairPath(SearchProFile, 1)
+        hasRepair := RepairPath(MySoftData.CurSettingName, SearchFile, 1)
+        hasRepair := hasRepair || RepairPath(MySoftData.CurSettingName, SearchProFile, 1)
         if (hasRepair) {
             MsgBox("路径已修复")
         }
@@ -151,8 +151,8 @@ class SettingMgrGui {
         SourcePath := A_WorkingDir "\Setting\" MySoftData.CurSettingName
         DestPath := A_WorkingDir "\Setting\" this.OperNameEditCon.Value
         DirCopy(SourcePath, DestPath, 1)
-        RepairPath(SearchFile, 1)
-        RepairPath(SearchProFile, 1)
+        RepairPath(this.OperNameEditCon.Value, SearchFile, 1)
+        RepairPath(this.OperNameEditCon.Value, SearchProFile, 1)
         MsgBox(Format("成功复制<{}>配置到<{}>中", MySoftData.CurSettingName, this.OperNameEditCon.Value))
         this.Refresh()
     }

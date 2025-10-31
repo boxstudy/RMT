@@ -206,6 +206,8 @@ class TriggerKeyInfo {
         this.tableIndex := 1    ;table索引
         this.itemIndex := 1     ;item索引
         this.foldIndex := 1     ;折叠框索引
+
+        this.forbidTrigger := false
     }
 
     GetFrontStr() {
@@ -259,6 +261,8 @@ class TriggerKeyInfo {
     }
 
     Action() {
+        if (this.forbidTrigger)
+            return
         tableItem := MySoftData.TableInfo[this.tableIndex]
         triggerType := this.GetTriggerType()
         if (this.macroType == 1) {
@@ -274,6 +278,8 @@ class TriggerKeyInfo {
                 TriggerMacroHandler(this.tableIndex, this.itemIndex)
         }
         else {
+            if (triggerType == 3)
+                this.forbidTrigger := true
             OpenMenuWheel(this.foldIndex)
         }
     }
@@ -293,6 +299,8 @@ class TriggerKeyInfo {
             }
         }
         else {
+            if (triggerType == 3)
+                this.forbidTrigger := false
             CloseMenuWheel()
         }
     }
