@@ -158,7 +158,7 @@ class MenuWheelGui {
         isHover := this.CheckMouseHover(mx, my) ; ✅检测悬停
         if (isHover)
             return
-    
+
         this.CheckDistanceAndAngle(mx, my)
     }
 
@@ -183,7 +183,7 @@ class MenuWheelGui {
         distance := Sqrt(deltaX * deltaX + deltaY * deltaY)
 
         ; 距离检查
-        if (distance < this.Scale(170)) {
+        if (distance < this.Scale(160)) {
             return
         }
 
@@ -193,19 +193,19 @@ class MenuWheelGui {
         if (Abs(deltaX) > Abs(deltaY)) {
             ; 水平方向为主
             if (deltaX > 0) {
-                sector := (ratio < 0.414) ? 1 : (deltaY > 0 ? 2 : 8)  ; 右、右上、右下
+                sector := (ratio < 0.414) ? 3 : (deltaY > 0 ? 4 : 2)  ; 右、右下、右上
             } else {
-                sector := (ratio < 0.414) ? 5 : (deltaY > 0 ? 4 : 6)  ; 左、左上、左下
+                sector := (ratio < 0.414) ? 7 : (deltaY > 0 ? 6 : 8)  ; 左、左下、左上
             }
         } else {
             ; 垂直方向为主
             if (deltaY > 0) {
-                sector := (ratio > 2.414) ? 3 : (deltaX > 0 ? 2 : 4)  ; 上、右上、左上
+                sector := (ratio > 2.414) ? 5 : (deltaX > 0 ? 4 : 6)  ; 下、右下、左下
             } else {
-                sector := (ratio > 2.414) ? 7 : (deltaX > 0 ? 8 : 6)  ; 下、右下、左下
+                sector := (ratio > 2.414) ? 1 : (deltaX > 0 ? 2 : 8)  ; 上、右上、左上
             }
         }
-
+        MsgBox(sector)
         ; 触发对应的事件
         this.OnBtnClick(sector)
     }

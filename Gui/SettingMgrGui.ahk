@@ -25,7 +25,7 @@ class SettingMgrGui {
         this.SettingList := StrSplit(MySoftData.SettingArrStr, "π")
         this.OperSettingCon.Delete()
         this.OperSettingCon.Add(this.SettingList)
-        this.OperSettingCon.Text := this.SettingList[1]
+        this.OperSettingCon.Text := MySoftData.CurSettingName
     }
 
     AddGui() {
@@ -115,6 +115,10 @@ class SettingMgrGui {
             value := MySoftData.CurSettingName == settingName ? newFileName.Value : settingName
             NewSettingArrStr .= value "π"
         }
+
+        oldDir := A_WorkingDir "\Setting\" MySoftData.CurSettingName
+        newDir := A_WorkingDir "\Setting\" newFileName.Value
+        DirMove(oldDir, newDir)
         NewSettingArrStr := RTrim(NewSettingArrStr, "π")
         IniWrite(NewSettingArrStr, IniFile, IniSection, "SettingArrStr")
 
@@ -163,9 +167,27 @@ class SettingMgrGui {
         }
         ; 设置输出文件夹路径
         outputFolder := A_WorkingDir "\Setting\" fileNameNoExt
-        isVaild := this.CheckIfExistAndValid(fileNameNoExt)
+
+        isVaild := this.IsValidFolderName(fileNameNoExt)
         if (!isVaild) {
+            MsgBox("配置名不符合文件目录命名规则，请修改")
             return false
+        }
+
+        LoadType := 1   ;增加导入 覆盖导入 自增导入
+        for settingName in this.SettingList {
+            if (fileNameNoExt == settingName) {
+                SelectType := CustomMsgBox("配置已存在，请选择导入方式：", "配置导入选项", "覆盖导入|自增导入|取消导入")
+                if (SelectType == 0 || SelectType == 3)
+                    return
+
+                LoadType := SelectType + 1
+                break
+            }
+        }
+
+        if (LoadType == 3) {    ;自增导入
+            fileNameNoExt := IncrementTextNumber(fileNameNoExt)
         }
 
         try {
@@ -173,8 +195,14 @@ class SettingMgrGui {
             FolderPackager.UnpackFile(selectedFile, outputFolder)
             RepairPath(fileNameNoExt, SearchFile, 1)
             RepairPath(fileNameNoExt, SearchProFile, 1)
-            MySoftData.SettingArrStr .= "π" fileNameNoExt
-            IniWrite(MySoftData.SettingArrStr, IniFile, IniSection, "SettingArrStr")
+
+            if (LoadType != 2) {
+                MySoftData.SettingArrStr .= "π" fileNameNoExt
+                IniWrite(MySoftData.SettingArrStr, IniFile, IniSection, "SettingArrStr")
+            }
+
+            MySoftData.CurSettingName := fileNameNoExt
+            IniWrite(MySoftData.CurSettingName, IniFile, IniSection, "CurSettingName")
             MsgBox(fileNameNoExt " 配置导入成功")
             Reload()
         } catch as e {

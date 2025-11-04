@@ -1453,3 +1453,75 @@ GetItemFrontInfo(tableItem, itemIndex) {
 
     return ""
 }
+
+CustomMsgBox(Text := "", Title := "", Buttons := "") {
+    Result := -1
+    
+    ; 解析按钮字符串
+    ButtonArray := StrSplit(Buttons, "|")
+    ButtonCount := ButtonArray.Length
+    
+    ; 创建 GUI
+    MyGui := Gui()
+    MyGui.Title := Title
+    MyGui.OnEvent("Close", GuiClose)
+    MyGui.OnEvent("Escape", GuiClose)
+    
+    ; 添加提示文本
+    MyGui.Add("Text", "w300 Center", Text)
+    
+    ; 动态创建按钮 - 统一 Y 坐标
+    ButtonWidth := 80
+    ButtonHeight := 30
+    ButtonSpacing := 10
+    ButtonY := 40  ; 统一的 Y 坐标位置
+    
+    TotalWidth := (ButtonWidth * ButtonCount) + (ButtonSpacing * (ButtonCount - 1))
+    StartX := (300 - TotalWidth) // 2  ; 居中显示
+    
+    Loop ButtonCount {
+        CurrentX := StartX + (ButtonWidth + ButtonSpacing) * (A_Index - 1)
+        Btn := MyGui.Add("Button", "w" ButtonWidth " h" ButtonHeight " x" CurrentX " y" ButtonY, ButtonArray[A_Index])
+        Btn.OnEvent("Click", ButtonClicked.Bind(A_Index))
+    }
+    
+    ; 显示 GUI 并等待
+    MyGui.Show()
+    
+    ; 等待用户选择
+    while Result == -1
+        Sleep(50)
+    
+    return Result
+    
+    ; 按钮点击事件
+    ButtonClicked(Index, Ctrl, Info) {
+        Result := Index
+        MyGui.Destroy()
+    }
+    
+    ; 关闭 GUI 事件
+    GuiClose(*) {
+        Result := 0
+        MyGui.Destroy()
+    }
+}
+
+IncrementTextNumber(str) {
+    ; 使用正则表达式匹配文本+数字的模式
+    if (RegExMatch(str, "^(.*?)(\d+)$", &match)) {
+        ; 如果匹配成功，提取文本部分和数字部分
+        textPart := match[1]
+        numberPart := match[2]
+        
+        ; 将数字部分转换为整数并加1
+        newNumber := Integer(numberPart) + 1
+        
+        ; 返回文本+新数字
+        return textPart . newNumber
+    }
+    else {
+        ; 如果没有数字部分，直接在后面添加"1"
+        return str . "1"
+    }
+}
