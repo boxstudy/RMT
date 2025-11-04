@@ -185,6 +185,19 @@ InitFilePath() {
         DirCreate(A_WorkingDir "\Setting\" MySoftData.CurSettingName "\Images\ScreenShot")
     }
 
+    filePath := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\使用说明&署名.txt"
+    if (!FileExist(filePath)) {
+        FileAppend("资源名称：`n`n" .
+            "原作者：`n" .
+            "功能：`n" .
+            "   `n" .
+            "操作说明：`n" .
+            "   `n" .
+            "协议：CC BY - NC - SA 4.0`n" .
+            "原始来源：RMT(若梦兔) 软件导出`n" .
+            "说明：仅限非商业用途，转载请注明来源并保持相同协议 `n", filePath)
+    }
+
     if (!DirExist(A_WorkingDir "\Images")) {
         DirCreate(A_WorkingDir "\Images")
     }
