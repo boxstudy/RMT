@@ -9,14 +9,7 @@ RMT (RuoMengTu) is a free, open-source macro tool built on AutoHotkey v2, design
 Let the code handle the tedious work—you have more meaningful things to do.
 
 ## Navigation
-- [📚 Navigation Homepage (If the page fails to load, please check the documents below)](https://zclucas.github.io/RMT/)
-- [⚡ Quick Start Guide](Web/快速上手.md)
-- [📖 Software Glossary](Web/词条介绍.md)
-- [💻 Software Command Manual](Web/指令手册.md)
-- [🎮 Controller Function Guide](Web/手柄功能指南.md)
-- [❓ FAQ & Solutions](Web/问题及应对措施.md)
-- [🛠️ Development Guide](Web/开发指南.md)
-- [📝 Changelog](Web/更新日志.md)
+- [📚 Help you get started quickly, understand the entries, and become a pro in 10 minutes.](https://zclucas.github.io/RMT/)
 
 ## Software Updates & Feature Demo Videos
 - [ButtonAssist: First Update Video, A Journey of a Thousand Miles Begins with a Single Step](https://www.bilibili.com/video/BV1EU411f7dC)
