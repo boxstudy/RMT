@@ -1,40 +1,97 @@
-#### Legal
-[Disclaimer](DISCLAIMER.md) | [Open Source License](LICENSE)
+<h1 align="center">🐇 RMT (Ruomeng Rabbit)</h1>
 
-# RMT (RuoMengTu)
-**Read this in other languages: [简体中文](README.md).**
+<p align="center">
+  <b>A Free & Open-Source Macro Tool based on AutoHotkey v2</b><br>
+  Let code handle the boring stuff — I’ve got more meaningful things to do.
+</p>
 
-## Introduction
-RMT (RuoMengTu) is a free, open-source macro tool built on AutoHotkey v2, designed to enable various automation operations through simple configuration. It supports recording and playback of keyboard macros, mouse macros, and controller macros, while integrating features like image recognition, color recognition, and text recognition to meet diverse needs ranging from game assistance to office productivity enhancement. Whether dealing with repetitive tasks or complex interactive workflows, RMT can handle them with a single click, making your work and entertainment easier and more efficient.
-Let the code handle the tedious work—you have more meaningful things to do.
+<p align="center">
+  <a href="DISCLAIMER.md">📜 Disclaimer</a> | 
+  <a href="LICENSE">🧾 License</a> |
+  <a href="README.md">🌏 中文版</a>
+</p>
 
-## Navigation
-- [📚 Help you get started quickly, understand the entries, and become a pro in 10 minutes.](https://zclucas.github.io/RMT/)
+---
 
-## Software Updates & Feature Demo Videos
-- [ButtonAssist: First Update Video, A Journey of a Thousand Miles Begins with a Single Step](https://www.bilibili.com/video/BV1EU411f7dC)
-- [ButtonAssist v1.0: Feature Optimization, No GUI](https://www.bilibili.com/video/BV1nYvieSETz)
-- [ButtonAssist v2.0: Supports Process-Specific Triggering](https://www.bilibili.com/video/BV1ojtHeUEjR)
-- [ButtonAssist v3.0: Image Search Feature Released](https://www.bilibili.com/video/BV1i5CEYtEok)
-- [ButtonAssist v4.0: Graphical Editing + Controller Macros](https://www.bilibili.com/video/BV13Lr1YREMr)
-- [ButtonAssist v5.0: Macro Command Recording Feature Debut](https://www.bilibili.com/video/BV1kr9NYZE36)
-- [ButtonAssist v6.0: Added Text Recognition Capability](https://www.bilibili.com/video/BV1UCZPYGEN8)
-- [RMT v1.0: Enhanced Logic Commands, Major Software Capability Leap](https://www.bilibili.com/video/BV1oWVRzaEzk)
-- [RMT v1.0.5: Multi-threading, Commands Operate Independently](https://www.bilibili.com/video/BV1yATVzVE4E)
-- [RMT v1.0.6: Controller Macro Recording, Multi-point Color Picking Tutorial](https://www.bilibili.com/video/BV1jD3eziE4d)
-- [RMT v1.0.7: Scheduled Macros, Free Positioning, Configuration Management](https://www.bilibili.com/video/BV1T2e8zAEaf)
-- [RMT v1.0.8: Live Q&A Session](https://www.bilibili.com/video/BV1CYx1zmEx3)
+## 🧩 Introduction
 
-📺 For more content, follow the Bilibili account: [浮生若梦的兔子](https://space.bilibili.com/397441876?spm_id_from=333.1007.0.0)
+**RMT (Ruomeng Rabbit)** is a free, open-source macro automation tool built with **AutoHotkey v2**,  
+designed to help users easily create powerful automation through simple configuration.
 
-## Donation Support
-RMT (RuoMengTu) is completely free and open-source. If you find it helpful, consider buying me a coffee ☕. Your support motivates continuous updates and maintenance!
+✨ **Key Features:**
+- ⌨️ Record & replay **keyboard / mouse / gamepad macros**
+- 🔍 **Image, color, and text recognition** for visual automation
+- ⚙️ **Logic control, conditional flow, multi-thread execution**
+- 💡 Widely applicable to gaming, office automation, and script workflows
+
+> 💬 Whether it’s repetitive actions or complex interactive flows, RMT lets your PC work *automatically*.
+
+---
+
+## ☕ Support the Project
+
+RMT (Ruomeng Rabbit) is completely free and open-source.  
+If you find it helpful, you can buy me a coffee! ☕
 
 | WeChat | Alipay |
-|--------|--------|
-| ![WeChat Donation](Images/Soft/WeiXin.png) | ![Alipay Donation](Images/Soft/ZhiFuBao.png) |
+|---------|---------|
+| ![WeChat Donate](Images/Soft/WeiXin.png) | ![Alipay Donate](Images/Soft/ZhiFuBao.png) |
 
-If that's not possible right now, you can also support the project by **giving it a Star** or **sharing it with friends**!
+> 💡 Your support motivates me to keep improving RMT!  
+> Can’t donate? No worries — starring ⭐ the project or sharing it also helps a lot!
+
+---
+
+## 🚀 Quick Start
+
+📘 [Click here to learn RMT in 10 minutes!](https://zclucas.github.io/RMT/)  
+A complete guide to understand core terms and configuration logic — from beginner to advanced.
+
+---
+
+## 🎥 Updates & Feature Showcase
+
+| Version | Highlights | Video Link |
+|----------|-------------|-------------|
+| ButtonAssist 1.0 | The beginning! | [BV1EU411f7dC](https://www.bilibili.com/video/BV1EU411f7dC) |
+| ButtonAssist 2.0 | Process-specific triggers | [BV1ojtHeUEjR](https://www.bilibili.com/video/BV1ojtHeUEjR) |
+| ButtonAssist 3.0 | Image search added | [BV1i5CEYtEok](https://www.bilibili.com/video/BV1i5CEYtEok) |
+| ButtonAssist 4.0 | GUI editor + gamepad macros | [BV13Lr1YREMr](https://www.bilibili.com/video/BV13Lr1YREMr) |
+| ButtonAssist 5.0 | Macro recording introduced | [BV1kr9NYZE36](https://www.bilibili.com/video/BV1kr9NYZE36) |
+| ButtonAssist 6.0 | Text recognition joined the lineup | [BV1UCZPYGEN8](https://www.bilibili.com/video/BV1UCZPYGEN8) |
+| RMT 1.0 | Logic commands upgrade | [BV1oWVRzaEzk](https://www.bilibili.com/video/BV1oWVRzaEzk) |
+| RMT 1.0.7 | Timed macros, custom overlays, config manager | [BV1T2e8zAEaf](https://www.bilibili.com/video/BV1T2e8zAEaf) |
+| RMT 1.0.8 | Live Q&A session | [BV1CYx1zmEx3](https://www.bilibili.com/video/BV1CYx1zmEx3) |
+
+🎬 More videos on Bilibili:  
+👉 [Ruomeng Rabbit Studio](https://space.bilibili.com/397441876?spm_id_from=333.1007.0.0)
+
+---
+
+## 💾 Download
+
+| Source | Link | Description |
+|--------|------|-------------|
+| 🐱 GitHub | [RMT Releases](https://github.com/zclucas/RMT/releases) | Latest version (official) |
+| 🅶 Gitee | [RMT Releases](https://gitee.com/fateman/RMT/releases) | Faster access in China |
+| 📦 Baidu Cloud | [Download](https://pan.baidu.com/s/1taK1EjL1-Yt4u9IeFQgV6g) (Code: `RMMT`) | |
+| ☁️ Aliyun Drive | [Download](https://www.alipan.com/s/e2Fq9NSt6Fo) | Backup mirror |
+
+---
+
+## 🧠 Shared Config Repository
+
+RMT encourages sharing of user-created macro configurations!  
+You can explore or contribute your configs here:
+
+| 🌍 Platform | 🔗 Repository | 📦 Note |
+|:--:|:--:|:--|
+| 🐱 **GitHub** | [RMT-Setting (GitHub)](https://github.com/zclucas/RMT-Setting) | Global access |
+| 🅶 **Gitee** | [RMT-Setting (Gitee)](https://gitee.com/fateman/RMT-Setting) | Stable in China |
+
+> 💡 Share your creative macros via **Issues** or **Pull Requests**, and grow with the RMT community!
+
+---
 
 ## ⭐ Special Thanks to the Following Supporters
 | Date (2025)          | Nickname | Remarks                        | Date (2025)          | Nickname | Remarks                        |
@@ -98,14 +155,28 @@ If that's not possible right now, you can also support the project by **giving i
 | 2025/11/1 00:03:51   | *一     |                                | 2025/11/1 9:03:30    | *正        | Great macro, sending support first |
 | 2025/11/1 13:00:43   | China UnionPay |                   |
 
-## Communication Groups
-- QQ Groups: (Submit optimization suggestions, share usage experience, report issues)
-  - [Group 1: 837661891](https://qm.qq.com/q/DgpDumEPzq) (Full)
-  - [Group 2: 1050141694](https://qm.qq.com/q/uZszuxabPW)
-  - [Channel ID: pd63973680](https://pd.qq.com/s/5wyjvj7zw)
+## 💬 Community
 
-## How to Contribute
-1. Fork this repository
-2. Create a new branch: `feat_xxx`
-3. Commit your changes
-4. Create a Pull Request, and we will review it as soon as possible
+Join our official community to exchange ideas and experiences with other RMT users!
+
+- 💡 QQ Groups  
+  - [Group 1: 837661891](https://qm.qq.com/q/DgpDumEPzq) (Full)  
+  - [Group 2: 1050141694](https://qm.qq.com/q/uZszuxabPW)
+- 🔊 QQ Channel: [pd63973680](https://pd.qq.com/s/5wyjvj7zw)
+
+---
+
+## 🤝 Contributing
+
+Contributions are always welcome!  
+Developers can help improve RMT by adding new features, fixing bugs, or enhancing docs.
+
+```bash
+# 1. Fork this repo
+# 2. Create your feature branch
+git checkout -b feat_xxx
+# 3. Commit your changes
+git commit -m "Add feature: xxx"
+# 4. Push to your branch
+git push origin feat_xxx
+# 5. Open a Pull Request
