@@ -56,7 +56,7 @@ LoadItemFoldTitle(tableItem, foldIndex, PosY) {
     conInfo.IsTitle := true
     tableItem.AllConArr.Push(conInfo)
 
-    con := MyGui.Add("Edit", Format("x{} y{} w150", MySoftData.TabPosX + 60, posY), FoldInfo.RemarkArr[
+    con := MyGui.Add("Edit", Format("x{} y{} w150 h27", MySoftData.TabPosX + 60, posY), FoldInfo.RemarkArr[
         foldIndex])
     con.OnEvent("Change", OnFoldRemarkChange.Bind(tableItem))
     conInfo := ItemConInfo(con, tableItem, foldIndex)

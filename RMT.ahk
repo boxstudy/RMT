@@ -91,6 +91,3 @@ PluginInit()
 TimingCheck()       ;轮询检测触发
 BindKey()           ;绑定快捷键
 
-; a:: {
-;     WriteToExcel("C:\Users\gh\Desktop\若梦兔测试.xlsx", 1, 5, 5, "4444")
-; }
