@@ -1,54 +1,98 @@
-#### Legal
-[免责声明](DISCLAIMER.md) | [开源许可证](LICENSE)
+<p align="center">
+  <img src="Images/Soft/RMT_Logo.png" alt="RMT Logo" width="160" height="160">
+</p>
 
-# RMT（若梦兔）
-**Read this in other languages: [English](README.en.md).**
+<h1 align="center">🐇 RMT（若梦兔）</h1>
 
-## 介绍
-RMT（若梦兔）是一款基于 AutoHotkey v2 的免费开源按键宏工具，致力于让用户通过简单配置即可实现各类自动化操作。它支持按键宏、鼠标宏及手柄宏的录制与播放，同时集成了图片识别、颜色识别和文本识别等功能，满足从游戏辅助到办公效率提升的多种需求。无论是重复性操作还是复杂交互流程，RMT 都能一键化处理，让你的工作和娱乐更加轻松、高效。
-让代码去做无聊的工作吧——我有更有意义的事情要做。
+<p align="center">
+  <b>基于 AutoHotkey v2 的免费开源按键宏工具</b><br>
+  让代码去做无聊的工作吧——我有更有意义的事情要做。
+</p>
 
-## 使用导航
-- [📚 帮助你快速上手，理解词条，10分钟秒变大神](https://zclucas.github.io/RMT/)
+<p align="center">
+  <a href="DISCLAIMER.md">📜 免责声明</a> | 
+  <a href="LICENSE">🧾 开源许可证</a> |
+  <a href="README.en.md">🌐 English</a>
+</p>
 
-## 软件更新与功能演示视频
-- [ButtonAssist: 第一条更新视频，千里之行始于足下](https://www.bilibili.com/video/BV1EU411f7dC)
-- [ButtonAssist v1.0：功能优化，无图形界面](https://www.bilibili.com/video/BV1nYvieSETz)
-- [ButtonAssist v2.0：支持指定进程触发](https://www.bilibili.com/video/BV1ojtHeUEjR)
-- [ButtonAssist v3.0：图片搜索功能上线](https://www.bilibili.com/video/BV1i5CEYtEok)
-- [ButtonAssist v4.0：图形化编辑+手柄宏](https://www.bilibili.com/video/BV13Lr1YREMr)
-- [ButtonAssist v5.0：宏指令录制功能登场](https://www.bilibili.com/video/BV1kr9NYZE36)
-- [ButtonAssist v6.0：加入文本识别能力](https://www.bilibili.com/video/BV1UCZPYGEN8)
-- [RMT v1.0：逻辑指令增强，软件能力跃升](https://www.bilibili.com/video/BV1oWVRzaEzk)
-- [RMT v1.0.5：多线程，指令互不干扰](https://www.bilibili.com/video/BV1yATVzVE4E)
-- [RMT v1.0.6：手柄宏录制，多点取色教学](https://www.bilibili.com/video/BV1jD3eziE4d)
-- [RMT v1.0.7：定时宏，自由贴，配置管理](https://www.bilibili.com/video/BV1T2e8zAEaf)
-- [RMT v1.0.8: 直播交流解答](https://www.bilibili.com/video/BV1CYx1zmEx3)
+---
 
-📺 更多内容欢迎关注 B 站账号：[浮生若梦的兔子](https://space.bilibili.com/397441876?spm_id_from=333.1007.0.0)
+## 🧩 项目介绍
 
-## 下载途径
+**RMT（若梦兔）** 是一款基于 **AutoHotkey v2** 的免费开源按键宏工具，  
+致力于让用户通过简单配置即可实现各类自动化操作。  
 
-1. [Github发行版](https://github.com/zclucas/RMT/releases)
-2. [Gitee发行版](https://gitee.com/fateman/RMT/releases)
-3. [百度网盘](https://pan.baidu.com/s/1taK1EjL1-Yt4u9IeFQgV6g) 提取码: RMMT 
-4. [阿里云盘](https://www.alipan.com/s/e2Fq9NSt6Fo)
+✨ 支持功能包括：
+- ⌨️ **按键宏 / 鼠标宏 / 手柄宏** 的录制与播放  
+- 🔍 **图片识别、颜色识别、文本识别** 等视觉自动化能力  
+- ⚙️ **逻辑判断、流程控制、多线程执行**  
+- 💡 可广泛应用于游戏辅助、办公自动化、脚本执行等场景  
 
-## 配置共享仓库
+> 💬 无论是重复操作还是复杂交互流程，RMT 都能让你的电脑「自动工作」。
 
-1. [Github配置共享仓库](https://github.com/zclucas/RMT-Setting)
-2. [Gitee配置共享仓库](https://gitee.com/fateman/RMT-Setting)
+---
 
-## 打赏支持
-RMT（若梦兔）是完全免费的开源项目，如果你觉得它对你有帮助，欢迎请我喝杯咖啡☕，你的支持将激励我不断更新与维护！
+## 🚀 快速上手
+
+📘 [点击这里，10分钟上手 RMT！](https://zclucas.github.io/RMT/)  
+帮助你理解核心词条与配置逻辑，从入门到精通。
+
+---
+
+## 🎥 软件更新与功能演示
+
+| 版本 | 功能亮点 | 视频链接 |
+|------|-----------|-----------|
+| ButtonAssist 1.0 | 首个版本，起航！ | [BV1EU411f7dC](https://www.bilibili.com/video/BV1EU411f7dC) |
+| ButtonAssist 2.0 | 支持指定进程触发 | [BV1ojtHeUEjR](https://www.bilibili.com/video/BV1ojtHeUEjR) |
+| ButtonAssist 3.0 | 图片搜索功能上线 | [BV1i5CEYtEok](https://www.bilibili.com/video/BV1i5CEYtEok) |
+| ButtonAssist 4.0 | 图形化编辑 + 手柄宏 | [BV13Lr1YREMr](https://www.bilibili.com/video/BV13Lr1YREMr) |
+| ButtonAssist 5.0 | 宏指令录制登场 | [BV1kr9NYZE36](https://www.bilibili.com/video/BV1kr9NYZE36) |
+| ButtonAssist 6.0 | 文本识别能力加入 | [BV1UCZPYGEN8](https://www.bilibili.com/video/BV1UCZPYGEN8) |
+| RMT 1.0 | 逻辑指令增强，功能跃升 | [BV1oWVRzaEzk](https://www.bilibili.com/video/BV1oWVRzaEzk) |
+| RMT 1.0.7 | 定时宏、自定义贴图、配置管理 | [BV1T2e8zAEaf](https://www.bilibili.com/video/BV1T2e8zAEaf) |
+| RMT 1.0.8 | 直播交流与答疑 | [BV1CYx1zmEx3](https://www.bilibili.com/video/BV1CYx1zmEx3) |
+
+🎬 更多内容请关注 B 站账号：  
+👉 [浮生若梦的兔子](https://space.bilibili.com/397441876?spm_id_from=333.1007.0.0)
+
+---
+
+## 💾 下载方式
+
+| 来源 | 地址 | 说明 |
+|------|------|------|
+| 🐙 GitHub | [RMT Releases](https://github.com/zclucas/RMT/releases) | 最新版本首发 |
+| 🧧 Gitee | [RMT Releases](https://gitee.com/fateman/RMT/releases) | 国内访问更快 |
+| 📦 百度网盘 | [点击下载](https://pan.baidu.com/s/1taK1EjL1-Yt4u9IeFQgV6g)（提取码: `RMMT`） | |
+| ☁️ 阿里云盘 | [点击下载](https://www.alipan.com/s/e2Fq9NSt6Fo) | 备用通道 |
+
+---
+
+## 🧠 配置共享仓库
+
+| 平台 | 链接 |
+|------|------|
+| 🐙 [GitHub 配置仓库](https://github.com/zclucas/RMT-Setting) |
+| 🧧 [Gitee 配置仓库](https://gitee.com/fateman/RMT-Setting) |
+
+---
+
+## ☕ 打赏支持
+
+RMT（若梦兔）是完全免费的开源项目。  
+如果你觉得它对你有帮助，欢迎请我喝杯咖啡！☕
 
 | 微信 | 支付宝 |
 |------|--------|
 | ![微信打赏](Images/Soft/WeiXin.png) | ![支付宝打赏](Images/Soft/ZhiFuBao.png) |
 
-如果暂时不方便，也可以通过 **Star 本项目** 或 **分享给朋友** 支持！
+> 💡 你的支持将激励我不断维护与优化！  
+> 如果暂时不方便，也可以通过 **Star⭐ 项目** 或 **分享给朋友** 支持我！
 
-## ⭐ 特别感谢以下朋友的打赏支持
+---
+
+## 🌟 特别感谢支持者名单
 | 时间（2025）         | 昵称     | 备注             | 时间（2025）       | 昵称     | 备注             |
 |----------------------|----------|------------------|---------------------|----------|------------------|
 | 2025/5/12 21:33:06   | *物      | 第一个赞助       | 2022/5/12 21:48:19   | *援      | 帅啊             |
@@ -111,16 +155,27 @@ RMT（若梦兔）是完全免费的开源项目，如果你觉得它对你有�
 | 2025/11/1 13:00:43   | 银联云闪 |                   |
 
 
-## 交流群
-- QQ 群：(提交优化方案，使用心得分享，问题反馈)
-  - [1群：837661891](https://qm.qq.com/q/DgpDumEPzq)（已满）
-  - [2群：1050141694](https://qm.qq.com/q/uZszuxabPW)
-  - [频道号：pd63973680](https://pd.qq.com/s/5wyjvj7zw)
+## 💬 交流群
 
-## 如何参与贡献
-1. Fork 本仓库
-2. 新建分支：`feat_xxx`
-3. 提交代码
-4. 创建 Pull Request，我们将尽快审核
+加入 RMT 官方交流群，与大家一起交流使用心得与优化方案！
+
+- 💡 QQ 群  
+  - [1群：837661891](https://qm.qq.com/q/DgpDumEPzq)（已满）  
+  - [2群：1050141694](https://qm.qq.com/q/uZszuxabPW)
+- 🔊 QQ 频道：[pd63973680](https://pd.qq.com/s/5wyjvj7zw)
 
 ---
+
+## 🤝 参与贡献
+
+欢迎开发者们一起完善 RMT！
+
+```bash
+# 1. Fork 本仓库
+# 2. 新建分支
+git checkout -b feat_xxx
+# 3. 提交更改
+git commit -m "新增功能：xxx"
+# 4. 推送分支
+git push origin feat_xxx
+# 5. 创建 Pull Request
