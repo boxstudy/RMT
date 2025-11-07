@@ -51,7 +51,7 @@ class SubMacroGui {
         MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 70, 20), "宏类型:")
 
         PosX += 70
-        this.TypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 5, 100), ["当前宏", "按键宏", "字串宏",
+        this.TypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 5, 110), ["当前宏", "按键宏", "字串宏",
             "菜单宏", "定时宏", "宏"])
         this.TypeCon.Value := 1
         this.TypeCon.OnEvent("Change", (*) => this.OnRefresh())
@@ -64,20 +64,20 @@ class SubMacroGui {
 
         PosX := 10
         PosY += 40
-        MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 70, 20), "调用方式:")
+        MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 70, 20), "操作类型:")
 
         PosX += 70
-        this.CallTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 5, 100), ["插入", "触发", "暂停",
+        this.CallTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 5, 110), ["插入到当前宏", "触发", "暂停",
             "取消暂停", "终止"])
         this.CallTypeCon.Value := 1
 
         PosX := 10
         PosY += 25
-        MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY, 20), "插入: 指定宏按循环次数插入（无限循环仅插入一次）")
+        MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY, 20), "插入到当前宏: 指定宏按循环次数插入（无限循环仅插入一次）")
 
         PosX := 10
         PosY += 25
-        MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY, 20), "触发: 与正常的按键触发等效")
+        MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY, 20), "触发: 运行指定宏，指定宏和当前宏同时执行")
 
         PosY += 30
         PosX := 200

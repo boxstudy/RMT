@@ -69,7 +69,7 @@ class MMProGui {
 
         PosY += 20
         PosX := 10
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), "游戏视角：调整原神等游戏视角、此模式下相对位移，速度100")
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), "游戏视角：调整原神等游戏视角")
 
         PosY += 30
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), "坐标位置X:")
@@ -111,9 +111,10 @@ class MMProGui {
 
         PosX := 320
         this.IsGameViewCon := MyGui.Add("Checkbox", Format("x{} y{} w{} h{}", PosX, PosY, 100, 20), "游戏视角")
+        this.isGameViewCon.OnEvent("Click", (*) => this.OnTypeChange())
 
         PosY += 35
-        PosX := 175
+        PosX := 190
         btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 40), "确定")
         btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
 
@@ -139,6 +140,8 @@ class MMProGui {
         this.SpeedCon.Value := this.Data.Speed
         this.CountCon.Value := this.Data.Count
         this.IntervalCon.Value := this.Data.Interval
+    
+        this.OnTypeChange()
     }
 
     TriggerMacro() {
@@ -195,6 +198,23 @@ class MMProGui {
         else {
             SetTimer this.PosAction, 0
             Hotkey("F1", (*) => this.SureMMPro(), "Off")
+        }
+    }
+
+    OnTypeChange() {
+        isGameView := this.isGameViewCon.Value
+
+        if (isGameView) {
+            this.IsRelativeCon.Value := 1
+            this.ActionTypeCon.Value := 1
+            this.SpeedCon.Value := 100
+            this.ActionTypeCon.Enabled := false
+            this.SpeedCon.Enabled := false
+
+        }
+        else {
+            this.ActionTypeCon.Enabled := true
+            this.SpeedCon.Enabled := true
         }
     }
 
