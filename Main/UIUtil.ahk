@@ -793,11 +793,11 @@ AddHelpUI(index) {
 
     posX := MySoftData.TabPosX + 440
     con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 130, 30),
-    "配置开源：")
+    "共享配置仓库：")
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Link", Format("x{} y{} w{} h{}", posX + 85, posY, 500, 30),
+    con := MyGui.Add("Link", Format("x{} y{} w{} h{}", posX + 120, posY, 500, 30),
     '<a href="https://gitee.com/fateman/RMT-Setting">https://gitee.com/fateman/RMT-Setting</a>')
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
     conInfo := ItemConInfo(con, tableItem, 1)
@@ -818,11 +818,11 @@ AddHelpUI(index) {
 
     posX := MySoftData.TabPosX + 440
     con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 130, 30),
-    "配置开源：")
+    "共享配置仓库：")
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Link", Format("x{} y{} w{} h{}", posX + 85, posY, 500, 30),
+    con := MyGui.Add("Link", Format("x{} y{} w{} h{}", posX + 120, posY, 500, 30),
     '<a href="https://github.com/zclucas/RMT-Setting">https://github.com/zclucas/RMT-Setting</a>')
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
     conInfo := ItemConInfo(con, tableItem, 1)
