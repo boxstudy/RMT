@@ -448,7 +448,7 @@ class TriggerStrGui {
 
         PosY += 25
         PosX := 20
-        con := MyGui.Add("Text", Format("x{} y{} h{} w{}", PosX, PosY, 20, 1000), "备注:字串长度必须大于1,但不能超过40, 鼠标点击会重置字串识别器")
+        con := MyGui.Add("Text", Format("x{} y{} h{} w{}", PosX, PosY, 20, 1000), "备注:字串长度必须大于0,但不能超过40, 鼠标点击会重置字串识别器")
 
         PosY += 30
         PosX := 20
@@ -479,7 +479,7 @@ class TriggerStrGui {
     OnSureBtnClick() {
         isValid := this.CheckConfigValid()
         if (!isValid) {
-            MsgBox("字串长度必须大于1,但不能超过40,有异议请联系UP: 浮生若梦的兔子。")
+            MsgBox("字串长度必须大于0,但不能超过40,有异议请联系UP: 浮生若梦的兔子。")
             return
         }
 
@@ -493,7 +493,7 @@ class TriggerStrGui {
     OnSaveBtnClick() {
         isValid := this.CheckConfigValid()
         if (!isValid) {
-            MsgBox("字串长度必须大于1,但不能超过40,有异议请联系UP: 浮生若梦的兔子。")
+            MsgBox("字串长度必须大于0,但不能超过40,有异议请联系UP: 浮生若梦的兔子。")
             return
         }
 
@@ -559,7 +559,7 @@ class TriggerStrGui {
 
     CheckConfigValid() {
         len := StrLen(this.Str)
-        if (len >= 40 || len <= 1)
+        if (len >= 40 || len <= 0)
             return false
 
         return true
@@ -568,7 +568,7 @@ class TriggerStrGui {
     SureTriggerStr() {
         isValid := this.CheckConfigValid()
         if (!isValid) {
-            MsgBox("字串长度必须大于1,但不能超过40,有异议请联系UP: 浮生若梦的兔子。")
+            MsgBox("字串长度必须大于0,但不能超过40,有异议请联系UP: 浮生若梦的兔子。")
             return false
         }
 
