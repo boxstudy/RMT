@@ -178,6 +178,20 @@ class TriggerKeyData {
                 OnGetSelectAreaDown(this.Key)
             }
         }
+
+        numberArr := ["1", "2", "3", "4", "5", "6", "7", "8"]
+        loop numberArr.Length {
+            if (this.Key == numberArr[A_Index]) {
+                index := Integer(this.Key)
+                if (!IsObject(MyMenuWheel.Gui))
+                    return
+
+                style := WinGetStyle(MyMenuWheel.Gui.Hwnd)
+                isVisible := (style & 0x10000000)  ; 0x10000000 = WS_VISIBLE
+                if (isVisible)
+                    MyMenuWheel.OnBtnClick(index)
+            }
+        }
     }
 
     HandleSoftHotKeyUp() {

@@ -299,7 +299,7 @@ class SoftData {
         this.CMDFontColor := "000000"
 
         this.TriggerKeyMap := Map()
-        this.SoftHotKeyArr := ["~WheelUp", "~WheelDown", "~LButton", "~Left", "~Right", "~Up", "~Down", "~Enter"]
+        this.SoftHotKeyArr := ["~WheelUp", "~WheelDown", "~LButton", "~Left", "~Right", "~Up", "~Down", "~Enter", "~1", "~2", "~3", "~4", "~5", "~6", "~7", "~8"]
         this.SelectAreaAction := "" ;左键框选范围回调   显示框选范围
         this.GetAreaAction := ""    ;左键框选范围回调   不显示框选范围
         this.StartAreaPosX := ""

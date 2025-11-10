@@ -36,9 +36,9 @@ Compat1_0_8F7MMPro(filePath) {
         if (Data == "")
             continue
 
-        ;如果有了，那就说明是新版本，不需要兼容处理
-        if (ObjHasOwnProp(Data, "ActionType"))
-            break
+        ; ;如果有了，那就说明是新版本，不需要兼容处理
+        ; if (ObjHasOwnProp(Data, "ActionType"))
+        ;     break
 
         Data.ActionType := 1
         saveStr := JSON.stringify(Data, 0)
