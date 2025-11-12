@@ -1,45 +1,36 @@
 class TableItem {
     __New() {
-        this.TKArr := []
-        this.MacroArr := []
-        this.HoldTimeArr := []
-        this.ModeArr := []
-        this.ForbidArr := []
-        this.FrontInfoArr := []
-        this.LoopCountArr := []
-        this.RemarkArr := []
-        this.TriggerTypeArr := []
-        this.TKConArr := []
-        this.MacroConArr := []
-        this.KeyBtnConArr := []
-        this.MacroBtnConArr := []
-        this.DeleteBtnConArr := []
-        this.ModeConArr := []
-        this.ForbidConArr := []
-        this.FrontInfoConArr := []
-        this.LoopCountConArr := []
-        this.RemarkTipConArr := []
-        this.RemarkConArr := []
-        this.ColorConArr := []
-        this.ColorStateArr := []
-        this.IndexConArr := []
-        this.TriggerTypeConArr := []
-        this.TimingSerialArr := []
+        this.SerialArr := []    ;每个item的序列码
+        this.TKArr := []        ;触发键
+        this.MacroArr := []     ;宏内容
+        this.HoldTimeArr := []  ;按住时间
+        this.ModeArr := []      ;按键模式
+        this.ForbidArr := []    ;禁止
+        this.LoopCountArr := [] ;循环次数
+        this.RemarkArr := []    ;备注
+        this.TriggerTypeArr := []   ;触发类型
+        this.TimingSerialArr := []  ;定时配置序列码
 
-        this.SerialArr := []
-        this.HoldKeyArr := []
-        this.KilledArr := []
+        this.ColorStateArr := []
+        this.ColorConArr := []
+        this.IndexConArr := []
+        this.RemarkConArr := []
+        this.TriggerTypeConArr := []
+        this.LoopCountConArr := []
+
+        this.HoldKeyArr := []       ;记录当前按下的按键，以便结束时松开
+        this.KilledArr := []        ;标记结束状态
         this.PauseArr := []         ;暂停
         this.ActionCount := []      ; 记录执行次数，用于循环次数判断
         this.ToggleStateArr := []   ; 触发键开关状态
         this.ToggleActionArr := []   ; 触发键开关Action
         this.VariableMapArr := []    ;  每条宏对应的变量映射
-        this.UnderPosY := 0
-        this.Index := 0             ;   tableIndex
+        this.UnderPosY := 0         ; table的最大PosY
+        this.Index := 0             ;   table的Index
         this.SliderValue := 0       ;   滑动值
         this.OffSetPosY := 0        ;   偏移值
-        this.AllConArr := []
-        this.AllGroup := []
+        this.AllConArr := []        ;   table中所有的con
+        this.AllGroup := []         ; table中所有的group
         this.IsWorkIndexArr := []        ;work正在执行中
 
         this.FoldInfo := ""          ; 折叠筐保存信息
@@ -56,7 +47,7 @@ class ItemFoldInfo {
         this.IndexSpanArr := []     ;范围索引
         this.ForbidStateArr := []   ;禁用状态
         this.FoldStateArr := []    ;折叠状态
-        
+
         ;菜单栏功能
         this.TKTypeArr := []    ;触发类型
         this.TKArr := []        ;触发按键，菜单栏功能
@@ -261,7 +252,8 @@ class SoftData {
         this.EditHotStrCtrl := ""
 
         this.TabNameArr := ["按键宏", "字串宏", "菜单宏", "定时宏", "宏", "按键替换", "工具", "设置", "帮助", "打赏作者", "特别感谢"]
-        this.TabSymbolArr := ["Normal", "String", "Menu", "Timing", "SubMacro", "Replace", "Tool", "Setting", "Help", "Reward", "Thank"]
+        this.TabSymbolArr := ["Normal", "String", "Menu", "Timing", "SubMacro", "Replace", "Tool", "Setting", "Help",
+            "Reward", "Thank"]
         this.TabCtrl := {}
         this.TableInfo := []
 
@@ -299,18 +291,19 @@ class SoftData {
         this.CMDFontColor := "000000"
 
         this.TriggerKeyMap := Map()
-        this.SoftHotKeyArr := ["~WheelUp", "~WheelDown", "~LButton", "~Left", "~Right", "~Up", "~Down", "~Enter", "~1", "~2", "~3", "~4", "~5", "~6", "~7", "~8"]
+        this.SoftHotKeyArr := ["~WheelUp", "~WheelDown", "~LButton", "~Left", "~Right", "~Up", "~Down", "~Enter", "~1",
+            "~2", "~3", "~4", "~5", "~6", "~7", "~8"]
         this.SelectAreaAction := "" ;左键框选范围回调   显示框选范围
         this.GetAreaAction := ""    ;左键框选范围回调   不显示框选范围
         this.StartAreaPosX := ""
         this.StartAreaPosY := ""
-        
+
         this.IsTogStartRecord := false  ;通过开关触发录制
         this.IsTogEndRecord := false    ;通过开关结束录制
-    
+
         this.MacroTotalCount := 0   ;宏运行次数
         this.LastShowMonth := 0     ;
-    
+
         this.CurMenuWheelIndex := -1    ;当先显示的菜单轮盘
     }
 }
