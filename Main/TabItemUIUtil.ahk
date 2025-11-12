@@ -26,9 +26,9 @@ LoadItemFold(index) {
         loop IndexSpan[2] - IndexSpan[1] + 1 {
             itemIndex := A_Index + IndexSpan[1] - 1
             LoadTabItemUI(tableItem, itemIndex, foldIndex, CurUnderPosY)
-            CurUnderPosY += 70
+            CurUnderPosY += 45
             if (!FoldInfo.FoldStateArr[foldIndex])
-                UpdateUnderPosY(index, 70)
+                UpdateUnderPosY(index, 45)
         }
         UpdateUnderPosY(index, 5)
     }
@@ -166,13 +166,15 @@ LoadItemFoldTK(tableItem, foldIndex, PosY) {
 
 LoadItemFoldTip(tableItem, foldIndex, PosY) {
     MyGui := MySoftData.MyGui
-    con := MyGui.Add("Text", Format("x{} y{}", MySoftData.TabPosX + 70, posY), "备注")
+    con := MyGui.Add("Text", Format("x{} y{}", MySoftData.TabPosX + 70, posY), "宏名称")
     tableItem.AllConArr.Push(ItemConInfo(con, tableItem, foldIndex))
-    con := MyGui.Add("Text", Format("x{} y{}", MySoftData.TabPosX + 280, posY), "触发键")
+    con := MyGui.Add("Text", Format("x{} y{}", MySoftData.TabPosX + 265, posY), "触发编辑器")
     tableItem.AllConArr.Push(ItemConInfo(con, tableItem, foldIndex))
     con := MyGui.Add("Text", Format("x{} y{}", MySoftData.TabPosX + 360, posY), "触发类型")
     tableItem.AllConArr.Push(ItemConInfo(con, tableItem, foldIndex))
     con := MyGui.Add("Text", Format("x{} y{}", MySoftData.TabPosX + 440, posY), "循环次数")
+    tableItem.AllConArr.Push(ItemConInfo(con, tableItem, foldIndex))
+    con := MyGui.Add("Text", Format("x{} y{}", MySoftData.TabPosX + 510, posY), "宏编辑器")
     tableItem.AllConArr.Push(ItemConInfo(con, tableItem, foldIndex))
 }
 
@@ -244,8 +246,9 @@ LoadTabItemUI(tableItem, itemIndex, foldIndex, PosY) {
     conInfo := ItemConInfo(LoopCon, tableItem, foldIndex)
     tableItem.AllConArr.Push(conInfo)
     tableItem.ConIndexMap[LoopCon] := MacroItemInfo(ItemIndex, conInfo)
+
     ;编辑
-    con := MyGui.Add("Button", Format("x{} y{} h29", TabPosX + 510, posY - 1), "编辑")
+    con := MyGui.Add("Button", Format("x{} y{} w60 h29", TabPosX + 510, posY - 1), "编辑")
     con.OnEvent("Click", OnItemEditFrontInfo.Bind(tableItem))
     conInfo := ItemConInfo(con, tableItem, foldIndex)
     tableItem.AllConArr.Push(conInfo)
@@ -280,6 +283,11 @@ LoadTabItemUI(tableItem, itemIndex, foldIndex, PosY) {
     conInfo := ItemConInfo(DelCon, tableItem, foldIndex)
     tableItem.AllConArr.Push(conInfo)
     tableItem.ConIndexMap[DelCon] := MacroItemInfo(ItemIndex, conInfo)
+
+    ; LineCon := MyGui.Add("Text", Format("x{} y{} w870 h1 0x10", TabPosX + 20, PosY + 32), "") ; SS_ETCHEDHORZ
+    ; conInfo := ItemConInfo(LineCon, tableItem, foldIndex)
+    ; tableItem.AllConArr.Push(conInfo)
+    ; tableItem.ConIndexMap[LineCon] := MacroItemInfo(ItemIndex, conInfo)
 
     tableItem.ColorStateArr.InsertAt(itemIndex, 0)
     tableItem.ColorConArr.InsertAt(itemIndex, colorCon)
