@@ -444,8 +444,8 @@ ReadTableItemInfo(index) {
         savedTriggerTypeArrStr := defaultInfo[7]
         savedSerialStr := defaultInfo[8]
         savedTimingSerialStr := defaultInfo[9]
-        savedStartTipSoundStr := defaultFoldInfo[10]
-        savedEndTipSoundStr := defaultFoldInfo[11]
+        savedStartTipSoundStr := defaultInfo[10]
+        savedEndTipSoundStr := defaultInfo[11]
 
         defaultFoldInfo := ItemFoldInfo()
         defaultFoldInfo.RemarkArr := ["RMT默认初始化配置"]
@@ -561,6 +561,8 @@ GetTableItemDefaultInfo(index) {
         savedTriggerTypeStr := "1"
         savedSerialeArrStr := "000001"
         savedTimingSerialStr := "Timing000001"
+        savedStartTipSoundStr := "1"
+        savedEndTipSoundStr := "1"
     }
     else if (symbol == "String") {
         savedTKArrStr := ":?*:AA"
@@ -572,6 +574,8 @@ GetTableItemDefaultInfo(index) {
         savedTriggerTypeStr := "1"
         savedSerialeArrStr := "000002"
         savedTimingSerialStr := "Timing000002"
+        savedStartTipSoundStr := "1"
+        savedEndTipSoundStr := "1"
     }
     else if (symbol == "Menu") {
         savedTKArrStr := "πππππππ"
@@ -584,6 +588,8 @@ GetTableItemDefaultInfo(index) {
         savedSerialeArrStr := "000003π000004π000005π000006π000007π00008π0000012π000013"
         savedTimingSerialStr :=
             "Timing000003πTiming000004πTiming000005πTiming000006πTiming000007πTiming000008πTiming0000012πTiming0000013"
+        savedStartTipSoundStr := "1π1π1π1π1π1π1π1"
+        savedEndTipSoundStr := "1π1π1π1π1π1π1π1"
     }
     else if (symbol == "Timing") {
         savedTKArrStr := ""
@@ -595,6 +601,8 @@ GetTableItemDefaultInfo(index) {
         savedTriggerTypeStr := "1"
         savedSerialeArrStr := "000009"
         savedTimingSerialStr := "Timing000009"
+        savedStartTipSoundStr := "1"
+        savedEndTipSoundStr := "1"
     }
     else if (symbol == "SubMacro") {
         savedTKArrStr := ""
@@ -606,6 +614,8 @@ GetTableItemDefaultInfo(index) {
         savedTriggerTypeStr := "1"
         savedSerialeArrStr := "0000010"
         savedTimingSerialStr := "Timing000010"
+        savedStartTipSoundStr := "1"
+        savedEndTipSoundStr := "1"
     }
     else if (symbol == "Replace") {
         savedTKArrStr := "l"
@@ -617,9 +627,11 @@ GetTableItemDefaultInfo(index) {
         savedLoopCountStr := "1"
         savedSerialeArrStr := "000011"
         savedTimingSerialStr := "Timing000011"
+        savedStartTipSoundStr := "1"
+        savedEndTipSoundStr := "1"
     }
     return [savedTKArrStr, savedHoldTimeArrStr, savedModeArrStr, savedForbidArrStr, savedRemarkArrStr,
-        savedLoopCountStr, savedTriggerTypeStr, savedSerialeArrStr, savedTimingSerialStr]
+        savedLoopCountStr, savedTriggerTypeStr, savedSerialeArrStr, savedTimingSerialStr, savedStartTipSoundStr, savedEndTipSoundStr]
 }
 
 SaveTableItemInfo(index) {
@@ -686,7 +698,7 @@ GetSavedTableItemInfo(index) {
         SerialArrStr .= tableItem.SerialArr[A_Index]
         TimingSerialArrStr .= tableItem.TimingSerialArr[A_Index]
         StartTipSoundArrStr .= tableItem.StartTipSoundArr[A_Index]
-        EndTipSoundArrStr := tableItem.EndTipSoundArr[A_Index]
+        EndTipSoundArrStr .= tableItem.EndTipSoundArr[A_Index]
         if (tableItem.ModeArr.Length > A_Index) {
             TKArrStr .= "π"
             ModeArrStr .= "π"

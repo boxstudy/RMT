@@ -249,7 +249,7 @@ LoadTabItemUI(tableItem, itemIndex, foldIndex, PosY) {
     tableItem.ConIndexMap[LoopCon] := MacroItemInfo(ItemIndex, conInfo)
 
     con := MyGui.Add("Button", Format("x{} y{} w60 h29", TabPosX + 510, posY - 1), "设置")
-    con.OnEvent("Click", EditMacroAction.Bind(tableItem))
+    con.OnEvent("Click", OnItemEditMacroSetting.Bind(tableItem))
     conInfo := ItemConInfo(con, tableItem, foldIndex)
     tableItem.AllConArr.Push(conInfo)
     tableItem.ConIndexMap[con] := MacroItemInfo(ItemIndex, conInfo)
@@ -333,8 +333,8 @@ OnItemAddMacroBtnClick(tableItem, btn, *) {
     tableItem.HoldTimeArr.InsertAt(AddIndex, 500)
     tableItem.SerialArr.InsertAt(AddIndex, FormatTime(, "HHmmss"))
     tableItem.TimingSerialArr.InsertAt(AddIndex, GetSerialStr("Timing"))
-    tableItem.StartTipSoundArr.InsertAt(AddIndex, 0)
-    tableItem.EndTipSoundArr.InsertAt(AddIndex, 0)
+    tableItem.StartTipSoundArr.InsertAt(AddIndex, 1)
+    tableItem.EndTipSoundArr.InsertAt(AddIndex, 1)
     tableItem.IsWorkIndexArr.InsertAt(AddIndex, 0)
 
     PosY := 1000000
@@ -576,6 +576,11 @@ OnItemEditTiming(tableItem, btn, *) {
     index := tableItem.ConIndexMap[btn].index
     SerialStr := tableItem.TimingSerialArr[index]
     MyTimingGui.ShowGui(SerialStr)
+}
+
+OnItemEditMacroSetting(tableItem, btn, *) {
+    index := tableItem.ConIndexMap[btn].index
+    MyMacroSettingGui.ShowGui(tableItem.Index, index)
 }
 
 OnItemEditMacro(tableItem, btn, *) {
