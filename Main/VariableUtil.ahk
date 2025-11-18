@@ -118,7 +118,7 @@ GetLocalVar(macroStr) {
 GetGuiVariableObjArr(curMacroStr, VariableObjArr) {
     ResultArr := []
     ResultMap := GetLocalVar(curMacroStr)
-    SpecialKeyArr := ["当前循环次数", "当前鼠标坐标X", "当前鼠标坐标Y"]
+    SpecialKeyArr := ["宏循环次数", "当前鼠标坐标X", "当前鼠标坐标Y"]
 
     ; 将VariableObjArr中的变量添加到映射中
     for Value in VariableObjArr {

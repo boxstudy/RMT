@@ -442,6 +442,20 @@ class SubMacroData {
     }
 }
 
+class LoopData {
+    __New() {
+        this.SerialStr := ""
+        this.LoopCount := 10    ;循环次数
+        this.CondiType := 1     ;条件类型 1：无 2：退出条件 3：继续条件
+        this.LogicType := 1     ;逻辑关系  1：且    2：或
+        this.ToggleArr := [1, 0, 0, 0]
+        this.NameArr := ["Num1", "Num2", "Num3", "Num4"]
+        this.CompareTypeArr := [1, 1, 1, 1]  ;1大于 2大于等于 3等于 4小于等 5小于 6字符包含 7存在变量
+        this.VariableArr := ["Num1", "Num2", "Num3", "Num4"]
+        this.LoopBody := ""     ;循环体
+    }
+}
+
 class VariableData {
     __New() {
         this.SerialStr := ""

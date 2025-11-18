@@ -319,17 +319,6 @@ class CompareGui {
         if (!valid)
             return
 
-        loop 4 {
-            if (this.ToggleConArr[A_Index].Value) {
-                isVar1 := !IsNumber(this.NameConArr[A_Index].Text)
-                isVar2 := !IsNumber(this.VariableConArr[A_Index].Text)
-                if (isVar1 || isVar2) {
-                    MsgBox(Format("第{}个比较使用变量，无法在编辑器模式下执行指令", A_Index))
-                    return
-                }
-            }
-        }
-
         this.SaveCompareData()
         tableItem := MySoftData.SpecialTableItem
         tableItem.KilledArr[1] := false

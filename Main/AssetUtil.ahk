@@ -765,7 +765,7 @@ InitSingleTableState(tableItem) {
         tableItem.IsWorkIndexArr.Push(false)
 
         VariableMap := Map()
-        VariableMap["当前循环次数"] := 0
+        VariableMap["宏循环次数"] := 0
         tableItem.VariableMapArr.Push(VariableMap)
     }
 }

@@ -14,6 +14,7 @@
 #Include Gui\MacroEditGui.ahk
 #Include Gui\MenuWheelGui.ahk
 #Include Gui\ReplaceKeyGui.ahk
+#Include Gui\LoopGui.ahk
 #Include Gui\TargetGui.ahk
 #Include Gui\ToolRecordSettingGui.ahk
 #Include Gui\VariableListenGui.ahk

@@ -19,7 +19,7 @@ OnTriggerMacroKeyAndInit(tableItem, macro, index) {
     tableItem.KilledArr[index] := false
     tableItem.PauseArr[index] := false
     tableItem.ActionCount[index] := 0
-    tableItem.VariableMapArr[index]["当前循环次数"] := 1
+    tableItem.VariableMapArr[index]["宏循环次数"] := 1
     isContinue := tableItem.TKArr.Has(index) && MySoftData.ContinueKeyMap.Has(tableItem.TKArr[index]) && tableItem.LoopCountArr[
         index] == 1
     isLoop := tableItem.LoopCountArr[index] == -1
@@ -51,7 +51,7 @@ OnTriggerMacroKeyAndInit(tableItem, macro, index) {
         OnTriggerMacroOnce(tableItem, macro, index)
         HandTipSound(tableItem, index, 2, isFirst, isLast)
         tableItem.ActionCount[index]++
-        tableItem.VariableMapArr[index]["当前循环次数"] += 1
+        tableItem.VariableMapArr[index]["宏循环次数"] += 1
     }
     OnFinishMacro(tableItem, macro, index)
 }
@@ -92,6 +92,7 @@ OnTriggerMacroOnce(tableItem, macro, index) {
         IsBGMouse := StrCompare(paramArr[1], "后台鼠标", false) == 0
         IsBGKey := StrCompare(paramArr[1], "后台按键", false) == 0
         IsRMT := StrCompare(paramArr[1], "RMT指令", false) == 0
+        IsLoop := StrCompare(paramArr[1], "循环", false) == 0
 
         if (MySoftData.CMDTip) {
             NoRemark := IsMouseMove || IsPressKey || IsInterval || IsRMT
@@ -153,6 +154,9 @@ OnTriggerMacroOnce(tableItem, macro, index) {
         }
         else if (IsBGKey) {
             OnBGKey(tableItem, cmdArr[A_Index], index)
+        }
+        else if (IsLoop) {
+            OnLoop(tableItem, cmdArr[A_Index], index)
         }
     }
 }
@@ -460,6 +464,101 @@ OnOutput(tableItem, cmd, index) {
                 ExcelColToWrite(Data.FilePath, Data.NameOrSerial, RowValue, Content)
         }
     }
+}
+
+OnLoop(tableItem, cmd, index) {
+    paramArr := StrSplit(cmd, "_")
+    Data := GetMacroCMDData(LoopFile, paramArr[2])
+
+    if (Data.LoopCount == "无限") {
+        loop {
+            tableItem.VariableMapArr[index]["指令循环次数"] := A_Index
+            if (!GetLoopState(tableItem, cmd, index, Data))
+                break
+
+            if (tableItem.KilledArr[index])
+                break
+
+            WaitIfPaused(tableItem.index, index)
+
+            OnTriggerMacroOnce(tableItem, Data.LoopBody, index)
+        }
+    }
+    else {
+        hasValue := TryGetVariableValue(&Value, tableItem, index, Data.LoopCount)
+        if (!hasValue)
+            return
+
+        loop Value {
+            tableItem.VariableMapArr[index]["指令循环次数"] := A_Index
+            if (!GetLoopState(tableItem, cmd, index, Data))
+                break
+
+            if (tableItem.KilledArr[index])
+                break
+
+            WaitIfPaused(tableItem.index, index)
+
+            OnTriggerMacroOnce(tableItem, Data.LoopBody, index)
+        }
+    }
+}
+
+GetLoopState(tableItem, cmd, index, Data) {
+    if (Data.CondiType == 1)
+        return true
+
+    result := Data.LogicType == 1 ? true : false
+    loop 4 {
+        if (!Data.ToggleArr[A_Index])
+            continue
+
+        if (Data.CompareTypeArr[A_Index] == 7) {        ;变量是否存在
+            hasValue := TryGetVariableValue(&Value, tableItem, index, Data.NameArr[A_Index], false)
+            currentComparison := hasValue
+        }
+        else {
+            hasValue := TryGetVariableValue(&Value, tableItem, index, Data.NameArr[A_Index])
+            if (Data.CompareTypeArr[A_Index] == 6) {  ;字符包含的时候可以直接使用字符
+                hasOtherValue := TryGetVariableValue(&OtherValue, tableItem, index, Data.VariableArr[A_Index], false)
+                OtherValue := hasOtherValue ? OtherValue : Data.VariableArr[A_Index]
+                hasOtherValue := true
+            }
+            else {
+                hasOtherValue := TryGetVariableValue(&OtherValue, tableItem, index, Data.VariableArr[A_Index])
+            }
+
+            if (!hasValue || !hasOtherValue) {
+                result := false
+                break
+            }
+
+            switch Data.CompareTypeArr[A_Index] {
+                case 1: currentComparison := Value > OtherValue
+                case 2: currentComparison := Value >= OtherValue
+                case 3: currentComparison := Value == OtherValue
+                case 4: currentComparison := Value <= OtherValue
+                case 5: currentComparison := Value < OtherValue
+                case 6: currentComparison := CheckContainText(Value, OtherValue)
+            }
+        }
+
+        if (Data.LogicType == 1) {
+            result := result && currentComparison
+            if (!result)
+                break
+        } else {
+            result := result || currentComparison
+            if (result)
+                break
+        }
+    }
+
+    if (Data.CondiType == 2)
+        return result
+
+    if (Data.CondiType == 3)
+        return !result
 }
 
 OnSubMacro(tableItem, cmd, index) {

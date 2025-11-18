@@ -15,6 +15,7 @@
 #Include ExVariableGui.ahk
 #Include RMTCMDGui.ahk
 #Include BGKeyGui.ahk
+#Include LoopGui.ahk
 
 class MacroEditGui {
     __new() {
@@ -101,6 +102,10 @@ class MacroEditGui {
         this.SubMacroGui := SubMacroGui()
         this.SubMacroGui.SureBtnAction := (CommandStr) => this.OnSubGuiSureBtnClick(CommandStr)
         this.SubGuiMap.Set("宏操作", this.SubMacroGui)
+
+        this.LoopGui := LoopGui()
+        this.LoopGui.SureBtnAction := (CommandStr) => this.OnSubGuiSureBtnClick(CommandStr)
+        this.SubGuiMap.Set("循环", this.LoopGui)
 
         this.OperationGui := OperationGui()
         this.OperationGui.SureBtnAction := (CommandStr) => this.OnSubGuiSureBtnClick(CommandStr)
@@ -212,6 +217,19 @@ class MacroEditGui {
         btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
         btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.RunGui))
         this.CmdBtnConMap.Set("运行", btnCon)
+    
+        PosX := 15
+        PosY += 40
+        btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), "循环")
+        btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
+        btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.LoopGui))
+        this.CmdBtnConMap.Set("循环", btnCon)
+
+        PosX += 85
+        btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), "宏操作")
+        btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
+        btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.SubMacroGui))
+        this.CmdBtnConMap.Set("宏操作", btnCon)
 
         PosX := 15
         PosY += 40
