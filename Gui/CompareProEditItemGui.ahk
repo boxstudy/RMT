@@ -184,8 +184,14 @@ class CompareProEditItemGui {
             condiStr := ""
             loop 4 {
                 if (this.ToggleConArr[A_Index].Value) {
-                    condiStr .= this.NameConArr[A_Index].Text " " this.CompareTypeConArr[A_Index].Text " " this.VariableConArr[
-                        A_Index].Text
+                    if (this.CompareTypeConArr[A_Index].Text != "变量存在") {
+                        condiStr .= this.NameConArr[A_Index].Text " " this.CompareTypeConArr[A_Index].Text " " this.VariableConArr[
+                            A_Index].Text
+                    }
+                    else {
+                        condiStr .= this.NameConArr[A_Index].Text " " this.CompareTypeConArr[A_Index].Text
+                    }
+
                     condiStr .= "⎖"
                 }
             }

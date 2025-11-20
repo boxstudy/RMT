@@ -418,7 +418,11 @@ class CompareProData {
             VariName := Data.VariNameArr[itemIndex][A_Index]
             TypeStr := CompareTypeStrArr[Data.CompareTypeArr[itemIndex][A_Index]]
             Variable := Data.VariableArr[itemIndex][A_Index]
-            CommandStr .= VariName " " TypeStr " " Variable " " symbolStr " "
+
+            if (Data.CompareTypeArr[itemIndex][A_Index] != 7)
+                CommandStr .= VariName " " TypeStr " " Variable " " symbolStr " "
+            else
+                CommandStr .= VariName " " TypeStr " " symbolStr " "
         }
         CommandStr := Trim(CommandStr, " ")
         CommandStr := Trim(CommandStr, symbolStr)
@@ -488,6 +492,7 @@ class LoopData {
     ;用于逻辑树展示
     static GetCondiStr(Data) {
         CommandStr := ""
+        symbolStr := Data.LogicType == 1 ? "且" : "或"
         CompareTypeStrArr := ["大于", "大于等于", "等于", "小于等于",
             "小于", "字符包含", "变量存在"]
 
@@ -495,12 +500,18 @@ class LoopData {
             if (!Data.ToggleArr[A_Index])
                 continue
 
-            CommandStr .= "⎖" . Data.NameArr[A_Index] " " CompareTypeStrArr[Data.CompareTypeArr[A_Index]] " " Data.VariableArr[
-                A_Index]
-            CommandStr .= ","
+            VariName := Data.NameArr[A_Index]
+            TypeStr := CompareTypeStrArr[Data.CompareTypeArr[A_Index]]
+            Variable := Data.VariableArr[A_Index]
+            if (Data.CompareTypeArr[A_Index] != 7)
+                CommandStr .= VariName " " TypeStr " " Variable " " symbolStr " "
+            else
+                CommandStr .= VariName " " TypeStr " " symbolStr " "
         }
 
-        CommandStr := Trim(CommandStr, ",")
+        CommandStr := Trim(CommandStr, " ")
+        CommandStr := Trim(CommandStr, symbolStr)
+        CommandStr := Trim(CommandStr, " ")
         return CommandStr
     }
 }

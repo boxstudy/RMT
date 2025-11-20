@@ -649,11 +649,9 @@ class MacroEditGui {
 
             if (Data.CondiType != 1) {
                 iconStr := this.GetCmdIconStr("循环条件")
-                CondiStr := Data.CondiType == 2 ? "继续条件：" : "退出条件："
-                LogicStr := Data.LogicType == 1 ? "且" : "或"
-                ItemStr := "⎖" . CondiStr . LogicStr
+                CondiStr := Data.CondiType == 2 ? "⎖继续条件：" : "⎖退出条件："
+                ItemStr := CondiStr . LoopData.GetCondiStr(Data)
                 CondiRoot := this.MacroTreeViewCon.Add(ItemStr, root, iconStr)
-                this.TreeAddSubTree(CondiRoot, LoopData.GetCondiStr(Data))
             }
 
             iconStr := this.GetCmdIconStr("循环体")
@@ -671,7 +669,7 @@ class MacroEditGui {
                 this.TreeAddSubTree(CondiRoot, Data.MacroArr[A_Index])
             }
 
-            CondiStr := "条件：以上都不是" 
+            CondiStr := "条件：以上都不是"
             CondiRoot := this.MacroTreeViewCon.Add(CondiStr, root, iconStr)
             this.TreeAddSubTree(CondiRoot, Data.DefaultMacro)
         }
@@ -880,18 +878,25 @@ class MacroEditGui {
         return ""
     }
 
+    ;todo 减少参数
     SaveCommandData(RealCommandStr, macroStr, isTrue, isClear) {
         paramArr := StrSplit(RealCommandStr, "_")
         IsSearch := StrCompare(paramArr[1], "搜索", false) == 0
         IsSearchPro := StrCompare(paramArr[1], "搜索Pro", false) == 0
         IsIf := StrCompare(paramArr[1], "如果", false) == 0
         IsLoop := StrCompare(paramArr[1], "循环", false) == 0
+        IsIfPro := StrCompare(paramArr[1], "如果Pro", false) == 0
         FileName := ""
         if (IsIf) {
             FileName := CompareFile
-        } else if (IsSearch) {
+        }
+        else if (IsIfPro) {
+            FileName := CompareProFile
+        }
+        else if (IsSearch) {
             FileName := SearchFile
-        } else if (IsSearchPro) {
+        }
+        else if (IsSearchPro) {
             FileName := SearchProFile
         }
         else if (IsLoop) {
@@ -906,6 +911,9 @@ class MacroEditGui {
                 Data.LoopBody := ""
             else
                 Data.LoopBody := macroStr
+        }
+        else if (IsIfPro) {
+
         }
         else if (isTrue && isClear)
             Data.TrueMacro := ""

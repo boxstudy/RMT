@@ -290,9 +290,10 @@ class CompareProGui {
         if (condiStr != "以上都不是") {
             loop condiStrArr.Length {
                 itemCondiArr := StrSplit(condiStrArr[A_Index], " ")
+                Variable := itemCondiArr.Length >= 3 ? itemCondiArr[3] : ""
                 VariNameArr.Push(itemCondiArr[1])
                 CompareTypeArr.Push(this.CompareTypeStrMap[itemCondiArr[2]])
-                VariableArr.Push(itemCondiArr[3])
+                VariableArr.Push(Variable)
             }
         }
 
