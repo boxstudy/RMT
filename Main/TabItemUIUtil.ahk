@@ -26,9 +26,9 @@ LoadItemFold(index) {
         loop IndexSpan[2] - IndexSpan[1] + 1 {
             itemIndex := A_Index + IndexSpan[1] - 1
             LoadTabItemUI(tableItem, itemIndex, foldIndex, CurUnderPosY)
-            CurUnderPosY += 45
+            CurUnderPosY += 40
             if (!FoldInfo.FoldStateArr[foldIndex])
-                UpdateUnderPosY(index, 45)
+                UpdateUnderPosY(index, 40)
         }
         UpdateUnderPosY(index, 5)
     }
@@ -352,7 +352,7 @@ OnItemAddMacroBtnClick(tableItem, btn, *) {
     }
     else {
         IndexSpan := StrSplit(foldInfo.IndexSpanArr[foldIndex], "-")
-        PosY += (IndexSpan[2] - IndexSpan[1]) * 45 + 25
+        PosY += (IndexSpan[2] - IndexSpan[1]) * 40 + 25
         MySoftData.TabCtrl.UseTab(tableItem.Index)
         LoadTabItemUI(tableItem, AddIndex, foldIndex, PosY)
         MySoftData.TabCtrl.UseTab()
@@ -361,7 +361,7 @@ OnItemAddMacroBtnClick(tableItem, btn, *) {
     afterHei := GetFoldGroupHeight(foldInfo, foldIndex, isMenu)
     tableItem.AllGroup[foldIndex].Move(, , , afterHei)
 
-    addHei := isFirst ? 75 : 45
+    addHei := isFirst ? 75 : 40
     tableItem.FoldOffsetArr[foldIndex] += addHei
     for index, value in tableItem.IndexConArr {
         value.Text := index
@@ -464,7 +464,6 @@ OnItemAddMenuItem(tableItem, foldIndex) {
         tableItem.MacroArr.InsertAt(AddIndex, "")
         tableItem.ModeArr.InsertAt(AddIndex, 1)
         tableItem.ForbidArr.InsertAt(AddIndex, 0)
-        tableItem.FrontInfoArr.InsertAt(AddIndex, "")
         tableItem.RemarkArr.InsertAt(AddIndex, "")
         tableItem.LoopCountArr.InsertAt(AddIndex, "1")
         tableItem.HoldTimeArr.InsertAt(AddIndex, 500)
@@ -489,7 +488,7 @@ OnItemAddMenuItem(tableItem, foldIndex) {
         }
         else {
             IndexSpan := StrSplit(foldInfo.IndexSpanArr[foldIndex], "-")
-            PosY += (IndexSpan[2] - IndexSpan[1]) * 45 + 25
+            PosY += (IndexSpan[2] - IndexSpan[1]) * 40 + 25
             MySoftData.TabCtrl.UseTab(tableItem.Index)
             LoadTabItemUI(tableItem, AddIndex, foldIndex, PosY)
             MySoftData.TabCtrl.UseTab()
@@ -498,7 +497,7 @@ OnItemAddMenuItem(tableItem, foldIndex) {
         afterHei := GetFoldGroupHeight(foldInfo, foldIndex, isMenu)
         tableItem.AllGroup[foldIndex].Move(, , , afterHei)
 
-        addHei := isFirst ? 75 : 45
+        addHei := isFirst ? 75 : 40
         tableItem.FoldOffsetArr[foldIndex] += addHei
         for index, value in tableItem.IndexConArr {
             value.Text := index
@@ -742,7 +741,7 @@ UpdateConItemIndex(tableItem, OperIndex, FoldIndex, IsAdd) {
             else {
                 value.index -= 1
                 if (FoldIndex == value.itemConInfo.FoldIndex)
-                    value.itemConInfo.DelAfterOffset(45)
+                    value.itemConInfo.DelAfterOffset(40)
             }
         }
     }
@@ -829,7 +828,7 @@ GetFoldGroupHeight(FoldInfo, index, isMenu) {
         return height
 
     height := height + 25
-    height := height + (IndexSpan[2] - IndexSpan[1] + 1) * 45
+    height := height + (IndexSpan[2] - IndexSpan[1] + 1) * 40
     return height
 }
 

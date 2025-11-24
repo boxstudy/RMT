@@ -212,6 +212,7 @@ class SettingMgrGui {
 
             MySoftData.CurSettingName := fileNameNoExt
             IniWrite(MySoftData.CurSettingName, IniFile, IniSection, "CurSettingName")
+            IniWrite(true, IniFile, IniSection, "IsReload")
             MsgBox(fileNameNoExt " 配置导入成功")
             Reload()
         } catch as e {
@@ -222,6 +223,7 @@ class SettingMgrGui {
     OnLoadBtnClick(*) {
         MySoftData.CurSettingName := this.OperSettingCon.Text
         IniWrite(MySoftData.CurSettingName, IniFile, IniSection, "CurSettingName")
+        IniWrite(true, IniFile, IniSection, "IsReload")
         Reload()
     }
 

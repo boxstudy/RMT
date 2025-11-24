@@ -142,7 +142,7 @@ class MacroEditGui {
         }
         else {
             this.AddGui()
-            ImageListID := IL_Create(15)
+            ImageListID := IL_Create(22)
             this.MacroTreeViewCon.SetImageList(ImageListID)
             IL_Add(ImageListID, "Images\Soft\Interval.png")
             IL_Add(ImageListID, "Images\Soft\Key.png")
@@ -452,6 +452,8 @@ class MacroEditGui {
         if (this.ContextMenu == "") {
             this.ContextMenu := Menu()
             this.ContextMenu.Add("编辑", (*) => this.MenuHandler("编辑"))
+            this.ContextMenu.Add("指令上移", (*) => this.MenuHandler("指令上移"))
+            this.ContextMenu.Add("指令下移", (*) => this.MenuHandler("指令下移"))
 
             this.ContextMenu.Add()  ; 分隔线
             subMenu := Menu()
@@ -555,6 +557,14 @@ class MacroEditGui {
                 paramsArr := StrSplit(itemText, "_")
                 subGui := this.SubGuiMap[paramsArr[1]]
                 this.OnOpenSubGui(subGui, 2)
+            }
+            case "指令上移":
+            {
+                this.OnPreMoveCmd()
+            }
+            case "指令下移":
+            {
+                this.OnNextMoveCmd()
             }
             case "共享复制":
             {
@@ -763,6 +773,45 @@ class MacroEditGui {
         ParentID := this.MacroTreeViewCon.GetParent(this.CurItemID)
         if (ParentID == 0) {
             this.RefreshTree(this.CurItemID)
+            return
+        }
+
+        macroStr := this.GetTreeMacroStr(ParentID)
+        RealItemID := this.MacroTreeViewCon.GetParent(ParentID)
+        RealCommandStr := this.MacroTreeViewCon.GetText(RealItemID)
+
+        this.SaveCommandData(RealCommandStr, macroStr, ParentID)
+        this.RefreshTree(RealItemID)
+    }
+
+    OnPreMoveCmd() {
+        PreItemID := this.MacroTreeViewCon.GetPrev(this.CurItemID)
+        if (PreItemID == 0) {
+            MsgBox("已经是第一个指令了，无法上移")
+            return
+        }
+        this.OnSwitchCmd(PreItemID, this.CurItemID)
+    }
+
+    OnNextMoveCmd() {
+        NextItemID := this.MacroTreeViewCon.GetNext(this.CurItemID)
+        if (NextItemID == 0) {
+            MsgBox("已经是最后的指令了，无法下移")
+            return
+        }
+        this.OnSwitchCmd(this.CurItemID, NextItemID)
+    }
+
+    OnSwitchCmd(ItemAID, ItemBID) {
+        ACommandStr := this.MacroTreeViewCon.GetText(ItemAID)
+        AIconStr := this.GetCmdIconStr(ACommandStr)
+        BCommandStr := this.MacroTreeViewCon.GetText(ItemBID)
+        BIconStr := this.GetCmdIconStr(BCommandStr)
+
+        this.MacroTreeViewCon.Modify(ItemAID, BIconStr, BCommandStr)
+        this.MacroTreeViewCon.Modify(ItemBID, AIconStr, ACommandStr)
+        ParentID := this.MacroTreeViewCon.GetParent(ItemAID)
+        if (ParentID == 0) {
             return
         }
 
