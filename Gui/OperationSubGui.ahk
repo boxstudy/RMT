@@ -2,6 +2,7 @@
 
 class OperationSubGui {
     __new() {
+        this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
         this.VariableObjArr := []
@@ -42,7 +43,7 @@ class OperationSubGui {
     }
 
     AddGui() {
-        MyGui := Gui(, "变量换算编辑")
+        MyGui := Gui(,this.ParentTile "运算编辑器")
         this.Gui := MyGui
         MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
 

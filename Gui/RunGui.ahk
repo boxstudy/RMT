@@ -2,6 +2,7 @@
 
 class RunGui {
     __new() {
+        this.ParentTile := ""
         this.Gui := ""
         this.RemarkCon := ""
         this.SureBtnAction := ""
@@ -26,7 +27,7 @@ class RunGui {
     }
 
     AddGui() {
-        MyGui := Gui(, "运行指令编辑")
+        MyGui := Gui(, this.ParentTile "运行编辑器")
         this.Gui := MyGui
         MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
 
@@ -139,7 +140,7 @@ class RunGui {
             processName := WinGetProcessName(winId)
             this.PathTextCon.Value := processName
         }
-        
+
     }
 
     OnClickFileSelectBtn() {

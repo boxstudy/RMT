@@ -21,6 +21,7 @@
 
 class MacroEditGui {
     __new() {
+        this.ParentTile := ""
         this.Gui := ""
         this.ShowSaveBtn := false
         this.SureFocusCon := ""
@@ -174,7 +175,7 @@ class MacroEditGui {
     }
 
     AddGui() {
-        MyGui := Gui(, "指令编辑器")
+        MyGui := Gui(, this.ParentTile "宏指令编辑器")
         this.Gui := MyGui
         MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
 
@@ -519,6 +520,9 @@ class MacroEditGui {
             macroStr := this.GetTreeMacroStr(this.CurItemID)
             this.SubMacroEditGui.SureBtnAction := this.OnSubNodeEdit.Bind(this, this.CurItemID)
             this.SubMacroEditGui.SureFocusCon := this.MacroTreeViewCon
+            ParentTile := StrReplace(this.Gui.Title, "编辑器", "")
+            this.SubMacroEditGui.ParentTile := ParentTile "-"
+    
             this.SubMacroEditGui.ShowGui(macroStr, false)
             return
         }
@@ -728,6 +732,10 @@ class MacroEditGui {
             VariableObjArr := GetGuiVariableObjArr(macroStr, this.VariableObjArr)
             subGui.VariableObjArr := VariableObjArr
         }
+        if ObjHasOwnProp(subGui, "ParentTile") {
+            ParentTile := StrReplace(this.Gui.Title, "编辑器", "")
+            subGui.ParentTile := ParentTile "-"
+        }
 
         if (modeType == 2) {
             CommandStr := this.MacroTreeViewCon.GetText(this.CurItemID)
@@ -760,10 +768,23 @@ class MacroEditGui {
 
     ;添加指令
     OnAddCmd(CommandStr) {
-        iconStr := this.GetCmdIconStr(CommandStr)
-        root := this.MacroTreeViewCon.Add(CommandStr, 0, iconStr)
-        this.TreeAddBranch(root, CommandStr)
-        this.LastItemID := root
+        if (this.EditModeCon.Value == 1) {
+            iconStr := this.GetCmdIconStr(CommandStr)
+            root := this.MacroTreeViewCon.Add(CommandStr, 0, iconStr)
+            this.TreeAddBranch(root, CommandStr)
+            this.LastItemID := root
+        }
+        else {
+            MacroStr := this.GetMacroStr()
+            MacroStr .= "`n" CommandStr
+            cmdArr := SplitMacro(MacroStr)
+            MacroStr := GetMacroStrByCmdArr(cmdArr)
+
+            ; 回到替换前的滑动值
+            firstVisible := SendMessage(0xCE, 0, 0, this.MacroEditTextCon) ; EM_GETFIRSTVISIBLELINE = 0xCE
+            this.InitMacroText(MacroStr)
+            SendMessage(0xB6, 0, firstVisible, this.MacroEditTextCon) ; EM_LINESCROLL = 0xB6
+        }
     }
 
     ;修改指令

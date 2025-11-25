@@ -2,6 +2,7 @@
 
 class KeyGui {
     __new() {
+        this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
         this.SaveBtnAction := ""
@@ -95,7 +96,7 @@ class KeyGui {
     }
 
     AddGui() {
-        MyGui := Gui(, "按键指令编辑")
+        MyGui := Gui(,this.ParentTile "按键编辑器")
         this.Gui := MyGui
         MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
 

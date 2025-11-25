@@ -3,6 +3,7 @@
 
 class CompareProGui {
     __new() {
+        this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
         this.RemarkCon := ""
@@ -34,7 +35,7 @@ class CompareProGui {
     }
 
     AddGui() {
-        MyGui := Gui(, "如果Pro指令编辑")
+        MyGui := Gui(, this.ParentTile "如果Pro编辑器")
         this.Gui := MyGui
         MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
 
@@ -98,31 +99,6 @@ class CompareProGui {
         this.LVCon.Add(, "以上都不是", "", this.Data.DefaultMacro)
         this.LVCon.Focus()  ; 🔥 强制获得焦点，解决第一次双击无效问题
     }
-
-    ; Refresh() {
-    ;     this.LVCon.Opt("-Redraw")
-    ;     count := this.LVCon.GetCount()
-    ;     LVKeys := Map()
-    ;     loop count {
-    ;         row := count - A_Index + 1
-    ;         key := this.LVCon.GetText(row, 1)
-    ;         value := this.LVCon.GetText(row, 2)
-    ;         if !MySoftData.VariableMap.Has(key)
-    ;             this.LVCon.Delete(row)
-    ;         else if (String(MySoftData.VariableMap[key]) != value)
-    ;             this.LVCon.Delete(row)
-    ;         else
-    ;             LVKeys[key] := True
-    ;     }
-
-    ;     ; 3) 添加 Map 中有但 LV 没有的项
-    ;     for key, value in MySoftData.VariableMap {
-    ;         if !LVKeys.Has(key) {
-    ;             this.LVCon.Add(, key, value)
-    ;         }
-    ;     }
-    ;     this.LVCon.Opt("+Redraw")
-    ; }
 
     ToggleFunc(state) {
         MacroAction := (*) => this.TriggerMacro()
@@ -189,7 +165,8 @@ class CompareProGui {
                     MsgBox("第一个分支不能上移")
                     return
                 }
-                this.LVCon.Insert(this.CurItme - 1, , this.LVCon.GetText(this.CurItme, 1), this.LVCon.GetText(this.CurItme, 2), this.LVCon.GetText(this.CurItme, 3))
+                this.LVCon.Insert(this.CurItme - 1, , this.LVCon.GetText(this.CurItme, 1), this.LVCon.GetText(this.CurItme,
+                    2), this.LVCon.GetText(this.CurItme, 3))
                 this.LVCon.Delete(this.CurItme + 1)
             }
             case "向下移动":
@@ -199,7 +176,8 @@ class CompareProGui {
                     return
                 }
 
-                this.LVCon.Insert(this.CurItme + 2, , this.LVCon.GetText(this.CurItme, 1), this.LVCon.GetText(this.CurItme, 2), this.LVCon.GetText(this.CurItme, 3))
+                this.LVCon.Insert(this.CurItme + 2, , this.LVCon.GetText(this.CurItme, 1), this.LVCon.GetText(this.CurItme,
+                    2), this.LVCon.GetText(this.CurItme, 3))
                 this.LVCon.Delete(this.CurItme)
             }
             case "删除":
@@ -218,6 +196,9 @@ class CompareProGui {
             this.ItemEditGui := CompareProEditItemGui()
             this.ItemEditGui.SureFocusCon := this.FocusCon
         }
+        ParentTile := StrReplace(this.Gui.Title, "编辑器", "")
+        this.ItemEditGui.ParentTile := ParentTile "-"
+
         this.ItemEditGui.VariableObjArr := this.VariableObjArr
         EditType := this.LVCon.GetText(item, 1) == "以上都不是" ? 2 : 1
         DataArr := this.GetCondiStrDataArr(this.LVCon.GetText(item, 1))

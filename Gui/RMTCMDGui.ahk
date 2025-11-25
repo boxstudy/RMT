@@ -2,6 +2,7 @@
 
 class RMTCMDGui {
     __new() {
+        this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
         this.CmdStrArr := ["截图", "截图提取文本", "自由贴",
@@ -47,7 +48,7 @@ class RMTCMDGui {
     }
 
     AddGui() {
-        MyGui := Gui(, "RMT指令编辑器")
+        MyGui := Gui(, this.ParentTile "RMT指令编辑器")
         this.Gui := MyGui
         MyGui.SetFont("S11 W550 Q2", MySoftData.FontType)
 

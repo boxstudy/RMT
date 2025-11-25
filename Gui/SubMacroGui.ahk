@@ -2,6 +2,7 @@
 
 class SubMacroGui {
     __new() {
+        this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
         this.VariableObjArr := []
@@ -28,7 +29,7 @@ class SubMacroGui {
     }
 
     AddGui() {
-        MyGui := Gui(, "宏操作指令编辑")
+        MyGui := Gui(,this.ParentTile "宏操作编辑器")
         this.Gui := MyGui
         MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
 

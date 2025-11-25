@@ -2,6 +2,7 @@
 
 class MouseMoveGui {
     __new() {
+        this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
         this.PosAction := () => this.RefreshMousePos()
@@ -27,7 +28,7 @@ class MouseMoveGui {
     }
 
     AddGui() {
-        MyGui := Gui(, "鼠标移动指令编辑")
+        MyGui := Gui(,this.ParentTile "移动编辑器")
         this.Gui := MyGui
         MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
 

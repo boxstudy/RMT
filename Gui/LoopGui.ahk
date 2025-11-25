@@ -3,6 +3,7 @@
 
 class LoopGui {
     __new() {
+        this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
         this.RemarkCon := ""
@@ -35,7 +36,7 @@ class LoopGui {
     }
 
     AddGui() {
-        MyGui := Gui(, "循环指令编辑")
+        MyGui := Gui(,this.ParentTile "循环编辑器")
         this.Gui := MyGui
         MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
 
@@ -230,6 +231,9 @@ class LoopGui {
             this.MacroGui := MacroEditGui()
             this.MacroGui.VariableObjArr := this.VariableObjArr
             this.MacroGui.SureFocusCon := this.FocusCon
+            
+            ParentTile := StrReplace(this.Gui.Title, "编辑器", "")
+            this.MacroGui.ParentTile := ParentTile "-"
         }
 
         this.MacroGui.SureBtnAction := (command) => this.LoopBodyCon.Value := command

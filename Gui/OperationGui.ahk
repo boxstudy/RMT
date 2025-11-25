@@ -3,6 +3,7 @@
 
 class OperationGui {
     __new() {
+        this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
         this.VariableObjArr := []
@@ -29,7 +30,7 @@ class OperationGui {
     }
 
     AddGui() {
-        MyGui := Gui(, "运算指令编辑")
+        MyGui := Gui(, this.ParentTile "运算编辑器")
         this.Gui := MyGui
         MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
 
@@ -185,6 +186,8 @@ class OperationGui {
         macroStr := this.GetCommandStr()
         VariableObjArr := GetGuiVariableObjArr(macroStr, this.VariableObjArr)
         this.OperationSubGui.VariableObjArr := VariableObjArr
+        ParentTile := StrReplace(this.Gui.Title, "编辑器", "")
+        this.OperationSubGui.ParentTile := ParentTile "-"
 
         SymbolArr := this.Data.SymbolGroups[index]
         ValueArr := this.Data.ValueGroups[index]

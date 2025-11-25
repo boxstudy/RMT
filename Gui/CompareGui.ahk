@@ -3,6 +3,7 @@
 
 class CompareGui {
     __new() {
+        this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
         this.VariableObjArr := []
@@ -38,7 +39,7 @@ class CompareGui {
     }
 
     AddGui() {
-        MyGui := Gui(, "如果指令编辑")
+        MyGui := Gui(, this.ParentTile "如果编辑器")
         this.Gui := MyGui
         MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
 
@@ -298,6 +299,9 @@ class CompareGui {
             this.MacroGui := MacroEditGui()
             this.MacroGui.VariableObjArr := this.VariableObjArr
             this.MacroGui.SureFocusCon := this.FocusCon
+    
+            ParentTile := StrReplace(this.Gui.Title, "编辑器", "")
+            this.MacroGui.ParentTile := ParentTile "-"
         }
 
         this.MacroGui.SureBtnAction := (command) => this.OnTrueMacroBtnClick(command)
@@ -309,6 +313,9 @@ class CompareGui {
             this.MacroGui := MacroEditGui()
             this.MacroGui.VariableObjArr := this.VariableObjArr
             this.MacroGui.SureFocusCon := this.FocusCon
+    
+            ParentTile := StrReplace(this.Gui.Title, "编辑器", "")
+            this.MacroGui.ParentTile := ParentTile "-"
         }
         this.MacroGui.SureBtnAction := (command) => this.OnFalseMacroBtnClick(command)
         this.MacroGui.ShowGui(this.FalseMacroCon.Value, false)

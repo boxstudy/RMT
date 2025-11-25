@@ -32,7 +32,7 @@ Compat1_0_8F7MMPro(filePath) {
         saveStr := IniRead(FilePath, IniSection, SerialStr, "")
         Data := JSON.parse(saveStr, , false)
 
-        if (Data == "")
+        if (saveStr == "")
             continue
 
         ;如果有了，那就说明是新版本，不需要兼容处理
@@ -77,7 +77,7 @@ Compat1_0_9F1MacroInsert(FilePath) {
         saveStr := IniRead(FilePath, IniSection, SerialStr, "")
         Data := JSON.parse(saveStr, , false)
 
-        if (Data == "")
+        if (saveStr == "")
             continue
 
         ;如果有了，那就说明是新版本，不需要兼容处理

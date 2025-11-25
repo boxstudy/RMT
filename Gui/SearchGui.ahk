@@ -3,6 +3,7 @@
 
 class SearchGui {
     __new() {
+        this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
         this.VariableObjArr := []
@@ -48,7 +49,7 @@ class SearchGui {
     }
 
     AddGui() {
-        MyGui := Gui(, "搜索指令编辑")
+        MyGui := Gui(, this.ParentTile "搜索编辑器")
         this.Gui := MyGui
         MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
 
@@ -419,6 +420,9 @@ class SearchGui {
             this.MacroGui := MacroEditGui()
             this.MacroGui.VariableObjArr := this.VariableObjArr
             this.MacroGui.SureFocusCon := this.MousePosCon
+
+            ParentTile := StrReplace(this.Gui.Title, "编辑器", "")
+            this.MacroGui.ParentTile := ParentTile "-"
         }
 
         this.MacroGui.SureBtnAction := (command) => this.OnSureFoundMacroBtnClick(command)
@@ -430,6 +434,9 @@ class SearchGui {
             this.MacroGui := MacroEditGui()
             this.MacroGui.VariableObjArr := this.VariableObjArr
             this.MacroGui.SureFocusCon := this.MousePosCon
+    
+            ParentTile := StrReplace(this.Gui.Title, "编辑器", "")
+            this.MacroGui.ParentTile := ParentTile "-"
         }
         this.MacroGui.SureBtnAction := (command) => this.OnSureUnFoundMacroBtnClick(command)
         this.MacroGui.ShowGui(this.UnFoundCommandStrCon.Value, false)

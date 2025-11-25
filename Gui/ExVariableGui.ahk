@@ -1,9 +1,8 @@
 #Requires AutoHotkey v2.0
 
-#Requires AutoHotkey v2.0
-
 class ExVariableGui {
     __new() {
+        this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
         this.VariableObjArr := []
@@ -39,7 +38,7 @@ class ExVariableGui {
     }
 
     AddGui() {
-        MyGui := Gui(, "变量提取指令编辑")
+        MyGui := Gui(,this.ParentTile "变量提取编辑器")
         this.Gui := MyGui
         MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
 
