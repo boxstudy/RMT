@@ -3,6 +3,7 @@
 #Include Joy\SuperCvJoyInterface.ahk
 #Include Joy\JoyMacro.ahk
 #Include Plugins\RapidOcr\RapidOcr.ahk
+#Include Plugins\CLR.ahk
 #Include Gui\TriggerKeyGui.ahk
 #Include Gui\TriggerStrGui.ahk
 #Include Gui\TimingGui.ahk

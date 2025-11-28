@@ -160,6 +160,10 @@ PluginInit() {
     ; 使用 SetDllDirectory 将 dllDir 添加到 DLL 搜索路径中
     DllCall("SetDllDirectory", "Str", dllDir)
     DllCall('LoadLibrary', 'str', dllpath, "Ptr")
+
+    dllpath := A_ScriptDir "\Plugins\RMT.dll"
+    RMT_ASM := CLR_LoadLibrary(dllpath)
+    global RMT_Http := RMT_ASM.CreateInstance("RMT.Http")     ; 创建对象实例
 }
 
 OnToolAlwaysOnTop(*) {
