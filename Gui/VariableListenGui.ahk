@@ -15,6 +15,7 @@ class VariableListenGui {
             this.AddGui()
         }
         this.Refresh()
+        this.LVCon.Focus()  ; 🔥 强制获得焦点，解决第一次双击无效问题
     }
 
     Refresh() {
@@ -66,6 +67,7 @@ class VariableListenGui {
         ; 设置列宽（单位：px）
         this.LVCon.ModifyCol(1, 120) ; 第一列宽度
         this.LVCon.ModifyCol(2, 205) ; 自动填充剩余宽度
+        this.LVCon.OnEvent("DoubleClick", this.OnDoubleClick.Bind(this))
 
         MyGui.Show(Format("w{} h{}", 370, 300))
     }
@@ -78,5 +80,21 @@ class VariableListenGui {
         else {
             this.Gui.Opt("-AlwaysOnTop")
         }
+    }
+
+    OnDoubleClick(LV, RowNumber, *) {
+        newValue := InputBox("请输入新的变量值：", "修改", "w300 h100")
+
+        ; 检查用户是否取消输入
+        if newValue.Result = "Cancel"
+            return
+
+        varName := this.LVCon.GetText(RowNumber, 1)
+
+        if (newValue.Value == "") {
+            DelGlobalVariable(varName)
+            return
+        }
+        SetGlobalVariable(varName, newValue.Value, false)
     }
 }

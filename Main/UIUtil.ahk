@@ -797,19 +797,6 @@ AddHelpUI(index) {
 
     posY += 30
     posX := MySoftData.TabPosX + 15
-    con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 130, 35),
-    "配置共享网址：")
-    con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Link", Format("x{} y{} w{} h{}", posX + 130, posY, 500, 35),
-    '<a href="https://zclucas.github.io/RMT-Setting/">免费、开放、若梦兔宏配置分享平台</a>')
-    con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-
-    posY += 30
-    posX := MySoftData.TabPosX + 15
     con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 130, 30),
     "国内开源网址：")
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))

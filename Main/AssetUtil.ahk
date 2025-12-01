@@ -1582,7 +1582,6 @@ HandTipSound(tableItem, itmeIndex, macroState, isFirst, isLast) {
 PlayTipSound(isStart) {
     audioPath := isStart ? StartTipAudio : EndTipAudio
     audioPath := GetRealPath(audioPath)
-    MsgBox(audioPath)
     playAudioCmd := Format('wscript.exe "{}" "{}"', VBSPath, audioPath)
     Run(playAudioCmd)
 }
