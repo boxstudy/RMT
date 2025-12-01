@@ -110,6 +110,7 @@ InitWork() {
 
 WorkOpenCVLoadDll() {
     dllpath := A_ScriptDir "\..\Plugins\OpenCV\x64\ImageFinder.dll"
+    ibDllPath := A_ScriptDir "\..\Plugins\IbInputSimulator.dll"
 
     ; 构建包含 DLL 文件的目录路径
     dllDir := A_ScriptDir "\..\Plugins\OpenCV\x64"
@@ -117,6 +118,7 @@ WorkOpenCVLoadDll() {
     ; 使用 SetDllDirectory 将 dllDir 添加到 DLL 搜索路径中
     DllCall("SetDllDirectory", "Str", dllDir)
     DllCall('LoadLibrary', 'str', dllpath, "Ptr")
+    DllCall('LoadLibrary', 'str', ibDllPath)
 }
 
 WorkSubMacroStopAction(tableIndex, itemIndex) {

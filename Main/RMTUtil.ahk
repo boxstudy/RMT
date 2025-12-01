@@ -155,11 +155,13 @@ PluginInit() {
     global MyPToken := Gdip_Startup()
 
     dllpath := A_ScriptDir "\Plugins\OpenCV\x64\ImageFinder.dll"
+    ibDllPath := A_ScriptDir "\Plugins\IbInputSimulator.dll"
     ; 构建包含 DLL 文件的目录路径
     dllDir := A_ScriptDir "\Plugins\OpenCV\x64"
     ; 使用 SetDllDirectory 将 dllDir 添加到 DLL 搜索路径中
     DllCall("SetDllDirectory", "Str", dllDir)
     DllCall('LoadLibrary', 'str', dllpath, "Ptr")
+    DllCall("LoadLibrary", "Str", ibDllPath)
 
     dllpath := A_ScriptDir "\Plugins\RMT.dll"
     RMT_ASM := CLR_LoadLibrary(dllpath)
@@ -191,7 +193,7 @@ InitFilePath() {
 
     filePath := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\使用说明&署名.txt"
     if (!FileExist(filePath)) {
-        FileAppend("(请在导出配置前，务必完善操作说明，该文件目录下增加图片解释说明)`n" .
+        FileAppend("(请在导出配置前，务必完善操作说明，该文件目录可下增加图片解释说明)[上传导出前请删除此行，否则判定没有完善使用说明]`n" .
             "资源名称：`n`n" .
             "原作者：`n" .
             "联系方式：(QQ或电话，仅用于告知您需要调整的地方)`n" .

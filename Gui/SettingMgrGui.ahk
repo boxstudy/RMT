@@ -90,7 +90,7 @@ class SettingMgrGui {
 
         PosX := 80
         PosY += 40
-        con := MyGui.Add("Button", Format("x{} y{} w100", PosX, PosY), "操作说明")
+        con := MyGui.Add("Button", Format("x{} y{} w100", PosX, PosY), "使用说明")
         con.OnEvent("Click", this.OnCourseBtnClick.Bind(this))
 
         PosX := 260
@@ -221,11 +221,21 @@ class SettingMgrGui {
             return
         }
 
+        if (fileNameNoExt == "RMT默认配置") {
+            MsgBox("请重命名配置文件后再上传（配置名需要与功能相关）")
+            return
+        }
+
         isVaild := this.IsValidFolderName(fileNameNoExt)
         if (!isVaild) {
             MsgBox("配置名不符合文件目录命名规则，请修改")
             return
         }
+
+        isVaild := FolderPackager.CheckPack(selectedFile)
+        if (!isVaild) 
+            return
+
         result := RMT_Http.UploadFile(selectedFile)
         MsgBox(result)
     }
