@@ -39,7 +39,7 @@ class MacroSettingGui {
         PosY := 15
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY), "按键类型：")
         PosX += 90
-        this.TKTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w150", PosX, PosY - 3), ["虚拟", "拟真", "罗技"])
+        this.TKTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w150", PosX, PosY - 3), ["AHK Send", "keybd_event", "罗技"])
         Con := MyGui.Add("Button", Format("x{} y{} w30 h29", PosX + 155, PosY - 4), "?")
         Con.OnEvent("Click", this.OnClickModeHelpBtn.Bind(this))
 
@@ -63,7 +63,7 @@ class MacroSettingGui {
     }
 
     OnClickModeHelpBtn(*) {
-        MsgBox("虚拟：通过 AHK 发送虚拟按键`n拟真：调用 Win 系统接口模拟按键，更稳定（需管理员权限）。`n**拟真按键可以作为宏的触发按键，切记自己触发自己导致死循环**")
+        MsgBox("AHK Send：调用 AHK Send模拟按键，适用办公软件及大部分游戏`nkeybd_event：调用 Win 系统接口模拟按键，适用比较旧的软件或游戏（需管理员权限）。`n罗技：调用 罗技驱动 模拟按键。`n**keybd_event 和 罗技 的按键可以作为宏的触发按键，切记自己触发自己导致死循环**")
     }
 
     OnSureBtnClick() {
