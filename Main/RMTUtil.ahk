@@ -191,8 +191,10 @@ InitFilePath() {
 
     filePath := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\使用说明&署名.txt"
     if (!FileExist(filePath)) {
-        FileAppend("资源名称：`n`n" .
+        FileAppend("(请在导出配置前，务必完善操作说明，该文件目录下增加图片解释说明)`n" .
+            "资源名称：`n`n" .
             "原作者：`n" .
+            "联系方式：(QQ或电话，仅用于告知您需要调整的地方)`n" .
             "功能：`n" .
             "   `n" .
             "操作说明：`n" .

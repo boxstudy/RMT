@@ -36,25 +36,37 @@ class SettingMgrGui {
         PosX := 20
         PosY := 10
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY), "所有配置：")
-    
-        PosX := 310
-        con := MyGui.Add("Button", Format("x{} y{} w100", PosX, PosY - 3), "配置迁移")
+
+        PosX := 330
+        con := MyGui.Add("Button", Format("x{} y{}", PosX, PosY - 5), "配置迁移")
         con.OnEvent("Click", this.OnReplaceBtnClick.Bind(this))
 
         PosX := 20
         PosY += 35
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY), "当前配置：")
 
-        PosX += 75
+        PosX += 70
         this.CurSettingCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 130), "")
 
-        PosX := 240
-        con := MyGui.Add("Button", Format("x{} y{}", PosX, PosY - 3), "重命名")
+        PosX := 265
+        con := MyGui.Add("Button", Format("x{} y{}", PosX, PosY - 5), "重命名")
         con.OnEvent("Click", this.OnReNameBtnClick.Bind(this))
 
-        PosX := 310
-        con := MyGui.Add("Button", Format("x{} y{} w100", PosX, PosY - 3), "配置校准")
+        PosX := 330
+        con := MyGui.Add("Button", Format("x{} y{}", PosX, PosY - 5), "配置校准")
         con.OnEvent("Click", this.OnRepairBtnClick.Bind(this))
+
+        PosX := 20
+        PosY += 35
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), "仓库配置：")
+
+        PosX := 250
+        con := MyGui.Add("Button", Format("x{} y{}", PosX, PosY - 5), "打开仓库")
+        con.OnEvent("Click", this.OnOpenRMTSettingBtnClick.Bind(this))
+
+        PosX := 330
+        con := MyGui.Add("Button", Format("x{} y{}", PosX, PosY - 5), "共享上传")
+        con.OnEvent("Click", this.OnRMTUploadBtnClick.Bind(this))
 
         PosX := 10
         PosY += 35
@@ -73,17 +85,17 @@ class SettingMgrGui {
         con.OnEvent("Click", this.OnLoadBtnClick.Bind(this))
 
         PosX := 260
-        con := MyGui.Add("Button", Format("x{} y{} w100", PosX, PosY), "操作说明")
-        con.OnEvent("Click", this.OnCourseBtnClick.Bind(this))
+        con := MyGui.Add("Button", Format("x{} y{} w100", PosX, PosY), "删除配置")
+        con.OnEvent("Click", this.OnDelBtnClick.Bind(this))
 
         PosX := 80
         PosY += 40
-        con := MyGui.Add("Button", Format("x{} y{} w100", PosX, PosY), "导出配置")
-        con.OnEvent("Click", this.OnPackBtnClick.Bind(this))
+        con := MyGui.Add("Button", Format("x{} y{} w100", PosX, PosY), "操作说明")
+        con.OnEvent("Click", this.OnCourseBtnClick.Bind(this))
 
         PosX := 260
-        con := MyGui.Add("Button", Format("x{} y{} w100", PosX, PosY), "删除配置")
-        con.OnEvent("Click", this.OnDelBtnClick.Bind(this))
+        con := MyGui.Add("Button", Format("x{} y{} w100", PosX, PosY), "导出配置")
+        con.OnEvent("Click", this.OnPackBtnClick.Bind(this))
 
         PosX := 10
         PosY += 55
@@ -108,7 +120,7 @@ class SettingMgrGui {
         con := MyGui.Add("Button", Format("x{} y{} w100", PosX, PosY), "复制配置")
         con.OnEvent("Click", this.OnCopyBtnClick.Bind(this))
 
-        MyGui.Show(Format("w{} h{}", 420, 360))
+        MyGui.Show(Format("w{} h{}", 420, 390))
     }
 
     OnReNameBtnClick(*) {
@@ -146,7 +158,8 @@ class SettingMgrGui {
     }
 
     OnReplaceBtnClick(*) {
-        SelectedFolder := DirSelect(, 0,"请选择若梦兔软件下Setting配置文件。`n将清空当前软件的所有配置，并把所选文件中的配置迁移导入本软件。`n为了避免数据丢失，请务必提前备份现有配置。")
+        SelectedFolder := DirSelect(, 0,
+            "请选择若梦兔软件下Setting配置文件。`n将清空当前软件的所有配置，并把所选文件中的配置迁移导入本软件。`n为了避免数据丢失，请务必提前备份现有配置。")
         if SelectedFolder == ""  ; 用户取消了选择
             return
         SplitPath SelectedFolder, &name, &dir, &ext, &name_no_ext, &drive
@@ -185,6 +198,36 @@ class SettingMgrGui {
             )
             MsgBox(tipStr)
         }
+    }
+
+    OnOpenRMTSettingBtnClick(*) {
+        Run("https://zclucas.github.io/RMT-Setting/")
+    }
+
+    OnRMTUploadBtnClick(*) {
+        IsForbid := RMT_Http.IsForbid()
+        if (IsForbid) {
+            MsgBox("因为以下原因配置无法上传：`n服务器没有启动`n今日上传次数太多")
+            return
+        }
+        selectedFile := FileSelect(1, , "选择要共享上传的 RMT 文件", "RMT Files (*.rmt)")
+        if selectedFile == ""  ; 用户取消了选择
+            return
+
+        SplitPath selectedFile, &fileName, , &fileExt, &fileNameNoExt
+        ; 检查文件扩展名
+        if fileExt != "rmt" {
+            MsgBox("请选择 .rmt 文件！", "错误", 0x10)
+            return
+        }
+
+        isVaild := this.IsValidFolderName(fileNameNoExt)
+        if (!isVaild) {
+            MsgBox("配置名不符合文件目录命名规则，请修改")
+            return
+        }
+        result := RMT_Http.UploadFile(selectedFile)
+        MsgBox(result)
     }
 
     OnPackBtnClick(*) {
