@@ -39,7 +39,7 @@ class MacroSettingGui {
         PosY := 15
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY), "按键类型：")
         PosX += 90
-        this.TKTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w150", PosX, PosY - 3), ["虚拟", "拟真"])
+        this.TKTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w150", PosX, PosY - 3), ["虚拟", "拟真", "罗技"])
         Con := MyGui.Add("Button", Format("x{} y{} w30 h29", PosX + 155, PosY - 4), "?")
         Con.OnEvent("Click", this.OnClickModeHelpBtn.Bind(this))
 

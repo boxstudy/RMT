@@ -363,6 +363,7 @@ OnFinishRecordMacro() {
 OnExitSoft(*) {
     global MyPToken, MyChineseOcr
     Gdip_Shutdown(MyPToken)
+    IbSendDestroy()
     MyChineseOcr := ""
     MyEnglishOcr := ""
     MyWorkPool.Clear()

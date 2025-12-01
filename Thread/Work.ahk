@@ -9,6 +9,7 @@
 #Include "..\Joy\SuperCvJoyInterface.ahk"
 #Include "..\Joy\JoyMacro.ahk"
 #Include "..\Plugins\RapidOcr\RapidOcr.ahk"
+#Include "..\Plugins\IbInputSimulator.ahk"
 #Include "WorkUtil.ahk"
 #SingleInstance Force
 DetectHiddenWindows true

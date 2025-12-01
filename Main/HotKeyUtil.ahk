@@ -1004,7 +1004,8 @@ OnPressKey(tableItem, cmd, index) {
     paramArr := SplitKeyCommand(cmd)
     isJoyKey := SubStr(paramArr[2], 1, 3) == "Joy"
     isJoyAxis := StrCompare(SubStr(paramArr[2], 1, 7), "JoyAxis", false) == 0
-    action := tableItem.ModeArr[index] == 2 ? SendGameModeKeyClick : SendNormalKeyClick
+    actionMap := Map("1", SendNormalKeyClick, "2", SendGameModeKeyClick, "3", SendLogicKeyClick)
+    action := actionMap[tableItem.ModeArr[index]]
     action := isJoyKey ? SendJoyBtnClick : action
     action := isJoyAxis ? SendJoyAxisClick : action
 
@@ -1264,6 +1265,58 @@ SendNormalKey(Key, state, tableItem, index) {
         }
     }
 }
+
+SendLogicKeyClick(KeyArrStr, holdTime, tableItem, index, keyType) {
+    res := IbSendInit("LogitechGHubNew")
+    if (!res)
+        return
+    KeyArr := GetPressKeyArr(KeyArrStr)
+    if (keyType == 1 || keyType == 3) {
+        for key in KeyArr {
+            SendLogicKey(key, 1, tableItem, index)
+        }
+    }
+
+    if (keyType == 3) {
+        Sleep(holdTime)
+    }
+
+    if (keyType == 2 || keyType == 3) {
+        for key in KeyArr {
+            SendLogicKey(key, 0, tableItem, index)
+        }
+    }
+}
+
+SendLogicKey(Key, state, tableItem, index) {
+    if (Key == "逗号")
+        Key := ","
+    if (MySoftData.SpecialNumKeyMap.Has(Key)) {
+        if (state == 0)
+            return
+        keySymbol := "{Blind}{" Key " 1}"
+        IbSend(keySymbol)
+        return
+    }
+
+    if (state == 1) {
+        keySymbol := "{Blind}{" Key " down}"
+    }
+    else {
+        keySymbol := "{Blind}{" Key " up}"
+    }
+
+    IbSend(keySymbol)
+    if (state == 1) {
+        tableItem.HoldKeyArr[index][Key] := "Normal"
+    }
+    else {
+        if (tableItem.HoldKeyArr[index].Has(Key)) {
+            tableItem.HoldKeyArr[index].Delete(Key)
+        }
+    }
+}
+
 
 SendJoyBtnClick(KeyArrStr, holdTime, tableItem, index, keyType) {
     if (!CheckIfInstallVjoy()) {
