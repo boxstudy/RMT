@@ -1088,12 +1088,6 @@ OnClearToolText(*) {
     ToolCheckInfo.ToolTextCtrl.Value := ""
 }
 
-OnShowWinChanged(*) {
-    global MySoftData ; 访问全局变量
-    MySoftData.IsExecuteShow := !MySoftData.IsExecuteShow
-    IniWrite(MySoftData.IsExecuteShow, IniFile, IniSection, "IsExecuteShow")
-}
-
 OnBootStartChanged(*) {
     global MySoftData ; 访问全局变量
     MySoftData.IsBootStart := MySoftData.BootStartCtrl.Value

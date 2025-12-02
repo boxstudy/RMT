@@ -22,7 +22,6 @@ OnSaveSetting(*) {
     IniWrite(MySoftData.SuspendHotkeyCtrl.Value, IniFile, IniSection, "SuspendHotkey")
     IniWrite(MySoftData.PauseHotkeyCtrl.Value, IniFile, IniSection, "PauseHotkey")
     IniWrite(MySoftData.KillMacroHotkeyCtrl.Value, IniFile, IniSection, "KillMacroHotkey")
-    IniWrite(MySoftData.ShowWinCtrl.Value, IniFile, IniSection, "IsExecuteShow")
     IniWrite(MySoftData.BootStartCtrl.Value, IniFile, IniSection, "IsBootStart")
     IniWrite(MySoftData.SplitLineCtrl.Value, IniFile, IniSection, "ShowSplitLine")
     IniWrite(MySoftData.FixedMenuWheelCtrl.Value, IniFile, IniSection, "FixedMenuWheel")
@@ -193,7 +192,9 @@ InitFilePath() {
 
     filePath := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\使用说明&署名.txt"
     if (!FileExist(filePath)) {
-        FileAppend("(请在导出配置前，务必完善操作说明，该文件目录可下增加图片解释说明)[上传导出前请删除此行，否则判定没有完善使用说明]`n资源名称：`n`n原作者：`n联系方式：(QQ或电话，仅用于告知您需要调整的地方)`n功能：`n   `n操作说明：`n   `n协议：CC BY - NC - SA 4.0`n原始来源：RMT(若梦兔) 软件导出`n说明：仅限非商业用途，转载请注明来源并保持相同协议 `n", filePath, "UTF-8")
+        FileAppend(
+            "(请在导出配置前，务必完善操作说明，该文件目录可下增加图片解释说明)[上传导出前请删除此行，否则判定没有完善使用说明]`n资源名称：`n`n原作者：`n联系方式：(QQ或电话，仅用于告知您需要调整的地方)`n功能：`n   `n操作说明：`n   `n协议：CC BY - NC - SA 4.0`n原始来源：RMT(若梦兔) 软件导出`n说明：仅限非商业用途，转载请注明来源并保持相同协议 `n",
+            filePath, "UTF-8")
     }
 
     if (!DirExist(A_WorkingDir "\Images")) {
@@ -855,4 +856,15 @@ CloseMenuWheel() {
         MyMenuWheel.Gui.Hide()
     }
 
+}
+
+IsBootStart() {
+    regPath := "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run"
+    try {
+        value := RegRead(regPath, "RMT")
+        if (value != "")
+            return true
+    }
+
+    return false
 }

@@ -2,7 +2,7 @@
 InitUI() {
     global MySoftData
     MyGui := Gui()
-    MyGui.Title := "RMTv1.0.9BateF2"
+    MyGui.Title := "RMTv1.0.9BateF3"
     MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
     isValidCollor := RegExMatch(MySoftData.SoftBGColor, "^([0-9A-Fa-f]{6})$")
     BGColor := isValidCollor ? MySoftData.SoftBGColor : "f0f0f0"
@@ -27,7 +27,8 @@ OnOpen() {
         IniWrite(true, IniFile, IniSection, "AgreeAgreement")
     }
 
-    if (!MySoftData.IsExecuteShow && !MySoftData.IsReload)
+    uptimeMs := DllCall("GetTickCount64", "Int64")
+    If (uptimeMs <= 120 * 1000 && IsBootStart() && !MySoftData.IsReload)
         return
 
     RefreshGui()
@@ -39,8 +40,10 @@ RefreshGui() {
         LastWinPosStr := IniRead(IniFile, IniSection, "LastWinPos", "")
         WinPosArr := StrSplit(LastWinPosStr, "π")
         if (WinPosArr.Length == 2 && IsNumber(WinPosArr[1]) && IsNumber(WinPosArr[2])) {
-            isXValid := WinPosArr[1] > 0 && WinPosArr[1] < A_ScreenWidth
-            isYValid := WinPosArr[2] > 0 && WinPosArr[2] < A_ScreenHeight
+            VirtualWidth := SysGet(78)
+            VirtualHeight := SysGet(79)
+            isXValid := WinPosArr[1] > 0 && WinPosArr[1] < VirtualWidth
+            isYValid := WinPosArr[2] > 0 && WinPosArr[2] < VirtualHeight
             if (isXValid && isYValid) {
                 MySoftData.MyGui.Show(Format("x{} y{} w{} h{}", WinPosArr[1], WinPosArr[2], 1070, 590))
                 return
@@ -180,7 +183,7 @@ AddToolUI(index) {
     tableItem.AllConArr.Push(conInfo)
 
     con := MyGui.Add("Button", Format("x{} y{} w{}", posX + 120, posY - 3, 130), "打开监视器")
-    con.OnEvent("Click", (*)=> MyVarListenGui.ShowGui())
+    con.OnEvent("Click", (*) => MyVarListenGui.ShowGui())
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
 
@@ -619,32 +622,31 @@ AddSettingUI(index) {
     tableItem.AllConArr.Push(conInfo)
 
     posY += 40
-    con := MyGui.Add("GroupBox", Format("x{} y{} w870 h140", posX + 10, posY), "开关选项")
+    con := MyGui.Add("GroupBox", Format("x{} y{} w870 h100", posX + 10, posY), "开关选项")
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
     tableItem.AllGroup.Push(con)
     posY += 30
-    con := MyGui.Add("CheckBox", Format("x{} y{}", posX + 25, posY), "运行后显示窗口")
-    MySoftData.ShowWinCtrl := con
-    MySoftData.ShowWinCtrl.Value := MySoftData.IsExecuteShow
-    MySoftData.ShowWinCtrl.OnEvent("Click", OnShowWinChanged)
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
-    con := MyGui.Add("CheckBox", Format("x{} y{}", posX + 315, posY), "开机自启")
+    con := MyGui.Add("CheckBox", Format("x{} y{}", posX + 25, posY), "开机自启")
     MySoftData.BootStartCtrl := con
     MySoftData.BootStartCtrl.Value := MySoftData.IsBootStart
     MySoftData.BootStartCtrl.OnEvent("Click", OnBootStartChanged)
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
 
-    con := MyGui.Add("CheckBox", Format("x{} y{} -Wrap w15", posX + 635, posY), "")
+    con := MyGui.Add("CheckBox", Format("x{} y{} -Wrap w15", posX + 315, posY), "")
     MySoftData.CMDTipCtrl := con
     MySoftData.CMDTipCtrl.Value := MySoftData.CMDTip
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Button", Format("x{} y{}", posX + 635 + 15, posY - 5), "指令显示")
+    con := MyGui.Add("Button", Format("x{} y{}", posX + 315 + 15, posY - 5), "指令显示")
     con.OnEvent("Click", (*) => OnEditCMDTipGui())
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
+
+    con := MyGui.Add("Button", Format("x{} y{} w{}", posX + 635, posY - 5, 100), "录制选项")
+    con.OnEvent("Click", OnClickToolRecordSettingBtn)
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
 
@@ -662,13 +664,7 @@ AddSettingUI(index) {
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
 
-    con := MyGui.Add("Button", Format("x{} y{} w{}", posX + 635, posY - 5, 100), "录制选项")
-    con.OnEvent("Click", OnClickToolRecordSettingBtn)
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-
-    posY += 40
-    con := MyGui.Add("CheckBox", Format("x{} y{}", posX + 25, posY), "分割线")
+    con := MyGui.Add("CheckBox", Format("x{} y{}", posX + 635, posY), "分割线")
     MySoftData.SplitLineCtrl := con
     MySoftData.SplitLineCtrl.Value := MySoftData.ShowSplitLine
     conInfo := ItemConInfo(con, tableItem, 1)

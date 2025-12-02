@@ -202,7 +202,6 @@ class SoftData {
         this.ToolTipText := ""
         this.ToolTipEndTime := ""
         this.AgreeAgreement := false
-        this.IsExecuteShow := true
         this.ShowWinCtrl := ""
         this.IsBootStart := false
         this.BootStartCtrl := ""
