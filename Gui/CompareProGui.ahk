@@ -13,11 +13,11 @@ class CompareProGui {
         this.ItemEditGui := ""
         this.ContextMenu := ""
 
-        this.CompareTypeStrArr := ["大于", "大于等于", "等于", "小于等于",
-            "小于", "字符包含", "变量存在"]
+        this.CompareTypeStrArr := GetLangArr(["大于", "大于等于", "等于", "小于等于",
+            "小于", "字符包含", "变量存在"])
 
-        this.CompareTypeStrMap := Map("大于", 1, "大于等于", 2, "等于", 3, "小于等于",
-            4, "小于", 5, "字符包含", 6, "变量存在", 7)
+        this.CompareTypeStrMap := Map(GetLang("大于"), 1, GetLang("大于等于"), 2, GetLang("等于"), 3, GetLang("小于等于"),
+            4, GetLang("小于"), 5, GetLang("字符包含"), 6, GetLang("变量存在"), 7)
 
         this.Data := ""
     }
@@ -35,29 +35,29 @@ class CompareProGui {
     }
 
     AddGui() {
-        MyGui := Gui(, this.ParentTile "如果Pro编辑器")
+        MyGui := Gui(, this.ParentTile GetLang("如果Pro编辑器"))
         this.Gui := MyGui
         MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
 
         PosX := 10
         PosY := 10
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), "快捷方式:")
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("快捷方式:"))
         PosX += 70
         con := MyGui.Add("Hotkey", Format("x{} y{} w{}", PosX, PosY - 3, 70), "!l")
         con.Enabled := false
 
         PosX += 90
-        btnCon := MyGui.Add("Button", Format("x{} y{} w{}", PosX, PosY - 5, 80), "执行指令")
+        btnCon := MyGui.Add("Button", Format("x{} y{} w{}", PosX, PosY - 5, 80), GetLang("执行指令"))
         btnCon.OnEvent("Click", (*) => this.TriggerMacro())
 
         PosX += 90
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 50), "备注:")
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 50), GetLang("备注:"))
         PosX += 50
         this.RemarkCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 5, 150), "")
 
         PosX := 10
         PosY += 30
-        this.LVCon := MyGui.Add("ListView", Format("x{} y{} w480 h280 -LV0x10 NoSort", PosX, PosY), ["条件", "关系", "指令"])
+        this.LVCon := MyGui.Add("ListView", Format("x{} y{} w480 h280 -LV0x10 NoSort", PosX, PosY), GetLangArr(["条件", "关系", "指令"]))
         this.LVCon.OnEvent("ContextMenu", this.ShowContextMenu.Bind(this))
         this.LVCon.OnEvent("DoubleClick", this.OnDoubleClick.Bind(this))
         ; 设置列宽（单位：px）
@@ -67,7 +67,7 @@ class CompareProGui {
 
         PosY += 290
         PosX := 190
-        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 40), "确定")
+        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 40), GetLang("确定"))
         btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
         this.FocusCon := btnCon
 
@@ -91,12 +91,12 @@ class CompareProGui {
                 condiStr .= "⎖"
             }
             condiStr := Trim(condiStr, "⎖")
-            logicStr := this.Data.LogicTypeArr[A_Index] == 1 ? "且" : "或"
+            logicStr := this.Data.LogicTypeArr[A_Index] == 1 ? GetLang("且") : GetLang("或")
             macro := this.Data.MacroArr[A_Index]
 
             this.LVCon.Add(, condiStr, logicStr, macro)
         }
-        this.LVCon.Add(, "以上都不是", "", this.Data.DefaultMacro)
+        this.LVCon.Add(, GetLang("以上都不是"), "", this.Data.DefaultMacro)
         this.LVCon.Focus()  ; 🔥 强制获得焦点，解决第一次双击无效问题
     }
 
@@ -116,15 +116,15 @@ class CompareProGui {
 
         if (this.ContextMenu == "") {
             this.ContextMenu := Menu()
-            this.ContextMenu.Add("编辑", (*) => this.MenuHandler("编辑"))
+            this.ContextMenu.Add(GetLang("编辑"), (*) => this.MenuHandler(GetLang("编辑")))
             this.ContextMenu.Add()  ; 分隔线
-            this.ContextMenu.Add("向上插入分支", (*) => this.MenuHandler("向上插入分支"))
-            this.ContextMenu.Add("向下插入分支", (*) => this.MenuHandler("向下插入分支"))
+            this.ContextMenu.Add(GetLang("向上插入分支"), (*) => this.MenuHandler(GetLang("向上插入分支")))
+            this.ContextMenu.Add(GetLang("向下插入分支"), (*) => this.MenuHandler(GetLang("向下插入分支")))
             this.ContextMenu.Add()  ; 分隔线
-            this.ContextMenu.Add("向上移动", (*) => this.MenuHandler("向上移动"))
-            this.ContextMenu.Add("向下移动", (*) => this.MenuHandler("向下移动"))
+            this.ContextMenu.Add(GetLang("向上移动"), (*) => this.MenuHandler(GetLang("向上移动")))
+            this.ContextMenu.Add(GetLang("向下移动"), (*) => this.MenuHandler(GetLang("向下移动")))
             this.ContextMenu.Add()  ; 分隔线
-            this.ContextMenu.Add("删除", (*) => this.MenuHandler("删除"))
+            this.ContextMenu.Add(GetLang("删除"), (*) => this.MenuHandler(GetLang("删除")))
         }
         this.CurItme := item
         this.ContextMenu.Show(x, y)
@@ -137,42 +137,42 @@ class CompareProGui {
     }
 
     MenuHandler(cmdStr) {
-        isFinally := this.LVCon.GetText(this.CurItme, 1) == "以上都不是"
+        isFinally := this.LVCon.GetText(this.CurItme, 1) == GetLang("以上都不是")
         switch cmdStr {
-            case "编辑":
+            case GetLang("编辑"):
             {
                 this.OnEditItem(this.CurItme)
             }
-            case "向上插入分支":
+            case GetLang("向上插入分支"):
             {
-                this.LVCon.Insert(this.CurItme, , "Num1 大于 Num1", "且", "")
+                this.LVCon.Insert(this.CurItme, , GetLang("Num1 大于 Num1"), GetLang("且"), "")
             }
-            case "向下插入分支":
+            case GetLang("向下插入分支"):
             {
                 if (isFinally) {
-                    MsgBox("不可向最后的分支插入")
+                    MsgBox(GetLang("不可向最后的分支插入"))
                     return
                 }
-                this.LVCon.Insert(this.CurItme + 1, , "Num1 大于 Num1", "且", "")
+                this.LVCon.Insert(this.CurItme + 1, , GetLang("Num1 大于 Num1"), GetLang("且"), "")
             }
-            case "向上移动":
+            case GetLang("向上移动"):
             {
                 if (isFinally) {
-                    MsgBox("最后的分支不能变更顺序")
+                    MsgBox(GetLang("最后的分支不能变更顺序"))
                     return
                 }
                 if (this.CurItme == 1) {
-                    MsgBox("第一个分支不能上移")
+                    MsgBox(GetLang("第一个分支不能上移"))
                     return
                 }
                 this.LVCon.Insert(this.CurItme - 1, , this.LVCon.GetText(this.CurItme, 1), this.LVCon.GetText(this.CurItme,
                     2), this.LVCon.GetText(this.CurItme, 3))
                 this.LVCon.Delete(this.CurItme + 1)
             }
-            case "向下移动":
+            case GetLang("向下移动"):
             {
                 if (isFinally || this.LVCon.GetCount() == this.CurItme + 1) {
-                    MsgBox("最后的分支不能变更顺序")
+                    MsgBox(GetLang("最后的分支不能变更顺序"))
                     return
                 }
 
@@ -180,10 +180,10 @@ class CompareProGui {
                     2), this.LVCon.GetText(this.CurItme, 3))
                 this.LVCon.Delete(this.CurItme)
             }
-            case "删除":
+            case GetLang("删除"):
             {
                 if (isFinally) {
-                    MsgBox("最后的分支不能删除，若无需该分支请清空分支指令")
+                    MsgBox(GetLang("最后的分支不能删除，若无需该分支请清空分支指令"))
                     return
                 }
                 this.LVCon.Delete(this.CurItme)
@@ -196,11 +196,11 @@ class CompareProGui {
             this.ItemEditGui := CompareProEditItemGui()
             this.ItemEditGui.SureFocusCon := this.FocusCon
         }
-        ParentTile := StrReplace(this.Gui.Title, "编辑器", "")
+        ParentTile := StrReplace(this.Gui.Title, GetLang("编辑器"), "")
         this.ItemEditGui.ParentTile := ParentTile "-"
 
         this.ItemEditGui.VariableObjArr := this.VariableObjArr
-        EditType := this.LVCon.GetText(item, 1) == "以上都不是" ? 2 : 1
+        EditType := this.LVCon.GetText(item, 1) == GetLang("以上都不是") ? 2 : 1
         DataArr := this.GetCondiStrDataArr(this.LVCon.GetText(item, 1))
         logicStr := this.LVCon.GetText(item, 2)
         macro := this.LVCon.GetText(item, 3)
@@ -268,7 +268,7 @@ class CompareProGui {
         VariNameArr := []
         CompareTypeArr := []
         VariableArr := []
-        if (condiStr != "以上都不是") {
+        if (condiStr != GetLang("以上都不是")) {
             loop condiStrArr.Length {
                 itemCondiArr := StrSplit(condiStrArr[A_Index], " ")
                 Variable := itemCondiArr.Length >= 3 ? itemCondiArr[3] : ""
@@ -293,7 +293,7 @@ class CompareProGui {
                 break
             }
             CondiDataArr := this.GetCondiStrDataArr(this.LVCon.GetText(A_Index, 1))
-            LogicType := this.LVCon.GetText(A_Index, 2) == "且" ? 1 : 2
+            LogicType := this.LVCon.GetText(A_Index, 2) == GetLang("且") ? 1 : 2
             this.Data.VariNameArr.Push(CondiDataArr[1])
             this.Data.CompareTypeArr.Push(CondiDataArr[2])
             this.Data.VariableArr.Push(CondiDataArr[3])

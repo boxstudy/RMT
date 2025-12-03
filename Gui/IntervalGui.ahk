@@ -23,7 +23,7 @@ class IntervalGui {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
         this.TimeVarCon.Delete()
         this.TimeVarCon.Add(this.VariableObjArr)
-        this.TimeVarCon.Text := "空"
+        this.TimeVarCon.Text := GetLang("空")
         if (cmdArr.Length == 2) {
             this.TimeVarCon.Text := cmdArr[2]
         }
@@ -36,20 +36,20 @@ class IntervalGui {
     }
 
     AddGui() {
-        MyGui := Gui(,this.ParentTile "间隔编辑器")
+        MyGui := Gui(,this.ParentTile GetLang("间隔编辑器"))
         this.Gui := MyGui
         MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
 
         PosX := 40
         PosY := 20
-        MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 90, 20), "时间(毫秒)：")
+        MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 90, 20), GetLang("时间(毫秒)："))
 
         PosX += 90
         this.TimeVarCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5 Center", PosX, PosY - 2, 130), [])
 
         PosY += 40
         PosX := 110
-        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 40), "确定")
+        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 40), GetLang("确定"))
         btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
 
         MyGui.Show(Format("w{} h{}", 320, 120))
@@ -62,7 +62,7 @@ class IntervalGui {
         timeText := this.TimeVarCon.Text
         if (IsNumber(timeText)) {
             if (IsFloat(timeText) || timeText < 0) {
-                MsgBox("请输入大于0的整数")
+                MsgBox(GetLang("请输入大于0的整数"))
                 return
             }
         }

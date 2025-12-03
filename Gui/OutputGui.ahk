@@ -36,40 +36,40 @@ class OutputGui {
     }
 
     AddGui() {
-        MyGui := Gui(,this.ParentTile "输出编辑器")
+        MyGui := Gui(,this.ParentTile GetLang("输出编辑器"))
         this.Gui := MyGui
         MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
 
         PosX := 10
         PosY := 10
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), "快捷方式:")
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("快捷方式:"))
         PosX += 80
         con := MyGui.Add("Hotkey", Format("x{} y{} w{}", PosX, PosY - 3, 70), "!l")
         con.Enabled := false
 
         PosX += 90
-        btnCon := MyGui.Add("Button", Format("x{} y{} w{}", PosX, PosY - 5, 80), "执行指令")
+        btnCon := MyGui.Add("Button", Format("x{} y{} w{}", PosX, PosY - 5, 80), GetLang("执行指令"))
         btnCon.OnEvent("Click", (*) => this.TriggerMacro())
 
         PosX += 90
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 50), "备注:")
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 50), GetLang("备注:"))
         PosX += 50
         this.RemarkCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 5, 150), "")
 
         PosX := 10
         PosY += 40
-        MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 80, 20), "输出类型:")
+        MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 80, 20), GetLang("输出类型:"))
         PosX += 80
-        this.OutputTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 5, 110), ["发送内容",
-            "粘贴内容", "临时提示", "指令窗口", "软件弹窗", "系统语音", "复制到剪切板", "文本文件", "Excel"])
+        this.OutputTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 5, 110), GetLangArr(["发送内容",
+            "粘贴内容", "临时提示", "指令窗口", "软件弹窗", "系统语音", "复制到剪切板", "文本文件", "Excel"]))
         this.OutputTypeCon.Value := 1
         this.OutputTypeCon.OnEvent("Change", (*) => this.OnOutTypeChange())
 
         PosX := 10
         PosY += 30
-        this.TextTipCon := MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 350, 20), "输出的文本内容")
+        this.TextTipCon := MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 350, 20), GetLang("输出的文本内容"))
         PosX += 270
-        this.VariTipCon := MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 350, 20), "变量")
+        this.VariTipCon := MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 350, 20), GetLang("变量"))
 
         PosX := 10
         PosY += 20
@@ -77,35 +77,35 @@ class OutputGui {
 
         PosX += 270
         this.VariCon := MyGui.Add("DropDownList", Format("x{} y{} w{} R5", PosX, PosY, 130), [])
-        con := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY + 35, 90, 35), "追加变量名")
+        con := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY + 35, 90, 35), GetLang("追加变量名"))
         con.OnEvent("Click", (*) => this.OnClickAddVarNameBtn())
-        con := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX + 100, PosY + 35, 90, 35), "追加变量值")
+        con := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX + 100, PosY + 35, 90, 35), GetLang("追加变量值"))
         con.OnEvent("Click", (*) => this.OnClickAddVarValueBtn())
 
         PosX := 10
         PosY += 80
-        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY + 5, 80), "文件路径:")
+        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY + 5, 80), GetLang("文件路径:"))
         this.FilePathConArr.Push(con)
         PosX += 80
         this.FilePathCon := MyGui.Add("Edit", Format("x{} y{} w{} h{}", PosX, PosY, 280, 30))
         this.FilePathConArr.Push(this.FilePathCon)
         PosX += 290
-        con := MyGui.Add("Button", Format("x{} y{} w{}", PosX, PosY, 80), "选择路径")
+        con := MyGui.Add("Button", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("选择路径"))
         con.OnEvent("Click", (*) => this.OnSelectPathBtnClick())
         this.FilePathConArr.Push(con)
 
         PosX := 10
         PosY += 40
-        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY + 5, 80), "输入类型:")
+        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY + 5, 80), GetLang("输入类型:"))
         this.ExcelConArr.Push(con)
         PosX += 80
-        this.ExcelTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY, 110), ["指定单元格",
-            "行号自增", "列号自增"])
+        this.ExcelTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY, 110), GetLangArr(["指定单元格",
+            "行号自增", "列号自增"]))
         this.ExcelConArr.Push(this.ExcelTypeCon)
         this.ExcelTypeCon.OnEvent("Change", (*) => this.OnOutTypeChange())
 
         PosX += 160
-        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY + 5, 80), "表名或序号:")
+        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY + 5, 80), GetLang("表名或序号:"))
         this.ExcelConArr.Push(con)
         PosX += 80
         this.NameOrSerialCon := MyGui.Add("Edit", Format("x{} y{} w{} h{}", PosX, PosY, 110, 30))
@@ -113,14 +113,14 @@ class OutputGui {
 
         PosX := 10
         PosY += 40
-        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY + 5, 80), "单元格行号:")
+        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY + 5, 80), GetLang("单元格行号:"))
         this.ExcelConArr.Push(con)
         PosX += 80
         this.RowVarCon := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY, 110), [])
         this.ExcelConArr.Push(this.RowVarCon)
 
         PosX += 160
-        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY + 5, 80), "单元格列号:")
+        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY + 5, 80), GetLang("单元格列号:"))
         this.ExcelConArr.Push(con)
         PosX += 80
         this.ColVarCon := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY, 110, 30), [])
@@ -128,7 +128,7 @@ class OutputGui {
 
         PosY += 40
         PosX := 200
-        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 40), "确定")
+        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 40), GetLang("确定"))
         btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
 
         MyGui.OnEvent("Close", (*) => this.ToggleFunc(false))
@@ -196,7 +196,7 @@ class OutputGui {
     }
 
     OnSelectPathBtnClick() {
-        path := FileSelect(1, , "选择输出的目标文件")
+        path := FileSelect(1, , GetLang("选择输出的目标文件"))
         this.FilePathCon.Value := path
     }
 
@@ -215,7 +215,7 @@ class OutputGui {
     CheckIfValid() {
         if (this.OutputTypeCon.Value == 8 || this.OutputTypeCon.Value == 9) {
             if (this.FilePathCon.Value == "") {
-                MsgBox("请选择文件路径")
+                MsgBox(GetLang("请选择文件路径"))
                 return
             }
         }

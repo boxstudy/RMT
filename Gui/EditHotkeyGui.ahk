@@ -23,17 +23,17 @@ class EditHotkeyGui {
     }
 
     AddGui() {
-        MyGui := Gui(, "快捷方式编辑")
+        MyGui := Gui(, GetLang("快捷方式编辑"))
         this.Gui := MyGui
         MyGui.SetFont("S12 W550 Q2", MySoftData.FontType)
 
         PosX := 75
         PosY := 30
-        con := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 50), "快捷键")
+        con := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 50), GetLang("快捷键"))
         con.OnEvent("Click", (*) => this.OnEditHotKey(MyTriggerKeyGui))
 
         PosX += 150
-        con := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 50), "字串")
+        con := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 50), GetLang("字串"))
         con.OnEvent("Click", (*) => this.OnEditHotKey(MyTriggerStrGui))
         this.TriggerStrBtnCon := con
 

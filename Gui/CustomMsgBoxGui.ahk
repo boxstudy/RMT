@@ -18,7 +18,7 @@ class CustomMsgBoxGui {
     }
 
     AddGui() {
-        MyGui := Gui(, "RMT输出弹窗")
+        MyGui := Gui(, GetLang("RMT输出弹窗"))
         this.Gui := MyGui
         MyGui.SetFont("S11 W550 Q2", MySoftData.FontType)
 
@@ -28,7 +28,7 @@ class CustomMsgBoxGui {
 
         PosY += 160
         PosX += 130
-        con := MyGui.Add("Button", Format("x{} y{} w80", PosX, PosY), "确定")
+        con := MyGui.Add("Button", Format("x{} y{} w80", PosX, PosY), GetLang("确定"))
         con.OnEvent("Click", (*) => this.OnSureBtnClick())
         MyGui.Show(Format("w{} h{}", 365, 220))
     }

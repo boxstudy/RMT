@@ -42,7 +42,7 @@ class FrontInfoGui {
     }
 
     AddGui() {
-        MyGui := Gui(, "前台信息编辑器")
+        MyGui := Gui(, GetLang("前台信息编辑器"))
         this.Gui := MyGui
         MyGui.SetFont("S11 W550 Q2", MySoftData.FontType)
         PosX := 10
@@ -51,12 +51,12 @@ class FrontInfoGui {
         con := MyGui.Add("Edit", Format("x{} y{}", PosX, PosY - 5), "F1")
         con.Enabled := false
         PosX += 30
-        con := MyGui.Add("Checkbox", Format("x{} y{}", PosX, PosY), "信息刷新")
+        con := MyGui.Add("Checkbox", Format("x{} y{}", PosX, PosY), GetLang("信息刷新"))
         con.OnEvent("Click", this.OnTogClick.Bind(this))
         this.InfoTogCon := con
 
         PosX := 160
-        con := MyGui.Add("Checkbox", Format("x{} y{}", PosX, PosY), "窗口置顶")
+        con := MyGui.Add("Checkbox", Format("x{} y{}", PosX, PosY), GetLang("窗口置顶"))
         con.OnEvent("Click", this.OnTogClick.Bind(this))
         this.TopTogCon := con
 
@@ -64,30 +64,30 @@ class FrontInfoGui {
         con := MyGui.Add("Edit", Format("x{} y{}", PosX, PosY - 5), "F2")
         con.Enabled := false
         PosX += 30
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), "确定所有信息")
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("确定所有信息"))
 
         PosX := 10
         PosY += 30
         con := MyGui.Add("Edit", Format("x{} y{}", PosX, PosY - 5), "F3")
         con.Enabled := false
         PosX += 30
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), "确定窗口标题")
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("确定窗口标题"))
 
         PosX := 160
         con := MyGui.Add("Edit", Format("x{} y{}", PosX, PosY - 5), "F4")
         con.Enabled := false
         PosX += 30
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), "确定窗口类")
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("确定窗口类"))
 
         PosX := 320
         con := MyGui.Add("Edit", Format("x{} y{}", PosX, PosY - 5), "F5")
         con.Enabled := false
         PosX += 30
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), "确定进程名")
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("确定进程名"))
 
         PosY += 30
         PosX := 10
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), "鼠标下窗口信息：")
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("鼠标下窗口信息："))
 
         PosY += 25
         PosX := 10
@@ -95,7 +95,7 @@ class FrontInfoGui {
 
         PosY += 95
         PosX := 20
-        con := MyGui.Add("Checkbox", Format("x{} y{}", PosX, PosY), "标题")
+        con := MyGui.Add("Checkbox", Format("x{} y{}", PosX, PosY), GetLang("标题"))
         con.OnEvent("Click", this.OnTogClick.Bind(this))
         this.InfoTogArrCon.Push(con)
         PosX := 95
@@ -104,7 +104,7 @@ class FrontInfoGui {
 
         PosY += 35
         PosX := 20
-        con := MyGui.Add("Checkbox", Format("x{} y{}", PosX, PosY), "窗口类")
+        con := MyGui.Add("Checkbox", Format("x{} y{}", PosX, PosY), GetLang("窗口类"))
         con.OnEvent("Click", this.OnTogClick.Bind(this))
         this.InfoTogArrCon.Push(con)
         PosX := 95
@@ -113,7 +113,7 @@ class FrontInfoGui {
 
         PosY += 35
         PosX := 20
-        con := MyGui.Add("Checkbox", Format("x{} y{}", PosX, PosY), "进程名")
+        con := MyGui.Add("Checkbox", Format("x{} y{}", PosX, PosY), GetLang("进程名"))
         con.OnEvent("Click", this.OnTogClick.Bind(this))
         this.InfoTogArrCon.Push(con)
         PosX := 95
@@ -122,11 +122,11 @@ class FrontInfoGui {
 
         PosY += 30
         PosX := 20
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), "提示：宏仅当鼠标悬停窗口符合上述条件时触发")
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("提示：宏仅当鼠标悬停窗口符合上述条件时触发"))
 
         PosX := 200
         PosY += 45
-        con := MyGui.Add("Button", Format("x{} y{} w100 h40", PosX, PosY), "确定")
+        con := MyGui.Add("Button", Format("x{} y{} w100 h40", PosX, PosY), GetLang("确定"))
         con.OnEvent("Click", (*) => this.OnSureBtnClick())
         MyGui.OnEvent("Close", (*) => this.ToggleFunc(false))
         MyGui.Show(Format("w{} h{}", 500, 390))
@@ -139,7 +139,7 @@ class FrontInfoGui {
             title := WinGetTitle(winId)
             className := WinGetClass(winId)
             process := WinGetProcessName(winId)
-            tipStr := "标题：" title "`n窗口类：" className "`n进程名：" process
+            tipStr := Format("{}{}`n{}{}`n{}{}", GetLang("标题："), title, GetLang("窗口类："), className, GetLang("进程名："), process)
             this.WinInfoCon.Value := tipStr
         }
     }
@@ -165,17 +165,17 @@ class FrontInfoGui {
 
     CheckIfValid() {
         if (this.InfoTextArrCon[1].Value && this.InfoTextArrCon[1].Value == "") {
-            MsgBox("勾选标题后，标题内容不能为空")
+            MsgBox(GetLang("勾选标题后，标题内容不能为空"))
             return false
         }
 
         if (this.InfoTextArrCon[1].Value && this.InfoTextArrCon[1].Value == "") {
-            MsgBox("勾选窗口类后，窗口类内容不能为空")
+            MsgBox(GetLang("勾选窗口类后，窗口类内容不能为空"))
             return false
         }
 
         if (this.InfoTextArrCon[1].Value && this.InfoTextArrCon[1].Value == "") {
-            MsgBox("勾选进程名后，进程名内容不能为空")
+            MsgBox(GetLang("勾选进程名后，进程名内容不能为空"))
             return false
         }
         return true

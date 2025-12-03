@@ -34,89 +34,90 @@ class MMProGui {
     }
 
     AddGui() {
-        MyGui := Gui(, this.ParentTile "移动Pro编辑器")
+        MyGui := Gui(, this.ParentTile GetLang("移动Pro编辑器"))
         this.Gui := MyGui
         MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
 
         PosX := 10
         PosY := 10
-        this.FocusCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), "快捷方式:")
+        this.FocusCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("快捷方式:"))
         PosX += 80
         con := MyGui.Add("Hotkey", Format("x{} y{} w{}", PosX, PosY - 3, 70), "!l")
         con.Enabled := false
 
         PosX += 90
-        btnCon := MyGui.Add("Button", Format("x{} y{} w{}", PosX, PosY - 5, 80), "执行指令")
+        btnCon := MyGui.Add("Button", Format("x{} y{} w{}", PosX, PosY - 5, 80), GetLang("执行指令"))
         btnCon.OnEvent("Click", (*) => this.TriggerMacro())
 
         PosX += 90
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 50), "备注:")
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 50), GetLang("备注:"))
         PosX += 50
         this.RemarkCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 5, 150), "")
 
         PosY += 30
         PosX := 10
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY + 3, 400), "F1:选取当前坐标")
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY + 3, 400), GetLang("F1:选取当前坐标"))
 
         PosX := 240
-        Con := MyGui.Add("Button", Format("x{} y{} w100", PosX, PosY), "定位取色器")
+        Con := MyGui.Add("Button", Format("x{} y{} w100", PosX, PosY), GetLang("定位取色器"))
         Con.OnEvent("Click", this.OnClickTargeterBtn.Bind(this))
         Con := MyGui.Add("Button", Format("x{} y{} w30", PosX + 102, PosY), "?")
         Con.OnEvent("Click", this.OnClickTargeterHelpBtn.Bind(this))
 
         PosX := 10
         PosY += 30
-        this.MousePosCon := MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 380, 20), "当前鼠标位置:0,0")
+        this.MousePosCon := MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 380, 20), GetLang("当前鼠标位置:0,0"))
 
         PosY += 20
         PosX := 10
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), "游戏视角：调整原神等游戏视角")
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("游戏视角：调整原神等游戏视角"))
 
         PosY += 30
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), "坐标位置X:")
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("坐标位置X:"))
         PosX += 80
         this.PosVarXCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5 Center", PosX, PosY - 5, 100), [])
 
         PosX := 240
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), "坐标位置Y:")
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("坐标位置Y:"))
         PosX += 80
         this.PosVarYCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5 Center", PosX, PosY - 5, 100), [])
 
         PosY += 35
         PosX := 10
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), "移动速度:")
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("移动速度:"))
         PosX += 80
         this.SpeedCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 100), "90")
 
         PosX := 240
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), "鼠标动作:")
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("鼠标动作:"))
         PosX += 80
-        this.ActionTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{} Center", PosX, PosY - 5, 100), ["移动",
-            "移动点击1次", "移动点击2次"])
+        this.ActionTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{} Center", PosX, PosY - 5, 100), GetLangArr([
+            "移动",
+            "移动点击1次", "移动点击2次"]))
         this.ActionTypeCon.Value := 1
 
         PosX := 10
         PosY += 35
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), "移动次数:")
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("移动次数:"))
         PosX += 80
         this.CountCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 100), 1)
 
         PosX := 240
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), "每次间隔:")
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("每次间隔:"))
         PosX += 80
         this.IntervalCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 100), 1000)
 
         PosY += 30
         PosX := 90
-        this.IsRelativeCon := MyGui.Add("Checkbox", Format("x{} y{} w{} h{}", PosX, PosY, 100, 20), "相对位移")
+        this.IsRelativeCon := MyGui.Add("Checkbox", Format("x{} y{} w{} h{}", PosX, PosY, 100, 20), GetLang("相对位移"))
 
         PosX := 320
-        this.IsGameViewCon := MyGui.Add("Checkbox", Format("x{} y{} w{} h{}", PosX, PosY, 100, 20), "游戏视角")
+        this.IsGameViewCon := MyGui.Add("Checkbox", Format("x{} y{} w{} h{}", PosX, PosY, 100, 20), GetLang("游戏视角"))
         this.isGameViewCon.OnEvent("Click", (*) => this.OnTypeChange())
 
         PosY += 35
         PosX := 190
-        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 40), "确定")
+        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 40), GetLang("确定"))
         btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
 
         MyGui.OnEvent("Close", (*) => this.ToggleFunc(false))
@@ -151,12 +152,12 @@ class MMProGui {
             return
 
         if (!IsNumber(this.PosVarXCon.Text)) {
-            MsgBox("坐标X是变量时，编辑模式下无法执行")
+            MsgBox(GetLang("坐标X是变量时，编辑模式下无法执行"))
             return
         }
 
         if (!IsNumber(this.PosVarYCon.Text)) {
-            MsgBox("坐标Y是变量时，编辑模式下无法执行")
+            MsgBox(GetLang("坐标Y是变量时，编辑模式下无法执行"))
             return
         }
 
@@ -188,7 +189,7 @@ class MMProGui {
     RefreshMousePos() {
         CoordMode("Mouse", "Screen")
         MouseGetPos &mouseX, &mouseY
-        this.MousePosCon.Value := "当前鼠标位置:" mouseX "," mouseY
+        this.MousePosCon.Value := Format("{}{},{}", GetLang("当前鼠标位置:"), mouseX, mouseY)
     }
 
     ToggleFunc(state) {
@@ -232,7 +233,7 @@ class MMProGui {
     }
 
     OnClickTargeterHelpBtn(*) {
-        MsgBox("1.左键拖拽改变位置`n2.上下左右方向键微调位置`n3.左键双击或回车键关闭取色器，同时确定点位信息", "定位取色器操作说明")
+        MsgBox(GetLang("1.左键拖拽改变位置`n2.上下左右方向键微调位置`n3.左键双击或回车键关闭取色器，同时确定点位信息"), GetLang("定位取色器操作说明"))
     }
 
     OnClickSureBtn() {

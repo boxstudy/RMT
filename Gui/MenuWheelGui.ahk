@@ -45,7 +45,7 @@ class MenuWheelGui {
     }
 
     AddGui() {
-        MyGui := Gui("-Caption +AlwaysOnTop +ToolWindow", "菜单轮")
+        MyGui := Gui("-Caption +AlwaysOnTop +ToolWindow", GetLang("菜单轮"))
         MyGui.SetFont("S11 W550 Q2", MySoftData.FontType)
         MyGui.BackColor := "EEAA99"
         WinSetTransColor("EEAA99", MyGui)
@@ -56,56 +56,56 @@ class MenuWheelGui {
 
         PosX := 130  ; 调整
         PosY := 10   ; 调整
-        con := MyGui.Add("Button", Format("x{} y{} w80", PosX, PosY), "菜单配置1")
+        con := MyGui.Add("Button", Format("x{} y{} w80", PosX, PosY), GetLang("菜单配置1"))
         con.OnEvent("Click", (*) => this.OnBtnClick(1))
         this.BtnConArr.Push(con)
         this.BtnRegions[1] := { X: PosX, Y: PosY, W: 80, H: 30 } ; ✅记录区域
 
         PosX := 225  ; 调整
         PosY := 55   ; 调整
-        con := MyGui.Add("Button", Format("x{} y{} w80", PosX, PosY), "菜单配置2")
+        con := MyGui.Add("Button", Format("x{} y{} w80", PosX, PosY), GetLang("菜单配置2"))
         con.OnEvent("Click", (*) => this.OnBtnClick(2))
         this.BtnConArr.Push(con)
         this.BtnRegions[2] := { X: PosX, Y: PosY, W: 80, H: 30 } ; ✅记录区域
 
         PosX := 260  ; 调整
         PosY := 110  ; 调整
-        con := MyGui.Add("Button", Format("x{} y{} w80", PosX, PosY), "菜单配置3")
+        con := MyGui.Add("Button", Format("x{} y{} w80", PosX, PosY), GetLang("菜单配置3"))
         con.OnEvent("Click", (*) => this.OnBtnClick(3))
         this.BtnConArr.Push(con)
         this.BtnRegions[3] := { X: PosX, Y: PosY, W: 80, H: 30 } ; ✅记录区域
 
         PosX := 225  ; 调整
         PosY := 165  ; 调整
-        con := MyGui.Add("Button", Format("x{} y{} w80", PosX, PosY), "菜单配置4")
+        con := MyGui.Add("Button", Format("x{} y{} w80", PosX, PosY), GetLang("菜单配置4"))
         con.OnEvent("Click", (*) => this.OnBtnClick(4))
         this.BtnConArr.Push(con)
         this.BtnRegions[4] := { X: PosX, Y: PosY, W: 80, H: 30 } ; ✅记录区域
 
         PosX := 130  ; 调整
         PosY := 210  ; 调整
-        con := MyGui.Add("Button", Format("x{} y{} w80", PosX, PosY), "菜单配置5")
+        con := MyGui.Add("Button", Format("x{} y{} w80", PosX, PosY), GetLang("菜单配置5"))
         con.OnEvent("Click", (*) => this.OnBtnClick(5))
         this.BtnConArr.Push(con)
         this.BtnRegions[5] := { X: PosX, Y: PosY, W: 80, H: 30 } ; ✅记录区域
 
         PosX := 35   ; 调整
         PosY := 165  ; 调整
-        con := MyGui.Add("Button", Format("x{} y{} w80", PosX, PosY), "菜单配置6")
+        con := MyGui.Add("Button", Format("x{} y{} w80", PosX, PosY), GetLang("菜单配置6"))
         con.OnEvent("Click", (*) => this.OnBtnClick(6))
         this.BtnConArr.Push(con)
         this.BtnRegions[6] := { X: PosX, Y: PosY, W: 80, H: 30 } ; ✅记录区域
 
         PosX := 0    ; 调整
         PosY := 110  ; 调整
-        con := MyGui.Add("Button", Format("x{} y{} w80", PosX, PosY), "菜单配置7")
+        con := MyGui.Add("Button", Format("x{} y{} w80", PosX, PosY), GetLang("菜单配置7"))
         con.OnEvent("Click", (*) => this.OnBtnClick(7))
         this.BtnConArr.Push(con)
         this.BtnRegions[7] := { X: PosX, Y: PosY, W: 80, H: 30 } ; ✅记录区域
 
         PosX := 35   ; 调整
         PosY := 55   ; 调整
-        con := MyGui.Add("Button", Format("x{} y{} w80", PosX, PosY), "菜单配置8")
+        con := MyGui.Add("Button", Format("x{} y{} w80", PosX, PosY), GetLang("菜单配置8"))
         con.OnEvent("Click", (*) => this.OnBtnClick(8))
         this.BtnConArr.Push(con)
         this.BtnRegions[8] := { X: PosX, Y: PosY, W: 80, H: 30 } ; ✅记录区域

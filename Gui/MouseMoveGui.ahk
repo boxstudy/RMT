@@ -28,69 +28,69 @@ class MouseMoveGui {
     }
 
     AddGui() {
-        MyGui := Gui(,this.ParentTile "移动编辑器")
+        MyGui := Gui(, this.ParentTile GetLang("移动编辑器"))
         this.Gui := MyGui
         MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
 
         PosX := 10
         PosY := 10
-        MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 80, 20), "快捷方式:")
+        MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 80, 20), GetLang("快捷方式:"))
         PosX += 80
         con := MyGui.Add("Hotkey", Format("x{} y{} w{}", PosX, PosY - 3, 70), "!l")
         con.Enabled := false
 
         PosX += 90
-        btnCon := MyGui.Add("Button", Format("x{} y{} w{}", PosX, PosY - 5, 80), "执行指令")
+        btnCon := MyGui.Add("Button", Format("x{} y{} w{}", PosX, PosY - 5, 80), GetLang("执行指令"))
         btnCon.OnEvent("Click", (*) => this.TriggerMacro())
 
         PosY += 30
         PosX := 10
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY + 3), "F1:选取当前坐标")
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY + 3), GetLang("F1:选取当前坐标"))
 
         PosX += 160
-        Con := MyGui.Add("Button", Format("x{} y{} w100", PosX, PosY), "定位取色器")
+        Con := MyGui.Add("Button", Format("x{} y{} w100", PosX, PosY), GetLang("定位取色器"))
         Con.OnEvent("Click", this.OnClickTargeterBtn.Bind(this))
         Con := MyGui.Add("Button", Format("x{} y{} w30", PosX + 102, PosY), "?")
         Con.OnEvent("Click", this.OnClickTargeterHelpBtn.Bind(this))
 
         PosX := 10
         PosY += 30
-        this.MousePosCon := MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 380, 20), "当前鼠标位置:0,0")
+        this.MousePosCon := MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 380, 20), GetLang("当前鼠标位置:0,0"))
 
         PosY += 30
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), "坐标位置X:")
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("坐标位置X:"))
         PosX += 80
         this.PosXCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 50))
         this.PosXCon.OnEvent("Change", (*) => this.OnChangeEditValue())
 
         PosX += 120
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), "坐标位置Y:")
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("坐标位置Y:"))
         PosX += 80
         this.PosYCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 50))
         this.PosYCon.OnEvent("Change", (*) => this.OnChangeEditValue())
 
         PosY += 40
         PosX := 10
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), "移动速度:")
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("移动速度:"))
         PosX += 80
         this.SpeedCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 50), "90")
         this.SpeedCon.OnEvent("Change", (*) => this.OnChangeEditValue())
 
         PosX += 120
-        this.IsRelativeCon := MyGui.Add("Checkbox", Format("x{} y{} w{} h{}", PosX, PosY, 100, 20), "相对位移")
+        this.IsRelativeCon := MyGui.Add("Checkbox", Format("x{} y{} w{} h{}", PosX, PosY, 100, 20), GetLang("相对位移"))
         this.IsRelativeCon.OnEvent("Click", (*) => this.OnChangeEditValue())
 
         PosY += 25
         PosX := 10
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 350), "移动速度0~100，100为瞬移")
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 350), GetLang("移动速度0~100，100为瞬移"))
 
         PosY += 40
         PosX := 10
-        this.CommandStrCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 350), "当前指令：移动_0_0_0")
+        this.CommandStrCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 350), GetLang("当前指令：移动"))
 
         PosY += 25
         PosX += 150
-        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 40), "确定")
+        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 40), GetLang("确定"))
         btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
 
         MyGui.OnEvent("Close", (*) => this.ToggleFunc(false))
@@ -113,17 +113,17 @@ class MouseMoveGui {
 
     CheckIfValid() {
         if (!IsNumber(this.PosXCon.Value)) {
-            MsgBox("坐标X请输入数字")
+            MsgBox(GetLang("坐标X请输入数字"))
             return false
         }
 
         if (!IsNumber(this.PosYCon.Value)) {
-            MsgBox("坐标Y请输入数字")
+            MsgBox(GetLang("坐标Y请输入数字"))
             return false
         }
 
         if (!IsInteger(this.SpeedCon.Value)) {
-            MsgBox("移动速度请输入整数")
+            MsgBox(GetLang("移动速度请输入整数"))
             return false
         }
 
@@ -165,7 +165,7 @@ class MouseMoveGui {
     RefreshMousePos() {
         CoordMode("Mouse", "Screen")
         MouseGetPos &mouseX, &mouseY
-        this.MousePosCon.Value := "当前鼠标位置:" mouseX "," mouseY
+        this.MousePosCon.Value := Format("{}{},{}", GetLang("当前鼠标位置:"), mouseX, mouseY)
     }
 
     OnChangeEditValue() {
@@ -184,7 +184,7 @@ class MouseMoveGui {
     }
 
     OnClickTargeterHelpBtn(*) {
-        MsgBox("1.左键拖拽改变位置`n2.上下左右方向键微调位置`n3.左键双击或回车键关闭取色器，同时确定点位信息", "定位取色器操作说明")
+        MsgBox(GetLang("1.左键拖拽改变位置`n2.上下左右方向键微调位置`n3.左键双击或回车键关闭取色器，同时确定点位信息"), GetLang("定位取色器操作说明"))
     }
 
     OnClickSureBtn() {

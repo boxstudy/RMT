@@ -30,32 +30,32 @@ class OperationGui {
     }
 
     AddGui() {
-        MyGui := Gui(, this.ParentTile "运算编辑器")
+        MyGui := Gui(, this.ParentTile GetLang("运算编辑器"))
         this.Gui := MyGui
         MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
 
         PosX := 20
         PosY := 10
-        MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 50, 30), "备注:")
+        MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 50, 30), GetLang("备注:"))
         PosX += 50
         this.RemarkCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 5, 150), "")
 
         PosX := 10
         PosY += 30
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 110), "创建/更新选项：")
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 110), GetLang("创建/更新选项："))
 
         PosX += 115
-        this.IsIgnoreExistCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 150), "变量存在忽略操作")
+        this.IsIgnoreExistCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 150), GetLang("变量存在忽略操作"))
 
         PosX := 10
         PosY += 25
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), "开关")
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("开关"))
         PosX += 50
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), "选择/输入")
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("选择/输入"))
         PosX += 150
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), "运算表达式")
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("运算表达式"))
         PosX += 240
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), "保存结果变量")
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("保存结果变量"))
 
         PosY += 25
         PosX := 15
@@ -69,7 +69,7 @@ class OperationGui {
         con.Enabled := false
         this.OperationConArr.Push(con)
 
-        con := MyGui.Add("Button", Format("x{} y{} w{} Center", PosX + 365, PosY - 4, 50), "编辑")
+        con := MyGui.Add("Button", Format("x{} y{} w{} Center", PosX + 365, PosY - 4, 50), GetLang("编辑"))
         con.OnEvent("Click", (*) => this.OnEditVariableBtnClick(1))
 
         con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 425, PosY - 3, 120), [])
@@ -87,7 +87,7 @@ class OperationGui {
         con.Enabled := false
         this.OperationConArr.Push(con)
 
-        con := MyGui.Add("Button", Format("x{} y{} w{} Center", PosX + 365, PosY - 4, 50), "编辑")
+        con := MyGui.Add("Button", Format("x{} y{} w{} Center", PosX + 365, PosY - 4, 50), GetLang("编辑"))
         con.OnEvent("Click", (*) => this.OnEditVariableBtnClick(2))
 
         con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 425, PosY - 3, 120), [])
@@ -105,7 +105,7 @@ class OperationGui {
         con.Enabled := false
         this.OperationConArr.Push(con)
 
-        con := MyGui.Add("Button", Format("x{} y{} w{} Center", PosX + 365, PosY - 4, 50), "编辑")
+        con := MyGui.Add("Button", Format("x{} y{} w{} Center", PosX + 365, PosY - 4, 50), GetLang("编辑"))
         con.OnEvent("Click", (*) => this.OnEditVariableBtnClick(3))
 
         con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 425, PosY - 3, 120), [])
@@ -123,7 +123,7 @@ class OperationGui {
         con.Enabled := false
         this.OperationConArr.Push(con)
 
-        con := MyGui.Add("Button", Format("x{} y{} w{} Center", PosX + 365, PosY - 4, 50), "编辑")
+        con := MyGui.Add("Button", Format("x{} y{} w{} Center", PosX + 365, PosY - 4, 50), GetLang("编辑"))
         con.OnEvent("Click", (*) => this.OnEditVariableBtnClick(4))
 
         con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 425, PosY - 3, 120), [])
@@ -131,7 +131,7 @@ class OperationGui {
 
         PosY += 40
         PosX := 250
-        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 40), "确定")
+        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 40), GetLang("确定"))
         btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
 
         MyGui.Show(Format("w{} h{}", 650, 280))
@@ -178,7 +178,7 @@ class OperationGui {
         }
         Name := this.NameConArr[index].Text
         if (Name == "" || Name == "空") {
-            MsgBox("选择/输入1不可为空")
+            MsgBox(GetLang("选择/输入1不可为空"))
             return
         }
 
@@ -186,7 +186,7 @@ class OperationGui {
         macroStr := this.GetCommandStr()
         VariableObjArr := GetGuiVariableObjArr(macroStr, this.VariableObjArr)
         this.OperationSubGui.VariableObjArr := VariableObjArr
-        ParentTile := StrReplace(this.Gui.Title, "编辑器", "")
+        ParentTile := StrReplace(this.Gui.Title, GetLang("编辑器"), "")
         this.OperationSubGui.ParentTile := ParentTile "-"
 
         SymbolArr := this.Data.SymbolGroups[index]
@@ -210,12 +210,12 @@ class OperationGui {
         loop 4 {
             if (this.ToggleConArr[A_Index].Value) {
                 if (IsNumber(this.UpdateNameConArr[A_Index].Text)) {
-                    MsgBox(Format("{}. 结果变量名不规范：变量名不能是纯数字", A_Index))
+                    MsgBox(Format(GetLang("{}. 结果变量名不规范：变量名不能是纯数字"), A_Index))
                     return false
                 }
 
                 if (this.UpdateNameConArr[A_Index].Text == "") {
-                    MsgBox(Format("{}. 结果变量名不规范：变量名不能为空", A_Index))
+                    MsgBox(Format(GetLang("{}. 结果变量名不规范：变量名不能为空"), A_Index))
                     return false
                 }
             }
