@@ -798,7 +798,7 @@ AddHelpUI(index) {
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Link", Format("x{} y{} w{} h{}", posX + 130, posY, 500, 35), 
+    con := MyGui.Add("Link", Format("x{} y{} w{} h{}", posX + 130, posY, 500, 35),
     Format('<a href="https://zclucas.github.io/RMT/">{}</a>', GetLang("帮助你快速上手，理解词条、指令，10分钟秒变大神")))
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
     conInfo := ItemConInfo(con, tableItem, 1)
@@ -864,9 +864,11 @@ AddHelpUI(index) {
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
+    str1 := Format('<a href="https://docs.qq.com/sheet/DVWJIdEVMV1pHUVJj">{}</a>', GetLang("bug文档"))
+    str2 := Format('<a href="https://docs.qq.com/sheet/DVWRQaXBFUVV5bERo">{}</a>', GetLang("需求文档"))
+    str3 := Format('<a href="https://docs.qq.com/sheet/DVVNwWHJEd3NOWXhR?tab=BB08J2">{}</a>', GetLang("使用备注"))
     con := MyGui.Add("Link", Format("x{} y{} w{} h{}", posX + 130, posY, 700, 30),
-    '<a href="https://docs.qq.com/sheet/DVWJIdEVMV1pHUVJj">bug文档</a>、<a href="https://docs.qq.com/sheet/DVWRQaXBFUVV5bERo">需求文档</a>、<a href="https://docs.qq.com/sheet/DVVNwWHJEd3NOWXhR?tab=BB08J2">使用备注</a>(问题反馈，提出优化方案)'
-    )
+    Format("{}、{}、{}", str1, str2, str3))
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
@@ -927,7 +929,8 @@ AddRewardUI(index) {
 
     posY += 300
     posX := MySoftData.TabPosX + 15
-    con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 860, 80), Format("{}`n{}", GetLang("当然，如果你暂时不方便，分享给朋友也是很棒的支持~"), GetLang("开发不易，感谢你的每一份温暖！")))
+    con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 860, 80), Format("{}`n{}", GetLang(
+        "当然，如果你暂时不方便，分享给朋友也是很棒的支持~"), GetLang("开发不易，感谢你的每一份温暖！")))
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)

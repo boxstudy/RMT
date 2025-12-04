@@ -38,7 +38,7 @@ class SettingMgrGui {
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("所有配置："))
 
         PosX := 330
-        con := MyGui.Add("Button", Format("x{} y{}", PosX, PosY - 5), GetLang("配置迁移"))
+        con := MyGui.Add("Button", Format("x{} y{} w80", PosX, PosY - 5), GetLang("配置迁移"))
         con.OnEvent("Click", this.OnReplaceBtnClick.Bind(this))
 
         PosX := 20
@@ -48,12 +48,12 @@ class SettingMgrGui {
         PosX += 70
         this.CurSettingCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 130), "")
 
-        PosX := 265
-        con := MyGui.Add("Button", Format("x{} y{}", PosX, PosY - 5), GetLang("重命名"))
+        PosX := 250
+        con := MyGui.Add("Button", Format("x{} y{} w80", PosX, PosY - 5), GetLang("重命名"))
         con.OnEvent("Click", this.OnReNameBtnClick.Bind(this))
 
         PosX := 330
-        con := MyGui.Add("Button", Format("x{} y{}", PosX, PosY - 5), GetLang("配置校准"))
+        con := MyGui.Add("Button", Format("x{} y{} w80", PosX, PosY - 5), GetLang("配置校准"))
         con.OnEvent("Click", this.OnRepairBtnClick.Bind(this))
 
         PosX := 20
@@ -61,11 +61,11 @@ class SettingMgrGui {
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("仓库配置："))
 
         PosX := 250
-        con := MyGui.Add("Button", Format("x{} y{}", PosX, PosY - 5), GetLang("打开仓库"))
+        con := MyGui.Add("Button", Format("x{} y{} w80", PosX, PosY - 5), GetLang("打开仓库"))
         con.OnEvent("Click", this.OnOpenRMTSettingBtnClick.Bind(this))
 
         PosX := 330
-        con := MyGui.Add("Button", Format("x{} y{}", PosX, PosY - 5), GetLang("共享上传"))
+        con := MyGui.Add("Button", Format("x{} y{} w80", PosX, PosY - 5), GetLang("共享上传"))
         con.OnEvent("Click", this.OnRMTUploadBtnClick.Bind(this))
 
         PosX := 10
@@ -158,8 +158,7 @@ class SettingMgrGui {
     }
 
     OnReplaceBtnClick(*) {
-        SelectedFolder := DirSelect(, 0,
-            GetLang("请选择若梦兔软件下Setting配置文件。`n将清空当前软件的所有配置，并把所选文件中的配置迁移导入本软件。`n为了避免数据丢失，请务必提前备份现有配置。"))
+        SelectedFolder := DirSelect(, 0, Format("{}`n{}`n{}", GetLang("请选择若梦兔软件下Setting配置文件。"), GetLang("将清空当前软件的所有配置，并把所选文件中的配置迁移导入本软件。"), GetLang("为了避免数据丢失，请务必提前备份现有配置。")))
         if SelectedFolder == ""  ; 用户取消了选择
             return
         SplitPath SelectedFolder, &name, &dir, &ext, &name_no_ext, &drive
@@ -192,7 +191,7 @@ class SettingMgrGui {
         }
         else {
             tipStr := (
-                GetLang("未发现需要修复的内容`n重要须知：`n- 针对覆盖配置文件后，搜索图片的配置路径矫正`n- 低版本配置到高版本时，进行兼容适配升级`n")
+                Format("{}`n{}`n{}`n{}", GetLang("未发现需要修复的内容"), GetLang("重要须知："), GetLang("- 针对覆盖配置文件后，搜索图片的配置路径矫正"), GetLang("- 低版本配置到高版本时，进行兼容适配升级"))
             )
             MsgBox(tipStr)
         }
@@ -205,7 +204,7 @@ class SettingMgrGui {
     OnRMTUploadBtnClick(*) {
         IsForbid := RMT_Http.IsForbid()
         if (IsForbid) {
-            MsgBox(GetLang("因为以下原因配置无法上传：`n服务器没有启动`n今日上传次数太多"))
+            MsgBox(Format("{}`n{}`n{}", GetLang("因为以下原因配置无法上传："), GetLang("服务器没有启动"), GetLang("今日上传次数太多")))
             return
         }
         selectedFile := FileSelect(1, , GetLang("选择要共享上传的 RMT 文件"), "RMT Files (*.rmt)")

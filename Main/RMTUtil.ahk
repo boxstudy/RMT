@@ -193,9 +193,17 @@ InitFilePath() {
 
     filePath := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\使用说明&署名.txt"
     if (!FileExist(filePath)) {
-        FileAppend(
-            GetLang("(请在导出配置前，务必完善操作说明，该文件目录可下增加图片解释说明)[上传导出前请删除此行，否则判定没有完善使用说明]`n资源名称：`n`n原作者：`n联系方式：(QQ或电话，仅用于告知您需要调整的地方)`n功能：`n   `n操作说明：`n   `n协议：CC BY - NC - SA 4.0`n原始来源：RMT(若梦兔) 软件导出`n说明：仅限非商业用途，转载请注明来源并保持相同协议 `n"),
-            filePath, "UTF-8")
+        str1 := GetLang("(请在导出配置前，务必完善操作说明，该文件目录可下增加图片解释说明)[上传导出前请删除此行，否则判定没有完善使用说明]")
+        str2 := GetLang("资源名称：")
+        str3 := GetLang("原作者：")
+        str4 := GetLang("联系方式：(QQ或电话，仅用于告知您需要调整的地方)")
+        str5 := GetLang("功能：")
+        str6 := GetLang("操作说明：")
+        str7 := GetLang("协议：CC BY - NC - SA 4.0")
+        str8 := GetLang("原始来源：RMT(若梦兔) 软件导出")
+        str9 := GetLang("说明：仅限非商业用途，转载请注明来源并保持相同协议")
+        Str := Format("{}`n{}`n{}`n{}`n{}`n{}`n{}`n{}`n{}", str1, str2, str3, str4, str5, str6, str7, str8, str9)
+        FileAppend(Str, filePath, "UTF-8")
     }
 
     if (!DirExist(A_WorkingDir "\Images")) {

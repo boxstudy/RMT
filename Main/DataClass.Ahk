@@ -370,7 +370,7 @@ class CompareData {
         this.TrueMacro := ""
         this.FalseMacro := ""
         this.SaveToggle := 0
-        this.SaveName := "结果"
+        this.SaveName := GetLang("结果")
         this.TrueValue := 1
         this.FalseValue := 0
         this.LogicalType := 1

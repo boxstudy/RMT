@@ -427,7 +427,7 @@ class TriggerStrGui {
         this.IsEndCharCon := con
 
         PosX += 200
-        con := MyGui.Add("Checkbox", Format("x{} y{} h{} w{}", PosX, PosY, 20, 100), GetLang("允许子字串"))
+        con := MyGui.Add("Checkbox", Format("x{} y{} h{}", PosX, PosY, 20), GetLang("允许子字串"))
         con.OnEvent("Click", (*) => this.OnClickSubStrCon())
         this.IsSubStrCon := con
 

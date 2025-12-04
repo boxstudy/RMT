@@ -336,7 +336,7 @@ class ExVariableGui {
             MsgBox(GetLang("变量提取失败"))
         }
         else {
-            tipStr := GetLang("已提取以下变量`n")
+            tipStr := GetLang("已提取以下变量") "`n"
             loop NameArr.Length {
                 tipStr .= NameArr[A_Index] " = " ValueArr[A_Index] "`n"
             }

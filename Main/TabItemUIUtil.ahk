@@ -155,7 +155,7 @@ LoadItemFoldTK(tableItem, foldIndex, PosY) {
     tableItem.AllConArr.Push(conInfo)
     tableItem.ConIndexMap[TkCon] := MacroItemInfo(-10000, conInfo)
 
-    btnStr := GetLang("触发键")
+    btnStr := GetLang("编辑")
     TKBtnCon := MyGui.Add("Button", Format("x{} y{} w60 h29", MySoftData.TabPosX + 280, posY - 4), btnStr)
     TKBtnCon.OnEvent("Click", OnFlodTKEditClick.Bind(TkCon, tableItem))
     conInfo := ItemConInfo(TKBtnCon, tableItem, foldIndex)

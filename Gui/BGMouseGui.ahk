@@ -207,13 +207,13 @@ class BGMouseGui {
         PosArr := GetWinPos()
         try {
             this.CurPosCon.Value := GetLang("当前窗口坐标: ") PosArr[1] "," PosArr[2]
-            this.CurPosCon.Value := Format("{}{},{}", GetLang("当前窗口坐标: "), PosArr[1], PosArr[2])
+            this.CurPosCon.Value := Format("{}{},{}", GetLang("当前窗口坐标:"), PosArr[1], PosArr[2])
 
             title := WinGetTitle(oriId)
             className := WinGetClass(oriId)
             process := WinGetProcessName(oriId)
 
-            this.CurTitleCon.Value := Format("{}{}⎖{}⎖{}", GetLang("当前窗口信息: "), title, className, process)
+            this.CurTitleCon.Value := Format("{}{}⎖{}⎖{}", GetLang("当前窗口信息:"), title, className, process)
         }
     }
 
