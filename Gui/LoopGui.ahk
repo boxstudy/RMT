@@ -184,7 +184,7 @@ class LoopGui {
         this.Data := this.GetLoopData(this.SerialStr)
 
         CountVariableArr := this.VariableObjArr.Clone()
-        CountVariableArr.Push("无限")
+        CountVariableArr.Push(GetLang("无限"))
         this.CountCon.Delete()
         this.CountCon.Add(CountVariableArr)
         this.CountCon.Text := this.Data.LoopCount
@@ -312,7 +312,7 @@ class LoopGui {
     }
 
     SaveLoopData() {
-        this.Data.LoopCount := this.CountCon.Text
+        this.Data.LoopCount := this.CountCon.Text == GetLang("无限") ? -1 : this.CountCon.Text
         this.Data.CondiType := this.CondiCon.Value
         this.Data.LogicType := this.LogicCon.Value
         this.Data.LoopBody := this.LoopBodyCon.Value

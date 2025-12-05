@@ -533,7 +533,7 @@ OnLoop(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
     Data := GetMacroCMDData(LoopFile, paramArr[2])
 
-    if (Data.LoopCount == "无限") {
+    if (Data.LoopCount == -1) {
         loop {
             tableItem.VariableMapArr[index]["指令循环次数"] := A_Index
             if (!GetLoopState(tableItem, cmd, index, Data))

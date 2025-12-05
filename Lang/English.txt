@@ -214,6 +214,7 @@ RMT指令=RMT Inst
 循环体=Loop Body
 条件=Condition
 循环次数=Count
+⎖循环次数=⎖Count
 ⎖循环次数:{}=⎖Loop Count: {}
 ⎖继续条件：=⎖Continue:
 ⎖退出条件：=⎖Exit:

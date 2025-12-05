@@ -261,12 +261,12 @@ RecordMouseTrail() {
             targetX := mouseX - ToolCheckInfo.RecordLastMousePos[1]
             targetY := mouseY - ToolCheckInfo.RecordLastMousePos[2]
         }
-        ToolCheckInfo.RecordMacroStr .= "移动_" targetX "_" targetY symbol ","
+        ToolCheckInfo.RecordMacroStr .= GetLang("移动") "_" targetX "_" targetY symbol ","
         ToolCheckInfo.RecordLastMousePos := [mouseX, mouseY]
 
         span := GetCurMSec() - ToolCheckInfo.RecordLastTime
         ToolCheckInfo.RecordLastTime := GetCurMSec()
-        ToolCheckInfo.RecordMacroStr .= "间隔_" span ","
+        ToolCheckInfo.RecordMacroStr .= GetLang("间隔") "_" span ","
     }
     SetTimer(RecordMouseTrail, -ToolCheckInfo.RecordMouseTrailInterval)
 }
@@ -312,9 +312,9 @@ OnRecordAddMacroStr(keyName, isDown) {
     IsKeyboard := !IsMouse && !IsJoy
 
     if (IsJoy || (IsKeyboard && ToolCheckInfo.RecordKeyboard)) {
-        keyName := keyName == "," ? "逗号" : keyName
-        ToolCheckInfo.RecordMacroStr .= "间隔_" span ","
-        ToolCheckInfo.RecordMacroStr .= "按键_" keyName "_" keySymbol ","
+        keyName := keyName == "," ? GetLang("逗号") : keyName
+        ToolCheckInfo.RecordMacroStr .= Format("{}_{},", GetLang("间隔"), span)
+        ToolCheckInfo.RecordMacroStr .= Format("{}_{}_{},", GetLang("按键"), keyName, keySymbol)
     }
 
     if (IsMouse && ToolCheckInfo.RecordMouse) {
@@ -331,19 +331,19 @@ OnRecordAddMacroStr(keyName, isDown) {
                 targetX := mouseX - ToolCheckInfo.RecordLastMousePos[1]
                 targetY := mouseY - ToolCheckInfo.RecordLastMousePos[2]
             }
-            ToolCheckInfo.RecordMacroStr .= "移动_" targetX "_" targetY symbol ","
+            ToolCheckInfo.RecordMacroStr .= GetLang("移动") "_" targetX "_" targetY symbol ","
             ToolCheckInfo.RecordLastMousePos := [mouseX, mouseY]
         }
-        ToolCheckInfo.RecordMacroStr .= "间隔_" span ","
-        ToolCheckInfo.RecordMacroStr .= "按键_" keyName "_" keySymbol ","
+        ToolCheckInfo.RecordMacroStr .= GetLang("间隔") "_" span ","
+        ToolCheckInfo.RecordMacroStr .= GetLang("按键") "_" keyName "_" keySymbol ","
     }
 }
 
 OnFinishRecordMacro() {
     if (ToolCheckInfo.RecordAutoLoosen) {
         for Key, Value in ToolCheckInfo.RecordHoldKeyMap {
-            keyName := Key == "," ? "逗号" : Key
-            ToolCheckInfo.RecordMacroStr .= "按键_" keyName "_2,"
+            keyName := Key == "," ? GetLang("逗号") : Key
+            ToolCheckInfo.RecordMacroStr .= GetLang("按键") "_" keyName "_2,"
         }
     }
     macroStr := Trim(ToolCheckInfo.RecordMacroStr, ",")

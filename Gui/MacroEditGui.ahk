@@ -53,12 +53,15 @@ class MacroEditGui {
             "如果Pro",
             "运算", "RMT指令", "后台鼠标", "后台按键"])
 
-        this.IconMap := Map(GetLang("间隔"), "Icon1", GetLang("按键"), "Icon2", GetLang("搜索"), "Icon3", GetLang("搜索Pro"), "Icon4", GetLang("移动"), "Icon5", GetLang("移动Pro"),
-            "Icon6", GetLang("输出"), "Icon7", GetLang("运行"), "Icon8", GetLang("循环"), "Icon9", GetLang("宏操作"), "Icon10", GetLang("变量"), "Icon11", GetLang("变量提取"), "Icon12",
-            GetLang("如果"), "Icon13", GetLang("如果Pro"),
-            "Icon14", GetLang("运算"), "Icon15", GetLang("RMT指令"), "Icon16", GetLang("后台鼠标"), "Icon17", GetLang("后台按键"), "Icon2", GetLang("真"), "Icon18", GetLang("假"),
-            "Icon19", GetLang("循环次数"), "Icon20",
-            GetLang("条件"), "Icon21", GetLang("循环体"), "Icon22")
+        this.IconMap := Map(GetLang("间隔"), "Icon1", GetLang("按键"), "Icon2", GetLang("搜索"), "Icon3", GetLang("搜索Pro"),
+        "Icon4", GetLang("移动"), "Icon5", GetLang("移动Pro"),
+        "Icon6", GetLang("输出"), "Icon7", GetLang("运行"), "Icon8", GetLang("循环"), "Icon9", GetLang("宏操作"), "Icon10",
+        GetLang("变量"), "Icon11", GetLang("变量提取"), "Icon12",
+        GetLang("如果"), "Icon13", GetLang("如果Pro"),
+        "Icon14", GetLang("运算"), "Icon15", GetLang("RMT指令"), "Icon16", GetLang("后台鼠标"), "Icon17", GetLang("后台按键"),
+        "Icon2", GetLang("真"), "Icon18", GetLang("假"),
+        "Icon19", GetLang("循环次数"), "Icon20",
+        GetLang("条件"), "Icon21", GetLang("循环体"), "Icon22")
 
         this.InitSubGui()
     }
@@ -629,11 +632,11 @@ class MacroEditGui {
 
     TreeAddBranch(root, cmdStr) {
         paramArr := StrSplit(cmdStr, "_")
-        IsSearch := StrCompare(paramArr[1], "搜索", false) == 0
-        IsSearchPro := StrCompare(paramArr[1], "搜索Pro", false) == 0
-        IsIf := StrCompare(paramArr[1], "如果", false) == 0
-        IsIfPro := StrCompare(paramArr[1], "如果Pro", false) == 0
-        IsLoop := StrCompare(paramArr[1], "循环", false) == 0
+        IsSearch := StrCompare(paramArr[1], GetLang("搜索"), false) == 0
+        IsSearchPro := StrCompare(paramArr[1], GetLang("搜索Pro"), false) == 0
+        IsIf := StrCompare(paramArr[1], GetLang("如果"), false) == 0
+        IsIfPro := StrCompare(paramArr[1], GetLang("如果Pro"), false) == 0
+        IsLoop := StrCompare(paramArr[1], GetLang("循环"), false) == 0
         if (!IsSearch && !IsSearchPro && !IsIf && !IsLoop && !IsIfPro)
             return
 
@@ -649,36 +652,19 @@ class MacroEditGui {
                 return
         }
 
-        TrueMacro := ""
-        FalseMacro := ""
-        if (IsIf) {
-            saveStr := IniRead(CompareFile, IniSection, paramArr[2], "")
-            Data := JSON.parse(saveStr, , false)
-
-            TrueMacro := Data.TrueMacro
-            FalseMacro := Data.FalseMacro
-        }
-        else if (IsSearch) {
-            saveStr := IniRead(SearchFile, IniSection, paramArr[2], "")
-            Data := JSON.parse(saveStr, , false)
-
-            TrueMacro := Data.TrueMacro
-            FalseMacro := Data.FalseMacro
-        }
-        else if (IsSearchPro) {
-            saveStr := IniRead(SearchProFile, IniSection, paramArr[2], "")
-            Data := JSON.parse(saveStr, , false)
-
-            TrueMacro := Data.TrueMacro
-            FalseMacro := Data.FalseMacro
-        }
-
         if (IsIf || IsSearch || IsSearchPro) {
-            iconStr := this.GetCmdIconStr("真")
+            dataFileMap := Map(GetLang("搜索"), SearchFile, GetLang("搜索Pro"), SearchProFile, GetLang("如果"), CompareFile)
+            dataFile := dataFileMap[paramArr[1]]
+            saveStr := IniRead(dataFile, IniSection, paramArr[2], "")
+            Data := JSON.parse(saveStr, , false)
+            TrueMacro := GetLangMacro(Data.TrueMacro, 1)
+            FalseMacro := GetLangMacro(Data.FalseMacro, 1)
+
+            iconStr := this.GetCmdIconStr(GetLang("真"))
             trueRoot := this.MacroTreeViewCon.Add(GetLang("真"), root, iconStr)
             this.TreeAddSubTree(trueRoot, TrueMacro)
 
-            iconStr := this.GetCmdIconStr("假")
+            iconStr := this.GetCmdIconStr(GetLang("假"))
             falseRoot := this.MacroTreeViewCon.Add(GetLang("假"), root, iconStr)
             this.TreeAddSubTree(falseRoot, FalseMacro)
         }
@@ -686,34 +672,37 @@ class MacroEditGui {
             saveStr := IniRead(LoopFile, IniSection, paramArr[2], "")
             Data := JSON.parse(saveStr, , false)
 
-            iconStr := this.GetCmdIconStr("循环次数")
-            CountRoot := this.MacroTreeViewCon.Add(Format("⎖{}:{}", GetLang("循环次数"), Data.LoopCount), root, iconStr)
+            iconStr := this.GetCmdIconStr(GetLang("循环次数"))
+            CountRoot := this.MacroTreeViewCon.Add(Format("{}:{}", GetLang("⎖循环次数"), Data.LoopCount), root, iconStr)
 
             if (Data.CondiType != 1) {
-                iconStr := this.GetCmdIconStr("条件")
+                iconStr := this.GetCmdIconStr(GetLang("条件"))
                 CondiStr := Data.CondiType == 2 ? GetLang("⎖继续条件：") : GetLang("⎖退出条件：")
                 ItemStr := CondiStr . LoopData.GetCondiStr(Data)
                 CondiRoot := this.MacroTreeViewCon.Add(ItemStr, root, iconStr)
             }
 
-            iconStr := this.GetCmdIconStr("循环体")
+            iconStr := this.GetCmdIconStr(GetLang("循环体"))
             BodyRoot := this.MacroTreeViewCon.Add(GetLang("循环体"), root, iconStr)
-            this.TreeAddSubTree(BodyRoot, Data.LoopBody)
+            LoopBody := GetLangMacro(Data.LoopBody, 1)
+            this.TreeAddSubTree(BodyRoot, LoopBody)
         }
         else if (IsIfPro) {
             saveStr := IniRead(CompareProFile, IniSection, paramArr[2], "")
             Data := JSON.parse(saveStr, , false)
 
-            iconStr := this.GetCmdIconStr("条件")
+            iconStr := this.GetCmdIconStr(GetLang("条件"))
             loop Data.VariNameArr.Length {
                 CondiStr := GetLang("条件：") CompareProData.GetCondiStr(Data, A_Index)
                 CondiRoot := this.MacroTreeViewCon.Add(CondiStr, root, iconStr)
-                this.TreeAddSubTree(CondiRoot, Data.MacroArr[A_Index])
+                MacroStr := GetLangMacro(Data.MacroArr[A_Index], 1)
+                this.TreeAddSubTree(CondiRoot, MacroStr)
             }
 
             CondiStr := GetLang("条件：以上都不是")
             CondiRoot := this.MacroTreeViewCon.Add(CondiStr, root, iconStr)
-            this.TreeAddSubTree(CondiRoot, Data.DefaultMacro)
+            DefaultMacro := GetLangMacro(Data.DefaultMacro, 1)
+            this.TreeAddSubTree(CondiRoot, DefaultMacro)
         }
     }
 
@@ -968,11 +957,11 @@ class MacroEditGui {
 
         ; 映射表：命令 → 文件名
         fileMap := Map(
-            "搜索", SearchFile,
-            "搜索Pro", SearchProFile,
-            "如果", CompareFile,
-            "如果Pro", CompareProFile,
-            "循环", LoopFile
+            GetLang("搜索"), SearchFile,
+            GetLang("搜索Pro"), SearchProFile,
+            GetLang("如果"), CompareFile,
+            GetLang("如果Pro"), CompareProFile,
+            GetLang("循环"), LoopFile
         )
 
         ; 获取文件名（没有找到就为空）
@@ -983,10 +972,10 @@ class MacroEditGui {
         ItemNumber := this.GetItemNumber(nodeItemID)
         saveStr := IniRead(FileName, IniSection, paramArr[2], "")
         Data := JSON.parse(saveStr, , false)
-        if (cmd == "循环") {
+        if (cmd == GetLang("循环")) {
             Data.LoopBody := macroStr
         }
-        else if (cmd == "如果Pro") {
+        else if (cmd == GetLang("如果Pro")) {
             if (ItemNumber > Data.VariNameArr.Length) {
                 if (macroStr == "")
                     MsgBox("最后的分支不能删除，已清空分支指令")
