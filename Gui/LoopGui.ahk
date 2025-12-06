@@ -198,11 +198,11 @@ class LoopGui {
             this.ToggleConArr[A_Index].Value := this.Data.ToggleArr[A_Index]
             this.NameConArr[A_Index].Delete()
             this.NameConArr[A_Index].Add(VariableArr)
-            this.NameConArr[A_Index].Text := this.Data.NameArr[A_Index]
+            this.NameConArr[A_Index].Text := GetLang(this.Data.NameArr[A_Index])
             this.CompareTypeConArr[A_Index].Value := this.Data.CompareTypeArr[A_Index]
             this.VariableConArr[A_Index].Delete()
             this.VariableConArr[A_Index].Add(VariableArr)
-            this.VariableConArr[A_Index].Text := this.Data.VariableArr[A_Index]
+            this.VariableConArr[A_Index].Text := GetLang(this.Data.VariableArr[A_Index])
         }
     }
 
@@ -319,9 +319,9 @@ class LoopGui {
 
         loop 4 {
             this.Data.ToggleArr[A_Index] := this.ToggleConArr[A_Index].Value
-            this.Data.NameArr[A_Index] := this.NameConArr[A_Index].Text
+            this.Data.NameArr[A_Index] := GetLangKey(this.NameConArr[A_Index].Text)
             this.Data.CompareTypeArr[A_Index] := this.CompareTypeConArr[A_Index].Value
-            this.Data.VariableArr[A_Index] := this.VariableConArr[A_Index].Text
+            this.Data.VariableArr[A_Index] := GetLangKey(this.VariableConArr[A_Index].Text)
         }
         saveStr := JSON.stringify(this.Data, 0)
         IniWrite(saveStr, LoopFile, IniSection, this.Data.SerialStr)

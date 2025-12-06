@@ -390,14 +390,14 @@ class CompareProData {
     ;用于逻辑树展示
     static GetCondiStr(Data, itemIndex) {
         CommandStr := ""
-        symbolStr := Data.LogicTypeArr[itemIndex] == 1 ? "且" : "或"
+        symbolStr := Data.LogicTypeArr[itemIndex] == 1 ? GetLang("且") : GetLang("或")
         CompareTypeStrArr := GetLangArr(["大于", "大于等于", "等于", "小于等于",
             "小于", "字符包含", "变量存在"])
 
         loop Data.VariNameArr[itemIndex].Length {
-            VariName := Data.VariNameArr[itemIndex][A_Index]
+            VariName := GetLang(Data.VariNameArr[itemIndex][A_Index])
             TypeStr := CompareTypeStrArr[Data.CompareTypeArr[itemIndex][A_Index]]
-            Variable := Data.VariableArr[itemIndex][A_Index]
+            Variable := GetLang(Data.VariableArr[itemIndex][A_Index])
 
             if (Data.CompareTypeArr[itemIndex][A_Index] != 7)
                 CommandStr .= VariName " " TypeStr " " Variable " " symbolStr " "
@@ -473,17 +473,17 @@ class LoopData {
     ;用于逻辑树展示
     static GetCondiStr(Data) {
         CommandStr := ""
-        symbolStr := Data.LogicType == 1 ? "且" : "或"
-        CompareTypeStrArr := ["大于", "大于等于", "等于", "小于等于",
-            "小于", "字符包含", "变量存在"]
+        symbolStr := Data.LogicType == 1 ? GetLang("且") : GetLang("或")
+        CompareTypeStrArr := GetLangArr(["大于", "大于等于", "等于", "小于等于",
+            "小于", "字符包含", "变量存在"])
 
         loop 4 {
             if (!Data.ToggleArr[A_Index])
                 continue
 
-            VariName := Data.NameArr[A_Index]
+            VariName := GetLang(Data.NameArr[A_Index])
             TypeStr := CompareTypeStrArr[Data.CompareTypeArr[A_Index]]
-            Variable := Data.VariableArr[A_Index]
+            Variable := GetLang(Data.VariableArr[A_Index])
             if (Data.CompareTypeArr[A_Index] != 7)
                 CommandStr .= VariName " " TypeStr " " Variable " " symbolStr " "
             else

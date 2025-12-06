@@ -214,7 +214,7 @@ class CompareGui {
         this.SaveToggleCon.Value := this.Data.SaveToggle
         this.SaveNameCon.Delete()
         this.SaveNameCon.Add(this.VariableObjArr)
-        this.SaveNameCon.Text := this.Data.SaveName
+        this.SaveNameCon.Text := GetLang(this.Data.SaveName)
         this.TrueValueCon.Value := this.Data.TrueValue
         this.FalseValueCon.Value := this.Data.FalseValue
         this.LogicalTypeCon.Value := this.Data.LogicalType
@@ -223,11 +223,11 @@ class CompareGui {
             this.ToggleConArr[A_Index].Value := this.Data.ToggleArr[A_Index]
             this.NameConArr[A_Index].Delete()
             this.NameConArr[A_Index].Add(this.VariableObjArr)
-            this.NameConArr[A_Index].Text := this.Data.NameArr[A_Index]
+            this.NameConArr[A_Index].Text := GetLang(this.Data.NameArr[A_Index])
             this.CompareTypeConArr[A_Index].Value := this.Data.CompareTypeArr[A_Index]
             this.VariableConArr[A_Index].Delete()
             this.VariableConArr[A_Index].Add(this.VariableObjArr)
-            this.VariableConArr[A_Index].Text := this.Data.VariableArr[A_Index]
+            this.VariableConArr[A_Index].Text := GetLang(this.Data.VariableArr[A_Index])
         }
     }
 
@@ -353,16 +353,16 @@ class CompareGui {
         this.Data.TrueMacro := this.TrueMacroCon.Value
         this.Data.FalseMacro := this.FalseMacroCon.Value
         this.Data.SaveToggle := this.SaveToggleCon.Value
-        this.Data.SaveName := this.SaveNameCon.Text
+        this.Data.SaveName := GetLangKey(this.SaveNameCon.Text)
         this.Data.TrueValue := this.TrueValueCon.Value
         this.Data.FalseValue := this.FalseValueCon.Value
         this.Data.LogicalType := this.LogicalTypeCon.Value
         this.Data.IsIgnoreExist := this.IsIgnoreExistCon.Value
         loop 4 {
             this.Data.ToggleArr[A_Index] := this.ToggleConArr[A_Index].Value
-            this.Data.NameArr[A_Index] := this.NameConArr[A_Index].Text
+            this.Data.NameArr[A_Index] := GetLangKey(this.NameConArr[A_Index].Text)
             this.Data.CompareTypeArr[A_Index] := this.CompareTypeConArr[A_Index].Value
-            this.Data.VariableArr[A_Index] := this.VariableConArr[A_Index].Text
+            this.Data.VariableArr[A_Index] := GetLangKey(this.VariableConArr[A_Index].Text)
         }
 
         ; 添加全局变量，方便下拉选取

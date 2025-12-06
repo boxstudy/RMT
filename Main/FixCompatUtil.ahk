@@ -95,3 +95,20 @@ Compat1_0_9F1MacroInsert(FilePath) {
     }
     return hasFix
 }
+
+;1.0.9F3 间隔指令调整 统一使用两个参数
+Compat1_0_9F3Interval(tableItem) {
+    for index, MacroStr in tableItem.MacroArr {
+        cmdArr := SplitMacro(MacroStr)
+        for cmdStr in cmdArr {
+            paramArr := StrSplit(cmdStr, "_")
+            if (paramArr[1] == "间隔" && paramArr.Length == 3) {
+                paramArr[2] := paramArr[3]
+                paramArr.RemoveAt(3)
+                cmdArr[A_Index] := GetCmdByParams(paramArr)
+            }
+        }
+        tableItem.MacroArr[index] := GetMacroStrByCmdArr(cmdArr)
+        return
+    }
+}

@@ -719,3 +719,5 @@ RMT默认初始化配置=RMT Default Setting
 定时=Timer
 结果=Result
 添加指令=Add Cmd
+关系=Logic
+指令=Cmd

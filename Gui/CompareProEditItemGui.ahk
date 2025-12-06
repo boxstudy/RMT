@@ -261,7 +261,7 @@ class CompareProEditItemGui {
     }
 
     OnMacroBtnClick(CommandStr) {
-        this.MacroCon.Value := CommandStr
+        this.MacroCon.Value := GetLangMacro(CommandStr, 1)
     }
 
     OnEditMacroBtnClick() {

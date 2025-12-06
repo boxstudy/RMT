@@ -202,17 +202,17 @@ class VariableGui {
             this.ToggleConArr[A_Index].Value := this.Data.ToggleArr[A_Index]
             this.VariableConArr[A_Index].Delete()
             this.VariableConArr[A_Index].Add(this.VariableObjArr)
-            this.VariableConArr[A_Index].Text := this.Data.VariableArr[A_Index]
+            this.VariableConArr[A_Index].Text := GetLang(this.Data.VariableArr[A_Index])
             this.OperaTypeConArr[A_Index].Value := this.Data.OperaTypeArr[A_Index]
             this.CopyVariableConArr[A_Index].Delete()
             this.CopyVariableConArr[A_Index].Add(this.VariableObjArr)
-            this.CopyVariableConArr[A_Index].Text := this.Data.CopyVariableArr[A_Index]
+            this.CopyVariableConArr[A_Index].Text := GetLang(this.Data.CopyVariableArr[A_Index])
             this.MinVariableConArr[A_Index].Delete()
             this.MinVariableConArr[A_Index].Add(this.VariableObjArr)
-            this.MinVariableConArr[A_Index].Text := this.Data.MinVariableArr[A_Index]
+            this.MinVariableConArr[A_Index].Text := GetLang(this.Data.MinVariableArr[A_Index])
             this.MaxVariableConArr[A_Index].Delete()
             this.MaxVariableConArr[A_Index].Add(this.VariableObjArr)
-            this.MaxVariableConArr[A_Index].Text := this.Data.MaxVariableArr[A_Index]
+            this.MaxVariableConArr[A_Index].Text := GetLang(this.Data.MaxVariableArr[A_Index])
         }
     }
 
@@ -275,11 +275,11 @@ class VariableGui {
         this.Data.IsIgnoreExist := this.IsIgnoreExistCon.Value
         loop 4 {
             this.Data.ToggleArr[A_Index] := this.ToggleConArr[A_Index].Value
-            this.Data.VariableArr[A_Index] := this.VariableConArr[A_Index].Text
+            this.Data.VariableArr[A_Index] := GetLangKey(this.VariableConArr[A_Index].Text)
             this.Data.OperaTypeArr[A_Index] := this.OperaTypeConArr[A_Index].Value
-            this.Data.CopyVariableArr[A_Index] := this.CopyVariableConArr[A_Index].Text
-            this.Data.MinVariableArr[A_Index] := this.MinVariableConArr[A_Index].Text
-            this.Data.MaxVariableArr[A_Index] := this.MaxVariableConArr[A_Index].Text
+            this.Data.CopyVariableArr[A_Index] := GetLangKey(this.CopyVariableConArr[A_Index].Text)
+            this.Data.MinVariableArr[A_Index] := GetLangKey(this.MinVariableConArr[A_Index].Text)
+            this.Data.MaxVariableArr[A_Index] := GetLangKey(this.MaxVariableConArr[A_Index].Text)
         }
 
         ; 添加全局变量，方便下拉选取

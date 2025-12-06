@@ -132,10 +132,10 @@ class MMProGui {
 
         this.PosVarXCon.Delete()
         this.PosVarXCon.Add(this.VariableObjArr)
-        this.PosVarXCon.Text := this.Data.PosVarX
+        this.PosVarXCon.Text := GetLang(this.Data.PosVarX)
         this.PosVarYCon.Delete()
         this.PosVarYCon.Add(this.VariableObjArr)
-        this.PosVarYCon.Text := this.Data.PosVarY
+        this.PosVarYCon.Text := GetLang(this.Data.PosVarY)
         this.ActionTypeCon.Value := this.Data.ActionType
         this.IsRelativeCon.Value := this.Data.IsRelative
         this.isGameViewCon.Value := this.Data.IsGameView
@@ -269,8 +269,8 @@ class MMProGui {
     }
 
     SaveMMProData() {
-        this.Data.PosVarX := this.PosVarXCon.Text
-        this.Data.PosVarY := this.PosVarYCon.Text
+        this.Data.PosVarX := GetLangKey(this.PosVarXCon.Text)
+        this.Data.PosVarY := GetLangKey(this.PosVarYCon.Text)
         this.Data.ActionType := this.ActionTypeCon.Value
         this.Data.IsRelative := this.IsRelativeCon.Value
         this.Data.IsGameView := this.isGameViewCon.Value

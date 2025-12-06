@@ -110,7 +110,7 @@ class SubMacroGui {
         this.CallTypeCon.Value := this.Data.CallType
         this.InsertCountCon.Delete()
         this.InsertCountCon.Add(this.VariableObjArr)
-        this.InsertCountCon.Text := this.Data.InsertCount
+        this.InsertCountCon.Text := GetLang(this.Data.InsertCount)
 
         tableIndex := this.Data.MacroType - 1
 
@@ -243,7 +243,7 @@ class SubMacroGui {
         this.Data.MacroType := this.TypeCon.Value
         this.Data.Index := this.DropDownIndexCon.value
         this.Data.CallType := this.CallTypeCon.Value
-        this.Data.InsertCount := this.InsertCountCon.Text
+        this.Data.InsertCount := GetLangKey(this.InsertCountCon.Text)
 
         tableIndex := this.TypeCon.Value - 1
         SerialArr := this.TypeCon.Value == 1 ? "" : MySoftData.TableInfo[tableIndex].SerialArr

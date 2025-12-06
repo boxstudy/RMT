@@ -87,17 +87,17 @@ class CompareProGui {
             condiStr := ""
             ItemIndex := A_Index
             loop this.Data.VariNameArr[ItemIndex].Length {
-                condiStr .= this.Data.VariNameArr[ItemIndex][A_Index] " " this.CompareTypeStrArr[this.Data.CompareTypeArr[
-                    ItemIndex][A_Index]] " " this.Data.VariableArr[ItemIndex][A_Index]
+                condiStr .= GetLang(this.Data.VariNameArr[ItemIndex][A_Index]) " " this.CompareTypeStrArr[this.Data.CompareTypeArr[
+                    ItemIndex][A_Index]] " " GetLang(this.Data.VariableArr[ItemIndex][A_Index])
                 condiStr .= "⎖"
             }
             condiStr := Trim(condiStr, "⎖")
             logicStr := this.Data.LogicTypeArr[A_Index] == 1 ? GetLang("且") : GetLang("或")
-            macro := this.Data.MacroArr[A_Index]
+            macro := GetLangMacro(this.Data.MacroArr[A_Index], 1)
 
             this.LVCon.Add(, condiStr, logicStr, macro)
         }
-        this.LVCon.Add(, GetLang("以上都不是"), "", this.Data.DefaultMacro)
+        this.LVCon.Add(, GetLang("以上都不是"), "", GetLangMacro(this.Data.DefaultMacro, 1))
         this.LVCon.Focus()  ; 🔥 强制获得焦点，解决第一次双击无效问题
     }
 
@@ -290,16 +290,16 @@ class CompareProGui {
         this.Data.MacroArr := []
         loop this.LVCon.GetCount() {
             if (A_Index == this.LVCon.GetCount()) {
-                this.Data.DefaultMacro := this.LVCon.GetText(A_Index, 3)
+                this.Data.DefaultMacro := GetLangMacro(this.LVCon.GetText(A_Index, 3), 2)
                 break
             }
             CondiDataArr := this.GetCondiStrDataArr(this.LVCon.GetText(A_Index, 1))
             LogicType := this.LVCon.GetText(A_Index, 2) == GetLang("且") ? 1 : 2
-            this.Data.VariNameArr.Push(CondiDataArr[1])
+            this.Data.VariNameArr.Push(GetLangKey(CondiDataArr[1]))
             this.Data.CompareTypeArr.Push(CondiDataArr[2])
-            this.Data.VariableArr.Push(CondiDataArr[3])
+            this.Data.VariableArr.Push(GetLangKey(CondiDataArr[3]))
             this.Data.LogicTypeArr.Push(LogicType)
-            this.Data.MacroArr.Push(this.LVCon.GetText(A_Index, 3))
+            this.Data.MacroArr.Push(GetLangMacro(this.LVCon.GetText(A_Index, 3), 2))
         }
 
         saveStr := JSON.stringify(this.Data, 0)

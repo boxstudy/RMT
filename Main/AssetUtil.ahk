@@ -497,6 +497,7 @@ ReadTableItemInfo(index) {
         }
         tableItem.MacroArr.Push(str)
     }
+    Compat1_0_9F3Interval(tableItem)
 }
 
 SetArr(str, symbol, Arr) {

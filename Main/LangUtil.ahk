@@ -3,8 +3,9 @@ LangKeyMap := Map()
 
 ;指令相关的key
 LangCmdKeyArr := ["截图", "截图提取文本", "自由贴", "开启指令显示", "关闭指令显示", "显示菜单", "关闭菜单", "启用键鼠", "禁用键鼠", "休眠",
-    "暂停所有宏", "恢复所有宏", "终止所有宏", "重载", "关闭软件", "间隔", "按键", "搜索", "搜索Pro", "移动", "移动Pro", "输出", "运行", "循环", "宏操作", "变量", "变量提取",
-    "如果", "如果Pro", "运算", "RMT指令", "后台鼠标", "后台按键"]
+    "暂停所有宏", "恢复所有宏", "终止所有宏", "重载", "关闭软件", "间隔", "按键", "搜索", "搜索Pro", "移动", "移动Pro", "输出", "运行", "循环", "宏操作", "变量",
+    "变量提取",
+    "如果", "如果Pro", "运算", "RMT指令", "后台鼠标", "后台按键", "指令循环次数", "宏循环次数", "当前鼠标坐标X", "当前鼠标坐标Y"]
 LangValueMap := Map()   ;部分文本需要反向映射
 
 LangInitSetting() {
@@ -146,5 +147,23 @@ GetLangCmd(Cmd, Mode) {
     if (paramArr[1] == "RMT指令" || paramArr[1] == GetLang("RMT指令")) {
         paramArr[2] := action(paramArr[2])
     }
+
+    if (paramArr[1] == "间隔" || paramArr[1] == GetLang("间隔")) {
+        paramArr[2] := action(paramArr[2])
+    }
+
     return GetCmdByParams(paramArr)
+}
+
+;mode 1多语言模式  2中文语言模式
+GetLangStr(Str, Mode) {
+    SpecialKeyArr1 := ["指令循环次数", "宏循环次数", "当前鼠标坐标X", "当前鼠标坐标Y"]
+    SpecialKeyArr2 := [GetLang("指令循环次数"), GetLang("宏循环次数"), GetLang("当前鼠标坐标X"), GetLang("当前鼠标坐标Y")]
+    KeyArr := Mode == 1 ? SpecialKeyArr1 : SpecialKeyArr2
+    action := Mode == 1 ? GetLang : GetLangKey
+
+    for index, value in KeyArr {
+        Str := StrReplace(Str, value, action(value))
+    }
+    return Str
 }

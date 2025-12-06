@@ -977,14 +977,13 @@ OnRMTCMD(tableItem, cmd, index) {
 
 OnInterval(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    if (paramArr.Length == 2) {
+    if (paramArr.Length >= 2) {
         interval := Integer(paramArr[2])
-    }
-    else {
-        hasInterval := TryGetVariableValue(&interval, tableItem, index, paramArr[3])
+        hasInterval := TryGetVariableValue(&interval, tableItem, index, paramArr[2])
         if (!hasInterval)
             return
     }
+
     FloatInterval := GetFloatTime(interval, MySoftData.IntervalFloat)
     curTime := 0
     clip := Min(500, FloatInterval)

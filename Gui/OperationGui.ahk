@@ -148,11 +148,11 @@ class OperationGui {
             this.ToggleConArr[A_Index].Value := this.Data.ToggleArr[A_Index]
             this.NameConArr[A_Index].Delete()
             this.NameConArr[A_Index].Add(this.VariableObjArr)
-            this.NameConArr[A_Index].Text := this.Data.NameArr[A_Index]
-            this.OperationConArr[A_Index].Value := this.Data.OperationArr[A_Index]
+            this.NameConArr[A_Index].Text := GetLang(this.Data.NameArr[A_Index])
+            this.OperationConArr[A_Index].Value := GetLangStr(this.Data.OperationArr[A_Index], 1)
             this.UpdateNameConArr[A_Index].Delete()
             this.UpdateNameConArr[A_Index].Add(this.VariableObjArr)
-            this.UpdateNameConArr[A_Index].Text := this.Data.UpdateNameArr[A_Index]
+            this.UpdateNameConArr[A_Index].Text := GetLang(this.Data.UpdateNameArr[A_Index])
         }
     }
 
@@ -239,9 +239,9 @@ class OperationGui {
     SaveOperationData() {
         loop 4 {
             this.Data.ToggleArr[A_Index] := this.ToggleConArr[A_Index].Value
-            this.Data.NameArr[A_Index] := this.NameConArr[A_Index].Text
-            this.Data.OperationArr[A_Index] := this.OperationConArr[A_Index].Value
-            this.Data.UpdateNameArr[A_Index] := this.UpdateNameConArr[A_Index].Text
+            this.Data.NameArr[A_Index] := GetLangKey(this.NameConArr[A_Index].Text)
+            this.Data.OperationArr[A_Index] := GetLangStr(this.OperationConArr[A_Index].Value, 2)
+            this.Data.UpdateNameArr[A_Index] := GetLangKey(this.UpdateNameConArr[A_Index].Text)
         }
 
         this.Data.IsIgnoreExist := this.IsIgnoreExistCon.Value

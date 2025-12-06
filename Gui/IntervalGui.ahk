@@ -36,7 +36,7 @@ class IntervalGui {
     }
 
     AddGui() {
-        MyGui := Gui(,this.ParentTile GetLang("间隔编辑器"))
+        MyGui := Gui(, this.ParentTile GetLang("间隔编辑器"))
         this.Gui := MyGui
         MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
 
@@ -73,10 +73,6 @@ class IntervalGui {
     }
 
     GetCmdStr() {
-        if (IsNumber(this.TimeVarCon.Text)) {
-            return Format("{}_{}", GetLang("间隔"), this.TimeVarCon.Text)
-        }
-        
-        return Format("{}_{}_{}", GetLang("间隔"), GetLang("变量"), this.TimeVarCon.Text)
+        return Format("{}_{}", GetLang("间隔"), this.TimeVarCon.Text)
     }
 }

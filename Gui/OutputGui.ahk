@@ -141,7 +141,7 @@ class OutputGui {
         this.RemarkCon.Value := cmdArr.Length >= 3 ? cmdArr[3] : ""
         this.Data := this.GetOutputData(this.SerialStr)
 
-        this.TextCon.Value := this.Data.Text
+        this.TextCon.Value := GetLangStr(this.Data.Text, 1)
         this.OutputTypeCon.Value := this.Data.OutputType
         this.FilePathCon.Value := this.Data.FilePath
         this.VariCon.Delete()
@@ -257,7 +257,7 @@ class OutputGui {
     }
 
     SaveOutputData() {
-        this.Data.Text := this.TextCon.Value
+        this.Data.Text := GetLangStr(this.TextCon.Value, 2)
         this.Data.OutputType := this.OutputTypeCon.Value
         this.Data.FilePath := this.FilePathCon.Value
         this.Data.ExcelType := this.ExcelTypeCon.Value

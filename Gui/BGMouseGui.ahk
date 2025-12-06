@@ -146,10 +146,10 @@ class BGMouseGui {
         this.ClickTimeCon.Value := this.Data.ClickTime
         this.PosVarXCon.Delete()
         this.PosVarXCon.Add(this.VariableObjArr)
-        this.PosVarXCon.Text := this.Data.PosVarX
+        this.PosVarXCon.Text := GetLang(this.Data.PosVarX)
         this.PosVarYCon.Delete()
         this.PosVarYCon.Add(this.VariableObjArr)
-        this.PosVarYCon.Text := this.Data.PosVarY
+        this.PosVarYCon.Text := GetLang(this.Data.PosVarY)
         this.ScrollVCon.Value := this.Data.ScrollV
         this.ScrollHCon.Value := this.Data.ScrollH
     }
@@ -284,8 +284,8 @@ class BGMouseGui {
         this.Data.TargetTitle := this.TargetTitleCon.Value
         this.Data.OperateType := this.OperateTypeCon.Value
         this.Data.MouseType := this.MouseTypeCon.Value
-        this.Data.PosVarX := this.PosVarXCon.Text
-        this.Data.PosVarY := this.PosVarYCon.Text
+        this.Data.PosVarX := GetLangKey(this.PosVarXCon.Text)
+        this.Data.PosVarY := GetLangKey(this.PosVarYCon.Text)
         this.Data.ClickTime := this.ClickTimeCon.Value
         this.Data.ScrollV := this.ScrollVCon.Value
         this.Data.ScrollH := this.ScrollHCon.Value
