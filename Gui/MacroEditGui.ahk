@@ -460,6 +460,8 @@ class MacroEditGui {
         if (this.ContextMenu == "") {
             this.ContextMenu := Menu()
             this.ContextMenu.Add(GetLang("编辑"), (*) => this.MenuHandler(GetLang("编辑")))
+            this.ContextMenu.IsSkip := true
+            this.ContextMenu.Add(GetLang("跳过指令"), (*) => this.MenuHandler("Skip"))
             this.ContextMenu.Add(GetLang("指令上移"), (*) => this.MenuHandler(GetLang("指令上移")))
             this.ContextMenu.Add(GetLang("指令下移"), (*) => this.MenuHandler(GetLang("指令下移")))
 
@@ -508,6 +510,13 @@ class MacroEditGui {
             this.BranchContextMenu.Show(x, y)
         }
         else {
+            CurSkipMenuText := this.ContextMenu.IsSkip ? GetLang("跳过指令") : GetLang("取消跳过")
+            SkipMenuText := SubStr(itemText, 1, 2) == "🚫" ? GetLang("取消跳过") : GetLang("跳过指令")
+            if (CurSkipMenuText != SkipMenuText) {
+                this.ContextMenu.Rename(CurSkipMenuText, SkipMenuText)
+                this.ContextMenu.IsSkip := !this.ContextMenu.IsSkip
+            }
+
             this.ContextMenu.Show(x, y)
         }
     }
@@ -517,7 +526,7 @@ class MacroEditGui {
             return
 
         itemText := this.MacroTreeViewCon.GetText(item)
-        if (itemText == "" || SubStr(itemText, 1, 1) == "⎖")
+        if (itemText == "" || SubStr(itemText, 1, 1) == "⎖" || SubStr(itemText, 1, 2) == "🚫")
             return
 
         this.CurItemID := item
@@ -570,6 +579,12 @@ class MacroEditGui {
                 subGui := this.SubGuiMap[paramsArr[1]]
                 this.OnOpenSubGui(subGui, 2)
             }
+            case "Skip":
+            {
+                IsToSkip := SubStr(itemText, 1, 2) != "🚫"
+                CommandStr := IsToSkip ? "🚫" itemText : SubStr(itemText, 3)
+                this.OnModifyCmd(CommandStr)
+            }
             case GetLang("指令上移"):
             {
                 this.OnPreMoveCmd()
@@ -598,7 +613,6 @@ class MacroEditGui {
             {
                 this.OnDeleteCmd()
             }
-
         }
     }
 
@@ -945,6 +959,8 @@ class MacroEditGui {
 
     GetCmdIconStr(cmdStr) {
         paramArr := StrSplit(cmdStr, "_")
+        if (SubStr(paramArr[1], 1, 2) == "🚫")
+            paramArr[1] := SubStr(paramArr[1], 3)
         if (this.IconMap.Has(paramArr[1])) {
             return this.IconMap.Get(paramArr[1])
         }

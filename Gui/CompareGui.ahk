@@ -213,7 +213,7 @@ class CompareGui {
         this.FalseMacroCon.Value := this.Data.FalseMacro
         this.SaveToggleCon.Value := this.Data.SaveToggle
         this.SaveNameCon.Delete()
-        this.SaveNameCon.Add(this.VariableObjArr)
+        this.SaveNameCon.Add(RemoveInVariable(this.VariableObjArr))
         this.SaveNameCon.Text := GetLang(this.Data.SaveName)
         this.TrueValueCon.Value := this.Data.TrueValue
         this.FalseValueCon.Value := this.Data.FalseValue

@@ -145,10 +145,10 @@ class BGMouseGui {
         this.MouseTypeCon.Value := this.Data.MouseType
         this.ClickTimeCon.Value := this.Data.ClickTime
         this.PosVarXCon.Delete()
-        this.PosVarXCon.Add(this.VariableObjArr)
+        this.PosVarXCon.Add(RemoveInVariable(this.VariableObjArr))
         this.PosVarXCon.Text := GetLang(this.Data.PosVarX)
         this.PosVarYCon.Delete()
-        this.PosVarYCon.Add(this.VariableObjArr)
+        this.PosVarYCon.Add(RemoveInVariable(this.VariableObjArr))
         this.PosVarYCon.Text := GetLang(this.Data.PosVarY)
         this.ScrollVCon.Value := this.Data.ScrollV
         this.ScrollHCon.Value := this.Data.ScrollH

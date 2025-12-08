@@ -131,10 +131,10 @@ class MMProGui {
         this.RemarkCon.Value := cmdArr.Length >= 3 ? cmdArr[3] : ""
 
         this.PosVarXCon.Delete()
-        this.PosVarXCon.Add(this.VariableObjArr)
+        this.PosVarXCon.Add(RemoveInVariable(this.VariableObjArr))
         this.PosVarXCon.Text := GetLang(this.Data.PosVarX)
         this.PosVarYCon.Delete()
-        this.PosVarYCon.Add(this.VariableObjArr)
+        this.PosVarYCon.Add(RemoveInVariable(this.VariableObjArr))
         this.PosVarYCon.Text := GetLang(this.Data.PosVarY)
         this.ActionTypeCon.Value := this.Data.ActionType
         this.IsRelativeCon.Value := this.Data.IsRelative

@@ -142,13 +142,11 @@ GetLangMacro(MacroStr, Mode) {
 GetLangCmd(Cmd, Mode) {
     paramArr := StrSplit(Cmd, "_")
     action := Mode == 1 ? GetLang : GetLangKey
-    paramArr[1] := action(paramArr[1])
+    IsSkip := SubStr(paramArr[1], 1, 2) == "🚫"
+    paramArr[1] := IsSkip ? SubStr(paramArr[1], 3) : paramArr[1]
+    paramArr[1] := IsSkip ? "🚫" action(paramArr[1]) : action(paramArr[1])
 
     if (paramArr[1] == "RMT指令" || paramArr[1] == GetLang("RMT指令")) {
-        paramArr[2] := action(paramArr[2])
-    }
-
-    if (paramArr[1] == "间隔" || paramArr[1] == GetLang("间隔")) {
         paramArr[2] := action(paramArr[2])
     }
 

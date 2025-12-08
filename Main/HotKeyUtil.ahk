@@ -72,8 +72,9 @@ OnTriggerMacroOnce(tableItem, macro, index) {
             break
 
         WaitIfPaused(tableItem.index, index)
-
         paramArr := StrSplit(cmdArr[A_Index], "_")
+        if (SubStr(paramArr[1], 1, 2) == "🚫")
+            continue
         IsMouseMove := StrCompare(paramArr[1], "移动", false) == 0
         IsSearch := StrCompare(paramArr[1], "搜索", false) == 0
         IsSearchPro := StrCompare(paramArr[1], "搜索Pro", false) == 0

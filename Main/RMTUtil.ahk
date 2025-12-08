@@ -101,6 +101,12 @@ SaveCurWinPos() {
     MyGui := MySoftData.MyGui
     MyGui.GetPos(&x, &y, &w, &h)
     IniWrite(Format("{}π{}", x, y), IniFile, IniSection, "LastWinPos")
+
+    ListenGui := MyVarListenGui.Gui
+    if (MyVarListenGui.Gui != "") {
+        ListenGui.GetPos(&x, &y, &w, &h)
+        IniWrite(Format("{}π{}", x, y), IniFile, IniSection, "ListenVarPos")
+    }
 }
 
 OnEditCMDTipGui() {
@@ -440,8 +446,6 @@ ExcuteRMTCMDAction(Cmd) {
         MySoftData.CMDTipCtrl.Value := true
         MySoftData.CMDTip := true
         SetCMDTipValue(true)
-        if (!IsObject(MyCMDTipGui.Gui))
-            return
         MyCMDTipGui.ShowGui("开启指令显示")
     }
     else if (cmdStr == "关闭指令显示") {
@@ -456,6 +460,22 @@ ExcuteRMTCMDAction(Cmd) {
             isVisible := (style & 0x10000000)  ; 0x10000000 = WS_VISIBLE
             if (isVisible)
                 MyCMDTipGui.Gui.Hide()
+        }
+    }
+    else if (cmdStr == "开启变量监视") {
+        RefreshListenVarGui(true)
+    }
+    else if (cmdStr == "关闭变量监视") {
+        if (!IsObject(MyVarListenGui.Gui))
+            return
+
+        try {
+            style := WinGetStyle(MyVarListenGui.Gui.Hwnd)
+            isVisible := (style & 0x10000000)  ; 0x10000000 = WS_VISIBLE
+            if (isVisible) {
+                MyVarListenGui.Gui.Hide()
+                IniWrite(false, IniFile, IniSection, "IsOpenListenVar")
+            }
         }
     }
     else if (cmdStr == "显示菜单") {
@@ -731,6 +751,9 @@ CheckIfDiscardCMD(triggerMap, cmd) {
 
 FullCopyCmd(cmd, CopyedMap := Map()) {
     paramArr := SplitKeyCommand(cmd)
+    IsSkip := SubStr(paramArr[1], 1 2) == "🚫"
+    if (IsSkip)
+        paramArr[1] := SubStr(paramArr[1], 3)
     if (InStr(paramArr[1], "间隔"))
         return cmd
     if (InStr(paramArr[1], "按键"))
@@ -764,8 +787,8 @@ FullCopyCmd(cmd, CopyedMap := Map()) {
     }
     saveStr := JSON.stringify(Data, 0)
     IniWrite(saveStr, dataFile, IniSection, Data.SerialStr)
-
-    return GetCmdByParams(paramArr)
+    res := IsSkip ? "🚫" GetCmdByParams(paramArr) : GetCmdByParams(paramArr)
+    return res
 }
 
 FullCopyMacro(MacroStr, CopyedMap) {

@@ -60,11 +60,13 @@ MsgPostHandler(type, wParam, lParam) {
     PostMessage(type, wParam, lParam, , "ahk_id " parentHwnd)
 }
 
-MsgSendHandler(str) {
-    currentDateTime := FormatTime(, "HHmmss")
-    randomNum := Random(0, 9) Random(0, 9) Random(0, 9)
-    Timestamp := CurrentDateTime randomNum
-    ReceiveInfoMap.Set(Timestamp, str)
+MsgSendHandler(str, Timestamp := "") {
+    if (Timestamp == "") {
+        currentDateTime := FormatTime(, "HHmmss")
+        randomNum := Random(0, 9) Random(0, 9) Random(0, 9)
+        Timestamp := CurrentDateTime randomNum
+        ReceiveInfoMap.Set(Timestamp, str)
+    }
 
     CopyDataStruct := Buffer(3 * A_PtrSize)  ; 分配结构的内存区域.
     ; 首先设置结构的 cbData 成员为字符串的大小, 包括它的零终止符:
@@ -76,7 +78,7 @@ MsgSendHandler(str) {
 
     action := CheckIfReceiveInfo.Bind(Timestamp)
     ReceiveCheckMap.Set(Timestamp, action)
-    SetTimer(action, -100)
+    SetTimer(action, -50)
 }
 
 InitWorkFilePath() {
@@ -183,7 +185,7 @@ CheckIfReceiveInfo(Timestamp) {
     if (!ReceiveInfoMap.Has(Timestamp))
         return
 
-    MsgSendHandler(ReceiveInfoMap[Timestamp])
+    MsgSendHandler(ReceiveInfoMap[Timestamp], Timestamp)
 }
 
 OnMainReceiveInfo(wParam, lParam, msg, hwnd) {

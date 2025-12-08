@@ -109,7 +109,7 @@ class SubMacroGui {
         this.TypeCon.Value := this.Data.MacroType
         this.CallTypeCon.Value := this.Data.CallType
         this.InsertCountCon.Delete()
-        this.InsertCountCon.Add(this.VariableObjArr)
+        this.InsertCountCon.Add(RemoveInVariable(this.VariableObjArr, 2))
         this.InsertCountCon.Text := GetLang(this.Data.InsertCount)
 
         tableIndex := this.Data.MacroType - 1

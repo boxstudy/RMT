@@ -353,16 +353,16 @@ class SearchProGui {
         this.UnFoundCommandStrCon.Value := this.Data.FalseMacro
         this.ResultToggleCon.Value := this.Data.ResultToggle
         this.ResultSaveNameCon.Delete()
-        this.ResultSaveNameCon.Add(this.VariableObjArr)
+        this.ResultSaveNameCon.Add(RemoveInVariable(this.VariableObjArr))
         this.ResultSaveNameCon.Text := this.Data.ResultSaveName
         this.TrueValueCon.Value := this.Data.TrueValue
         this.FalseValueCon.Value := this.Data.FalseValue
         this.CoordToogleCon.Value := this.Data.CoordToogle
         this.CoordXNameCon.Delete()
-        this.CoordXNameCon.Add(this.VariableObjArr)
+        this.CoordXNameCon.Add(RemoveInVariable(this.VariableObjArr))
         this.CoordXNameCon.Text := this.Data.CoordXName
         this.CoordYNameCon.Delete()
-        this.CoordYNameCon.Add(this.VariableObjArr)
+        this.CoordYNameCon.Add(RemoveInVariable(this.VariableObjArr))
         this.CoordYNameCon.Text := this.Data.CoordYName
         this.OnChangeType()
     }

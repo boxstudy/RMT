@@ -18,6 +18,8 @@ SetGlobalVar() {
 }
 
 GetMacroStrGlobalVar(macroStr, VariableMap, visitMap) {
+    if (macroStr == "") 
+        return
     cmdArr := SplitMacro(macroStr)
     loop cmdArr.Length {
         paramArr := StrSplit(cmdArr[A_Index], "_")
@@ -31,6 +33,12 @@ GetMacroStrGlobalVar(macroStr, VariableMap, visitMap) {
         IsSearch := StrCompare(paramArr[1], GetLang("搜索"), false) == 0
         IsSearchPro := StrCompare(paramArr[1], GetLang("搜索Pro"), false) == 0
         IsLoop := StrCompare(paramArr[1], GetLang("循环"), false) == 0
+        IsIfPro := StrCompare(paramArr[1], GetLang("如果Pro"), false) == 0
+        IsVarRelate := IsVariable || IsExVariable || IsIf || IsOpera || IsSearch || IsSearchPro
+            || IsLoop || IsIfPro
+        if (!IsVarRelate)
+            continue
+        visitMap[paramArr[2]] := true
 
         if (IsVariable) {
             saveStr := IniRead(VariableFile, IniSection, paramArr[2], "")
@@ -84,30 +92,28 @@ GetMacroStrGlobalVar(macroStr, VariableMap, visitMap) {
             VariableMap[GetLang("指令循环次数")] := true
         }
 
-        TrueMacro := ""
-        FalseMacro := ""
-        if (IsIf) {
-            saveStr := IniRead(CompareFile, IniSection, paramArr[2], "")
+        if (IsIf || IsSearch || IsSearchPro) {
+            FileMap := Map(GetLang("如果"), CompareFile, GetLang("搜索"), SearchFile, GetLang("搜索Pro"), SearchProFile)
+            filePath := FileMap[paramArr[1]]
+            saveStr := IniRead(filePath, IniSection, paramArr[2], "")
             Data := JSON.parse(saveStr, , false)
-
-            TrueMacro := Data.TrueMacro
-            FalseMacro := Data.FalseMacro
+    
+            GetMacroStrGlobalVar(Data.TrueMacro, VariableMap, visitMap)
+            GetMacroStrGlobalVar(Data.FalseMacro, VariableMap, visitMap)
         }
-        else if (IsSearch || IsSearchPro) {
-            FileName := IsSearch ? SearchFile : SearchProFile
-            saveStr := IniRead(FileName, IniSection, paramArr[2], "")
+        else if (IsLoop) {
+            saveStr := IniRead(LoopFile, IniSection, paramArr[2], "")
             Data := JSON.parse(saveStr, , false)
-
-            TrueMacro := Data.TrueMacro
-            FalseMacro := Data.FalseMacro
+            GetMacroStrGlobalVar(Data.LoopBody, VariableMap, visitMap)
         }
-
-        if (TrueMacro != "" || FalseMacro != "") {
-            visitMap[paramArr[2]] := true
-            GetMacroStrGlobalVar(TrueMacro, VariableMap, visitMap)
-            GetMacroStrGlobalVar(TrueMacro, VariableMap, visitMap)
+        else if (IsIfPro) {
+            saveStr := IniRead(CompareProFile, IniSection, paramArr[2], "")
+            Data := JSON.parse(saveStr, , false)
+            for index, value in Data.MacroArr {
+                GetMacroStrGlobalVar(value, VariableMap, visitMap)
+            }
+            GetMacroStrGlobalVar(Data.DefaultMacro, VariableMap, visitMap)
         }
-
     }
 }
 
@@ -122,8 +128,7 @@ GetGuiVariableObjArr(curMacroStr, VariableObjArr) {
     ResultArr := []
     ResultMap := GetLocalVar(curMacroStr)
     HasLoopCount := false   ;含有指令循环次数变量
-    SpecialKeyArr1 := [GetLang("宏循环次数"), GetLang("当前鼠标坐标X"), GetLang("当前鼠标坐标Y")]
-    SpecialKeyArr2 := [GetLang("指令循环次数"), GetLang("宏循环次数"), GetLang("当前鼠标坐标X"), GetLang("当前鼠标坐标Y")]
+    SpecialKeyArr := [GetLang("指令循环次数"), GetLang("宏循环次数"), GetLang("当前鼠标坐标X"), GetLang("当前鼠标坐标Y")]
 
     ; 将VariableObjArr中的变量添加到映射中
     for Value in VariableObjArr {
@@ -138,7 +143,7 @@ GetGuiVariableObjArr(curMacroStr, VariableObjArr) {
     }
 
     ;为了让特殊变量出现在末尾，先删除
-    for curKey in SpecialKeyArr2 {
+    for curKey in SpecialKeyArr {
         if ResultMap.Has(curKey) {
             if (curKey == GetLang("指令循环次数"))
                 HasLoopCount := true
@@ -150,8 +155,40 @@ GetGuiVariableObjArr(curMacroStr, VariableObjArr) {
     for Key in ResultMap {
         ResultArr.Push(Key)
     }
-    SpecialKeyArr := HasLoopCount ? SpecialKeyArr2 : SpecialKeyArr1
-    ResultArr.Push(SpecialKeyArr*)
 
+    if (HasLoopCount)
+        ResultArr.Push(GetLang("指令循环次数"))
+    ResultArr.Push(SpecialKeyArr*)
     return ResultArr
+}
+
+;mode 1:移除所有  2：移除坐标变量
+RemoveInVariable(VarArr, Mode := 1) {
+    SpecialKeyArr1 := [GetLang("指令循环次数"), GetLang("宏循环次数"), GetLang("当前鼠标坐标X"), GetLang("当前鼠标坐标Y")]
+    SpecialKeyArr2 := [GetLang("当前鼠标坐标X"), GetLang("当前鼠标坐标Y")]
+    SpecialMap := Map(1, SpecialKeyArr1, 2, SpecialKeyArr2)
+    SpecialKeyArr := SpecialMap[Mode]
+
+    ; 创建一个新数组来存储结果
+    result := []
+
+    ; 第一个循环：遍历原始数组的每个值
+    for value in VarArr {
+        found := false
+
+        ; 第二个循环：检查这个值是否在特殊值数组中
+        for specialValue in SpecialKeyArr {
+            if value = specialValue {
+                found := true
+                break  ; 找到匹配项，跳出内层循环
+            }
+        }
+
+        ; 如果没有找到匹配项，则添加到结果数组
+        if (!found) {
+            result.Push(value)
+        }
+    }
+
+    return result
 }

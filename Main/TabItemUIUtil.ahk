@@ -222,6 +222,7 @@ LoadTabItemUI(tableItem, itemIndex, foldIndex, PosY) {
     btnStr := isTiming ? GetLang("定时") : tableItem.TKArr[ItemIndex] == "" ? GetLang("编辑") : tableItem.TKArr[ItemIndex]
     TKBtnCon := MyGui.Add("Button", Format("x{} y{} w100 h29", TabPosX + 250, posY - 1), btnStr)
     TKBtnCon.OnEvent("Click", EditTriggerAction.Bind(tableItem))
+    TKBtnCon.OnEvent("ContextMenu", OnItemCustomEditTriggerStr.Bind(tableItem))
     TKBtnCon.Enabled := !isSubMacro && !isMenu
     conInfo := ItemConInfo(TKBtnCon, tableItem, foldIndex)
     tableItem.AllConArr.Push(conInfo)
@@ -553,6 +554,23 @@ OnItemEditTriggerStr(tableItem, btn, *) {
 
     MyTriggerStrGui.SureBtnAction := SureAction
     MyTriggerStrGui.ShowGui(triggerStr, 0, false)
+}
+
+;自定义编辑触发按键
+OnItemCustomEditTriggerStr(tableItem, btn, *) {
+    index := tableItem.ConIndexMap[btn].index
+    isNormal := CheckIsNormalTable(tableItem.Index)
+    if (!isNormal)
+        return
+
+    CustomTK := InputBox(GetLang("请输入自定义触发按键："), "修改", "w300 h100", tableItem.TKArr[index])
+
+    ; 检查用户是否取消输入
+    if CustomTK.Result = "Cancel"
+        return
+
+    tableItem.TKConArr[index].Text := CustomTK.Value == "" ? GetLang("编辑") : CustomTK.Value
+    tableItem.TKArr[index] := CustomTK.Value
 }
 
 ;编辑按键宏触发键

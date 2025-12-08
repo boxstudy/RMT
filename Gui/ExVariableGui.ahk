@@ -196,7 +196,7 @@ class ExVariableGui {
         loop 4 {
             this.ToggleConArr[A_Index].Value := this.Data.ToggleArr[A_Index]
             this.VariableConArr[A_Index].Delete()
-            this.VariableConArr[A_Index].Add(this.VariableObjArr)
+            this.VariableConArr[A_Index].Add(RemoveInVariable(this.VariableObjArr))
             this.VariableConArr[A_Index].Text := this.Data.VariableArr[A_Index]
         }
         this.IsIgnoreExistCon.Value := this.Data.IsIgnoreExist

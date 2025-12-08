@@ -5,6 +5,8 @@ class WorkPool {
         this.pool := []              ; 对象池数组
         this.hwndMap := Map()
         this.pidMap := Map()
+        this.MessageArr := []   ;消息数组，避免消息重复处理
+        this.MessageMap := Map()
         loop this.maxSize {
             workPath := A_ScriptDir "\Thread\Work" A_Index ".exe"
             if (!FileExist(workPath) && this.maxSize <= 10) {
@@ -125,13 +127,29 @@ class WorkPool {
         TriggerMacroHandler(wParam, lParam)
     }
 
+    OnRecordMessage(Timestamp) {
+        if (this.MessageMap.Has(Timestamp))
+            return
+
+        this.MessageMap.Set(Timestamp, 1)
+        this.MessageArr.Push(Timestamp)
+        if (this.MessageArr.Length >= 125) {
+            delTimestamp := this.MessageArr.RemoveAt(1)
+            this.MessageMap.Delete(delTimestamp)
+        }
+    }
+
     OnGetCmd(wParam, lParam, msg, hwnd) {
         ;告知一下子进程收到信息
         loop MyWorkPool.maxSize {
             workPath := A_ScriptDir "\Thread\Work" A_Index ".exe"
             MyWorkPool.PostMessage(WM_RECEIVE_INFO, workPath, wParam, 0)
         }
-    
+
+        if (this.MessageMap.Has(wParam))    ;接收过就不用再处理了
+            return
+
+        this.OnRecordMessage(wParam)
         StringAddress := NumGet(lParam, 2 * A_PtrSize, "Ptr")  ; 检索 CopyDataStruct 的 lpData 成员.
         Cmd := StrGet(StringAddress)  ; 从结构中复制字符串.
         paramArr := StrSplit(Cmd, "_")

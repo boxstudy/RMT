@@ -39,21 +39,22 @@ OnOpen() {
 }
 
 RefreshGui() {
+    LastWinPosStr := IniRead(IniFile, IniSection, "LastWinPos", "")
+    WinPosArr := StrSplit(LastWinPosStr, "π")
     IniWrite(false, IniFile, IniSection, "IsReload")
-    if (MySoftData.IsReload) {
-        LastWinPosStr := IniRead(IniFile, IniSection, "LastWinPos", "")
-        WinPosArr := StrSplit(LastWinPosStr, "π")
-        if (WinPosArr.Length == 2 && IsNumber(WinPosArr[1]) && IsNumber(WinPosArr[2])) {
-            VirtualWidth := SysGet(78)
-            VirtualHeight := SysGet(79)
-            isXValid := WinPosArr[1] > 0 && WinPosArr[1] < VirtualWidth
-            isYValid := WinPosArr[2] > 0 && WinPosArr[2] < VirtualHeight
-            if (isXValid && isYValid) {
-                MySoftData.MyGui.Show(Format("x{} y{} w{} h{}", WinPosArr[1], WinPosArr[2], 1070, 590))
-                return
-            }
+
+    if (WinPosArr.Length == 2 && IsNumber(WinPosArr[1]) && IsNumber(WinPosArr[2])) {
+        VirtualWidth := SysGet(78)
+        VirtualHeight := SysGet(79)
+        isXValid := WinPosArr[1] > 0 && WinPosArr[1] < VirtualWidth
+        isYValid := WinPosArr[2] > 0 && WinPosArr[2] < VirtualHeight
+        if (isXValid && isYValid) {
+            MySoftData.MyGui.Show(Format("x{} y{} w{} h{}", WinPosArr[1], WinPosArr[2], 1070, 590))
+            RefreshListenVarGui()
+            return
         }
     }
+
     if (MySoftData.LastShowMonth != A_Mon) {
         MySoftData.TabCtrl.Value := 9
         MySoftData.LastShowMonth := A_Mon
@@ -61,6 +62,29 @@ RefreshGui() {
     }
 
     MySoftData.MyGui.Show(Format("w{} h{}", 1070, 590))
+    RefreshListenVarGui()
+}
+
+RefreshListenVarGui(isForce := false) {
+    IsOenListVar := IniRead(IniFile, IniSection, "IsOpenListenVar", false)
+    if (!isForce && !IsOenListVar)
+        return
+
+    LastPosStr := IniRead(IniFile, IniSection, "ListenVarPos", "")
+    WinPosArr := StrSplit(LastPosStr, "π")
+    if (WinPosArr.Length == 2 && IsNumber(WinPosArr[1]) && IsNumber(WinPosArr[2])) {
+        VirtualWidth := SysGet(78)
+        VirtualHeight := SysGet(79)
+        isXValid := WinPosArr[1] > 0 && WinPosArr[1] < VirtualWidth
+        isYValid := WinPosArr[2] > 0 && WinPosArr[2] < VirtualHeight
+        if (isXValid && isYValid) {
+            MyVarListenGui.ShowGui()
+            MyVarListenGui.Gui.Show(Format("x{} y{}", WinPosArr[1], WinPosArr[2]))
+            return
+        }
+    }
+
+    MyVarListenGui.ShowGui()
 }
 
 RefreshToolUI() {

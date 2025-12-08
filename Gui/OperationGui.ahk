@@ -151,7 +151,7 @@ class OperationGui {
             this.NameConArr[A_Index].Text := GetLang(this.Data.NameArr[A_Index])
             this.OperationConArr[A_Index].Value := GetLangStr(this.Data.OperationArr[A_Index], 1)
             this.UpdateNameConArr[A_Index].Delete()
-            this.UpdateNameConArr[A_Index].Add(this.VariableObjArr)
+            this.UpdateNameConArr[A_Index].Add(RemoveInVariable(this.VariableObjArr))
             this.UpdateNameConArr[A_Index].Text := GetLang(this.Data.UpdateNameArr[A_Index])
         }
     }

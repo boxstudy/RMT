@@ -14,6 +14,7 @@ class VariableListenGui {
         else {
             this.AddGui()
         }
+        IniWrite(true, IniFile, IniSection, "IsOpenListenVar")
         this.Refresh()
         this.LVCon.Focus()  ; 🔥 强制获得焦点，解决第一次双击无效问题
     }
@@ -63,13 +64,19 @@ class VariableListenGui {
 
         PosX := 10
         PosY += 30
-        this.LVCon := MyGui.Add("ListView", Format("x{} y{} w350 h250 -LV0x10 NoSort Sort", PosX, PosY), GetLangArr(["变量名", "变量值"]))
+        this.LVCon := MyGui.Add("ListView", Format("x{} y{} w350 h250 -LV0x10 NoSort Sort", PosX, PosY), GetLangArr([
+            "变量名", "变量值"]))
         ; 设置列宽（单位：px）
         this.LVCon.ModifyCol(1, 120) ; 第一列宽度
         this.LVCon.ModifyCol(2, 205) ; 自动填充剩余宽度
         this.LVCon.OnEvent("DoubleClick", this.OnDoubleClick.Bind(this))
 
+        MyGui.OnEvent("Close", this.OnClose.Bind(this))
         MyGui.Show(Format("w{} h{}", 370, 300))
+    }
+
+    OnClose(*) {
+        IniWrite(false, IniFile, IniSection, "IsOpenListenVar")
     }
 
     OnTogTop(*) {
@@ -83,14 +90,15 @@ class VariableListenGui {
     }
 
     OnDoubleClick(LV, RowNumber, *) {
-        newValue := InputBox(GetLang("请输入新的变量值："), "修改", "w300 h100")
+        varName := this.LVCon.GetText(RowNumber, 1)
+        curValue := this.LVCon.GetText(RowNumber, 2)
+        Title := Format("{}:{}      {}:{}", GetLang("变量名"), varName, GetLang("变量值"), curValue)
+        Title .= "`n" GetLang("请输入新的变量值：")
+        newValue := InputBox(Title, "修改", "w300 h110")
 
         ; 检查用户是否取消输入
         if newValue.Result = "Cancel"
             return
-
-        varName := this.LVCon.GetText(RowNumber, 1)
-
         if (newValue.Value == "") {
             DelGlobalVariable(varName)
             return
