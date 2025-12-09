@@ -308,6 +308,18 @@ InitJoyAxis() {
     }
 }
 
+InitLogitechGHubNew() {
+    if (MySoftData.IsLogitechInit)
+        return true
+
+    res := IbSendInit("LogitechGHubNew")
+    if (res = false)
+        return false
+
+    MySoftData.IsLogitechInit := true
+    return true
+}
+
 ;资源读取
 LoadMainSetting() {
     global ToolCheckInfo, MySoftData

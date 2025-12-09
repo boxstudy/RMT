@@ -1260,8 +1260,7 @@ SendNormalKey(Key, state, tableItem, index) {
 }
 
 SendLogicKeyClick(KeyArrStr, holdTime, tableItem, index, keyType) {
-    res := IbSendInit("LogitechGHubNew")
-    if (!res)
+    if (!InitLogitechGHubNew())
         return
     KeyArr := GetPressKeyArr(KeyArrStr)
     if (keyType == 1 || keyType == 3) {

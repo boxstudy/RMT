@@ -26,8 +26,13 @@ IbSendInit(send_type := "AnyDriver", mode := 1, args*) {
         result := DllCall("IbInputSimulator\IbSendInit", "Int", 1, "Int", 0, "Ptr", 0, "Int")
     else if (send_type == "Logitech")
         result := DllCall("IbInputSimulator\IbSendInit", "Int", 2, "Int", 0, "Ptr", 0, "Int")
-    else if (send_type == "LogitechGHubNew")
+    else if (send_type == "LogitechGHubNew") {
+        if (!IsProcessRunning("lghub.exe") && !IsProcessRunning("lghub_agent.exe")) {
+            StartLogitechGHub()
+        }
+
         result := DllCall("IbInputSimulator\IbSendInit", "Int", 6, "Int", 0, "Ptr", 0, "Int")
+    }
     else if (send_type == "Razer")
         result := DllCall("IbInputSimulator\IbSendInit", "Int", 3, "Int", 0, "Ptr", 0, "Int")
     else if (send_type == "DD") {
@@ -119,4 +124,52 @@ IbMouseClickDrag(args*) {
     IbSendMode(1)
     MouseClickDrag(args*)
     IbSendMode(0)
+}
+
+IsProcessRunning(processName) {
+    try {
+        ProcessExist(processName)
+        return true
+    }
+    catch {
+        return false
+    }
+}
+
+; 启动 Logitech G Hub
+StartLogitechGHub() {
+    ; 尝试在默认安装路径启动
+    paths := [
+        A_ProgramFiles . "\LGHUB\lghub.exe",
+        A_ProgramFiles . "\Logitech Gaming Software\lghub.exe",
+        A_AppData . "\Microsoft\Windows\Start Menu\Programs\Logitech G\G HUB.lnk"
+    ]
+
+    for path in paths {
+        if (FileExist(path)) {
+            try {
+                Run(path)
+                return true
+            }
+        }
+    }
+
+    ; 如果找不到，尝试通过注册表查找
+    try {
+        file := RegRead(
+            "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{521c89be-637f-4274-a840-baaf7460c2b2}",
+            "DisplayIcon")
+        if (FileExist(file)) {
+            Run(file)
+            return true
+        }
+    }
+
+    ; 最后尝试通过系统搜索
+    try {
+        Run("explorer.exe shell:AppsFolder\LogitechG.LogitechG_hypejqnwv7yhy!App")
+        return true
+    }
+
+    return false
 }

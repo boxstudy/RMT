@@ -198,7 +198,8 @@ class ToolCheck {
 
 class SoftData {
     __New() {
-        this.isWork := false
+        this.isWork := false            ;子线程标识
+        this.IsLogitechInit := false    ;罗技按键初始化
         this.ToolTipText := ""          ;临时提示文本
         this.ToolTipEndTime := ""       ;临时提示结束时间
         this.AgreeAgreement := false    ;同意协议

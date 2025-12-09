@@ -100,3 +100,23 @@ SetGlobalVar()      ;缓存全局变量
 PluginInit()
 TimingCheck()       ;轮询检测触发
 BindKey()           ;绑定快捷键
+
+IsProcessRunning(processName) {
+    try {
+        ProcessExist(processName)
+        return true
+    }
+    catch {
+        return false
+    }
+}
+
+; if (!IsProcessRunning("lghub.exe") && !IsProcessRunning("lghub_agent.exe")) {
+;     StartLogitechGHub()
+;     Sleep(5000)  ; 等待驱动加载
+; }
+
+aa := IsProcessRunning("lghub.exe")
+bb := IsProcessRunning("lghub_agent.exe")
+MsgBox(aa)
+MsgBox(bb)
