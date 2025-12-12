@@ -16,6 +16,7 @@
 #Include Gui\MacroEditGui.ahk
 #Include Gui\MenuWheelGui.ahk
 #Include Gui\ReplaceKeyGui.ahk
+#Include Gui\UseExplainGui.ahk
 #Include Gui\LoopGui.ahk
 #Include Gui\TargetGui.ahk
 #Include Gui\ToolRecordSettingGui.ahk
@@ -77,6 +78,7 @@ global MyTargetGui := TargetGui()
 global MyMsgboxGui := CustomMsgBoxGui()
 global MyCMDTipSettingGui := CMDTipSettingGui()
 global MyToolRecordSettingGui := ToolRecordSettingGui()
+global MyUseExplainGui := UseExplainGui()
 global MySubMacroStopAction := SubMacroStopAction
 global MyTriggerSubMacro := TriggerMacroHandler
 global MySetGlobalVariable := SetGlobalVariable

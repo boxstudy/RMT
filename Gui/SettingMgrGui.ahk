@@ -59,6 +59,23 @@ class SettingMgrGui {
 
         PosX := 10
         PosY += 30
+        MyGui.Add("GroupBox", Format("x{} y{} w400 h75", PosX, PosY), GetLang("新增配置操作"))
+
+        PosX := 40
+        PosY += 30
+        con := MyGui.Add("Button", Format("x{} y{} w100", PosX, PosY), GetLang("新增配置"))
+        con.OnEvent("Click", this.OnAddBtnClick.Bind(this))
+
+        PosX := 160
+        con := MyGui.Add("Button", Format("x{} y{} w100", PosX, PosY), GetLang("导入配置"))
+        con.OnEvent("Click", this.OnUnpackBtnClick.Bind(this))
+
+        PosX := 280
+        con := MyGui.Add("Button", Format("x{} y{} w100", PosX, PosY), GetLang("复制配置"))
+        con.OnEvent("Click", this.OnCopyBtnClick.Bind(this))
+
+        PosX := 10
+        PosY += 50
         MyGui.Add("GroupBox", Format("x{} y{} w400 h150", PosX, PosY), GetLang("配置操作"))
 
         PosX := 70
@@ -85,23 +102,6 @@ class SettingMgrGui {
         PosX := 260
         con := MyGui.Add("Button", Format("x{} y{} w100", PosX, PosY), GetLang("导出配置"))
         con.OnEvent("Click", this.OnPackBtnClick.Bind(this))
-
-        PosX := 10
-        PosY += 55
-        MyGui.Add("GroupBox", Format("x{} y{} w400 h75", PosX, PosY), GetLang("新增配置操作"))
-
-        PosX := 40
-        PosY += 30
-        con := MyGui.Add("Button", Format("x{} y{} w100", PosX, PosY), GetLang("新增配置"))
-        con.OnEvent("Click", this.OnAddBtnClick.Bind(this))
-
-        PosX := 160
-        con := MyGui.Add("Button", Format("x{} y{} w100", PosX, PosY), GetLang("导入配置"))
-        con.OnEvent("Click", this.OnUnpackBtnClick.Bind(this))
-
-        PosX := 280
-        con := MyGui.Add("Button", Format("x{} y{} w100", PosX, PosY), GetLang("复制配置"))
-        con.OnEvent("Click", this.OnCopyBtnClick.Bind(this))
 
         PosX := 10
         PosY += 55
@@ -154,7 +154,8 @@ class SettingMgrGui {
     }
 
     OnReplaceBtnClick(*) {
-        tipStr := Format("{}`n{}", GetLang("将清空当前软件的所有配置，并把所选文件中的配置迁移导入本软件。"), GetLang("为了避免数据丢失，请务必提前备份现有配置。"))
+        tipStr := Format("{}`n{}", GetLang("将清空当前软件的所有配置，并把所选文件中的配置迁移导入本软件。"), GetLang(
+            "为了避免数据丢失，自动备份当前所有配置保存到软件下SettingOld中"))
         MsgBox(tipStr)
         SelectedFolder := DirSelect(, 0, GetLang("请选择若梦兔软件下Setting配置文件。"))
         if SelectedFolder == ""  ; 用户取消了选择
@@ -168,9 +169,9 @@ class SettingMgrGui {
         OldSettingDir := A_WorkingDir "\SettingOld"
         if (DirExist(OldSettingDir))
             DirDelete(OldSettingDir, true)
+        DirCopy(CurSettingDir, OldSettingDir, 1)
         if (DirExist(CurSettingDir))
             DirDelete(CurSettingDir, true)
-        DirCopy(CurSettingDir, OldSettingDir, 1)
         DirCopy(SelectedFolder, CurSettingDir, 1)
         try {
             loop files, CurSettingDir "\*", "D"  ; 递归子文件夹.
@@ -236,6 +237,10 @@ class SettingMgrGui {
 
         isVaild := FolderPackager.CheckPack(selectedFile)
         if (!isVaild)
+            return
+
+        result := MsgBox(GetLang("共享上传文件：") selectedFile, GetLang("提示"), "4")
+        if (result == "No")
             return
 
         result := RMT_Http.UploadFile(selectedFile)
@@ -315,8 +320,9 @@ class SettingMgrGui {
     OnCourseBtnClick(*) {
         filePath := A_WorkingDir "\Setting\" this.OperSettingCon.Text "\使用说明&署名.txt"
 
-        if (FileExist(filePath))
-            Run filePath
+        if (FileExist(filePath)) {
+            MyUseExplainGui.ShowGui(this.OperSettingCon.Text)
+        }
         else
             MsgBox(filePath GetLang("说明文件不存在"))
     }

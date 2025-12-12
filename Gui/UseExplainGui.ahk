@@ -1,0 +1,186 @@
+#Requires AutoHotkey v2.0
+
+class UseExplainGui {
+    __new() {
+        this.Gui := ""
+        this.ContextMenu := ""
+        this.SettingName := ""
+        this.AuthorCon := ""
+        this.EffectCon := ""
+        this.OperCon := ""
+        this.LVCon := ""
+        this.AllImagePathMap := Map()
+        this.ImagePathArr := []
+        this.CheckClipboardAction := () => this.CheckClipboard()
+    }
+
+    ShowGui(SettingName) {
+        if (this.Gui != "") {
+            this.Gui.Show()
+        }
+        else {
+            this.AddGui()
+        }
+        this.Init(SettingName)
+        this.LVCon.Focus()  ; 🔥 强制获得焦点，解决第一次双击无效问题
+    }
+
+    AddGui() {
+        MyGui := Gui(, GetLang("使用说明"))
+        this.Gui := MyGui
+        MyGui.SetFont("S11 W550 Q2", MySoftData.FontType)
+
+        PosX := 10
+        PosY := 10
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("配置名称："))
+
+        PosX := 100
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), MySoftData.CurSettingName)
+
+        PosX := 10
+        PosY += 30
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("作者："))
+        PosX := 100
+        this.AuthorCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 2, 480))
+
+        PosX := 10
+        PosY += 40
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("配置作用："))
+        PosX := 100
+        this.EffectCon := MyGui.Add("Edit", Format("x{} y{} w{} h{}", PosX, PosY - 2, 480, 60))
+
+        PosX := 10
+        PosY += 70
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("操作说明："))
+        PosX := 100
+        this.OperCon := MyGui.Add("Edit", Format("x{} y{} w{} h{}", PosX, PosY - 2, 480, 200))
+
+        PosX := 10
+        PosY += 210
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("图片备注："))
+        PosX := 100
+        this.LVCon := MyGui.AddListView(Format("x{} y{} w{} h{} Icon", PosX, PosY - 2, 480, 100))
+        this.LVCon.OnEvent("DoubleClick", this.OnLVDoubleClick.Bind(this))
+        this.LVCon.OnEvent("ContextMenu", this.OnLVRightClick.Bind(this))
+
+        PosX := 10
+        PosY += 25
+        con := MyGui.Add("Button", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("选择图片"))
+        con.OnEvent("Click", (*) => this.OnSelectImage())
+
+        PosX := 10
+        PosY += 35
+        con := MyGui.Add("Button", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("截图"))
+        con.OnEvent("Click", (*) => this.OnScreenShot())
+
+        PosY += 50
+        PosX := 250
+        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 40), GetLang("确定"))
+        btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
+        MyGui.Show(Format("w{} h{}", 600, 520))
+    }
+
+    Init(SettingName) {
+        this.SettingName := SettingName
+        this.IL := IL_Create(10, 5, true)   ; 5 = 色深，true = large icon
+        this.LVCon.SetImageList(this.IL)
+        this.ImagePathArr := []
+
+        ImagesfolderPath := A_WorkingDir "\Setting\" this.SettingName "\Images\UseExplain"
+        loop files ImagesfolderPath "\*.png" {
+            this.AllImagePathMap.Set(A_LoopFileFullPath, true)
+            this.ImagePathArr.Push(A_LoopFileFullPath)
+            IL_Add(this.IL, this.ImagePathArr[A_Index])
+            this.LVCon.Add("Icon" . A_Index)
+        }
+    }
+
+    OnLVDoubleClick(LV, RowNumber, *) {
+        if (RowNumber == 0)
+            return
+        path := this.ImagePathArr[RowNumber]
+        run path
+    }
+
+    OnLVRightClick(LV, RowNumber, isRightClick, x, y) {
+        if (RowNumber == 0)
+            return
+        if (this.ContextMenu == "") {
+            this.ContextMenu := Menu()
+            this.ContextMenu.Add(GetLang("删除"), (*) => this.MenuHandler(GetLang("删除")))
+        }
+        this.ContextMenu.Show(x, y)
+    }
+
+    OnSelectImage() {
+        path := FileSelect(1, , GetLang("选择图片"), "PNG Files (*.png)")
+        if (path == "")
+            return
+
+        SplitPath path, &name, &dir, &ext, &name_no_ext, &drive
+        newPath := A_WorkingDir "\Setting\" this.SettingName "\Images\UseExplain\" name
+        if (FileExist(newPath)) {
+            MsgBox(GetLang("该图片已添加，请勿重复添加！！！"))
+            return
+        }
+
+        FileCopy(path, newPath)
+        this.AllImagePathMap.Push(newPath, true)
+        this.ImagePathArr.Push(newPath)
+        IL_Add(this.IL, newPath)
+        this.LVCon.Add("Icon" . this.AllImagePathMap.Count)
+    }
+
+    OnScreenShot() {
+        if (MySoftData.ScreenShotTypeCtrl.Value == 1) {
+            A_Clipboard := ""  ; 清空剪贴板
+            Run("ms-screenclip:")
+            SetTimer(this.CheckClipboardAction, 500)  ; 每 500 毫秒检查一次剪贴板
+        }
+        else {
+            TogSelectArea(true, this.OnScreenShotGetArea.Bind(this))
+        }
+    }
+
+    CheckClipboard() {
+        ; 如果剪贴板中有图像
+        if DllCall("IsClipboardFormatAvailable", "uint", 8)  ; 8 是 CF_BITMAP 格式
+        {
+            ; 获取当前日期和时间，用于生成唯一的文件名
+            CurrentDateTime := FormatTime(, "HHmmss")
+            filePath := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\Images\UseExplain\" CurrentDateTime ".png"
+            SaveClipToBitmap(filePath)
+
+            this.AllImagePathMap.Set(filePath, true)
+            this.ImagePathArr.Push(filePath)
+            IL_Add(this.IL, filePath)
+            this.LVCon.Add("Icon" . this.AllImagePathMap.Count)
+            SetTimer(, 0)
+        }
+    }
+
+    OnScreenShotGetArea(x1, y1, x2, y2) {
+        CurrentDateTime := FormatTime(, "HHmmss")
+        filePath := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\Images\UseExplain\" CurrentDateTime ".png"
+        ScreenShot(x1, y1, x2, y2, filePath)
+
+        this.AllImagePathMap.Set(filePath, true)
+        this.ImagePathArr.Push(filePath)
+        IL_Add(this.IL, filePath)
+        this.LVCon.Add("Icon" . this.AllImagePathMap.Count)
+    }
+
+    OnClickSureBtn() {
+        this.Gui.Hide()
+    }
+
+    MenuHandler(cmdStr, *) {
+        switch cmdStr {
+            case GetLang("删除"):
+            {
+
+            }
+        }
+
+    }
+}
