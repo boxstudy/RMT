@@ -316,6 +316,8 @@ OnCompare(tableItem, cmd, index) {
         }
         else {
             hasValue := TryGetVariableValue(&Value, tableItem, index, Data.NameArr[A_Index])
+            if (!hasValue)
+                return
             if (Data.CompareTypeArr[A_Index] == 6) {  ;字符包含的时候可以直接使用字符
                 hasOtherValue := TryGetVariableValue(&OtherValue, tableItem, index, Data.VariableArr[A_Index], false)
                 OtherValue := hasOtherValue ? OtherValue : Data.VariableArr[A_Index]
@@ -325,9 +327,8 @@ OnCompare(tableItem, cmd, index) {
                 hasOtherValue := TryGetVariableValue(&OtherValue, tableItem, index, Data.VariableArr[A_Index])
             }
 
-            if (!hasValue || !hasOtherValue) {
+            if (!hasOtherValue)
                 return
-            }
 
             switch Data.CompareTypeArr[A_Index] {
                 case 1: currentComparison := Value > OtherValue

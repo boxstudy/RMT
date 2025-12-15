@@ -20,7 +20,6 @@ class KeyGui {
         this.PerIntervalCon := ""
         this.KeyCountCon := ""
         this.CommandStrCon := ""
-        this.GameModeCon := ""
 
         this.ModifyKeys := ["Shift", "Alt", "Ctrl", "Win", "LShift", "RShift", "LAlt", "RAlt", "LCtrl", "RCtrl", "LWin",
             "RWin"]
@@ -102,10 +101,6 @@ class KeyGui {
 
         PosX := 20
         PosY := 10
-        this.GameModeCon := MyGui.Add("CheckBox", Format("x{} y{}", PosX, PosY), GetLang("游戏(测试选项)"))
-        this.GameModeCon.OnEvent("Click", (*) => this.OnChangeEditValue())
-
-        PosX += 120
         con := MyGui.Add("Hotkey", Format("x{} y{} w{}", PosX, PosY - 3, 25), "F1")
         con.Enabled := false
 
@@ -113,7 +108,7 @@ class KeyGui {
         btnCon := MyGui.Add("Button", Format("x{} y{} w{}", PosX, PosY - 5, 80), GetLang("模拟指令"))
         btnCon.OnEvent("Click", (*) => this.TriggerMacro())
 
-        PosX += 250
+        PosX += 350
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("键盘按键检测："))
 
         PosX += 120
@@ -1127,7 +1122,6 @@ class KeyGui {
         this.HoldTimeCon.Value := cmdArr.Length >= 4 ? cmdArr[4] : 100
         this.KeyCountCon.Value := cmdArr.Length >= 5 ? cmdArr[5] : 1
         this.PerIntervalCon.Value := cmdArr.Length >= 6 ? cmdArr[6] : 200
-        this.GameModeCon.Value := MySoftData.SpecialTableItem.ModeArr[1]
 
         this.RefreshCheckBox(this.KeyStr)
     }
@@ -1216,7 +1210,6 @@ class KeyGui {
     }
 
     Refresh() {
-        MySoftData.SpecialTableItem.ModeArr[1] := this.GameModeCon.Value
         this.KeyStr := this.GetTriggerKey()
         this.UpdateCommandStr()
 
@@ -1227,6 +1220,6 @@ class KeyGui {
         this.HoldTimeCon.Enabled := isShowHoldTime
         this.KeyCountCon.Enabled := isShowHoldTime
         this.PerIntervalCon.Enabled := isShowCount
-        this.CommandStrCon.Value := Format("{}{}",  GetLang("当前指令："), this.CommandStr)
+        this.CommandStrCon.Value := Format("{}{}", GetLang("当前指令："), this.CommandStr)
     }
 }

@@ -609,6 +609,13 @@ OnItemEditMacro(tableItem, btn, *) {
         tableItem.MacroArr[index] := sureMacro
     }
 
+    MySoftData.SpecialTableItem.ModeArr[1] := tableItem.ModeArr[index]
+    if (MyMacroGui.Gui != "") {
+        style := WinGetStyle(MyCMDTipGui.Gui.Hwnd)
+        isVisible := (style & 0x10000000)  ; 0x10000000 = WS_VISIBLE
+        if (isVisible)
+            MyCMDTipGui.Gui.Hide()
+    }
     MyMacroGui.SureBtnAction := SureAction
     MyMacroGui.ShowGui(macro, true)
 }
@@ -777,7 +784,7 @@ HandleItemTopLabel(foldInfo, tableItem, foldIndex) {
             continue
         if (value.IsTitle)
             continue
-    
+
         value.Hide()
     }
 }
