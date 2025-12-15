@@ -43,8 +43,6 @@ class FolderPackager {
 
         ; 保存到文件
         FileOpen(outputFile, "w").RawWrite(mainBuffer)
-        MsgBox(GetLang("打包完成:") outputFile)
-
         return true
     }
 
@@ -110,23 +108,32 @@ class FolderPackager {
         return true
     }
 
-    static CheckPack(selectedFile) {
+    static UploadFile(selectedFile) {
         tempPath := outputFolder := A_WorkingDir "\Temp"
         FolderPackager.UnpackFile(selectedFile, tempPath)
-        if (!FileExist(tempPath "\使用说明&署名.txt")) {
-            MsgBox(GetLang("使用说明&署名文件不存在，请再完善使用说明&署名文件后，导出上传配置"))
-            return false
-        }
 
-        loop read, tempPath "\使用说明&署名.txt" {
-            if (A_LoopReadLine == GetLang("(请在导出配置前，务必完善操作说明，该文件目录可下增加图片解释说明)[上传导出前请删除此行，否则判定没有完善使用说明]")) {
-                MsgBox(GetLang("请在完善使用说明&署名文件后，导出上传配置"))
-                return false
+        MyUseExplainGui.Mode := 2
+        MyUseExplainGui.ModeAction := FolderPackager.VerifyOperation.Bind(FolderPackager, selectedFile)
+        MyUseExplainGui.ShowGui(tempPath)
+    }
+
+    ;1确定   0关闭验证
+    static VerifyOperation(selectedFile, isSure, isChange) {
+        tempPath := outputFolder := A_WorkingDir "\Temp"
+        if (isSure) {
+            if (isChange) {
+                FolderPackager.PackFolder(tempPath, selectedFile)
             }
-            break
+
+            result := MsgBox(GetLang("共享上传文件：") selectedFile, GetLang("提示"), "4")
+            if (result == "No")
+                return
+
+            result := RMT_Http.UploadFile(selectedFile)
+            MsgBox(result)
         }
-        DirDelete(tempPath, true)
-        return true
+        if (DirExist(tempPath))
+            DirDelete(tempPath, true)
     }
 
     ; 私有方法

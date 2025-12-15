@@ -235,22 +235,14 @@ class SettingMgrGui {
             return
         }
 
-        isVaild := FolderPackager.CheckPack(selectedFile)
-        if (!isVaild)
-            return
-
-        result := MsgBox(GetLang("共享上传文件：") selectedFile, GetLang("提示"), "4")
-        if (result == "No")
-            return
-
-        result := RMT_Http.UploadFile(selectedFile)
-        MsgBox(result)
+        FolderPackager.UploadFile(selectedFile)
     }
 
     OnPackBtnClick(*) {
         folderPath := A_WorkingDir "\Setting\" this.OperSettingCon.Text
         outputFile := A_Desktop "\" this.OperSettingCon.Text ".rmt"
         FolderPackager.PackFolder(folderPath, outputFile)
+        MsgBox(GetLang("打包完成:") outputFile)
     }
 
     OnUnpackBtnClick(*) {
@@ -318,13 +310,9 @@ class SettingMgrGui {
     }
 
     OnCourseBtnClick(*) {
-        filePath := A_WorkingDir "\Setting\" this.OperSettingCon.Text "\使用说明&署名.txt"
-
-        if (FileExist(filePath)) {
-            MyUseExplainGui.ShowGui(this.OperSettingCon.Text)
-        }
-        else
-            MsgBox(filePath GetLang("说明文件不存在"))
+        folderPath := A_WorkingDir "\Setting\" this.OperSettingCon.Text
+        MyUseExplainGui.Mode := 1
+        MyUseExplainGui.ShowGui(folderPath)
     }
 
     OnDelBtnClick(*) {

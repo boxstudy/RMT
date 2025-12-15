@@ -4,7 +4,6 @@ class UseExplainGui {
     __new() {
         this.Gui := ""
         this.ContextMenu := ""
-        this.SettingName := ""
         this.AuthorCon := ""
         this.EffectCon := ""
         this.OperCon := ""
@@ -12,16 +11,20 @@ class UseExplainGui {
         this.AllImagePathMap := Map()
         this.ImagePathArr := []
         this.CheckClipboardAction := () => this.CheckClipboard()
+        this.SettingPath := ""
+        this.Mode := 1  ;1查看模式  2上传确认模式
+        this.HasChange := false
+        this.ModeAction := ""
     }
 
-    ShowGui(SettingName) {
+    ShowGui(SettingPath) {
         if (this.Gui != "") {
             this.Gui.Show()
         }
         else {
             this.AddGui()
         }
-        this.Init(SettingName)
+        this.Init(SettingPath)
         this.LVCon.Focus()  ; 🔥 强制获得焦点，解决第一次双击无效问题
     }
 
@@ -42,18 +45,21 @@ class UseExplainGui {
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("作者："))
         PosX := 100
         this.AuthorCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 2, 480))
+        this.AuthorCon.OnEvent("Change", this.OnValueChange.Bind(this))
 
         PosX := 10
         PosY += 40
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("配置作用："))
         PosX := 100
         this.EffectCon := MyGui.Add("Edit", Format("x{} y{} w{} h{}", PosX, PosY - 2, 480, 60))
+        this.EffectCon.OnEvent("Change", this.OnValueChange.Bind(this))
 
         PosX := 10
         PosY += 70
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("操作说明："))
         PosX := 100
         this.OperCon := MyGui.Add("Edit", Format("x{} y{} w{} h{}", PosX, PosY - 2, 480, 200))
+        this.OperCon.OnEvent("Change", this.OnValueChange.Bind(this))
 
         PosX := 10
         PosY += 210
@@ -77,16 +83,32 @@ class UseExplainGui {
         PosX := 250
         btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 40), GetLang("确定"))
         btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
+        MyGui.OnEvent("Close", (*) => this.OnTriggerModeAction(false, false))
         MyGui.Show(Format("w{} h{}", 600, 520))
     }
 
-    Init(SettingName) {
-        this.SettingName := SettingName
+    Init(SettingPath) {
+        this.SettingPath := SettingPath
         this.IL := IL_Create(10, 5, true)   ; 5 = 色深，true = large icon
         this.LVCon.SetImageList(this.IL)
         this.ImagePathArr := []
+        this.HasChange := false
+        if (this.Mode == 2)
+            this.Gui.Title := "请完善使用说明"
+        OperFilePath := SettingPath "\使用说明&署名.txt"
+        IniSection := "Instructions for Use & Attribution"
+        AuthorText := IniRead(OperFilePath, IniSection, "Author", "")
+        EffectText := IniRead(OperFilePath, IniSection, "Effect", "")
+        OperText := IniRead(OperFilePath, IniSection, "Operation", "")
+        AuthorText := StrReplace(AuthorText, "⫶", "`n")
+        EffectText := StrReplace(EffectText, "⫶", "`n")
+        OperText := StrReplace(OperText, "⫶", "`n")
+        this.AuthorCon.Value := AuthorText
+        this.EffectCon.Value := EffectText
+        this.OperCon.Value := OperText
 
-        ImagesfolderPath := A_WorkingDir "\Setting\" this.SettingName "\Images\UseExplain"
+        this.LVCon.Delete()
+        ImagesfolderPath := SettingPath "\Images\UseExplain"
         loop files ImagesfolderPath "\*.png" {
             this.AllImagePathMap.Set(A_LoopFileFullPath, true)
             this.ImagePathArr.Push(A_LoopFileFullPath)
@@ -98,6 +120,7 @@ class UseExplainGui {
     OnLVDoubleClick(LV, RowNumber, *) {
         if (RowNumber == 0)
             return
+        this.OnValueChange()
         path := this.ImagePathArr[RowNumber]
         run path
     }
@@ -105,6 +128,8 @@ class UseExplainGui {
     OnLVRightClick(LV, RowNumber, isRightClick, x, y) {
         if (RowNumber == 0)
             return
+        this.OnValueChange()
+        this.RowNumber := RowNumber
         if (this.ContextMenu == "") {
             this.ContextMenu := Menu()
             this.ContextMenu.Add(GetLang("删除"), (*) => this.MenuHandler(GetLang("删除")))
@@ -117,8 +142,9 @@ class UseExplainGui {
         if (path == "")
             return
 
+        this.OnValueChange()
         SplitPath path, &name, &dir, &ext, &name_no_ext, &drive
-        newPath := A_WorkingDir "\Setting\" this.SettingName "\Images\UseExplain\" name
+        newPath := this.SettingPath "\Images\UseExplain\" name
         if (FileExist(newPath)) {
             MsgBox(GetLang("该图片已添加，请勿重复添加！！！"))
             return
@@ -132,6 +158,7 @@ class UseExplainGui {
     }
 
     OnScreenShot() {
+        this.OnValueChange()
         if (MySoftData.ScreenShotTypeCtrl.Value == 1) {
             A_Clipboard := ""  ; 清空剪贴板
             Run("ms-screenclip:")
@@ -148,7 +175,7 @@ class UseExplainGui {
         {
             ; 获取当前日期和时间，用于生成唯一的文件名
             CurrentDateTime := FormatTime(, "HHmmss")
-            filePath := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\Images\UseExplain\" CurrentDateTime ".png"
+            filePath := this.SettingPath "\Images\UseExplain\" CurrentDateTime ".png"
             SaveClipToBitmap(filePath)
 
             this.AllImagePathMap.Set(filePath, true)
@@ -161,7 +188,7 @@ class UseExplainGui {
 
     OnScreenShotGetArea(x1, y1, x2, y2) {
         CurrentDateTime := FormatTime(, "HHmmss")
-        filePath := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\Images\UseExplain\" CurrentDateTime ".png"
+        filePath := this.SettingPath "\Images\UseExplain\" CurrentDateTime ".png"
         ScreenShot(x1, y1, x2, y2, filePath)
 
         this.AllImagePathMap.Set(filePath, true)
@@ -170,15 +197,67 @@ class UseExplainGui {
         this.LVCon.Add("Icon" . this.AllImagePathMap.Count)
     }
 
+    CheckIfValid() {
+        if (this.Mode == 1)
+            return true
+
+        if (Trim(this.AuthorCon.Value) == "") {
+            MsgBox(GetLang("请完善作者信息，若不想留名请输入匿名"))
+            return false
+        }
+
+        if (Trim(this.EffectCon.Value) == "") {
+            MsgBox(GetLang("请完善配置作用信息，简要的介绍配置的作用"))
+            return false
+        }
+
+        if (Trim(this.OperCon.Value) == "") {
+            MsgBox(GetLang("请完善操作说明信息，详细说明配置对应的操作"))
+            return false
+        }
+
+        return true
+    }
+
+    OnValueChange(*) {
+        this.HasChange := true
+    }
+
+    OnTriggerModeAction(isSure, isChange) {
+        if (this.ModeAction == "")
+            return
+        action := this.ModeAction
+        action(isSure, isChange)
+        this.ModeAction := ""
+    }
+
     OnClickSureBtn() {
+        isValid := this.CheckIfValid()
+        if (!isValid)
+            return
+
+        OperFilePath := this.SettingPath "\使用说明&署名.txt"
+        IniSection := "Instructions for Use & Attribution"
+        AuthorText := StrReplace(this.AuthorCon.Value, "`n", "⫶")
+        EffectText := StrReplace(this.EffectCon.Value, "`n", "⫶")
+        OperText := StrReplace(this.OperCon.Value, "`n", "⫶")
+        IniWrite(AuthorText, OperFilePath, IniSection, "Author")
+        IniWrite(EffectText, OperFilePath, IniSection, "Effect")
+        IniWrite(OperText, OperFilePath, IniSection, "Operation")
         this.Gui.Hide()
+    
+        this.OnTriggerModeAction(true, this.HasChange)
     }
 
     MenuHandler(cmdStr, *) {
         switch cmdStr {
             case GetLang("删除"):
             {
-
+                imagePath := this.ImagePathArr[this.RowNumber]
+                this.LVCon.Delete(this.RowNumber)
+                this.ImagePathArr.RemoveAt(this.RowNumber)
+                if (FileExist(imagePath))
+                    FileDelete(imagePath)
             }
         }
 
