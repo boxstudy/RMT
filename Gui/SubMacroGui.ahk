@@ -207,15 +207,7 @@ class SubMacroGui {
 
     TriggerMacro() {
         this.SaveSubMacroData()
-        CommandStr := this.GetCommandStr()
-        tableItem := MySoftData.SpecialTableItem
-        tableItem.KilledArr[1] := false
-        tableItem.PauseArr[1] := 0
-        tableItem.ActionCount[1] := 0
-        tableItem.VariableMapArr[1] := Map()
-        tableItem.index := 1
-
-        OnSubMacro(tableItem, CommandStr, 1)
+        OnTriggerSepcialItemMacro(this.GetCommandStr())
     }
 
     GetCommandStr() {

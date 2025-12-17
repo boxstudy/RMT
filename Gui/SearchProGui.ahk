@@ -535,7 +535,8 @@ class SearchProGui {
             newPath := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\Images\ScreenShot\" name
             if (FileExist(newPath)) {
                 CurrentDateTime := FormatTime(, "HHmmss")
-                newPath := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\Images\ScreenShot\" name_no_ext . CurrentDateTime ".png"
+                newPath := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\Images\ScreenShot\" name_no_ext .
+                    CurrentDateTime ".png"
             }
             FileCopy(path, newPath)
             path := newPath
@@ -682,14 +683,7 @@ class SearchProGui {
         if (!valid)
             return
         this.SaveSearchData()
-        tableItem := MySoftData.SpecialTableItem
-        tableItem.KilledArr[1] := false
-        tableItem.PauseArr[1] := 0
-        tableItem.ActionCount[1] := 0
-        tableItem.VariableMapArr[1] := Map()
-        tableItem.index := 1
-
-        OnSearch(tableItem, this.GetCommandStr(), 1)
+        OnTriggerSepcialItemMacro(this.GetCommandStr())
     }
 
     OnClickSelectToggle() {

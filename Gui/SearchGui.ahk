@@ -229,7 +229,7 @@ class SearchGui {
 
     GetCommandStr() {
         CommandStr := Format("{}_{}", GetLang("搜索"), this.Data.SerialStr)
-       Remark := CorrectRemark(this.RemarkCon.Value)
+        Remark := CorrectRemark(this.RemarkCon.Value)
         if (Remark != "") {
             CommandStr .= "_" Remark
         }
@@ -494,14 +494,7 @@ class SearchGui {
         if (!valid)
             return
         this.SaveSearchData()
-        tableItem := MySoftData.SpecialTableItem
-        tableItem.KilledArr[1] := false
-        tableItem.PauseArr[1] := 0
-        tableItem.ActionCount[1] := 0
-        tableItem.VariableMapArr[1] := Map()
-        tableItem.index := 1
-
-        OnSearch(tableItem, this.GetCommandStr(), 1)
+        OnTriggerSepcialItemMacro(this.GetCommandStr())
     }
 
     OnClickSelectToggle() {

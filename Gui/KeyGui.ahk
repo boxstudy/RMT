@@ -1160,14 +1160,7 @@ class KeyGui {
             return
 
         this.UpdateCommandStr()
-        tableItem := MySoftData.SpecialTableItem
-        tableItem.KilledArr[1] := false
-        tableItem.PauseArr[1] := 0
-        tableItem.ActionCount[1] := 0
-        tableItem.VariableMapArr[1] := Map()
-        tableItem.index := 1
-
-        OnPressKey(tableItem, this.CommandStr, 1)
+        OnTriggerSepcialItemMacro(this.CommandStr)
     }
 
     CheckIfValid() {

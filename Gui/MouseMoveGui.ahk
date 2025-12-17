@@ -206,14 +206,7 @@ class MouseMoveGui {
             return
 
         this.UpdateCommandStr()
-        tableItem := MySoftData.SpecialTableItem
-        tableItem.KilledArr[1] := false
-        tableItem.PauseArr[1] := 0
-        tableItem.ActionCount[1] := 0
-        tableItem.VariableMapArr[1] := Map()
-        tableItem.index := 1
-
-        OnMouseMove(tableItem, this.CommandStrCon.Value, 1)
+        OnTriggerSepcialItemMacro(this.CommandStrCon.Value)
     }
 
     SureCoord() {

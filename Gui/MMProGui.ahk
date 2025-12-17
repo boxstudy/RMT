@@ -162,19 +162,11 @@ class MMProGui {
         }
 
         this.SaveMMProData()
-        tableItem := MySoftData.SpecialTableItem
-
-        tableItem.KilledArr[1] := false
-        tableItem.PauseArr[1] := 0
-        tableItem.ActionCount[1] := 0
-        tableItem.VariableMapArr[1] := Map()
-        tableItem.index := 1
-
-        OnMMPro(tableItem, this.GetCommandStr(), 1)
+        OnTriggerSepcialItemMacro(this.GetCommandStr())
     }
 
     GetCommandStr() {
-        CommandStr := Format("{}_{}", GetLang("移动Pro"), this.Data.SerialStr) 
+        CommandStr := Format("{}_{}", GetLang("移动Pro"), this.Data.SerialStr)
         Remark := CorrectRemark(this.RemarkCon.Value)
         if (Remark != "") {
             CommandStr .= "_" Remark
