@@ -165,7 +165,6 @@ OnTriggerMacroOnce(tableItem, macro, index) {
 }
 
 OnSearch(tableItem, cmd, index) {
-
     paramArr := StrSplit(cmd, "_")
     dataFile := StrCompare(paramArr[1], "搜索", false) == 0 ? SearchFile : SearchProFile
     Data := GetMacroCMDData(dataFile, paramArr[2])
