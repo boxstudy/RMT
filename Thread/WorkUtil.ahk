@@ -79,8 +79,15 @@ MsgSendHandler(str, Timestamp := "") {
         currentDateTime := FormatTime(, "HHmmss")
         randomNum := Random(0, 9) Random(0, 9) Random(0, 9)
         Timestamp := CurrentDateTime randomNum
-        ReceiveInfoMap.Set(Timestamp, str)
+        data := ReceiveCheckData()
+        data.Timestamp := Timestamp
+        data.Str := str
+        ReceiveInfoMap.Set(Timestamp, data)
     }
+    if (!ReceiveInfoMap.Has(Timestamp))
+        return
+    data := ReceiveInfoMap[Timestamp]
+    data.EnableCheckAction()
 
     CopyDataStruct := Buffer(3 * A_PtrSize)  ; 分配结构的内存区域.
     ; 首先设置结构的 cbData 成员为字符串的大小, 包括它的零终止符:
@@ -89,10 +96,6 @@ MsgSendHandler(str, Timestamp := "") {
         , "Ptr", StrPtr(str)  ; 设置 lpData 为到字符串自身的指针.
         , CopyDataStruct, A_PtrSize)
     SendMessage(WM_COPYDATA, Timestamp, CopyDataStruct, , "ahk_id " parentHwnd)
-
-    action := CheckIfReceiveInfo.Bind(Timestamp)
-    ReceiveCheckMap.Set(Timestamp, action)
-    SetTimer(action, -15)
 }
 
 InitWorkFilePath() {
@@ -223,23 +226,46 @@ WorkMacroCount(content) {
 }
 
 CheckIfReceiveInfo(Timestamp) {
-    if (ReceiveCheckMap.Has(Timestamp))
-        ReceiveCheckMap.Delete(Timestamp)
     ;不存在表示已经接收了，就不用处理
     if (!ReceiveInfoMap.Has(Timestamp))
         return
 
-    MsgSendHandler(ReceiveInfoMap[Timestamp], Timestamp)
+    MsgSendHandler(ReceiveInfoMap[Timestamp].Str, Timestamp)
 }
 
 OnMainReceiveInfo(wParam, lParam, msg, hwnd) {
     Timestamp := String(wParam)
 
-    if (ReceiveInfoMap.Has(Timestamp))
-        ReceiveInfoMap.Delete(Timestamp)
+    if (ReceiveInfoMap.Has(Timestamp)) {
+        ReceiveInfoMap[Timestamp].Destroy()
+    }
+}
 
-    if (ReceiveCheckMap.Has(Timestamp)) {
-        SetTimer(ReceiveCheckMap[Timestamp], 0)
-        ReceiveCheckMap.Delete(Timestamp)
+class ReceiveCheckData {
+    __New() {
+        this.Timestamp := ""
+        this.Str := ""
+        this.Count := 0
+        this.CheckAction := ""
+    }
+
+    EnableCheckAction() {
+        this.Count++
+        if (this.Count <= 3) {
+            action := CheckIfReceiveInfo.Bind(this.Timestamp)
+            this.CheckAction := action
+            SetTimer(action, -30)
+        }
+    }
+
+    Destroy() {
+        if (ReceiveInfoMap.Has(this.Timestamp)) {
+            if (this.CheckAction != "") {
+                action := this.CheckAction
+                SetTimer(action, 0)
+            }
+
+            ReceiveInfoMap.Delete(this.Timestamp)
+        }
     }
 }

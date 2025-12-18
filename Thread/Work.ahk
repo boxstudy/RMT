@@ -20,7 +20,6 @@ Persistent
 global parentHwnd := A_Args[1]
 global workIndex := A_Args[2]
 global ReceiveInfoMap := Map()
-global ReceiveCheckMap := Map()
 global MySoftData := SoftData()
 global ToolCheckInfo := ToolCheck()
 global MyMouseInfo := MouseWinData()
