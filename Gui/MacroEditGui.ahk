@@ -549,6 +549,33 @@ class MacroEditGui {
         }
     }
 
+    OnSoftKey(key, isDown) {
+        if (!IsObject(this.Gui))
+            return
+
+        style := WinGetStyle(this.Gui.Hwnd)
+        isVisible := (style & 0x10000000)  ; 0x10000000 = WS_VISIBLE
+        if (!isVisible || !isDown)
+            return
+
+        if (key == "f5")
+            MyMacroGui.MenuHandler(GetLang("运行(F5)"))
+        if (key == "f6")
+            MyMacroGui.MenuHandler(GetLang("单步运行(F6)"))
+        if (key == "delete" || key == "numpaddot") {
+            try {
+                focusedHwnd := DllCall("GetFocus", "Ptr")
+                if (focusedHwnd = this.MacroTreeViewCon.hwnd) {
+                    selectedItem := this.MacroTreeViewCon.GetSelection()
+                    if (selectedItem != 0) {
+                        this.CurItemID := selectedItem
+                        this.OnDeleteCmd()
+                    }
+                }
+            }
+        }
+    }
+
     OnDoubleClick(ctrl, item) {
         if (item == 0)
             return
