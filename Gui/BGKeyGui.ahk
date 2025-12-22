@@ -79,9 +79,6 @@ class BGKeyGui {
         PosX := 20
         PosY += 20
         {
-
-            MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY, 20), GetLang("请从下面按钮中选择按键："))
-
             PosX := 20
             PosY += 20
             con := MyGui.Add("Checkbox", Format("x{} y{} h{}", PosX, PosY, 20), "Esc")
