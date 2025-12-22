@@ -186,7 +186,8 @@ class TriggerKeyData {
             MyMenuWheel.OnSoftKey(this.Key, true)
 
         if (this.Key == "f5" || this.Key == "f6" || this.Key == "delete" || this.Key == "numpaddot") {
-            MySoftData.MacroEditGui.OnSoftKey(this.Key, true)
+            if (MySoftData.MacroEditGui != "")
+                MySoftData.MacroEditGui.OnSoftKey(this.Key, true)
         }
     }
 
