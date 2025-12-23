@@ -574,8 +574,8 @@ GetTableItemDefaultInfo(index) {
         savedRemarkArrStr := GetLang("取消禁用配置才能生效")
         savedLoopCountStr := "1"
         savedTriggerTypeStr := "1"
-        savedSerialeArrStr := "000001"
-        savedTimingSerialStr := "Timing000001"
+        savedSerialeArrStr := "1"
+        savedTimingSerialStr := "Timing1"
         savedStartTipSoundStr := "1"
         savedEndTipSoundStr := "1"
     }
@@ -587,8 +587,8 @@ GetTableItemDefaultInfo(index) {
         savedRemarkArrStr := GetLang("按两次a触发")
         savedLoopCountStr := "1"
         savedTriggerTypeStr := "1"
-        savedSerialeArrStr := "000002"
-        savedTimingSerialStr := "Timing000002"
+        savedSerialeArrStr := "2"
+        savedTimingSerialStr := "Timing2"
         savedStartTipSoundStr := "1"
         savedEndTipSoundStr := "1"
     }
@@ -600,9 +600,9 @@ GetTableItemDefaultInfo(index) {
         savedRemarkArrStr := "πππππππ"
         savedLoopCountStr := "1π1π1π1π1π1π1π1"
         savedTriggerTypeStr := "1π1π1π1π1π1π1π1"
-        savedSerialeArrStr := "000003π000004π000005π000006π000007π00008π0000012π000013"
+        savedSerialeArrStr := "3π4π5π6π7π8π12π13"
         savedTimingSerialStr :=
-            "Timing000003πTiming000004πTiming000005πTiming000006πTiming000007πTiming000008πTiming0000012πTiming0000013"
+            "Timing3πTiming4πTiming5πTiming6πTiming7πTiming8πTiming12πTiming13"
         savedStartTipSoundStr := "1π1π1π1π1π1π1π1"
         savedEndTipSoundStr := "1π1π1π1π1π1π1π1"
     }
@@ -614,8 +614,8 @@ GetTableItemDefaultInfo(index) {
         savedRemarkArrStr := GetLang("通过定时或宏操作调用")
         savedLoopCountStr := "1"
         savedTriggerTypeStr := "1"
-        savedSerialeArrStr := "000009"
-        savedTimingSerialStr := "Timing000009"
+        savedSerialeArrStr := "9"
+        savedTimingSerialStr := "Timing9"
         savedStartTipSoundStr := "1"
         savedEndTipSoundStr := "1"
     }
@@ -627,8 +627,8 @@ GetTableItemDefaultInfo(index) {
         savedRemarkArrStr := GetLang("只能通过宏操作调用")
         savedLoopCountStr := "1"
         savedTriggerTypeStr := "1"
-        savedSerialeArrStr := "0000010"
-        savedTimingSerialStr := "Timing000010"
+        savedSerialeArrStr := "10"
+        savedTimingSerialStr := "Timing10"
         savedStartTipSoundStr := "1"
         savedEndTipSoundStr := "1"
     }
@@ -640,8 +640,8 @@ GetTableItemDefaultInfo(index) {
         savedRemarkArrStr := GetLang("将l按键替换成其他按键")
         savedTriggerTypeStr := "1"
         savedLoopCountStr := "1"
-        savedSerialeArrStr := "000011"
-        savedTimingSerialStr := "Timing000011"
+        savedSerialeArrStr := "11"
+        savedTimingSerialStr := "Timing11"
         savedStartTipSoundStr := "1"
         savedEndTipSoundStr := "1"
     }

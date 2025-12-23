@@ -288,7 +288,7 @@ class SoftData {
         this.IsTogEndRecord := false    ;通过开关结束录制
         ;这些按键不会松开，特别处理
         this.SpecialNumKeyMap := Map("WheelDown", 0, "WheelUp", 0)
-
+        
         this.MacroTotalCount := 0   ;宏运行次数
         this.LastShowMonth := 0     ;上次显示月数
     }

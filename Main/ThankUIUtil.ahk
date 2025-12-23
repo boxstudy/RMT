@@ -51,6 +51,11 @@ AddThankUI(index) {
     con := MyGui.Add("Link", Format("x{} y{}", posX, posY), '<a href="https://github.com/evilC/AHK-CvJoyInterface">AHK-CvJoyInterface</a>')
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
+    
+    posX += 150
+    con := MyGui.Add("Link", Format("x{} y{}", posX, posY), '<a href="https://github.com/Chaoses-Ib/IbInputSimulator">IbInputSimulator</a>')
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
 
     posX := OriPosX
     posY += 40

@@ -374,6 +374,8 @@ OnExitSoft(*) {
     MyChineseOcr := ""
     MyEnglishOcr := ""
     MyWorkPool.Clear()
+
+    IniWrite(MySoftData.MacroTotalCount, IniFile, IniSection, "MacroTotalCount")
 }
 
 BindMenuHotKey() {
