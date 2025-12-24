@@ -4,7 +4,7 @@
 ; Version: 0.4.1
 ; Homepage: https://github.com/Chaoses-Ib/IbInputSimulator
 
-#Requires AutoHotkey v2.0 64-bit
+#Requires AutoHotkey v2.0
 
 #DllLoad "*i IbInputSimulator.dll"  ;DllCall("LoadLibrary") cannot locate DLL correctly
 

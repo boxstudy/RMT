@@ -26,7 +26,7 @@ class FrontInfoGui {
 
     Init(frontInfoCon) {
         this.frontInfoCon := frontInfoCon
-        this.InfoTogCon.Value := true
+        this.TopTogCon.Value := true
         infoStr := frontInfoCon.Value
         if (infoStr != "")
             infoArr := StrSplit(infoStr, "⎖")
@@ -48,46 +48,20 @@ class FrontInfoGui {
         PosX := 10
         PosY := 10
 
-        con := MyGui.Add("Edit", Format("x{} y{}", PosX, PosY - 5), "F1")
-        con.Enabled := false
-        PosX += 30
-        con := MyGui.Add("Checkbox", Format("x{} y{}", PosX, PosY), GetLang("信息刷新"))
-        con.OnEvent("Click", this.OnTogClick.Bind(this))
-        this.InfoTogCon := con
-
-        PosX := 160
+        PosX := 10
         con := MyGui.Add("Checkbox", Format("x{} y{}", PosX, PosY), GetLang("窗口置顶"))
         con.OnEvent("Click", this.OnTogClick.Bind(this))
         this.TopTogCon := con
 
-        PosX := 320
-        con := MyGui.Add("Edit", Format("x{} y{}", PosX, PosY - 5), "F2")
-        con.Enabled := false
-        PosX += 30
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("确定所有信息"))
-
-        PosX := 10
-        PosY += 30
-        con := MyGui.Add("Edit", Format("x{} y{}", PosX, PosY - 5), "F3")
-        con.Enabled := false
-        PosX += 30
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("确定窗口标题"))
-
         PosX := 160
-        con := MyGui.Add("Edit", Format("x{} y{}", PosX, PosY - 5), "F4")
+        con := MyGui.Add("Edit", Format("x{} y{}", PosX, PosY - 5), "F1")
         con.Enabled := false
         PosX += 30
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("确定窗口类"))
-
-        PosX := 320
-        con := MyGui.Add("Edit", Format("x{} y{}", PosX, PosY - 5), "F5")
-        con.Enabled := false
-        PosX += 30
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("确定进程名"))
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("确定信息"))
 
         PosY += 30
         PosX := 10
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("鼠标下窗口信息："))
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("当前鼠标下窗口信息："))
 
         PosY += 25
         PosX := 10
@@ -99,7 +73,7 @@ class FrontInfoGui {
         con.OnEvent("Click", this.OnTogClick.Bind(this))
         this.InfoTogArrCon.Push(con)
         PosX := 95
-        con := MyGui.Add("Edit", Format("x{} y{} w300", PosX, PosY - 3), "")
+        con := MyGui.Add("Edit", Format("x{} y{} w320", PosX, PosY - 3), "")
         this.InfoTextArrCon.Push(con)
 
         PosY += 35
@@ -108,7 +82,7 @@ class FrontInfoGui {
         con.OnEvent("Click", this.OnTogClick.Bind(this))
         this.InfoTogArrCon.Push(con)
         PosX := 95
-        con := MyGui.Add("Edit", Format("x{} y{} w300", PosX, PosY - 3), "")
+        con := MyGui.Add("Edit", Format("x{} y{} w320", PosX, PosY - 3), "")
         this.InfoTextArrCon.Push(con)
 
         PosY += 35
@@ -117,7 +91,7 @@ class FrontInfoGui {
         con.OnEvent("Click", this.OnTogClick.Bind(this))
         this.InfoTogArrCon.Push(con)
         PosX := 95
-        con := MyGui.Add("Edit", Format("x{} y{} w300", PosX, PosY - 3), "")
+        con := MyGui.Add("Edit", Format("x{} y{} w320", PosX, PosY - 3), "")
         this.InfoTextArrCon.Push(con)
 
         PosY += 30
@@ -125,11 +99,11 @@ class FrontInfoGui {
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("提示：宏仅当鼠标悬停窗口符合上述条件时触发"))
 
         PosX := 200
-        PosY += 45
+        PosY += 40
         con := MyGui.Add("Button", Format("x{} y{} w100 h40", PosX, PosY), GetLang("确定"))
         con.OnEvent("Click", (*) => this.OnSureBtnClick())
         MyGui.OnEvent("Close", (*) => this.ToggleFunc(false))
-        MyGui.Show(Format("w{} h{}", 500, 390))
+        MyGui.Show(Format("w{} h{}", 500, 360))
     }
 
     RefreshMouseInfo() {
@@ -139,7 +113,8 @@ class FrontInfoGui {
             title := WinGetTitle(winId)
             className := WinGetClass(winId)
             process := WinGetProcessName(winId)
-            tipStr := Format("{}{}`n{}{}`n{}{}", GetLang("标题："), title, GetLang("窗口类："), className, GetLang("进程名："), process)
+            tipStr := Format("{}{}`n{}{}`n{}{}", GetLang("标题："), title, GetLang("窗口类："), className, GetLang("进程名："),
+            process)
             this.WinInfoCon.Value := tipStr
         }
     }
@@ -148,18 +123,10 @@ class FrontInfoGui {
         if (state) {
             SetTimer this.InfoAction, 100
             Hotkey("F1", (*) => this.OnF1(), "On")
-            Hotkey("F2", (*) => this.OnF2(), "On")
-            Hotkey("F3", (*) => this.OnF3(), "On")
-            Hotkey("F4", (*) => this.OnF4(), "On")
-            Hotkey("F5", (*) => this.OnF5(), "On")
         }
         else {
             SetTimer this.InfoAction, 0
             Hotkey("F1", (*) => this.OnF1(), "Off")
-            Hotkey("F2", (*) => this.OnF2(), "Off")
-            Hotkey("F3", (*) => this.OnF3(), "Off")
-            Hotkey("F4", (*) => this.OnF4(), "Off")
-            Hotkey("F5", (*) => this.OnF5(), "Off")
         }
     }
 
@@ -211,14 +178,6 @@ class FrontInfoGui {
     }
 
     OnTogClick(*) {
-        if (!this.InfoTogCon.Value) {
-            SetTimer this.InfoAction, 0
-            return
-        }
-        else {
-            SetTimer this.InfoAction, 100
-        }
-
         if (this.TopTogCon.Value) {
             this.Gui.Opt("+AlwaysOnTop")
         }
@@ -233,16 +192,6 @@ class FrontInfoGui {
     }
 
     OnF1() {
-        this.InfoTogCon.Value := !this.InfoTogCon.Value
-        if (!this.InfoTogCon.Value) {
-            SetTimer this.InfoAction, 0
-            return
-        }
-
-        SetTimer this.InfoAction, 100
-    }
-
-    OnF2() {
         CoordMode("Mouse", "Screen")
         MouseGetPos &mouseX, &mouseY, &winId
         try {
@@ -257,39 +206,5 @@ class FrontInfoGui {
             }
             this.OnTogClick()
         }
-    }
-
-    OnF3() {
-        CoordMode("Mouse", "Screen")
-        MouseGetPos &mouseX, &mouseY, &winId
-        try {
-            title := WinGetTitle(winId)
-            this.InfoTextArrCon[1].Value := title
-            this.InfoTogArrCon[1].Value := true
-            this.OnTogClick()
-        }
-    }
-
-    OnF4() {
-        CoordMode("Mouse", "Screen")
-        MouseGetPos &mouseX, &mouseY, &winId
-        try {
-            className := WinGetClass(winId)
-            this.InfoTextArrCon[2].Value := className
-            this.InfoTogArrCon[2].Value := true
-            this.OnTogClick()
-        }
-    }
-
-    OnF5() {
-        CoordMode("Mouse", "Screen")
-        MouseGetPos &mouseX, &mouseY, &winId
-        try {
-            process := WinGetProcessName(winId)
-            this.InfoTextArrCon[3].Value := process
-            this.InfoTogArrCon[3].Value := true
-            this.OnTogClick()
-        }
-
     }
 }
