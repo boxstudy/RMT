@@ -518,8 +518,8 @@ class ExVariableData {
     __New() {
         this.SerialStr := ""
         this.IsIgnoreExist := 0
-        this.ToggleArr := [1, 0, 0, 0]
-        this.VariableArr := ["Num1", "Num2", "Num3", "Num4"]
+        this.ToggleArr := [1, 0, 0, 0, 0, 0]
+        this.VariableArr := ["Num1", "Num2", "Num3", "Num4", "Num5", "Num6"]
         this.ExtractStr := ""
         this.ExtractType := 1
         this.OCRType := 1

@@ -1604,3 +1604,16 @@ GetRealPath(path) {
     )
     return StrGet(buf)
 }
+
+GetExVariableActiveLength(Arr) {
+    Length := Arr.Length
+    loop Arr.Length {
+        index := Arr.Length - A_Index + 1
+        if (Arr[index] == 0 || Arr[index] == false) {
+            Length--
+            continue
+        }
+        break
+    }
+    return Length
+}
