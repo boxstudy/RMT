@@ -686,7 +686,7 @@ class MacroEditGui {
                 MacroStr := this.GetMacroStr()
                 MyCMDTipGui.Clear()
                 OnTriggerSepcialItemMacro(MacroStr)
-                MsgBox(GetLang("调试运行结束"), "Tip", this.Gui.Hwnd)
+                MsgBox(GetLang("调试运行结束"), "", "Owner" this.Gui.Hwnd)
             }
             case GetLang("单步运行(F6)"):
             {
@@ -709,7 +709,7 @@ class MacroEditGui {
                 }
 
                 if (this.DebugStepNum >= cmdArr.Length) {
-                    MsgBox(GetLang("单步运行结束"), "Tip", this.Gui.Hwnd)
+                    MsgBox(GetLang("单步运行结束"), "","Owner" this.Gui.Hwnd)
                     this.DebugStepNum := 0
                     this.DebugItemID := 0
                     return
