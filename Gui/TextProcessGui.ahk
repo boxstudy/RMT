@@ -67,7 +67,7 @@ class TextProcessGui {
         PosX := 275
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY - 3, 75), GetLang("文本来源:"))
         PosX += 75
-        this.SourceVariableCon := MyGui.Add("DropDownList", Format("x{} y{} w{} R5", PosX, PosY - 5, 150), [])
+        this.SourceVariableCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 5, 150), [])
 
         PosY += 30
         PosX := 10
@@ -195,29 +195,13 @@ class TextProcessGui {
 
         ; 初始化文本来源变量
         this.SourceVariableCon.Delete()
-
-        ; 如果VariableObjArr为空，添加默认的变量
-        if (this.VariableObjArr.Length == 0) {
-            ; 添加全局变量
-            for key in MySoftData.GlobalVariMap {
-                this.VariableObjArr.Push(key)
-            }
-
-            ; 如果仍然为空，添加一些默认变量
-            if (this.VariableObjArr.Length == 0) {
-                this.VariableObjArr.Push(GetLang("变量1"))
-                this.VariableObjArr.Push(GetLang("变量2"))
-                this.VariableObjArr.Push(GetLang("变量3"))
-            }
-        }
-
-        this.SourceVariableCon.Add(RemoveInVariable(this.VariableObjArr))
+        this.SourceVariableCon.Add(RemoveInVariable(this.VariableObjArr, 2))
         this.SourceVariableCon.Text := this.Data.SourceVariable
 
-        loop 4 {
+        loop this.Data.ToggleArr.Length {
             this.ToggleConArr[A_Index].Value := this.Data.ToggleArr[A_Index]
             this.VariableConArr[A_Index].Delete()
-            this.VariableConArr[A_Index].Add(RemoveInVariable(this.VariableObjArr))
+            this.VariableConArr[A_Index].Add(RemoveInVariable(this.VariableObjArr, 2))
             this.VariableConArr[A_Index].Text := this.Data.VariableArr[A_Index]
         }
         this.IsIgnoreExistCon.Value := this.Data.IsIgnoreExist

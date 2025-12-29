@@ -7,6 +7,7 @@
 #Include "..\Main\CompareUtil.ahk"
 #Include "..\Main\FixCompatUtil.ahk"
 #Include "..\Main\LangUtil.ahk"
+#Include "..\Main\TextProcessUtil.ahk"
 #Include "..\Joy\SuperCvJoyInterface.ahk"
 #Include "..\Joy\JoyMacro.ahk"
 #Include "..\Plugins\RapidOcr\RapidOcr.ahk"

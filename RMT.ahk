@@ -41,6 +41,7 @@
 #Include Main\CompareUtil.ahk
 #Include Main\TimingUtil.ahk
 #Include Main\BindUtil.ahk
+#Include Main\TextProcessUtil.ahk
 #Include Main\VariableUtil.ahk
 #Include Main\FixCompatUtil.ahk
 #Include Main\LangUtil.ahk
