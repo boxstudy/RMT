@@ -227,12 +227,16 @@ class ExVariableGui {
         this.SerialStr := cmdArr.Length >= 2 ? cmdArr[2] : GetSerialStr("ExVariable")
         this.RemarkCon.Value := cmdArr.Length >= 3 ? cmdArr[3] : ""
         this.Data := this.GetExVariableData(this.SerialStr)
+    
+        if (this.Data.ToggleArr.Length )
 
         loop 6 {
-            this.ToggleConArr[A_Index].Value := this.Data.ToggleArr[A_Index]
+            togState := this.Data.ToggleArr.Length >= A_Index ? this.Data.ToggleArr[A_Index] : false
+            VariableName := this.Data.VariableArr.Length >= A_Index ? this.Data.VariableArr[A_Index] : "Num" A_Index
+            this.ToggleConArr[A_Index].Value := togState
             this.VariableConArr[A_Index].Delete()
             this.VariableConArr[A_Index].Add(RemoveInVariable(this.VariableObjArr))
-            this.VariableConArr[A_Index].Text := this.Data.VariableArr[A_Index]
+            this.VariableConArr[A_Index].Text := VariableName
         }
         this.IsIgnoreExistCon.Value := this.Data.IsIgnoreExist
         this.ExtractStrCon.Value := this.Data.ExtractStr
