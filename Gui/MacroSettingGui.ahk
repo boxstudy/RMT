@@ -63,7 +63,7 @@ class MacroSettingGui {
     }
 
     OnClickModeHelpBtn(*) {
-        str := Format("{}`n{}`n{}`n{}", GetLang("AHK Send：通用方式，适合办公软件与大多数游戏（管理员权限可以让更多游戏有效）"), GetLang("keybd_event：调用 Win 系统接口模拟按键，适用比较旧的软件或游戏（需管理员权限）。"), GetLang("罗技：调用 罗技驱动 模拟按键（需管理员权限并且运行过G HUB）。"), GetLang("**keybd_event 和 罗技 的按键可以作为宏的触发按键，切记自己触发自己导致死循环**"))
+        str := Format("{}`n{}`n{}`n{}", GetLang("AHK Send：通用方式，适合办公软件与大多数游戏（管理员权限可以让更多游戏有效）。"), GetLang("keybd_event：调用 Win 系统接口模拟按键，适用比较旧的软件或游戏（需管理员权限）。"), GetLang("罗技：调用 罗技驱动 模拟按键（需管理员权限并且运行过G HUB）。"), GetLang("**keybd_event 和 罗技 的按键可以作为宏的触发按键，切勿自己触发自己导致死循环**"))
         MsgBox(str)
     }
 

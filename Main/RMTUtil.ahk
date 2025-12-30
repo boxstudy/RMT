@@ -147,12 +147,6 @@ SwapArrValue(Arr, indexA, indexB, valueType := 1) {
     }
 }
 
-BindSave() {
-    MyTriggerKeyGui.SaveBtnAction := OnSaveSetting
-    MyTriggerStrGui.SaveBtnAction := OnSaveSetting
-    MyMacroGui.SaveBtnAction := OnSaveSetting
-}
-
 PluginInit() {
     global MyWorkPool := WorkPool()
     global MyChineseOcr := RapidOcr(A_ScriptDir)

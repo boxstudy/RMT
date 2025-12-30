@@ -13,7 +13,6 @@ BindKey() {
     BindTabHotKey()
     BindMenuHotKey()
     BindSoftHotKey()
-    BindSave()
     OnExit(OnExitSoft)
 }
 

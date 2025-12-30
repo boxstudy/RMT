@@ -552,7 +552,8 @@ OnItemEditTriggerStr(tableItem, btn, *) {
         tableItem.TKConArr[index].Text := sureTriggerKey == "" ? GetLang("编辑") : sureTriggerKey
         tableItem.TKArr[index] := sureTriggerKey
     }
-
+    
+    MyTriggerStrGui.SaveBtnAction := OnSaveSetting
     MyTriggerStrGui.SureBtnAction := SureAction
     MyTriggerStrGui.ShowGui(triggerStr, 0, false)
 }
@@ -585,6 +586,7 @@ OnItemEditTriggerKey(tableItem, btn, *) {
         tableItem.HoldTimeArr[index] := holdTime
     }
 
+    MyTriggerKeyGui.SaveBtnAction := OnSaveSetting
     MyTriggerKeyGui.SureBtnAction := SureAction
     MyTriggerKeyGui.ShowGui(triggerKey, tableItem.HoldTimeArr[index], false)
 }
@@ -615,12 +617,16 @@ OnItemEditMacro(tableItem, btn, *) {
         isVisible := (style & 0x10000000)  ; 0x10000000 = WS_VISIBLE
         if (isVisible) {    ;存在并且显示的话，就打开第二个编辑界面
             MacroGui := MacroEditGui()
+            MacroGui.SureFocusCon := MySoftData.BtnSave
             MacroGui.SureBtnAction := SureAction
+            MacroGui.SaveBtnAction := OnSaveSetting
             MacroGui.ShowGui(macro, true)
             return
         }
     }
+    MyMacroGui.SureFocusCon := MySoftData.BtnSave
     MyMacroGui.SureBtnAction := SureAction
+    MyMacroGui.SaveBtnAction := OnSaveSetting
     MyMacroGui.ShowGui(macro, true)
 }
 
@@ -724,6 +730,7 @@ OnFlodTKEditClick(TKEditCon, tableItem, con, *) {
         foldInfo.HoldTimeArr[foldIndex] := holdTime
     }
 
+    MyTriggerKeyGui.SaveBtnAction := OnSaveSetting
     MyTriggerKeyGui.SureBtnAction := SureAction
     MyTriggerKeyGui.ShowGui(TKEditCon.Value, foldInfo.HoldTimeArr[foldIndex], false)
 }

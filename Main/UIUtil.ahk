@@ -2,7 +2,7 @@
 InitUI() {
     global MySoftData
     MyGui := Gui()
-    MyGui.Title := "RMTv1.0.9Beta"
+    MyGui.Title := "RMTv1.0.9"
     MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
     isValidCollor := RegExMatch(MySoftData.SoftBGColor, "^([0-9A-Fa-f]{6})$")
     BGColor := isValidCollor ? MySoftData.SoftBGColor : "f0f0f0"
@@ -20,9 +20,9 @@ OnOpen() {
     global MySoftData
     if (!MySoftData.AgreeAgreement) {
         Agreement1 := GetLang('1. 本软件按"原样"提供，开发者不承担因使用、修改或分发导致的任何法律责任。')
-        Agreement2 := GetLang("2. 严禁用于违法用途，包括但不限于:游戏作弊、未经授权的系统访问或数据篡改")
+        Agreement2 := GetLang("2. 严禁用于违法用途，包括但不限于：游戏作弊、未经授权的系统访问或数据篡改。")
         Agreement3 := GetLang("3. 使用者需自行承担所有风险，开发者对因违反法律或第三方条款导致的后果概不负责。")
-        Agreement4 := GetLang("4. 通过使用本软件，您确认：不会将其用于任何非法目的、已充分了解并接受所有潜在法律风险、同意免除开发者因滥用行为导致的一切追责权利")
+        Agreement4 := GetLang("4. 通过使用本软件，您确认：不会将其用于任何非法目的、已充分了解并接受所有潜在法律风险、同意免除开发者因滥用行为导致的一切追责权利。")
         Agreement5 := GetLang("若不同意上述条款，请立即停止使用本软件。")
         AgreeAgreementStr := Format("{}`n{}`n{}`n{}`n{}", Agreement1, Agreement2, Agreement3, Agreement4, Agreement5)
         result := MsgBox(AgreeAgreementStr, GetLang("免责声明"), "4")
@@ -186,7 +186,6 @@ AddOperBtnUI() {
 
     MyTriggerKeyGui.SureFocusCon := MySoftData.BtnSave
     MyTriggerStrGui.SureFocusCon := MySoftData.BtnSave
-    MyMacroGui.SureFocusCon := MySoftData.BtnSave
     MyReplaceKeyGui.SureFocusCon := MySoftData.BtnSave
 }
 
@@ -388,7 +387,7 @@ AddToolUI(index) {
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
 
-    con := MyGui.Add("Text", Format("x{} y{} w{}", PosX + 120, PosY, 110), GetLang("文本识别模型:"))
+    con := MyGui.Add("Text", Format("x{} y{} w{}", PosX + 120, PosY, 110), GetLang("文本识别模型："))
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
 
@@ -432,7 +431,7 @@ AddSettingUI(index) {
     tableItem.AllGroup.Push(con)
 
     posY += 30
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 25, posY), GetLang("软件休眠:"))
+    con := MyGui.Add("Text", Format("x{} y{}", posX + 25, posY), GetLang("软件休眠："))
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
     CtrlType := GetHotKeyCtrlType(MySoftData.SuspendHotkey)
@@ -451,7 +450,7 @@ AddSettingUI(index) {
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
 
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 315, posY), GetLang("暂停宏:"))
+    con := MyGui.Add("Text", Format("x{} y{}", posX + 315, posY), GetLang("暂停宏："))
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
     CtrlType := GetHotKeyCtrlType(MySoftData.PauseHotkey)
@@ -469,7 +468,7 @@ AddSettingUI(index) {
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
 
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 605, posY), GetLang("终止宏:"))
+    con := MyGui.Add("Text", Format("x{} y{}", posX + 605, posY), GetLang("终止宏："))
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
     CtrlType := GetHotKeyCtrlType(MySoftData.KillMacroHotkey)
@@ -486,7 +485,7 @@ AddSettingUI(index) {
     tableItem.AllConArr.Push(conInfo)
 
     posY += 40
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 25, posY), GetLang("指令录制:"))
+    con := MyGui.Add("Text", Format("x{} y{}", posX + 25, posY), GetLang("指令录制："))
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
     CtrlType := GetHotKeyCtrlType(ToolCheckInfo.ToolRecordMacroHotKey)
@@ -505,7 +504,7 @@ AddSettingUI(index) {
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
 
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 315, posY), GetLang("文本提取:"))
+    con := MyGui.Add("Text", Format("x{} y{}", posX + 315, posY), GetLang("文本提取："))
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
     CtrlType := GetHotKeyCtrlType(ToolCheckInfo.ToolTextFilterHotKey)
@@ -524,7 +523,7 @@ AddSettingUI(index) {
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
 
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 605, posY), GetLang("屏幕截图:"))
+    con := MyGui.Add("Text", Format("x{} y{}", posX + 605, posY), GetLang("屏幕截图："))
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
     CtrlType := GetHotKeyCtrlType(ToolCheckInfo.ScreenShotHotKey)
@@ -544,7 +543,7 @@ AddSettingUI(index) {
     tableItem.AllConArr.Push(conInfo)
 
     posY += 40
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 25, posY), GetLang("自由贴:"))
+    con := MyGui.Add("Text", Format("x{} y{}", posX + 25, posY), GetLang("自由贴："))
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
     CtrlType := GetHotKeyCtrlType(ToolCheckInfo.FreePasteHotKey)
@@ -563,7 +562,7 @@ AddSettingUI(index) {
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
 
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 315, posY), GetLang("鼠标信息:"))
+    con := MyGui.Add("Text", Format("x{} y{}", posX + 315, posY), GetLang("鼠标信息："))
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
     CtrlType := GetHotKeyCtrlType(ToolCheckInfo.ToolCheckHotkey)
@@ -589,7 +588,7 @@ AddSettingUI(index) {
     tableItem.AllConArr.Push(conInfo)
     tableItem.AllGroup.Push(con)
     posY += 30
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 25, posY), GetLang("按住时间浮动(%):"))
+    con := MyGui.Add("Text", Format("x{} y{}", posX + 25, posY), GetLang("按住时间浮动(%)："))
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
     con := MyGui.Add("Edit", Format("x{} y{} w100 center", posX + 145, posY - 4), MySoftData.HoldFloat)
@@ -597,7 +596,7 @@ AddSettingUI(index) {
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
 
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 315, posY), GetLang("每次间隔浮动(%):"))
+    con := MyGui.Add("Text", Format("x{} y{}", posX + 315, posY), GetLang("每次间隔浮动(%)："))
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
     con := MyGui.Add("Edit", Format("x{} y{} w100 center", posX + 440, posY - 4), MySoftData.PreIntervalFloat)
@@ -605,7 +604,7 @@ AddSettingUI(index) {
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
 
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 635, posY), GetLang("间隔指令浮动(%):"))
+    con := MyGui.Add("Text", Format("x{} y{}", posX + 635, posY), GetLang("间隔指令浮动(%)："))
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
     con := MyGui.Add("Edit", Format("x{} y{} w100 center", posX + 760, posY - 4), MySoftData.IntervalFloat)
@@ -614,7 +613,7 @@ AddSettingUI(index) {
     tableItem.AllConArr.Push(conInfo)
 
     posY += 40
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 25, posY), GetLang("坐标X浮动(px):"))
+    con := MyGui.Add("Text", Format("x{} y{}", posX + 25, posY), GetLang("坐标X浮动(px)："))
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
     con := MyGui.Add("Edit", Format("x{} y{} w100 center", posX + 145, posY - 4), MySoftData.CoordXFloat)
@@ -622,7 +621,7 @@ AddSettingUI(index) {
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
 
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 315, posY), GetLang("坐标Y浮动(px):"))
+    con := MyGui.Add("Text", Format("x{} y{}", posX + 315, posY), GetLang("坐标Y浮动(px)："))
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
     con := MyGui.Add("Edit", Format("x{} y{} w100 center", posX + 440, posY - 4), MySoftData.CoordYFloat)
@@ -630,7 +629,7 @@ AddSettingUI(index) {
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
 
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 635, posY), GetLang("多线程数(0~10):"))
+    con := MyGui.Add("Text", Format("x{} y{}", posX + 635, posY), GetLang("多线程数(0~10)："))
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
     con := MyGui.Add("Edit", Format("x{} y{} w100 center", posX + 760, posY - 4), MySoftData.MutiThreadNum)
@@ -639,7 +638,7 @@ AddSettingUI(index) {
     tableItem.AllConArr.Push(conInfo)
 
     posY += 40
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 25, posY), GetLang("软件背景颜色:"))
+    con := MyGui.Add("Text", Format("x{} y{}", posX + 25, posY), GetLang("软件背景颜色："))
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
     con := MyGui.Add("Edit", Format("x{} y{} w100 center", posX + 145, posY - 4), MySoftData.SoftBGColor)
@@ -702,9 +701,9 @@ AddSettingUI(index) {
     tableItem.AllConArr.Push(conInfo)
     tableItem.AllGroup.Push(con)
 
-    ;语言/Lang: 如果外国人打开中文的话，或者中国人打开英语，方便都能找到调整的选项
+    ;语言/Lang： 如果外国人打开中文的话，或者中国人打开英语，方便都能找到调整的选项
     posY += 30
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 25, posY), "语言/Lang:")
+    con := MyGui.Add("Text", Format("x{} y{}", posX + 25, posY), "语言/Lang：")
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
     con := MyGui.Add("DropDownList", Format("x{} y{} w100", posX + 100, posY - 5), [])

@@ -105,7 +105,7 @@ class SettingMgrGui {
 
         PosX := 10
         PosY += 55
-        MyGui.Add("GroupBox", Format("x{} y{} w400 h75", PosX, PosY), GetLang("仓库配置："))
+        MyGui.Add("GroupBox", Format("x{} y{} w400 h75", PosX, PosY), GetLang("仓库配置"))
 
         PosX := 80
         PosY += 30
@@ -155,7 +155,7 @@ class SettingMgrGui {
 
     OnReplaceBtnClick(*) {
         tipStr := Format("{}`n{}", GetLang("将清空当前软件的所有配置，并把所选文件中的配置迁移导入本软件。"), GetLang(
-            "为了避免数据丢失，自动备份当前所有配置保存到软件下SettingOld中"))
+            "为了避免数据丢失，自动备份当前所有配置保存到软件下SettingOld中。"))
         MsgBox(tipStr)
         SelectedFolder := DirSelect(, 0, GetLang("请选择若梦兔软件下Setting配置文件。"))
         if SelectedFolder == ""  ; 用户取消了选择

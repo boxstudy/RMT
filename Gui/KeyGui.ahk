@@ -1071,13 +1071,13 @@ class KeyGui {
         this.HoldTimeCon.OnEvent("Change", (*) => this.OnChangeEditValue())
 
         PosX += 130
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 90), GetLang("点击次数:"))
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 90), GetLang("点击次数："))
         PosX += 70
         this.KeyCountCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 50), 1)
         this.KeyCountCon.OnEvent("Change", (*) => this.OnChangeEditValue())
 
         PosX += 130
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 90), GetLang("每次间隔:"))
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 90), GetLang("每次间隔："))
         PosX += 70
         this.PerIntervalCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 50), 100)
         this.PerIntervalCon.OnEvent("Change", (*) => this.OnChangeEditValue())
