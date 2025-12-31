@@ -31,6 +31,21 @@ class TriggerKeyData {
         }
     }
 
+    IsOnlySoftHotkey() {
+        if (this.OriDownArr.Length >= 1)
+            return false
+        if (this.OriLoosenArr.Length >= 1)
+            return false
+        if (this.OriLoosenStopArr.Length >= 1)
+            return false
+        if (this.OriTogArr.Length >= 1)
+            return false
+        if (this.OriHoldArr.Length >= 1)
+            return false
+
+        return true
+    }
+
     AddData(info) {
         TriggerType := info.GetTriggerType()
         if (TriggerType == 1)
@@ -84,8 +99,12 @@ class TriggerKeyData {
     }
 
     OnTriggerKeyDown() {
+        isMenuBtnHotKey := CheckIfMenuBtnHotKey(this.Key)
+        isOpenMenu := MySoftData.CurMenuWheelIndex != -1
         this.UpdataArr()
         this.HandleSoftHotKeyDown()
+        if (isMenuBtnHotKey && isOpenMenu)
+            return
         for index, value in this.DownArr {
             if (index == 1 && SubStr(value.GetTK(), 1, 1) != "~")
                 LoosenModifyKey(value.GetTK())

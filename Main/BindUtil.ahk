@@ -560,15 +560,26 @@ OnTriggerKeyUp(tableIndex, itemIndex, *) {
 
 BindSoftHotKey() {
     for index, value in MySoftData.SoftHotKeyArr {
-        isMenuBtnHotKey := CheckIfMenuBtnHotKey(value)
-        isForbid := isMenuBtnHotKey && MySoftData.CurMenuWheelIndex == -1 ;菜单按钮快捷键，没打开菜单忽略
+        mapKey := Trim(value, "~")
+        mapKey := StrLower(mapKey)
+        isMenuBtnHotKey := CheckIfMenuBtnHotKey(mapKey)
+        isOpenMenu := MySoftData.CurMenuWheelIndex != -1
+        IsOnlySoftHotkey := MySoftData.TriggerKeyMap[mapKey].IsOnlySoftHotkey()
 
         key := "$*" value
         actionDown := OnBindKeyDown.Bind(value)
         actionUp := OnBindKeyUp.Bind(value)
-        Symbol := isForbid ? "Off" : "On"
-        Hotkey(key, actionDown, Symbol)
-        Hotkey(key " up", actionUp, Symbol)
+
+        if (isMenuBtnHotKey && !isOpenMenu && IsOnlySoftHotkey) {
+            Hotkey(key, actionDown, "Off")
+            Hotkey(key " up", actionUp, "Off")
+        }
+
+        if (isMenuBtnHotKey && !isOpenMenu)
+            continue
+
+        Hotkey(key, actionDown)
+        Hotkey(key " up", actionUp)
     }
 }
 

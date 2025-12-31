@@ -882,7 +882,6 @@ FormatIntegerWithCommas(num) {
 }
 
 CheckIfMenuBtnHotKey(key) {
-    key := Trim(key, "~")
     if (IsNumber(key)) {
         return Integer(key) >= 1 && Integer(key) <= 8
     }
