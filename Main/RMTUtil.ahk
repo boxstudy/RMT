@@ -767,7 +767,7 @@ CheckIfDiscardCMD(triggerMap, cmd) {
 
 FullCopyCmd(cmd, CopyedMap := Map()) {
     paramArr := SplitKeyCommand(cmd)
-    IsSkip := SubStr(paramArr[1], 1 2) == "🚫"
+    IsSkip := SubStr(paramArr[1], 1, 2) == "🚫"
     if (IsSkip)
         paramArr[1] := SubStr(paramArr[1], 3)
     if (InStr(paramArr[1], "间隔"))
