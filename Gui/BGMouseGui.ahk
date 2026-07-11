@@ -1,4 +1,4 @@
-﻿#Requires AutoHotkey v2.0
+#Requires AutoHotkey v2.0
 
 class BGMouseGui {
     __new() {
@@ -13,14 +13,18 @@ class BGMouseGui {
         this.CurPosCon := ""
 
         this.TargetTitleCon := ""
+        this.OperateTypeTitle := ""
         this.OperateTypeCon := ""
         this.MouseTypeCon := ""
         this.PosXCon := ""
         this.PosYCon := ""
         this.PosVarXCon := ""
         this.PosVarYCon := ""
+        this.ScrollVTitle := ""
         this.ScrollVCon := ""
+        this.ScrollHTitle := ""
         this.ScrollHCon := ""
+        this.ClickTimeTitle := ""
         this.ClickTimeCon := ""
         this.Data := ""
     }
@@ -104,11 +108,12 @@ class BGMouseGui {
         this.MouseTypeCon.OnEvent("Change", (*) => this.OnRefresh())
 
         PosX += 150
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("操作类型:"))
+        this.OperateTypeTitle := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("操作类型:"))
         PosX += 80
         this.OperateTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 3, 100), GetLangArr(["点击",
             "双击", "按下",
             "松开"]))
+        this.OperateTypeCon.OnEvent("Change", (*) => this.OnRefresh())
 
         PosX := 10
         PosY += 40
@@ -123,18 +128,18 @@ class BGMouseGui {
 
         PosX := 10
         PosY += 40
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("垂直滚动:"))
+        this.ScrollVTitle := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("垂直滚动:"))
         PosX += 80
         this.ScrollVCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 3, 100), "")
         PosX += 150
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("水平滚动"))
+        this.ScrollHTitle := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("水平滚动"))
         PosX += 80
         this.ScrollHCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 3, 100), "")
 
         PosX := 10
         PosY += 40
-        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("点击时间:"))
-        con.Visible := false
+        this.ClickTimeTitle := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("点击时间:"))
+        this.ClickTimeTitle.Visible := false
         PosX += 80
         this.ClickTimeCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 3, 70), "")
         this.ClickTimeCon.Visible := false
@@ -181,9 +186,17 @@ class BGMouseGui {
 
     OnRefresh() {
         isScroll := this.MouseTypeCon.Value == 4    ;滚轮
-        this.OperateTypeCon.Enabled := !isScroll
-        this.ScrollVCon.Enabled := isScroll
-        this.ScrollHCon.Enabled := isScroll
+        this.OperateTypeTitle.Visible := !isScroll
+        this.OperateTypeCon.Visible := !isScroll
+        this.ScrollVTitle.Visible := isScroll
+        this.ScrollVCon.Visible := isScroll
+        this.ScrollHTitle.Visible := isScroll
+        this.ScrollHCon.Visible := isScroll
+
+        isClickOrDClick := this.OperateTypeCon.Value == 1 || this.OperateTypeCon.Value == 2
+        showClickTime := !isScroll && isClickOrDClick
+        this.ClickTimeTitle.Visible := showClickTime
+        this.ClickTimeCon.Visible := showClickTime
     }
 
     ToggleFunc(state) {
