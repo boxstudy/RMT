@@ -1,4 +1,4 @@
-﻿;按键宏命令
+;按键宏命令
 OnTriggerMacroKeyAndInit(tableItem, macro, index) {
     MyMacroCount("Add")
     tableItem.KilledArr[index] := false
@@ -917,9 +917,7 @@ SendBGKeyState(hwnd, Key, state, tableItem, index) {
         tableItem.HoldKeyArr[index][Key] := "Normal"
     }
     else {
-        if (tableItem.HoldKeyArr[index].Has(Key)) {
-            tableItem.HoldKeyArr[index].Delete(Key)
-        }
+        tableItem.HoldKeyArr[index].Delete(Key)
     }
 }
 
