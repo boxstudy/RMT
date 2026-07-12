@@ -6,40 +6,45 @@ SendKeyWrapper(KeyArrStr, holdTime, tableItem, index, keyType, Action) {
     KeyArrStr := StrReplace(KeyArrStr, "逗号", ",")
     KeyArr := GetPressKeyArr(KeyArrStr)
 
-    if (keyType == 1 || keyType == 3) {     ;按下-点击
+    GetRealAction(key) {
+        return (Action == SendLogicKey && LogicNoKeyMap.Has(key)) ? SendNormalKey : Action
+    }
+
+    KeyDown() {
         for key in KeyArr {
-            RealAction := Action
             if (BrightKeyMap.Has(key)) {
                 SetBrightnessByKey(key)
                 continue
             }
-            
-            if (Action == SendLogicKey && LogicNoKeyMap.Has(key))   ;罗技没有的按键替换为普通按键
-                RealAction := SendNormalKey
 
-            if (HandleKeyDownDown(key, tableItem, index, RealAction))   ;按下时按下特殊处理
+            RealAction := GetRealAction(key)
+
+            if (HandleKeyDownDown(key, tableItem, index, RealAction))
                 continue
 
-            RealAction(key, 1, tableItem, index)  ; 按下
+            RealAction(key, 1, tableItem, index)
         }
     }
 
-    if (keyType == 3) {     ;点击
-        Sleep(holdTime)
-    }
-
-    if (keyType == 2 || keyType == 3) {     ;松开-点击
-        loop KeyArr.Length {
+    KeyUp() {
+        Loop KeyArr.Length {
             key := KeyArr[KeyArr.Length - A_Index + 1]
-            RealAction := Action
+
             if (BrightKeyMap.Has(key) || OnlyDownKeyMap.Has(key))
                 continue
-    
-            if (Action == SendLogicKey && LogicNoKeyMap.Has(key))
-                RealAction := SendNormalKey
 
-            RealAction(key, 0, tableItem, index)  ; 松开
+            GetRealAction(key)(key, 0, tableItem, index)
         }
+    }
+
+    if (keyType == 1) {
+        KeyDown()
+    } else if (keyType == 2) {
+        KeyUp()
+    } else if (keyType == 3) {
+        KeyDown()
+        Sleep(holdTime)
+        KeyUp()
     }
 }
 
