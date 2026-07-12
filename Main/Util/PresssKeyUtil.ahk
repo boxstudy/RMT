@@ -2,7 +2,6 @@
 SendKeyWrapper(KeyArrStr, holdTime, tableItem, index, keyType, Action) {
     static BrightKeyMap := Map("Bright_Up", 0, "Bright_Down", 0)
     static LogicNoKeyMap := Map("Volume_Up", 0, "Volume_Down", 0, "Volume_Mute", 0)
-    static OnlyDownKeyMap := Map("WheelDown", 0, "WheelUp", 0)
     KeyArrStr := StrReplace(KeyArrStr, "逗号", ",")
     KeyArr := GetPressKeyArr(KeyArrStr)
 
@@ -30,7 +29,7 @@ SendKeyWrapper(KeyArrStr, holdTime, tableItem, index, keyType, Action) {
         Loop KeyArr.Length {
             key := KeyArr[KeyArr.Length - A_Index + 1]
 
-            if (BrightKeyMap.Has(key) || OnlyDownKeyMap.Has(key))
+            if (OnlyDownKeyMap.Has(key))
                 continue
 
             GetRealAction(key)(key, 0, tableItem, index)
@@ -63,34 +62,50 @@ SendNormalKey(Key, state, tableItem, index) {
     }
 }
 
-SendGameModeKey(Key, state, tableItem, index) {
-    VK := GetKeyVK(Key)
-    SC := GetKeySC(Key)
+SendGameModeKey(Key, state, tableItem, index)
+{
+    static MouseVK := Map(
+        1, 0,     ; LButton
+        2, 0,     ; RButton
+        4, 0,     ; MButton
+        5, 0,     ; XButton1
+        6, 0,     ; XButton2
+        158, 0,   ; WheelDown
+        159, 0    ; WheelUp
+    )
 
-    if (VK == 1 || VK == 2 || VK == 4 || VK == 158 || VK == 159 || VK == 5 || VK == 6) {   ; 鼠标左键、右键、中键、下滑，上滑
-        SendGameMouseKey(key, state, tableItem, index)
+    static ExtendedVK := Map(
+        0x21, 0,  ; PageUp
+        0x22, 0,  ; PageDown
+        0x23, 0,  ; End
+        0x24, 0,  ; Home
+        0x25, 0,  ; Left
+        0x26, 0,  ; Up
+        0x27, 0,  ; Right
+        0x28, 0,  ; Down
+        0x2D, 0,  ; Insert
+        0x2E, 0   ; Delete
+    )
+
+    VK := GetKeyVK(Key)
+
+    if MouseVK.Has(VK) {
+        SendGameMouseKey(Key, state, tableItem, index)
         return
     }
 
-    ; 检测是否为扩展键
-    isExtendedKey := false
-    extendedArr := [0x25, 0x26, 0x27, 0x28, 0X2D, 0X2E, 0X23, 0X24, 0X21, 0X22]    ; 左、上、右、下箭头
-    for index, value in extendedArr {
-        if (VK == value) {
-            isExtendedKey := true
-            break
-        }
-    }
+    SC := GetKeySC(Key)
+    isExtended := ExtendedVK.Has(VK)
 
-    if (state == 1) {
-        DllCall("keybd_event", "UChar", VK, "UChar", SC, "UInt", isExtendedKey ? 0x1 : 0, "UPtr", 0)
-        if (MySoftData.OnlyDownKeyMap.Has(Key))
+    if (state) {
+        DllCall("keybd_event", "UChar", VK, "UChar", SC, "UInt", isExtended ? 1 : 0, "UPtr", 0)
+        if MySoftData.OnlyDownKeyMap.Has(Key)
             return
-        tableItem.HoldKeyArr[index][key] := "Game"
+        tableItem.HoldKeyArr[index][Key] := "Game"
     }
     else {
-        DllCall("keybd_event", "UChar", VK, "UChar", SC, "UInt", (isExtendedKey ? 0x3 : 0x2), "UPtr", 0)
-        tableItem.HoldKeyArr[index].Delete(key)
+        DllCall("keybd_event", "UChar", VK, "UChar", SC, "UInt", isExtended ? 3 : 2, "UPtr", 0)
+        tableItem.HoldKeyArr[index].Delete(Key)
     }
 }
 
