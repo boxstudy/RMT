@@ -757,11 +757,11 @@ class WorkPool {
             return
 
         commandsStr := SubStr(payload, 3)
-        for record in StrSplit(commandsStr, Chr(2)) {
+        for record in StrSplit(commandsStr, IPC_REC) {
             if (record == "")
                 continue
 
-            parts := StrSplit(record, Chr(1))
+            parts := StrSplit(record, IPC_SEP)
             if (parts.Length == 0)
                 continue
 
