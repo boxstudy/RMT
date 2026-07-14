@@ -55,7 +55,7 @@ class RingBuffer {
         NumPut("UInt", id, this.bufPtr, pos + 4)
         NumPut("Int64", hEvent, this.bufPtr, pos + 8)
         NumPut("UInt", len, this.bufPtr, pos + 16)
-        StrPut(str, this.bufPtr + pos + 20)
+        StrPut(str, this.bufPtr + pos + 20, "UTF-16")
 
         this.SetHead(head + total)
         return true
@@ -81,7 +81,7 @@ class RingBuffer {
         id := NumGet(this.bufPtr, pos + 4, "UInt")
         hEvent := NumGet(this.bufPtr, pos + 8, "Int64")
         len := NumGet(this.bufPtr, pos + 16, "UInt")
-        str := StrGet(this.bufPtr + pos + 20)
+        str := StrGet(this.bufPtr + pos + 20, "UTF-16")
 
         total := (20 + len + 7) & ~7
         this.SetTail(tail + total)
@@ -127,22 +127,10 @@ EscapeIPC(str) {
 }
 
 UnescapeIPC(str) {
-    out := ""
-    escape := false
-    Loop Parse, str {
-        c := A_LoopField
-        if (escape) {
-            out .= c
-            escape := false
-        } else if (c == Chr(3)) {
-            escape := true
-        } else {
-            out .= c
-        }
-    }
-    if (escape)
-        out .= Chr(3)
-    return out
+    str := StrReplace(str, Chr(3) Chr(2), Chr(2))
+    str := StrReplace(str, Chr(3) Chr(1), Chr(1))
+    str := StrReplace(str, Chr(3) Chr(3), Chr(3))
+    return str
 }
 
 EncodeCommand(opcode, args*) {

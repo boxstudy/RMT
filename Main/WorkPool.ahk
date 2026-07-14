@@ -301,8 +301,6 @@ class WorkPool {
                 SetTimer(() => this.Dispatch(), -1)
             }
         }
-        if (this.taskQueue.Size() > 0 && this.freePool.Count > 0)
-            this.Dispatch()
     }
 
     ; 移除 freePool 中已失效的 Worker（进程退出或窗口不可达），并安排补建
