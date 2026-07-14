@@ -130,9 +130,11 @@ EscapeIPC(str) {
 }
 
 UnescapeIPC(str) {
-    str := StrReplace(str, IPC_ESC IPC_REC, IPC_REC)
-    str := StrReplace(str, IPC_ESC IPC_SEP, IPC_SEP)
-    str := StrReplace(str, IPC_ESC IPC_ESC, IPC_ESC)
+    if StrIn(str, IPC_ESC) {
+        str := StrReplace(str, IPC_ESC IPC_REC, IPC_REC)
+        str := StrReplace(str, IPC_ESC IPC_SEP, IPC_SEP)
+        str := StrReplace(str, IPC_ESC IPC_ESC, IPC_ESC)
+    }
     return str
 }
 
