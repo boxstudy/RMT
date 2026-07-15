@@ -201,6 +201,10 @@ class UIMacroGui {
         if (!panelInfo || !panelInfo.wpfHwnd)
             return
 
+        ; 如果已被使用者手動關閉，則不進行自動顯示
+        if (panelInfo.HasProp("userClosed") && panelInfo.userClosed)
+            return
+
         ; 配置变化检测：按钮尺寸/列数/颜色变化 → 销毁重建
         if (panelInfo._cfg_BtnHeight != MainSoftData.UIPanelBtnHeight
             || panelInfo._cfg_BtnWidth != MainSoftData.UIPanelBtnWidth
@@ -600,6 +604,7 @@ class UIMacroGui {
             return
 
         if (panelInfo.visible) {
+            panelInfo.userClosed := false ; 重新打開時清除手動關閉標記
             DllCall("user32\ShowWindow", "Ptr", hwnd, "Int", 1)          ; SW_SHOW
             this.ApplyPanelPosition(panelInfo)
             ; 更新偏移量（窗口跟随模式）
@@ -612,6 +617,7 @@ class UIMacroGui {
                 }
             }
         } else {
+            panelInfo.userClosed := true ; 標記為：使用者主動關閉
             DllCall("user32\ShowWindow", "Ptr", hwnd, "Int", 0)
         }
     }
