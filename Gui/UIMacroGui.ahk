@@ -648,6 +648,29 @@ class UIMacroGui {
                 deadFolds.Push(panelKey)
                 continue
             }
+
+            ; 處理目標視窗隱藏/退到後台時，浮窗隱藏；重新顯現時浮窗也重新顯現
+            if (!panelInfo.isScreenMode && panelInfo.targetHwnd) {
+                ; 檢查目標視窗是否最小化 (WinGetMinMax 傳回 -1 代表最小化) 或不可見
+                try {
+                    isMin := WinGetMinMax("ahk_id " panelInfo.targetHwnd) == -1
+                    targetVisible := !isMin && DllCall("user32\IsWindowVisible", "Ptr", panelInfo.targetHwnd)
+                } catch {
+                    targetVisible := false
+                }
+                
+                if (!targetVisible && panelInfo.visible) {
+                    panelInfo.visible := false
+                    panelInfo.targetWasHidden := true
+                    DllCall("user32\ShowWindow", "Ptr", panelInfo.wpfHwnd, "Int", 0) ; SW_HIDE
+                } else if (targetVisible && !panelInfo.visible && (panelInfo.HasProp("targetWasHidden") && panelInfo.targetWasHidden)) {
+                    panelInfo.visible := true
+                    panelInfo.targetWasHidden := false
+                    DllCall("user32\ShowWindow", "Ptr", panelInfo.wpfHwnd, "Int", 1) ; SW_SHOW
+                    this.ApplyPanelPosition(panelInfo)
+                }
+            }
+
             if (!panelInfo.isScreenMode)
                 continue
             if (!panelInfo.visible)
