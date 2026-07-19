@@ -1302,6 +1302,10 @@ OnWindowManage(tableItem, cmd, index) {
                     alphaValue := Round(255 * Integer(Transparency) / 100)
                     WinSetTransparent(alphaValue, winTitle)
                 }
+            case "开启鼠标穿透":
+                WinSetExStyle("+0x20", winTitle)
+            case "关闭鼠标穿透":
+                WinSetExStyle("-0x20", winTitle)
         }
     }
 }

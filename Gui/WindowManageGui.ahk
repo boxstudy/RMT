@@ -12,7 +12,7 @@ class WindowManageGui {
         this.ActionTypeArr := [
             GetLang("激活窗口"), GetLang("最大化窗口"), GetLang("最小化窗口"), GetLang("还原窗口"), GetLang("关闭窗口"),
             GetLang("移动窗口"), GetLang("调整大小"), GetLang("置顶窗口"), GetLang("取消置顶"), GetLang("修改标题"),
-            GetLang("修改透明度")
+            GetLang("修改透明度"),GetLang("開啟鼠標穿透"), GetLang("關閉鼠標穿透")
         ]
     }
 
