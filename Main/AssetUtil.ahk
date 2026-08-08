@@ -1861,6 +1861,12 @@ SaveMacroCMDData(Data) {
 }
 
 GetReplaceVarText(tableItem, tableIndex, text) {
+    ; {{ / }} 跳脫：先用私有區字符佔位，避免被解析為變量，最後還原為字面量 { / }
+    static ESC_OPEN  := Chr(0xE001)   ; 佔位符：代表字面量 {
+    static ESC_CLOSE := Chr(0xE002)   ; 佔位符：代表字面量 }
+    text := StrReplace(text, "{{", ESC_OPEN)
+    text := StrReplace(text, "}}", ESC_CLOSE)
+
     matches := []      ; 存储变量名（不含花括号）
     arrayMatches := [] ; 存储数组名（不含花括号和ε）
     pos := 1
@@ -1891,6 +1897,10 @@ GetReplaceVarText(tableItem, tableIndex, text) {
             ResText := StrReplace(ResText, "{ε" arrName "}", arrValue)
         }
     }
+
+    ; 還原跳脫的字面量花括號
+    ResText := StrReplace(ResText, ESC_OPEN,  "{")
+    ResText := StrReplace(ResText, ESC_CLOSE, "}")
 
     return ResText
 }
