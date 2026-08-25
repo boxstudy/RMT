@@ -746,6 +746,72 @@ XamlUiDiagWindow(hwnd, tag := "win", fixIfHidden := false) {
     }
 }
 
+; ===== 临时诊断（界面打开闪烁定位）：打开流程每步截图 + 弹窗交互确认 =====
+; DiagOpenStep(winTag, stepName, expectedDesc, hwnd := 0)
+;   - 优先 PrintWindow 抓窗口自身内容（离屏也能抓，看它是不是白壳/有没有内容），
+;     失败则抓主屏；保存到 Log\DiagShot\*.png
+;   - 弹 InputBox 说明该步骤【预期界面】：点确定＝符合预期，输入文字＝实际现象；
+;     答复写入 Log\XamlUiDiag.log（tag=Diag）
+; 诊断完成后删除本函数及相关调用。
+DiagOpenStep(winTag, stepName, expectedDesc, hwnd := 0) {
+    global RMT_DIAG_POPUP
+    if (!IsSet(RMT_DIAG_POPUP))
+        RMT_DIAG_POPUP := false   ; 默认静默；排查时需要交互改为 true
+    ; 完全静默模式：弹窗/截图都不执行，打开流程零干扰（用于观察真实表现）
+    if (!RMT_DIAG_POPUP)
+        return ""
+    try {
+        ; ---- 1) 截图 ----
+        try {
+            shotDir := A_WorkingDir "\Log\DiagShot"
+            if !DirExist(shotDir)
+                DirCreate(shotDir)
+            safeStep := RegExReplace(stepName, "[\\/:*?`"<>|\s]+", "_")
+            pBitmap := 0
+            if (hwnd != 0 && Func("Gdip_BitmapFromHWND") && Func("Gdip_SaveBitmapToFile")) {
+                try {
+                    tmp := Gdip_BitmapFromHWND(hwnd)
+                    if (tmp != -1 && tmp != -2 && tmp != 0)
+                        pBitmap := tmp
+                } catch {
+                    pBitmap := 0
+                }
+            }
+            if (pBitmap == 0 && Func("Gdip_BitmapFromScreen") && Func("Gdip_SaveBitmapToFile")) {
+                try {
+                    tmp := Gdip_BitmapFromScreen(1)
+                    if (tmp != -1 && tmp != -2 && tmp != 0)
+                        pBitmap := tmp
+                } catch {
+                    pBitmap := 0
+                }
+            }
+            if (pBitmap != 0) {
+                pngPath := shotDir "\" winTag "_" safeStep ".png"
+                Gdip_SaveBitmapToFile(pBitmap, pngPath)
+                XamlUiDiag("DiagShot saved: " pngPath, "Diag")
+                Gdip_DisposeImage(pBitmap)
+            }
+        } catch as e {
+            XamlUiDiag("DiagShot err: " (IsObject(e) ? e.Message : ""), "Diag")
+        }
+
+        ; ---- 2) 弹窗确认 ----
+        if (!RMT_DIAG_POPUP)
+            return ""
+        prompt := "【" winTag "】" stepName "`n`n预期界面：`n" expectedDesc "`n`n"
+            . "● 界面符合预期 → 直接点【确定】`n"
+            . "● 不符合 → 在输入框输入你实际看到的现象（如：白屏 / 空白 / 颜色不对 / 没出现 / 闪烁…）"
+        result := InputBox(prompt, "RMT界面闪烁诊断", "w560 h300", "")
+        XamlUiDiag(Format("DiagStep [{}] {} → result={} value=[{}]"
+            , winTag, stepName, result.Result, result.Value), "Diag")
+        return result.Value
+    } catch as e {
+        XamlUiDiag("DiagStep err: " (IsObject(e) ? e.Message : ""), "Diag")
+        return ""
+    }
+}
+
 ; useAppWinTheme：是否用 AppTheme「通用窗口」色覆盖 XAML Resource（设置窗默认 true）
 ApplyXamlTheme(ui, themeName, iniPath := "", useAppWinTheme := true) {
     if (iniPath == "")

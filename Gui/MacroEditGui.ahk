@@ -47,6 +47,11 @@ class MacroEditGui {
         this._hkIds := []
         this._topOn := false
         this._title := ""
+        this._suppressModeChange := false      ; 构建/初始化时忽略编辑模式 SelectionChanged，避免空树先刷再重载闪烁
+        this._themeReady := false              ; LoadedHwnd 主题/图标已套用
+        this._contentReady := false            ; Init 树/文本已填完
+        this._revealed := false                ; 已 Opacity=1，防重复 reveal
+        this._openTick := 0                    ; ShowGui 起点，诊断耗时
         this.Gui := ""                         ; 打开时置为 facade（兼容外部 .Gui.Hwnd / .Title / .Hide），关闭时复位为空
         this.GuiMenu := ""
         this.DebugItemID := 0
@@ -187,10 +192,22 @@ class MacroEditGui {
 
     ShowGui(CommandStr, ShowSaveBtn) {
         global MySoftData
+        this._openTick := A_TickCount
+        this._themeReady := false
+        this._contentReady := false
+        this._revealed := false
+        XamlUiDiag("ShowGui enter cmdLen=" StrLen(CommandStr) " saveBtn=" ShowSaveBtn, "MacroEdit")
+        ; ===== 临时诊断S1：构建前 =====
+        DiagOpenStep("MacroEdit", "S1-构建前", "窗口尚未创建，屏幕上不应出现任何新窗口（主界面保持原样）。")
         ; XAML 窗口不支持隐藏复用：已打开的实例先关掉再重建
         if (IsObject(this.ui) && !this._closed)
             this._CloseWindow()
+        ; ===== 临时诊断S2：旧窗口已关 =====
+        DiagOpenStep("MacroEdit", "S2-旧窗口已关", "若有旧编辑器窗口应已关闭；当前无新窗口出现。")
         this._BuildAndShow()
+        ; ===== 临时诊断S3：新窗口已创建（离屏隐藏，应不可见）=====
+        DiagOpenStep("MacroEdit", "S3-窗口已创建", "新编辑器窗口已创建但被【移到屏幕外】：屏幕上应完全看不到它。"
+            "`n（若屏幕上有白色/内容窗口，说明隐藏失败——请描述）", this.Hwnd())
 
         ; 注册快捷键热键（仅编辑器前台时拦截，失焦时按键透传给其他程序；关闭时注销）
         this._hkIds := WinHotkey.Register(["F5", "F6", "Delete", "$^c", "$^v"], ObjBindMethod(this, "_OnHotkey"), this.Hwnd())
@@ -209,8 +226,25 @@ class MacroEditGui {
         UIControls.RecordToggle := this.RecordMacroCon
         MainSoftData.MacroEditGui := this
         this.InitGuiMenu()
-        this.Init(CommandStr, ShowSaveBtn)
-        SetTimer(ObjBindMethod(this, "_FadeIn"), -10)
+        ; 引擎 LWA 保持透明；灌树期间用户看不见。主题+内容就绪后 Opacity=1 直接显现完整内容。
+        this._suppressModeChange := true
+        tInit := A_TickCount
+        try {
+            this.Init(CommandStr, ShowSaveBtn)
+        } finally {
+            this._suppressModeChange := false
+        }
+        this._contentReady := true
+        XamlUiDiag("content ready cost=" (A_TickCount - tInit) "ms total+" (A_TickCount - this._openTick) "ms roots="
+            (IsObject(this.MacroTreeViewCon) ? this.MacroTreeViewCon.GetCount() : -1), "MacroEdit")
+        ; ===== 临时诊断S4：内容就绪、揭盖前（窗口应仍离屏不可见）=====
+        DiagOpenStep("MacroEdit", "S4-内容就绪未揭盖", "逻辑树内容与主题都已就绪，但窗口【尚未显示】：屏幕上应仍看不到它。"
+            "`n（若此时屏幕上有白窗/内容，说明提前显示了——请描述）", this.Hwnd())
+        this._TryReveal("content")
+        ; ===== 临时诊断S5：揭盖后（应回到原位并完整显示）=====
+        DiagOpenStep("MacroEdit", "S5-已显示", "窗口应【回到原位并一次到位完整显示】：标题栏「宏指令编辑器」+ 左上调试/工具菜单 + 左侧指令面板 + 中部逻辑树（指令带图标）+ 底部退格/清空/确定按钮，主题色背景。"
+            "`n若仍有白屏/空白/闪烁，请描述你看到的顺序（先白后内容？）。", this.Hwnd())
+        SetTimer(ObjBindMethod(this, "_RevealFallback"), -800)
     }
 
     Hwnd() {
@@ -472,9 +506,16 @@ class MacroEditGui {
         this.ui.Track("MacroTree")
 
         ; WPF ComboBox 默认 SelectedIndex=-1（不自动选第一项），强制选中「逻辑树」
+        ; 构建期抑制 SelectionChanged：否则会先 InitTreeView(空) 再被 ShowGui.Init 刷第二次 → 闪一下
+        this._suppressModeChange := true
         this.ui.Update("EditModeCombo", "SelectedIndex", "0")
+        try this.EditModeCon._value := 1
 
+        XamlUiDiag("before ui.Show() hostId=" (this.ui.HasProp("id") ? this.ui.id : "?")
+            " opacity0=" (InStr(this.ui.xaml, 'Opacity="0"') ? 1 : 0), "MacroEdit")
+        tShow := A_TickCount
         this.ui.Show()
+        XamlUiDiag("ui.Show() returned cost=" (A_TickCount - tShow) "ms", "MacroEdit")
 
         gotHwnd := false
         loop 40 {
@@ -482,29 +523,78 @@ class MacroEditGui {
                 gotHwnd := true
                 if (this.OwnerHwnd != "")
                     try this.ui.Update("Window", "NativeOwner", String(this.OwnerHwnd))
-                try WinActivate("ahk_id " this.ui.wpfHwnd)
+                ; 引擎 LWA 保持透明；勿 WinHide（会白壳→隐藏→再显示）
+                XamlUiDiag("got wpfHwnd at loop=" A_Index " +" (A_TickCount - tShow) "ms", "MacroEdit")
+                XamlUiDiagWindow(this.ui.wpfHwnd, "MacroEdit.afterShow", false)
                 break
             }
             Sleep(50)
         }
-        if (!gotHwnd)
+        if (!gotHwnd) {
             this._closed := true
+            XamlUiDiag("FAIL: no wpfHwnd after wait", "MacroEdit")
+            XamlUiDiagDaemon("MacroEdit.noHwnd")
+        }
+        ; 注意：_suppressModeChange 由 ShowGui 在 Init 完成后解除，此处勿提前清
     }
 
     OnWindowLoad(state, ctrl, event) {
+        hwnd := this.Hwnd()
+        XamlUiDiag("OnWindowLoad enter hwnd=" hwnd " +" (A_TickCount - this._openTick) "ms", "MacroEdit")
         try {
+            try {
+                hIcon := LoadPicture("Images\Soft\rabit.ico", "Icon1", &ImageType := 1)
+                if (hIcon)
+                    this.ui.Update("Window", "Icon", "HICON:" hIcon)
+            }
             themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
             ApplyXamlTheme(this.ui, themeName)
-        } catch {
+            this._themeReady := true
+            XamlUiDiag("theme ready theme=" themeName, "MacroEdit")
+        } catch as e {
+            this._themeReady := true
+            XamlUiDiag("OnWindowLoad err: " e.Message, "MacroEdit")
         }
+        this._TryReveal("theme")
+    }
+
+    ; 主题 + 内容双门闩：就绪后 Opacity=1（引擎清 LWA，窗口从透明直接变完整内容，无 Hide/Show）
+    _TryReveal(from := "") {
+        if (this._revealed || this._closed)
+            return
+        XamlUiDiag("TryReveal from=" from " theme=" this._themeReady " content=" this._contentReady
+            " +" (A_TickCount - this._openTick) "ms", "MacroEdit")
+        if (!this._themeReady || !this._contentReady)
+            return
+        if (!IsObject(this.ui) || !this.ui.HasProp("wpfHwnd") || !this.ui.wpfHwnd) {
+            XamlUiDiag("TryReveal abort: no hwnd", "MacroEdit")
+            return
+        }
+        this._revealed := true
+        try this.ui.Update("Window", "Opacity", "1")
+        try WinActivate("ahk_id " this.ui.wpfHwnd)
+        XamlUiDiag("revealed Opacity=1 +" (A_TickCount - this._openTick) "ms", "MacroEdit")
+        XamlUiDiagWindow(this.ui.wpfHwnd, "MacroEdit.revealed", false)
+    }
+
+    _RevealFallback(*) {
+        if (this._revealed || this._closed)
+            return
+        XamlUiDiag(Format("RevealFallback force themeWas={} contentWas={}"
+            , this._themeReady, this._contentReady), "MacroEdit")
+        this._themeReady := true
+        this._contentReady := true
+        this._TryReveal("fallback")
     }
 
     _FadeIn() {
-        if (IsObject(this.ui) && this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd)
-            this.ui.Update("Window", "Opacity", "1")
+        this._TryReveal("fadeIn")
     }
 
     OnWindowClosing(state, ctrl, event) {
+        hwnd := this.Hwnd()
+        XamlUiDiag("OnWindowClosing hwnd=" hwnd, "MacroEdit")
+        this._revealed := true   ; 关闭中不再 fallback reveal
         if (this._hkIds.Length > 0) {
             WinHotkey.UnregisterAll(this._hkIds)
             this._hkIds := []
@@ -530,6 +620,8 @@ class MacroEditGui {
     }
 
     _CloseWindow() {
+        this._revealed := true
+        this._closed := true
         if (this._hkIds.Length > 0) {
             WinHotkey.UnregisterAll(this._hkIds)
             this._hkIds := []
@@ -550,7 +642,6 @@ class MacroEditGui {
         ToolTip()
         this.ui := ""
         this.Gui := ""
-        this._closed := true
     }
 
     _HideWindow() {
@@ -633,6 +724,9 @@ class MacroEditGui {
     }
 
     OnChangeEditMode(state, ctrl, event) {
+        ; 打开构建期：SelectedIndex 初值会触发本事件，此时树尚未 Init，跳过避免空刷新闪烁
+        if (this._suppressModeChange)
+            return
         ; ComboBoxItem 的 Tag 即模式值（"1"=逻辑树 "2"=文本）
         if (IsObject(state) && state.Has("EditModeCombo") && state["EditModeCombo"] != "")
             this.EditModeCon._value := Integer(state["EditModeCombo"])

@@ -250,6 +250,7 @@ class XAMLHost {
         NumPut("Ptr", buf.Ptr, cds, A_PtrSize * 2)
 
         DllCall("user32\SendMessageW", "Ptr", this.wpfHwnd, "UInt", 0x004A, "Ptr", 0, "Ptr", cds.Ptr)
+        ; 注意：Opacity 由引擎 LWA_ALPHA 处理。禁止此处 WinHide/WinShow，否则会出现「白壳→隐藏→再显示」。
     }
 
     BatchUpdate(updatesArray) {
@@ -1619,6 +1620,7 @@ class XAMLHost {
 
         if (ctrlName == "Window" && eventName == "LoadedHwnd") {
             instance.wpfHwnd := Integer(parts[5])
+            ; Opacity=0 的隐藏由引擎 SourceInitialized+LWA_ALPHA 完成；勿 WinHide（会白壳闪一下再藏）
             if instance.HasOwnProp("_updateQueue") {
                 for item in instance._updateQueue {
                     if (item.type == "single")

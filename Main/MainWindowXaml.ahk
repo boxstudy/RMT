@@ -293,6 +293,12 @@ class MainWin {
 
     OnWindowLoad(state, ctrl, event) {
         try {
+            ; 任务栏/Alt-Tab 图标：托盘已用 rabit.ico，窗口本身也要显式设置（脚本运行时默认是 AHK 图标）
+            try {
+                hIcon := LoadPicture("Images\Soft\rabit.ico", "Icon1", &ImageType := 1)
+                if (hIcon)
+                    this.ui.Update("Window", "Icon", "HICON:" hIcon)
+            }
             ApplyXamlTheme(this.ui, MainSoftData.Theme)
             this.LoadLeftBarValues()
         } catch as e {

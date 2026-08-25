@@ -525,24 +525,10 @@ public partial class AhkWpfEngine
 #endif
         if (isDaemon)
         {
+            // Opacity=0：首帧 present 前挂 LWA_ALPHA=0，全程不 WinHide，避免「白壳→隐藏→再显示」
+            PrepareDeferredReveal(win);
             win.Show();
-            // 非透明窗口首帧 present 前 HWND 可见（WPF Opacity 只影响首帧后的合成）：
-            // 原生把窗口设成全透明，直到 AHK 置 Opacity=1 再恢复，避免首帧闪 DWM 玻璃底（紫闪）
-            if (!win.AllowsTransparency && win.Opacity < 1)
-            {
-                try
-                {
-                    IntPtr hwnd = new System.Windows.Interop.WindowInteropHelper(win).Handle;
-                    if (hwnd != IntPtr.Zero)
-                    {
-                        int ex = GetWindowLong(hwnd, -20);
-                        SetWindowLong(hwnd, -20, new IntPtr(ex | 0x80000)); // WS_EX_LAYERED
-                        SetLayeredWindowAttributes(hwnd, 0, 0, 0x2);        // LWA_ALPHA=0 全透明
-                        win.Resources["_NativeAlphaPending"] = true;
-                    }
-                }
-                catch { }
-            }
+            ReinforceNativeAlphaHide(win);
         }
         else
         {
@@ -1062,7 +1048,9 @@ public partial class AhkWpfEngine
                 timer.Stop();
                 win.Topmost = true;
                 win.Topmost = false;
-                win.Activate();
+                // 揭盖前窗口处于 SW_HIDE 隐藏阶段：不激活（Activate 会把隐藏窗口重新显示成白壳）
+                if (!win.Resources.Contains("_NativeAlphaPending"))
+                    win.Activate();
                 try { System.Runtime.GCSettings.LargeObjectHeapCompactionMode = System.Runtime.GCLargeObjectHeapCompactionMode.CompactOnce; } catch { }
                 GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, true, true);
                 GC.WaitForPendingFinalizers();
@@ -1160,29 +1148,76 @@ public partial class AhkWpfEngine
 #endif
         if (isDaemon)
         {
+            // Opacity=0：首帧 present 前挂 LWA_ALPHA=0，全程不 WinHide，避免「白壳→隐藏→再显示」
+            PrepareDeferredReveal(win);
             win.Show();
-            // 非透明窗口首帧 present 前 HWND 可见（WPF Opacity 只影响首帧后的合成）：
-            // 原生把窗口设成全透明，直到 AHK 置 Opacity=1 再恢复，避免首帧闪 DWM 玻璃底（紫闪）
-            if (!win.AllowsTransparency && win.Opacity < 1)
-            {
-                try
-                {
-                    IntPtr hwnd = new System.Windows.Interop.WindowInteropHelper(win).Handle;
-                    if (hwnd != IntPtr.Zero)
-                    {
-                        int ex = GetWindowLong(hwnd, -20);
-                        SetWindowLong(hwnd, -20, new IntPtr(ex | 0x80000)); // WS_EX_LAYERED
-                        SetLayeredWindowAttributes(hwnd, 0, 0, 0x2);        // LWA_ALPHA=0 全透明
-                        win.Resources["_NativeAlphaPending"] = true;
-                    }
-                }
-                catch { }
-            }
+            ReinforceNativeAlphaHide(win);
         }
         else
         {
             win.ShowDialog();
         }
+    }
+
+    // 非透明窗口：WPF Opacity 在首帧 present 前对 HWND 无效。
+    // 用 SourceInitialized（HWND 已建、尚未画第一帧）挂 WS_EX_LAYERED+alpha=0；
+    // 并在 Show 前就把窗口移到屏幕外（-32000）——LWA alpha 在部分 DWM/WindowChrome 组合下
+    // 不可靠，若 Show 后再移，Show 瞬间会在屏上露出白壳（用户可见的闪烁）。
+    // 居中位置在 Show 前按 CenterScreen 规则预计算存入 _RevealPos，揭盖时由 CommandDispatcher 还原。
+    // 禁止 AHK 侧 WinHide/WinShow：会变成白壳→隐藏→再显示。
+    private static void PrepareDeferredReveal(Window win)
+    {
+        if (win == null || win.AllowsTransparency || win.Opacity >= 1)
+            return;
+        try
+        {
+            win.ShowActivated = false; // 内容未就绪前不抢焦点
+            win.Resources["_NativeAlphaPending"] = true;
+            // 预计算居中位置（复刻 WindowStartupLocation=CenterScreen，DIP 坐标）
+            double winW = double.IsNaN(win.Width) ? 800 : win.Width;
+            double winH = double.IsNaN(win.Height) ? 600 : win.Height;
+            double cx = Math.Max(0, (System.Windows.SystemParameters.PrimaryScreenWidth - winW) / 2);
+            double cy = Math.Max(0, (System.Windows.SystemParameters.PrimaryScreenHeight - winH) / 2);
+            win.Resources["_RevealPos"] = new System.Windows.Point(cx, cy);
+            win.WindowStartupLocation = System.Windows.WindowStartupLocation.Manual;
+            // HWND 创建瞬间、首帧绘制前
+            win.SourceInitialized += (s, e) =>
+            {
+                try { ApplyNativeAlphaZero(win); }
+                catch { }
+            };
+            // 提前建 HWND，让 SourceInitialized 在 Show 前就触发
+            var helper = new System.Windows.Interop.WindowInteropHelper(win);
+            helper.EnsureHandle();
+            ApplyNativeAlphaZero(win);
+            // Show 前移到屏幕外：SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE
+            SetWindowPos(helper.Handle, IntPtr.Zero, -32000, -32000, 0, 0, 0x0001 | 0x0004 | 0x0010);
+        }
+        catch { }
+    }
+
+    private static void ReinforceNativeAlphaHide(Window win)
+    {
+        if (win == null || !win.Resources.Contains("_NativeAlphaPending"))
+            return;
+        try
+        {
+            // Show 后补一次 LWA（防 WPF 重置）；窗口位置已在 PrepareDeferredReveal 中移到屏幕外，
+            // 揭盖时由 CommandDispatcher.RevealNativeWindow 还原位置并显示。
+            ApplyNativeAlphaZero(win);
+        }
+        catch { }
+    }
+
+    private static void ApplyNativeAlphaZero(Window win)
+    {
+        IntPtr hwnd = new System.Windows.Interop.WindowInteropHelper(win).Handle;
+        if (hwnd == IntPtr.Zero)
+            return;
+        int ex = GetWindowLong(hwnd, -20);
+        if ((ex & 0x80000) == 0)
+            SetWindowLong(hwnd, -20, new IntPtr(ex | 0x80000)); // WS_EX_LAYERED
+        SetLayeredWindowAttributes(hwnd, 0, 0, 0x2);            // LWA_ALPHA=0
     }
 
     private void InheritWindowIconAndTitle(Window win, string ownerHwndStr)

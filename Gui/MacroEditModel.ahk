@@ -310,10 +310,33 @@ class MacroTreeAdapter {
         cards := []
         for root in this.roots
             this._AppendVisibleCards(root, 0, &cards)
+        ; 批量推送卡片：逐条 Update 是 N 次同步 IPC 往返（千条级宏打开/刷新卡顿元凶），
+        ; 合并为少量 BatchUpdate 分块（WM_COPYDATA 单消息体量限制，按字节分块），一次往返处理多条。
+        this._BatchPushCards(cards)
+    }
+
+    ; 分块批量推送 AddXamlItem：单块控制在 ~36KB 以内（含 UTF-8 中文 3 字节/字），
+    ; 单次 WM_COPYDATA 安全上限 64KB，留足余量避免大宏超限丢消息。
+    _BatchPushCards(cards) {
+        if (cards.Length == 0)
+            return
+        chunk := []
+        chunkBytes := 0
+        maxBytes := 36000
         for xml in cards {
-            if (xml != "")
-                this.ui.Update(this.treeName, "AddXamlItem", xml)
+            if (xml == "")
+                continue
+            chunk.Push({ControlName: this.treeName, PropertyName: "AddXamlItem", Value: xml})
+            chunkBytes += StrPut(xml, "UTF-8") - 1
+            if (chunkBytes >= maxBytes) {
+                if (chunk.Length > 0)
+                    this.ui.BatchUpdate(chunk)
+                chunk := []
+                chunkBytes := 0
+            }
         }
+        if (chunk.Length > 0)
+            this.ui.BatchUpdate(chunk)
     }
 
     ; 递归收集可见节点卡片（塌陷分支不进入）

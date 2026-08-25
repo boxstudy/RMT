@@ -3551,7 +3551,7 @@ public partial class AhkWpfEngine
                         else if (pt == "Geometry") val = System.Windows.Media.Geometry.Parse(parts[2]);
                         else val = Convert.ChangeType(parts[2], prop.PropertyType);
                         prop.SetValue(ctrl, val, null);
-                        // 创建时原生隐藏的窗口：AHK 置 Opacity 时恢复可见（清除 WS_EX_LAYERED alpha）
+                        // 创建时离屏隐藏的窗口：AHK 置 Opacity 时恢复显示（移回原位 + 清 LWA alpha）
                         if (ctrl == win && parts[1] == "Opacity" && win.Resources.Contains("_NativeAlphaPending"))
                         {
                             try
@@ -3559,12 +3559,7 @@ public partial class AhkWpfEngine
                                 win.Resources.Remove("_NativeAlphaPending");
                                 IntPtr wHwnd = new System.Windows.Interop.WindowInteropHelper(win).Handle;
                                 if (wHwnd != IntPtr.Zero)
-                                {
-                                    SetLayeredWindowAttributes(wHwnd, 0, 255, 0x2);
-                                    // 恢复正常窗口（去掉 WS_EX_LAYERED），避免持续 layered 丢阴影
-                                    int ex = GetWindowLong(wHwnd, -20);
-                                    SetWindowLong(wHwnd, -20, new IntPtr(ex & ~0x80000));
-                                }
+                                    RevealNativeWindow(win, wHwnd);
                             }
                             catch { }
                         }
@@ -3580,6 +3575,30 @@ public partial class AhkWpfEngine
                 }
             }
         }
+    }
+
+    // 揭盖：窗口在创建前就被移到屏幕外（见 EngineHost.PrepareDeferredReveal），
+    // 保持可见 → WPF 持续渲染内容进表面。AHK 置 Opacity=1 时还原位置（DIP，WPF 处理 DPI 缩放）
+    // 并清 LWA，一次到位显示已渲染好的完整内容（无白壳、无闪烁）。
+    private static void RevealNativeWindow(Window win, IntPtr hwnd)
+    {
+        if (hwnd == IntPtr.Zero)
+            return;
+        // 还原位置（用 WPF Left/Top，自动处理 DPI；SetWindowPos 需要物理像素容易错位）
+        if (win.Resources.Contains("_RevealPos"))
+        {
+            try
+            {
+                System.Windows.Point pos = (System.Windows.Point)win.Resources["_RevealPos"];
+                win.Left = pos.X;
+                win.Top = pos.Y;
+            }
+            catch { }
+        }
+        SetLayeredWindowAttributes(hwnd, 0, 255, 0x2);      // LWA_ALPHA=255，兜底
+        int ex = GetWindowLong(hwnd, -20);
+        SetWindowLong(hwnd, -20, new IntPtr(ex & ~0x80000)); // 去掉 WS_EX_LAYERED，恢复正常窗口（保留阴影）
+        ShowWindow(hwnd, 5);                                 // SW_SHOW，兜底
     }
 
 }
