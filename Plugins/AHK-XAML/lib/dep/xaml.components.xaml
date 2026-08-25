@@ -350,12 +350,14 @@
                 </Setter>
             </Style>
         </Style.Resources>
-        <Setter Property="Foreground" Value="{DynamicResource TextMain}"/>
+        <Setter Property="Foreground" Value="{DynamicResource InputText}"/>
         <Setter Property="FocusVisualStyle" Value="{DynamicResource GlobalFocusVisual}"/>
-        <Setter Property="Background" Value="{DynamicResource ControlBg}"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource ControlBorder}"/>
+        <Setter Property="Background" Value="{DynamicResource InputBg}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource InputStroke}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="MinHeight" Value="26"/>
+        <Setter Property="Height" Value="26"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
         <!-- 显示区边距走 Padding，便于节点等紧凑场景与 TextBox 左对齐（默认保持原 12,0,30,0） -->
         <Setter Property="Padding" Value="12,0,30,0"/>
         <Setter Property="Template">

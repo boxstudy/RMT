@@ -74,3 +74,14 @@ global XAML_ENABLE_DEVTOOLS := true
 ; 注意：进程内模式下 daemon HWND 属于 AHK 自身；若 EnsureDaemonMatches 误判路径并 KillDaemon，
 ; 旧逻辑会 ProcessClose 当前进程导致多窗口闪退。默认务必为 false。
 global XAML_IN_PROCESS_PREVIEW := false
+
+; --- 全局字体缩放（主题字体大小驱动所有界面字号）---
+; 基准 = 主界面「配置管理」按钮继承的窗口默认字号（13）；
+; 增量 = 主题字体大小 - 基准。所有窗口 XAML 的 FontSize 在发送前统一平移该增量，
+; 覆盖生成器构建与字符串拼接的全部 XAML（含窗口级 TextElement.FontSize 默认值）。
+; 应用启动/切主题时设置：XAML_FontSizeDelta := 主题FontSize - XAML_FontSizeBase
+global XAML_FontSizeBase := 13
+global XAML_FontSizeDelta := 0
+; 主题字体粗细 / 文字清晰度（窗口级默认值，元素显式设置时以元素为准）
+global XAML_FontWeight := "400"               ; 100-900（100细~400常规~700粗~900黑）
+global XAML_TextClarity := 1                  ; 1=标准(平滑 Ideal)；2=锐利(Display)；3=极锐利(Aliased)

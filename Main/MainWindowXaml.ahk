@@ -143,7 +143,11 @@ class MainWin {
         title := "RMTv" RMT_VERSION
         titleHeight := "36"
 
+        ; 根内容固定按 1400×787 设计渲染：引擎 Viewbox 会保留显式尺寸，
+        ; 再按窗口实际尺寸（随屏幕等比缩放，见下方 wh 计算）等比例缩放——
+        ; 任何分辨率下内容布局完全一致（高分屏只是整体放大）。
         main := XAML_Generator("Grid").Background("{DynamicResource BgColor}")
+        main.Width(1400).Height(787)
         main.Rows(titleHeight, "*")
         main.Cols("130", "*")
 
@@ -228,7 +232,14 @@ class MainWin {
         ; LastWinPos 无效时保持 CenterScreen 1070×590 居中默认。
         pos := GetLastWinPos()
         startLoc := 'WindowStartupLocation="CenterScreen"'
-        wh := 'Width="1070" Height="590"'
+        ; 主界面默认尺寸按屏幕等比缩放：1920×1080 参考 1400×787。
+        ; 更宽的屏幕（横向富余）按高度缩放、更高的屏幕（纵向富余）按宽度缩放，
+        ; 即缩放系数 = min(屏幕宽/1920, 屏幕高/1080)；用 DIP 屏幕尺寸计算，物理像素随 DPI 正确。
+        dpiScale := DllCall("GetDpiForSystem", "UInt") / 96.0
+        dipSW := A_ScreenWidth / dpiScale
+        dipSH := A_ScreenHeight / dpiScale
+        fs := Min(dipSW / 1920, dipSH / 1080)
+        wh := 'Width="' Round(1400 * fs) '" Height="' Round(787 * fs) '"'
         if (pos.Length) {
             ; AHK 进程 DPI aware，WinGetPos/LastWinPos 是物理像素；XAML 注入按 DIP 解释，须换算（实测 125% 屏偏右下 26px）
             ; ponytail: 用 GetDpiForSystem 单值；跨屏不同 DPI 时可能偏差，待真机多屏再按 per-monitor 换算
@@ -783,7 +794,7 @@ class MainWin {
         Add(this._TwoColRow(ns, "句柄Id:", "TxtProcessId", MainSoftData.ProcessId, "位置颜色：", "TxtColor", MainSoftData.Color))
         Add(this._LabelRow("指令录制：", '<StackPanel Orientation="Horizontal"><TextBlock Name="TxtRecordKey" Text="' FormatHotkeyDisplay(MainSoftData.ToolRecordMacroHotKey) '" VerticalAlignment="Center" Opacity="0.6" Margin="0,0,8,0"/><CheckBox Name="ChkToolCheckRecord" Content="' GetLang("开关") '" VerticalAlignment="Center"/></StackPanel>'))
         Add(this._LabelRow("图片文本提取：", '<StackPanel Orientation="Horizontal"><TextBlock Name="TxtTextFilterKey" Text="' FormatHotkeyDisplay(MainSoftData.ToolTextFilterHotKey) '" VerticalAlignment="Center" Opacity="0.6" Margin="0,0,8,0"/><Button Name="BtnTextShot" Content="' GetLang("截图提取文本") '" Height="26" MinHeight="26" Padding="10,0" Margin="0,0,8,0"/><Button Name="BtnTextImage" Content="' GetLang("从图片提取文本") '" Height="26" MinHeight="26" Padding="10,0"/></StackPanel>'))
-        Add(this._LabelRow("文本识别模型：", '<ComboBox Name="CmbOCRType" Width="100" Height="26" MinHeight="26" VerticalContentAlignment="Center" FontSize="11" Foreground="{DynamicResource InputText}" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1" SelectedIndex="' (MainSoftData.OCRTypeValue - 1) '"><ComboBoxItem Content="' GetLang("中文") '"/><ComboBoxItem Content="' GetLang("英文") '"/></ComboBox>'))
+        Add(this._LabelRow("文本识别模型：", '<ComboBox Name="CmbOCRType" Width="100" Height="26" MinHeight="26" VerticalContentAlignment="Center" Foreground="{DynamicResource InputText}" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1" SelectedIndex="' (MainSoftData.OCRTypeValue - 1) '"><ComboBoxItem Content="' GetLang("中文") '"/><ComboBoxItem Content="' GetLang("英文") '"/></ComboBox>'))
         Add('<StackPanel ' ns ' Orientation="Horizontal" Margin="0,6,0,0"><TextBlock Text="' GetLang("录制的指令或提取的文本内容：") '" VerticalAlignment="Center" Foreground="{DynamicResource TextMain}" FontSize="12"/><Button Name="BtnClearToolText" Content="' GetLang("清空内容") '" Height="26" MinHeight="26" Padding="10,0" Margin="12,0,0,0"/></StackPanel>')
         Add('<TextBox ' ns ' Name="TxtToolText" Text="" Height="140" AcceptsReturn="True" VerticalContentAlignment="Top" TextWrapping="Wrap" Padding="6,4" FontSize="11" Foreground="{DynamicResource InputText}" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1"/>')
 
@@ -891,7 +902,6 @@ class MainWin {
         Add('<TextBlock ' ns ' Text="' GetLang("下拉框选项") '" FontWeight="Bold" Margin="0,10,0,4"/>')
         Add('<WrapPanel ' ns ' Orientation="Horizontal">'
             . this._ComboRow("语言/Lang：", "CmbLang", MainSoftData.LangArr, MainSoftData.Lang)
-            . this._ComboRow(GetLang("软件字体："), "CmbFont", MainSoftData.FontList, MainSoftData.FontType)
             . this._ComboRow(GetLang("首选编辑器："), "CmbPreferredEditor", GetLangArr(["逻辑树", "图形节点"]), MainSoftData.PreferredMacroEditor)
             . this._ComboRow(GetLang("截图方式："), "CmbScreenShot", GetLangArr(["微软截图", "RMT截图", "SC截图"]), MainSoftData.ScreenShotType)
             . this._ComboRow(GetLang("手柄映射："), "CmbTriggerJoyType", ["Xbox", "PS5"], MainSoftData.TriggerJoyType
@@ -944,7 +954,6 @@ class MainWin {
         this._Bind("ChkModalSubGui", "Click", ObjBindMethod(this, "OnCheckEdit", "IsModalSubGui"))
         this._Bind("ChkSplitLine", "Click", ObjBindMethod(this, "OnCheckEdit", "ShowSplitLine"))
         this._Bind("CmbLang", "SelectionChanged", ObjBindMethod(this, "OnComboText", "Lang"))
-        this._Bind("CmbFont", "SelectionChanged", ObjBindMethod(this, "OnComboText", "FontType"))
         this._Bind("CmbPreferredEditor", "SelectionChanged", ObjBindMethod(this, "OnComboIndex", "PreferredMacroEditor"))
         this._Bind("CmbScreenShot", "SelectionChanged", ObjBindMethod(this, "OnComboIndex", "ScreenShotType"))
         this._Bind("CmbTriggerJoyType", "SelectionChanged", ObjBindMethod(this, "OnComboText", "TriggerJoyType"))
@@ -1029,7 +1038,7 @@ class MainWin {
         tipAttr := tip == "" ? "" : ' ToolTip="' this._XmlEsc(tip) '"'
         return '<StackPanel ' ns ' Orientation="Horizontal" Margin="0,4,16,4"' tipAttr '>'
             . '<TextBlock Text="' this._XmlEsc(label) '" Width="80" VerticalAlignment="Center" Foreground="{DynamicResource TextMain}" FontSize="12"/>'
-            . '<ComboBox Name="' name '" Width="130" Height="26" MinHeight="26" VerticalContentAlignment="Center" FontSize="11" Foreground="{DynamicResource InputText}" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1"' selAttr '>' itemsXaml '</ComboBox>'
+            . '<ComboBox Name="' name '" Width="130" Height="26" MinHeight="26" VerticalContentAlignment="Center" Foreground="{DynamicResource InputText}" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1"' selAttr '>' itemsXaml '</ComboBox>'
             . '</StackPanel>'
     }
 

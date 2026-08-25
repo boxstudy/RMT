@@ -87,7 +87,7 @@ class LogCenterGui {
         tabBiz := topBar.Add("RadioButton").Name("TabBiz").Content(GetLang("业务日志")).IsChecked("False").VerticalAlignment("Center").Margin("0,0,16,0").GroupName("LogTab")
 
         topBar.Add("TextBlock").Text(GetLang("级别：")).VerticalAlignment("Center").Margin("8,0,4,0").Foreground("{DynamicResource TextSub}")
-        lvCombo := topBar.Add("ComboBox").Name("CmbLevel").Width(90).Height(26).MinHeight(26).FontSize("11").VerticalContentAlignment("Center").Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").VerticalAlignment("Center").Margin("0,0,12,0")
+        lvCombo := topBar.Add("ComboBox").Name("CmbLevel").Width(90).Height(26).MinHeight(26).VerticalContentAlignment("Center").Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").VerticalAlignment("Center").Margin("0,0,12,0")
         lvCombo.Add("ComboBoxItem").Content(GetLang("全部"))
         lvCombo.Add("ComboBoxItem").Content("debug")
         lvCombo.Add("ComboBoxItem").Content("info")

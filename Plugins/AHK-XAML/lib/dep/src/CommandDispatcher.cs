@@ -51,6 +51,28 @@ public partial class AhkWpfEngine
         {
             try
             {
+                // 只允许四角缩放：点落在窗口四边（非四角）时返回 HTBORDER，禁止单边调整大小
+                try
+                {
+                    short px = (short)(lParam.ToInt64() & 0xFFFF);
+                    short py = (short)((lParam.ToInt64() >> 16) & 0xFFFF);
+                    RECT wr;
+                    if (GetWindowRect(hwnd, out wr))
+                    {
+                        int band = 10; // 边缘带宽度（物理像素）
+                        bool onLeft = px >= wr.left && px <= wr.left + band;
+                        bool onRight = px >= wr.right - band && px <= wr.right;
+                        bool onTop = py >= wr.top && py <= wr.top + band;
+                        bool onBottom = py >= wr.bottom - band && py <= wr.bottom;
+                        bool corner = (onLeft || onRight) && (onTop || onBottom);
+                        if ((onLeft || onRight || onTop || onBottom) && !corner)
+                        {
+                            handled = true;
+                            return new IntPtr(18); // HTBORDER：无缩放边框，拖拽无效
+                        }
+                    }
+                }
+                catch { }
                 var btn = win.FindName("BtnMaximize") as System.Windows.Controls.Button;
                 if (btn != null && btn.IsVisible)
                 {
@@ -85,6 +107,18 @@ public partial class AhkWpfEngine
         {
             try
             {
+                // 四边（HTLEFT=10 HTRIGHT=11 HTTOP=12 HTBOTTOM=15）：普通箭头光标，不提示缩放
+                int htW = wParam.ToInt32() & 0xFFFF;
+                if (htW == 10 || htW == 11 || htW == 12 || htW == 15)
+                {
+                    IntPtr hArrow = LoadCursor(IntPtr.Zero, 32512); // IDC_ARROW
+                    if (hArrow != IntPtr.Zero)
+                    {
+                        SetCursor(hArrow);
+                        handled = true;
+                        return new IntPtr(1); // True
+                    }
+                }
                 int hitTest = (int)(lParam.ToInt64() & 0xFFFF);
                 if (hitTest == 9) // HTMAXBUTTON
                 {
@@ -173,6 +207,73 @@ public partial class AhkWpfEngine
                     mmi.ptMaxSize.y = Math.Abs(rcWorkArea.bottom - rcWorkArea.top);
                 }
                 Marshal.StructureToPtr(mmi, lParam, true);
+            }
+            catch { }
+        }
+        else if (msg == 0x0214)
+        { // WM_SIZING：仅四角等比缩放；四边（左/右/上/下）不允许单边调整宽高
+            try
+            {
+                int edge = wParam.ToInt32();
+                // 纯边拖拽（1=left 2=right 3=top 6=bottom）：恢复当前矩形，缩放无效
+                if (edge == 1 || edge == 2 || edge == 3 || edge == 6)
+                {
+                    RECT cur;
+                    if (GetWindowRect(hwnd, out cur))
+                    {
+                        Marshal.StructureToPtr(cur, lParam, false);
+                        handled = true;
+                        return IntPtr.Zero;
+                    }
+                }
+                if (win != null && !double.IsNaN(win.Width) && !double.IsNaN(win.Height)
+                    && win.Width > 0 && win.Height > 0)
+                {
+                    RECT rc = (RECT)Marshal.PtrToStructure(lParam, typeof(RECT));
+                    double ratio = win.Width / win.Height;
+                    int w = rc.right - rc.left;
+                    int h = rc.bottom - rc.top;
+                    if (w > 0 && h > 0)
+                    {
+                        // 4=left-top 5=right-top 7=left-bottom 8=right-bottom（四角）
+                        bool hasLeft = (edge == 4 || edge == 7);
+                        bool hasRight = (edge == 5 || edge == 8);
+                        bool hasTop = (edge == 4 || edge == 5);
+                        bool hasBottom = (edge == 7 || edge == 8);
+                        // 有水平拖拽边时以宽定高，否则以高定宽，保证宽高比恒定
+                        int newW, newH;
+                        if (hasLeft || hasRight)
+                        {
+                            newW = w;
+                            newH = (int)Math.Round(w / ratio);
+                        }
+                        else
+                        {
+                            newH = h;
+                            newW = (int)Math.Round(h * ratio);
+                        }
+                        // 最小尺寸：设计尺寸的 45%（与比例一致），避免缩得过小
+                        double minW = Math.Max(280, win.Width * 0.45);
+                        double minH = minW / ratio;
+                        if (newW < minW)
+                        {
+                            newW = (int)Math.Round(minW);
+                            newH = (int)Math.Round(minW / ratio);
+                        }
+                        if (newH < minH)
+                        {
+                            newH = (int)Math.Round(minH);
+                            newW = (int)Math.Round(minH * ratio);
+                        }
+                        if (hasRight) rc.right = rc.left + newW;
+                        else if (hasLeft) rc.left = rc.right - newW;
+                        if (hasBottom) rc.bottom = rc.top + newH;
+                        else if (hasTop) rc.top = rc.bottom - newH;
+                        Marshal.StructureToPtr(rc, lParam, false);
+                        handled = true;
+                        return IntPtr.Zero;
+                    }
+                }
             }
             catch { }
         }
@@ -621,6 +722,64 @@ public partial class AhkWpfEngine
                     }
 
                     UpdateSnapState(win);
+                }
+            }
+            catch { }
+        }
+        else if (parts[0] == "Window" && parts[1] == "ApplyFonts")
+        {
+            // 主题字体运行时应用（改主题字体后立即生效，无需重开窗口）：
+            //   Window|ApplyFonts|字体|字号增量|字重数值(100-900)|清晰度(1=标准 2=锐利 3=极锐利)
+            // 字体/字重/清晰度按绝对值设置（窗口根，未显式设置的元素继承）；
+            // 字号按「增量」逐元素平移（覆盖生成期硬编码字号）。
+            try
+            {
+                string[] seg = parts[2].Split('|');
+                string family = seg.Length > 0 ? seg[0] : "";
+                double delta = 0;
+                double dd;
+                if (seg.Length > 1 && double.TryParse(seg[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out dd))
+                    delta = dd;
+                bool hasWeight = seg.Length > 2 && !string.IsNullOrEmpty(seg[2]);
+                FontWeight weight = FontWeights.Normal;
+                if (hasWeight)
+                {
+                    try { weight = (FontWeight)new FontWeightConverter().ConvertFromString(seg[2]); } catch { }
+                }
+                int clarity = 2;
+                int cc;
+                if (seg.Length > 3 && int.TryParse(seg[3], out cc))
+                    clarity = cc;
+                if (!string.IsNullOrEmpty(family))
+                    win.SetValue(TextElement.FontFamilyProperty, new System.Windows.Media.FontFamily(family));
+                if (hasWeight)
+                    win.SetValue(TextElement.FontWeightProperty, weight);
+                // 清晰度：1=标准(Ideal) 2=锐利(Display) 3=极锐利(Display+Aliased)
+                if (clarity == 1)
+                    win.SetValue(TextOptions.TextFormattingModeProperty, TextFormattingMode.Ideal);
+                else
+                    win.SetValue(TextOptions.TextFormattingModeProperty, TextFormattingMode.Display);
+                if (clarity == 3)
+                    win.SetValue(TextOptions.TextRenderingModeProperty, TextRenderingMode.Aliased);
+                else
+                    win.SetValue(TextOptions.TextRenderingModeProperty, TextRenderingMode.ClearType);
+                if (delta != 0)
+                {
+                    WalkVisualTree(win, (System.Windows.DependencyObject node) =>
+                    {
+                        if (node is System.Windows.Controls.TextBlock
+                            || node is System.Windows.Controls.TextBox
+                            || node is System.Windows.Controls.Control)
+                        {
+                            try
+                            {
+                                object v = node.GetValue(TextElement.FontSizeProperty);
+                                if (v is double && !double.IsNaN((double)v))
+                                    node.SetValue(TextElement.FontSizeProperty, Math.Max(6, (double)v + delta));
+                            }
+                            catch { }
+                        }
+                    });
                 }
             }
             catch { }

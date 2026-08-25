@@ -72,7 +72,7 @@ class LogSettingGui {
         ; 行0：日志级别
         row0 := body.Add("StackPanel").Grid_Row(0).Orientation("Horizontal").VerticalAlignment("Center")
         row0.Add("TextBlock").Text(GetLang("日志级别：")).Width(110).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
-        lvCombo := row0.Add("ComboBox").Name("CmbLogLevel").Width(110).Height(26).MinHeight(26).VerticalContentAlignment("Center").FontSize("11").Margin("4,0,0,0")
+        lvCombo := row0.Add("ComboBox").Name("CmbLogLevel").Width(110).Height(26).MinHeight(26).VerticalContentAlignment("Center").Margin("4,0,0,0")
             .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
             .ToolTip(GetLang("系统日志的最低级别：低于此级别的日志不写入 System.log。")

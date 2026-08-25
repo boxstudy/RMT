@@ -223,6 +223,10 @@ class XAMLHost {
     }
 
     Update(controlName, propertyName, valueStr) {
+        ; 动态注入的 XAML（AddXamlItem/InsertXamlItem/Document）与 Show 一致应用字体缩放，
+        ; 否则设置页等运行时内容不随「字体大小」缩放，导致与主题窗口等烘焙内容字号不一致
+        if (propertyName = "AddXamlItem" || propertyName = "InsertXamlItem" || propertyName = "Document")
+            valueStr := XAMLHost.ApplyFontSizeDelta(valueStr)
         if !this.wpfHwnd {
             if !this.HasOwnProp("_updateQueue")
                 this._updateQueue := []
@@ -304,6 +308,8 @@ class XAMLHost {
                 continue
 
             val := String(updateObj.Value)
+            if (updateObj.PropertyName = "AddXamlItem" || updateObj.PropertyName = "InsertXamlItem" || updateObj.PropertyName = "Document")
+                val := XAMLHost.ApplyFontSizeDelta(val)
             val := StrReplace(val, "`r", "&#x0D;")
             val := StrReplace(val, "`n", "&#x0A;")
             payload .= updateObj.ControlName "|" updateObj.PropertyName "|" val "`n"
@@ -371,6 +377,21 @@ class XAMLHost {
     ; 可选诊断：宿主若定义了全局函数 XamlUiDiag 则写日志，库本身不依赖
     static Diag(msg, tag := "XAMLHost") {
         try Func("XamlUiDiag").Call(msg, tag)
+    }
+
+    ; 主题字体缩放：把 XAML 里所有 FontSize="N" 统一平移 XAML_FontSizeDelta。
+    ; 覆盖生成器构建与字符串拼接的 XAML，以及窗口级 TextElement.FontSize 默认值；
+    ; 增量 0 时原样返回。回调内须显式声明全局。
+    static ApplyFontSizeDelta(xaml) {
+        global XAML_FontSizeDelta
+        if (!XAML_FontSizeDelta)
+            return xaml
+        try {
+            return RegExReplace(xaml, 'FontSize="\K\d+(?:\.\d+)?'
+                , (m) => (v := Max(6, Float(m[0]) + XAML_FontSizeDelta), v = Floor(v) ? Integer(v) : v))
+        } catch {
+            return xaml
+        }
     }
 
     ; 进程内 CLR 宿主时，daemon HWND 属于当前 AHK/RMT 进程，绝不能 ProcessClose 自身
@@ -1481,6 +1502,18 @@ class XAMLHost {
             ; 非透明窗口：窗口级背景铺实色 BgColor，避免首帧先闪 DWM 玻璃边框（Win11 下偏紫/系统色）
             if (!InStr(this.xaml, 'AllowsTransparency="True"'))
                 cleanXaml := StrReplace(cleanXaml, 'Background="Transparent"', 'Background="{DynamicResource BgColor}"')
+            ; 主题字体缩放：统一平移所有 FontSize（含窗口级 TextElement.FontSize 默认值）
+            cleanXaml := XAMLHost.ApplyFontSizeDelta(cleanXaml)
+            ; 主题字体粗细 / 文字清晰度（窗口级默认值，元素显式设置时以元素为准）
+            try {
+                global XAML_FontWeight, XAML_TextClarity
+                cleanXaml := StrReplace(cleanXaml, 'TextElement.FontWeight="Normal"', 'TextElement.FontWeight="' XAML_FontWeight '"')
+                if (XAML_TextClarity == 1) {
+                    cleanXaml := StrReplace(cleanXaml, 'TextOptions.TextFormattingMode="Display"', 'TextOptions.TextFormattingMode="Ideal"')
+                } else if (XAML_TextClarity == 3) {
+                    cleanXaml := StrReplace(cleanXaml, 'TextOptions.TextRenderingMode="ClearType"', 'TextOptions.TextRenderingMode="Aliased"')
+                }
+            }
             inlinePayload := cleanXaml "`n---AHK-XAML-EVENTS---`n" eventBindings
             payload := "CREATE_WINDOW_INLINE|" this.id "|" trackedCsv "|" A_ScriptName "|" String(this.ownerHwnd) "|" inlinePayload
 
@@ -2330,7 +2363,10 @@ XAML_TEMPLATE := '
             ResizeMode="%ResizeMode%"
             WindowStyle="None" AllowsTransparency="False" Background="Transparent"
             WindowStartupLocation="CenterScreen"
-            TextElement.Foreground="{DynamicResource TextMain}" TextElement.FontSize="13">
+            TextElement.Foreground="{DynamicResource TextMain}" TextElement.FontSize="13" TextElement.FontWeight="Normal"
+            TextOptions.TextFormattingMode="Display" TextOptions.TextRenderingMode="ClearType"
+            RenderOptions.ClearTypeHint="Enabled" UseLayoutRounding="True"
+            SnapsToDevicePixels="True">
         
         <WindowChrome.WindowChrome>
             <WindowChrome GlassFrameThickness="-1" CaptionHeight="%CaptionHeight%" CornerRadius="{DynamicResource WindowRadius}" />

@@ -79,7 +79,19 @@ GetLastWinPos() {
         VirtualWidth := SysGet(78)
         VirtualHeight := SysGet(79)
         if (WinPosArr[1] > 0 && WinPosArr[1] < VirtualWidth && WinPosArr[2] > 0 && WinPosArr[2] < VirtualHeight) {
-            ; 旧格式 xπy 两段 → 默认 1070×590；新格式含 w/h（≥400×300 才采信，上界钳虚拟屏防存档超大值）
+            ; 新格式 xπyπSπ缩放系数：尺寸 = 1400×787 基准 × 当前屏幕 fs × 系数（物理像素）
+            ; 跨分辨率（4K→1080p 等）时窗口比例不变，不会因保存的绝对尺寸而巨大化
+            if (WinPosArr.Length >= 4 && WinPosArr[3] == "S" && IsNumber(WinPosArr[4])) {
+                dpi := DllCall("GetDpiForSystem", "UInt") / 96.0
+                dipSW := A_ScreenWidth / dpi
+                dipSH := A_ScreenHeight / dpi
+                fs := Min(dipSW / 1920, dipSH / 1080)
+                scale := Float(WinPosArr[4])
+                w := Min(Round(1400 * fs * scale * dpi), VirtualWidth)
+                h := Min(Round(787 * fs * scale * dpi), VirtualHeight)
+                return [WinPosArr[1], WinPosArr[2], w, h]
+            }
+            ; 旧格式 xπy 两段 → 默认 1070×590；旧 4 段含绝对 w/h（≥400×300 才采信，上界钳虚拟屏防存档超大值）
             w := (WinPosArr.Length >= 4 && IsNumber(WinPosArr[3]) && WinPosArr[3] >= 400) ? Min(WinPosArr[3], VirtualWidth) : 1070
             h := (WinPosArr.Length >= 4 && IsNumber(WinPosArr[4]) && WinPosArr[4] >= 300) ? Min(WinPosArr[4], VirtualHeight) : 590
             return [WinPosArr[1], WinPosArr[2], w, h]

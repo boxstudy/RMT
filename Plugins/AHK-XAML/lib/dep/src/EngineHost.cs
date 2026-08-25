@@ -390,6 +390,32 @@ public partial class AhkWpfEngine
             SyncWindowResourcesToApp(win);
             xamlContent = null;
             xamlBytes = null;
+
+            // 窗口缩放支持（对所有窗口统一生效，无需改各 GUI 的 XAML）：
+            // 把根内容包进 Viewbox（等比缩放）。根内容尺寸固定为窗口设计尺寸（win.Width/Height），
+            // 窗口默认大小时 1:1 无变化；用户拉大/缩小时内容等比缩放。
+            try
+            {
+                var rootContent = win.Content as FrameworkElement;
+                if (rootContent != null && !(rootContent is System.Windows.Controls.Viewbox)
+                    && !double.IsNaN(win.Width) && !double.IsNaN(win.Height))
+                {
+                    if (double.IsNaN(rootContent.Width))
+                        rootContent.Width = win.Width;
+                    if (double.IsNaN(rootContent.Height))
+                        rootContent.Height = win.Height;
+                    var oldContent = win.Content;
+                    win.Content = null;   // 先从窗口摘除，避免逻辑树父冲突
+                    var vb = new System.Windows.Controls.Viewbox
+                    {
+                        Stretch = System.Windows.Media.Stretch.Uniform,
+                        StretchDirection = System.Windows.Controls.StretchDirection.Both,
+                        Child = (UIElement)oldContent
+                    };
+                    win.Content = vb;
+                }
+            }
+            catch { }
         }
         catch (XamlParseException ex)
         {

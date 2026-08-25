@@ -83,15 +83,50 @@ class ThemeSettingGui {
         panel := scrollViewer.Add("StackPanel").Margin("14, 6, 14, 10")
 
         ; 颜色值用 Border+TextBlock 显示，避免 WPF TextBox 默认 MinHeight 导致高度调不动
+        ; 主题界面字号与设置页签一致（标签 12 / 输入 11 / 色值 13）
         this._colorUi := {
             labelFg: "{DynamicResource TextMain}", labelFs: 12, labelW: 78,
             boxW: 100, boxH: 24, boxFs: 13,
-            previewW: 24, previewH: 24,
-            col2Margin: 28
+            previewW: 24, previewH: 24
         }
 
+        ; ===== 字体（在主题预设上面，其他内容顺延）=====
+        fontGroup := panel.Add("GroupBox").Header(GetLang("字体")).Margin("0,0,0,0")
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+            .Foreground("{DynamicResource TextMain}")
+        fontInner := fontGroup.Add("StackPanel").Margin("12, 8")
+
+        ; 一行两列：左=软件字体（下拉），右=字体大小（滑动条 0-40，默认 22）
+        fontRow := fontInner.Add("Grid").Margin("0,2,0,0")
+        fontRow.Cols("*", "*")
+
+        ; 左：软件字体
+        familyCol := fontRow.Add("StackPanel").Grid_Column(0).Orientation("Horizontal")
+        familyCol.Add("TextBlock").Text(GetLang("软件字体") "：")
+            .Foreground(this._colorUi.labelFg).FontSize(this._colorUi.labelFs)
+            .VerticalAlignment("Center").Width(this._colorUi.labelW)
+        fontCombo := familyCol.Add("ComboBox").Name("FontFamilyCon").Width(130).Height(26).MinHeight(26)
+            .VerticalContentAlignment("Center")
+            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").Margin("4,0,0,0")
+        if (IsObject(MainSoftData.FontList)) {
+            for font in MainSoftData.FontList
+                fontCombo.Add("ComboBoxItem").Content(font)
+        }
+
+        ; 右：字体大小（滑动条）
+        sizeCol := fontRow.Add("StackPanel").Grid_Column(1).Orientation("Horizontal").Margin("8,0,0,0")
+        sizeCol.Add("TextBlock").Text(GetLang("字体大小") "：")
+            .Foreground(this._colorUi.labelFg).FontSize(this._colorUi.labelFs)
+            .VerticalAlignment("Center").Width(this._colorUi.labelW)
+        sizeSlider := sizeCol.Add("Slider").Name("FontSizeCon").Width(150).Height(26).MinHeight(26).Margin("2,0,0,0")
+            .Minimum("0").Maximum("40").Value("22").IsMoveToPointEnabled("True")
+        sizeVal := sizeCol.Add("TextBlock").Name("FontSizeVal").Text("22")
+            .FontSize(11).Width(28).Foreground("{DynamicResource TextMain}")
+            .VerticalAlignment("Center").Margin("4,0,0,0")
+
         ; ===== 顶部：主题下拉 =====
-        themeGroup := panel.Add("GroupBox").Header(GetLang("主题预设")).Margin("0,0,0,0")
+        themeGroup := panel.Add("GroupBox").Header(GetLang("主题预设")).Margin("0,10,0,0")
             .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
             .Foreground("{DynamicResource TextMain}")
         themeInner := themeGroup.Add("StackPanel").Margin("12, 8")
@@ -99,7 +134,10 @@ class ThemeSettingGui {
         themeRow.Add("TextBlock").Text(GetLang("选择主题") "：")
             .Foreground(this._colorUi.labelFg).FontSize(this._colorUi.labelFs)
             .VerticalAlignment("Center").Width(this._colorUi.labelW)
-        themeCombo := themeRow.Add("ComboBox").Name("ThemeCombo").Width(180).Height(26).MinHeight(26).Margin("6,0,0,0")
+        themeCombo := themeRow.Add("ComboBox").Name("ThemeCombo").Width(130).Height(26).MinHeight(26)
+            .VerticalContentAlignment("Center")
+            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").Margin("4,0,0,0")
         for item in AppThemeUtil.Presets
             themeCombo.Add("ComboBoxItem").Content(GetLang(item.Name))
         themeCombo.Add("ComboBoxItem").Content(GetLang("自定义"))
@@ -113,10 +151,12 @@ class ThemeSettingGui {
             inner := groupBox.Add("StackPanel").Margin("12, 6")
             rowKeys := this._GetGroupRowKeys(groupName)
             for ri, keys in rowKeys {
-                row := inner.Add("StackPanel").Orientation("Horizontal").Margin(ri == 1 ? "0,4,0,0" : "0,6,0,0")
+                ; 双列 Grid：第二列与字体行第二列统一左对齐
+                row := inner.Add("Grid").Margin(ri == 1 ? "0,4,0,0" : "0,6,0,0")
+                row.Cols("*", "*")
                 this._AddColorItem(row, this._FindColorDef(keys[1]), 0)
                 if (keys.Length >= 2)
-                    this._AddColorItem(row, this._FindColorDef(keys[2]), this._colorUi.col2Margin)
+                    this._AddColorItem(row, this._FindColorDef(keys[2]), 1)
             }
         }
 
@@ -127,7 +167,7 @@ class ThemeSettingGui {
 
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", "")
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' title '" ShowInTaskbar="False" Width="540" Height="640" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' title '" ShowInTaskbar="False" Width="600" Height="640" Opacity="0"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'CornerRadius="{DynamicResource WindowRadius}"', 'CornerRadius="{DynamicResource PanelRadius}"')
         groupBoxStyle := '<Style TargetType="GroupBox"><Setter Property="BorderBrush" Value="{DynamicResource ControlBorder}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="Foreground" Value="{DynamicResource TextMain}"/></Style>'
@@ -137,6 +177,8 @@ class ThemeSettingGui {
         this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
         this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
         this.ui.Track("ThemeCombo")
+        this.ui.Track("FontSizeCon")
+        this.ui.OnEvent("FontSizeCon", "ValueChanged", ObjBindMethod(this, "OnFontSizeChanged"))
         this.ui.OnEvent("ThemeCombo", "SelectionChanged", ObjBindMethod(this, "OnThemeSelectionChanged"))
         this.ui.OnEvent("BtnConfirm", "Click", ObjBindMethod(this, "OnConfirmClick"))
 
@@ -200,9 +242,9 @@ class ThemeSettingGui {
         return {Key: key, Group: "", Label: key}
     }
 
-    _AddColorItem(row, def, leftMargin) {
+    _AddColorItem(row, def, col) {
         ui := this._colorUi
-        item := row.Add("StackPanel").Orientation("Horizontal").Margin(leftMargin "," 0 ",0,0")
+        item := row.Add("StackPanel").Orientation("Horizontal").Grid_Column(col)
             .VerticalAlignment("Center")
         item.Add("TextBlock").Text(GetLang(def.Label) "：")
             .Foreground(ui.labelFg).FontSize(ui.labelFs)
@@ -245,6 +287,20 @@ class ThemeSettingGui {
             }
             this.ui.Update("ThemeCombo", "SelectedIndex", String(themeIdx))
             this.RefreshColorRows()
+            ; 字体：大小 = 当前 XAML 主题 FontSize；字体 = 全局 FontType
+            fsz := MainSoftData.HasProp("FontSize") ? Integer(MainSoftData.FontSize) : 22
+            this.ui.Update("FontSizeCon", "Value", String(fsz))
+            this.ui.Update("FontSizeVal", "Text", String(fsz))
+            fIdx := 0
+            if (IsObject(MainSoftData.FontList)) {
+                for i, f in MainSoftData.FontList {
+                    if (f == MainSoftData.FontType) {
+                        fIdx := i - 1
+                        break
+                    }
+                }
+            }
+            this.ui.Update("FontFamilyCon", "SelectedIndex", String(fIdx))
         } finally {
             this._applyingTheme := false
         }
@@ -273,6 +329,13 @@ class ThemeSettingGui {
         this._colors := AppThemeUtil.NewColorMapFromPreset(preset)
         this.RefreshColorRows()
         AppThemeUtil.ApplyWinThemeToXaml(this.ui, this._colors)
+    }
+
+    ; 字号滑动条变化：右侧同步显示当前值
+    OnFontSizeChanged(state, ctrl, event) {
+        v := (IsObject(state) && state.Has("FontSizeCon")) ? state["FontSizeCon"] : ""
+        if (v != "")
+            try this.ui.Update("FontSizeVal", "Text", String(Integer(v)))
     }
 
     OnPickColor(colorKey, labelKey, state, ctrl, event) {
@@ -313,6 +376,41 @@ class ThemeSettingGui {
         MainSoftData.ThemeColors := AppThemeUtil.CloneColorMap(this._colors)
         AppThemeUtil.ApplyToRuntime(MainSoftData.ThemeColors)
         AppThemeUtil.SaveToIni()
+        ; 字体：软件字体 + 字体大小写入当前 XAML 主题并刷新全局，立即应用到主界面与主题窗口自身
+        global XAML_FontSizeDelta, XAML_FontSizeBase, XAML_FontWeight, XAML_TextClarity
+        try {
+            themeIni := IsSet(ThemesIniPath) ? ThemesIniPath : (A_ScriptDir "\Setting\themes.ini")
+            ; 软件字体
+            try {
+                sel := this.ui.Query("FontFamilyCon")
+                if (sel != "" && IsObject(MainSoftData.FontList) && MainSoftData.FontList.Has(sel)) {
+                    MainSoftData.FontType := sel
+                    IniWrite(sel, IniFile, IniSection, "FontType")
+                }
+            }
+            ; 字体大小（滑动条 0-40，默认 22）
+            oldDelta := XAML_FontSizeDelta
+            fs := 22
+            try fs := Integer(this.ui.Query("FontSizeCon"))
+            if (fs < 0)
+                fs := 0
+            if (fs > 40)
+                fs := 40
+            IniWrite(fs, themeIni, MainSoftData.Theme, "FontSize")
+            MainSoftData.FontSize := fs
+            XAML_FontSizeDelta := fs - XAML_FontSizeBase
+            ; 立即应用（引擎 Window|ApplyFonts：字体|字号增量变化|粗细|清晰度=1），无需重开窗口
+            change := XAML_FontSizeDelta - oldDelta
+            MainSoftData.FontClarity := "1"
+            XAML_TextClarity := 1
+            payload := MainSoftData.FontType "|" change "|" MainSoftData.FontWeight "|1"
+            try {
+                if (IsSet(MyMainWin) && IsObject(MyMainWin) && IsObject(MyMainWin.ui)
+                    && MyMainWin.ui.HasProp("wpfHwnd") && MyMainWin.ui.wpfHwnd)
+                    MyMainWin.ui.Update("Window", "ApplyFonts", payload)
+            }
+            try this.ui.Update("Window", "ApplyFonts", payload)
+        }
         ; 浮窗 / 指令显示运行时已打开时刷新业务色
         if (IsSet(MyUIMacroGui) && IsObject(MyUIMacroGui))
             MyUIMacroGui.RefreshPanels()

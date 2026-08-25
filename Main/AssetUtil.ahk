@@ -506,6 +506,17 @@ LoadMainSetting() {
     MainSoftData.MenuWheelShowTooltip := IniRead(IniFile, IniSection, "MenuWheelShowTooltip", false)
     MainSoftData.MenuWheelScale := IniRead(IniFile, IniSection, "MenuWheelScale", 100)
     MainSoftData.Theme := IniRead(IniFile, IniSection, "Theme", "RMT_Light")
+    ; 主题字体：大小（默认 22）/ 粗细（400）；清晰度固定 1（标准平滑），见 XAMLHost.ApplyFontSizeDelta 与 Show 的模板替换
+    global XAML_FontSizeDelta, XAML_FontSizeBase, XAML_FontWeight, XAML_TextClarity
+    try {
+        themeIni := IsSet(ThemesIniPath) ? ThemesIniPath : (A_ScriptDir "\Setting\themes.ini")
+        MainSoftData.FontSize := IniRead(themeIni, MainSoftData.Theme, "FontSize", 22)
+        XAML_FontSizeDelta := MainSoftData.FontSize - XAML_FontSizeBase
+        MainSoftData.FontWeight := FontWeightToNum(IniRead(themeIni, MainSoftData.Theme, "FontWeight", "400"))
+        XAML_FontWeight := MainSoftData.FontWeight
+        MainSoftData.FontClarity := "1"   ; 文字清晰度固定 1（标准平滑）
+        XAML_TextClarity := 1
+    }
     ; 界面浮窗配置（非颜色）
     MainSoftData.UIPanelShowOnActive := IniRead(IniFile, IniSection, "UIPanelShowOnActive", true)
     MainSoftData.UIPanelDefaultPos := Integer(IniRead(IniFile, IniSection, "UIPanelDefaultPos", 1))
@@ -600,6 +611,9 @@ EnsureXAMLThemesIni() {
     if (!DirExist(A_ScriptDir "\Setting"))
         DirCreate(A_ScriptDir "\Setting")
     IniWrite("2,0", iniPath, "RMT_Light", "Window_DWM")
+    IniWrite("22", iniPath, "RMT_Light", "FontSize")   ; 主题字体大小（默认 22，滑动条 0-40）
+    IniWrite("400", iniPath, "RMT_Light", "FontWeight")
+    IniWrite("1", iniPath, "RMT_Light", "FontClarity")
     IniWrite("CornerRadius:8", iniPath, "RMT_Light", "Resource_WindowRadius")
     IniWrite("#FFF0F0F0", iniPath, "RMT_Light", "Resource_BgColor")
     IniWrite("#FFEBEBEB", iniPath, "RMT_Light", "Resource_TitleBarColor")
@@ -630,6 +644,9 @@ EnsureXAMLThemesIni() {
     IniWrite("#FF0078D7", iniPath, "RMT_Light", "Resource_ScrollBarHover")
 
     IniWrite("2,1", iniPath, "RMT_Dark", "Window_DWM")
+    IniWrite("22", iniPath, "RMT_Dark", "FontSize")   ; 主题字体大小（默认 22，滑动条 0-40）
+    IniWrite("400", iniPath, "RMT_Dark", "FontWeight")
+    IniWrite("1", iniPath, "RMT_Dark", "FontClarity")
     IniWrite("CornerRadius:8", iniPath, "RMT_Dark", "Resource_WindowRadius")
     IniWrite("#FF1E1E1E", iniPath, "RMT_Dark", "Resource_BgColor")
     IniWrite("#20000000", iniPath, "RMT_Dark", "Resource_SidebarColor")
@@ -643,6 +660,33 @@ EnsureXAMLThemesIni() {
     IniWrite("CornerRadius:3", iniPath, "RMT_Dark", "Resource_ScrollBarRadius")
     IniWrite("#FF0A84FF", iniPath, "RMT_Dark", "Resource_ScrollBarHover")
     done := true
+}
+
+; 字体粗细名称 → 数值（100-900），兼容旧配置里的 Normal/Bold 等名称
+FontWeightToNum(w) {
+    switch w {
+        case "Thin", "100":
+            return "100"
+        case "ExtraLight", "200":
+            return "200"
+        case "Light", "300":
+            return "300"
+        case "Normal", "Regular", "400", "":
+            return "400"
+        case "Medium", "500":
+            return "500"
+        case "SemiBold", "600":
+            return "600"
+        case "Bold", "700":
+            return "700"
+        case "ExtraBold", "800":
+            return "800"
+        case "Black", "Heavy", "900":
+            return "900"
+    }
+    if (IsNumber(w) && w >= 100 && w <= 900)
+        return w
+    return "400"
 }
 
 ; XAML 设置窗诊断日志（排查：打不开 / 打开了但看不见）
