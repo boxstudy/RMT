@@ -255,27 +255,34 @@ class MainWin {
         this.ui.OnEvent("BtnHelp", "Click", (*) => Run(A_WorkingDir "\index.html"))
         this.ui.OnEvent("BtnSave", "Click", OnSaveSetting)
 
+        this._vl := VirtualListHost(this.ui)
         this.LoadLeftBarValues()
+        ; ===== 先填充内容（Show 前入队，LoadedHwnd 时一次刷入），填充完再显示，避免空壳闪烁 =====
+        try {
+            this.PopulateAll()
+        } catch {
+        }
         this.ui.Show()
 
+        gotHwnd := false
         loop 40 {
             if (this.ui.wpfHwnd) {
+                gotHwnd := true
+                ; 内容已入队并在 LoadedHwnd 刷入，立即揭盖（主题界面同款）
+                try this.ui.Update("Window", "Opacity", "1")
+                try WinActivate(this.ui.wpfHwnd)
                 break
             }
             Sleep(50)
         }
-
-        ; 窗口就绪立即显示（不透明等待 PopulateAll），内容异步后台填充，缩短首帧感知时间
-        this._vl := VirtualListHost(this.ui)
-        try this.ui.Update("Window", "Opacity", "1")
-        SetTimer(ObjBindMethod(this, "_PopulateAsync"), -1)
+        ; LoadedHwnd 若丢失则兜底强制显示
+        if (!gotHwnd)
+            SetTimer(ObjBindMethod(this, "_RevealFallback"), -800)
     }
 
-    ; 异步填充：BuildAndShow 不阻塞首帧，窗口先显示再后台 PopulateAll
-    _PopulateAsync() {
-        this.PopulateAll()
-        ; 原生 Gui.Show() 会激活窗口；XAML 显示路径不激活，重载时若他窗聚焦会落在后面
-        try WinActivate(this.ui.wpfHwnd)
+    _RevealFallback(*) {
+        if (IsObject(this.ui) && this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd)
+            try this.ui.Update("Window", "Opacity", "1")
     }
 
     PopulateAll() {

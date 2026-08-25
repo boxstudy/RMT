@@ -12,10 +12,7 @@ class SettingMgrGui {
         this._selectedSetting := ""
         this._applyingUI := false
         this._btnStyle := ""
-        this._themeReady := false
-        this._contentReady := false
         this._revealed := false
-        this._openTick := 0
     }
 
     ; 兼容旧入口 MySettingMgrGui.ShowGui()
@@ -25,16 +22,13 @@ class SettingMgrGui {
 
     static ShowGui() {
         key := "global"
-        XamlUiDiag("ShowGui enter hasInst=" SettingMgrGui.instances.Has(key) " opening=" SettingMgrGui._opening, "SettingMgr")
         if (SettingMgrGui.instances.Has(key)) {
             oldInst := SettingMgrGui.instances[key]
             hwnd := (IsObject(oldInst.ui) && oldInst.ui.HasProp("wpfHwnd")) ? oldInst.ui.wpfHwnd : 0
             reuse := !oldInst.closed && XAMLHost.CanReuseWindow(hwnd)
-            XamlUiDiag("oldInst closed=" oldInst.closed " hwnd=" hwnd " reuse=" reuse, "SettingMgr")
             if (reuse) {
                 try WinActivate("ahk_id " hwnd)
                 oldInst.Refresh()
-                XamlUiDiagWindow(hwnd, "SettingMgr.reuse", true)
                 return
             }
             try {
@@ -45,25 +39,15 @@ class SettingMgrGui {
         }
 
         XAMLHost.EnsureDaemonHealthy()
-        if (SettingMgrGui._opening) {
-            XamlUiDiag("ABORT: _opening=true", "SettingMgr")
+        if (SettingMgrGui._opening)
             return
-        }
         SettingMgrGui._opening := true
         try {
             inst := SettingMgrGui()
             inst._instanceKey := key
-            ; ===== 临时诊断S1：构建前 =====
-            DiagOpenStep("SettingMgr", "S1-构建前", "窗口尚未创建，屏幕上不应出现任何新窗口。")
             inst._BuildAndShow()
-            ; ===== 临时诊断S3：构建完成（窗口应已显示）=====
-            hwnd3 := (IsObject(inst.ui) && inst.ui.HasProp("wpfHwnd")) ? inst.ui.wpfHwnd : 0
-            DiagOpenStep("SettingMgr", "S3-构建完成", "窗口应已【回到原位并完整显示】：标题「配置管理」+ 所有配置列表 + 按钮区（迁入/重命名/配置校准等），主题色背景。"
-                "`n若打开过程中有白屏/闪烁，请描述你看到的顺序（先白后内容？）。", hwnd3)
             SettingMgrGui.instances[key] := inst
-            XamlUiDiag("ShowGui done hwnd=" (IsObject(inst.ui) && inst.ui.HasProp("wpfHwnd") ? inst.ui.wpfHwnd : 0), "SettingMgr")
-        } catch as e {
-            XamlUiDiag("ShowGui EXCEPTION: " e.Message " @ " e.File ":" e.Line, "SettingMgr")
+        } catch {
         } finally {
             SettingMgrGui._opening := false
         }
@@ -192,38 +176,22 @@ class SettingMgrGui {
         this.ui.OnEvent("BtnOpenRepo", "Click", ObjBindMethod(this, "OnOpenRMTSettingBtnClick"))
         this.ui.OnEvent("BtnUpload", "Click", ObjBindMethod(this, "OnRMTUploadBtnClick"))
 
-        this._openTick := A_TickCount
-        this._themeReady := false
-        this._contentReady := false
         this._revealed := false
         ; Show 前入队配置：LoadedHwnd 时引擎先 flush _updateQueue 再调 OnWindowLoad，首帧已有文案
         this.Refresh()
-        this._contentReady := true
-        XamlUiDiag("content queued +" (A_TickCount - this._openTick) "ms", "SettingMgr")
-        XamlUiDiag("before ui.Show() hostId=" (this.ui.HasProp("id") ? this.ui.id : "?")
-            " opacity0=" (InStr(this.ui.xaml, 'Opacity="0"') ? 1 : 0), "SettingMgr")
-        ; ===== 临时诊断S2：窗口即将创建 =====
-        DiagOpenStep("SettingMgr", "S2-窗口即将创建", "窗口尚未出现在屏幕上（马上创建，创建后会被移到屏幕外隐藏）。"
-            "`n若此时屏幕上有异常窗口，请描述。")
-        tShow := A_TickCount
         this.ui.Show()
-        XamlUiDiag("ui.Show() returned cost=" (A_TickCount - tShow) "ms", "SettingMgr")
         gotHwnd := false
         loop 40 {
             if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
                 gotHwnd := true
-                ; 仅等 HWND；Opacity=1 只在 OnWindowLoad 主题套完后 _TryReveal（引擎 LWA_ALPHA 在 Show 前已挂）
-                XamlUiDiag("got wpfHwnd at loop=" A_Index " +" (A_TickCount - tShow) "ms", "SettingMgr")
-                XamlUiDiagWindow(this.ui.wpfHwnd, "SettingMgr.afterShow", false)
+                ; 内容已入队并在 LoadedHwnd 刷入，立即揭盖（主题界面同款；引擎在 Show 前已离屏隐藏）
+                try this.ui.Update("Window", "Opacity", "1")
+                try WinActivate("ahk_id " this.ui.wpfHwnd)
                 break
             }
             Sleep(50)
         }
-        if (!gotHwnd) {
-            XamlUiDiag("FAIL: no wpfHwnd after wait", "SettingMgr")
-            XamlUiDiagDaemon("SettingMgr.noHwnd")
-        }
-        ; LoadedHwnd 若丢失则兜底（正常路径 OnWindowLoad 已 reveal）
+        ; LoadedHwnd 若丢失则兜底（正常路径等待循环已 reveal）
         SetTimer(ObjBindMethod(this, "_RevealFallback"), -800)
     }
 
@@ -248,8 +216,6 @@ class SettingMgrGui {
     }
 
     OnWindowClosing(state, ctrl, event) {
-        hwnd := (IsObject(this.ui) && this.ui.HasProp("wpfHwnd")) ? this.ui.wpfHwnd : 0
-        XamlUiDiag("OnWindowClosing hwnd=" hwnd, "SettingMgr")
         this.closed := true
         this._revealed := true   ; 关闭中不再 fallback reveal
         SettingMgrGui._opening := false
@@ -260,52 +226,30 @@ class SettingMgrGui {
             if (!XAMLHost.IsDaemonAlive())
                 XAMLHost.ResetDaemon()
         }
-        XamlUiDiagDaemon("SettingMgr.afterClose")
     }
 
     OnWindowLoad(state, ctrl, event) {
-        hwnd := (IsObject(this.ui) && this.ui.HasProp("wpfHwnd")) ? this.ui.wpfHwnd : 0
-        XamlUiDiag("OnWindowLoad enter hwnd=" hwnd " +" (A_TickCount - this._openTick) "ms", "SettingMgr")
         try {
             themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
             ApplyXamlTheme(this.ui, themeName)
             this.Refresh()
-            this._themeReady := true
-            this._contentReady := true
-            XamlUiDiag("theme+content ready theme=" themeName, "SettingMgr")
-        } catch as e {
-            this._themeReady := true
-            this._contentReady := true
-            XamlUiDiag("OnWindowLoad err: " e.Message, "SettingMgr")
+        } catch {
         }
         this._TryReveal("theme")
     }
 
-    ; 主题 + 内容就绪后才可见，避免空白/默认主题先闪一帧
+    ; 揭盖一次（防重复）：引擎还原位置并显示，窗口从离屏直接变完整内容，无 Hide/Show
     _TryReveal(from := "") {
         if (this._revealed || this.closed)
             return
-        XamlUiDiag("TryReveal from=" from " theme=" this._themeReady " content=" this._contentReady
-            " +" (A_TickCount - this._openTick) "ms", "SettingMgr")
-        if (!this._themeReady || !this._contentReady)
+        if (!IsObject(this.ui) || !this.ui.HasProp("wpfHwnd") || !this.ui.wpfHwnd)
             return
-        if (!IsObject(this.ui) || !this.ui.HasProp("wpfHwnd") || !this.ui.wpfHwnd) {
-            XamlUiDiag("TryReveal abort: no hwnd", "SettingMgr")
-            return
-        }
         this._revealed := true
         try this.ui.Update("Window", "Opacity", "1")
         try WinActivate("ahk_id " this.ui.wpfHwnd)
-        XamlUiDiag("revealed Opacity=1 +" (A_TickCount - this._openTick) "ms", "SettingMgr")
-        XamlUiDiagWindow(this.ui.wpfHwnd, "SettingMgr.revealed", false)
     }
 
     _RevealFallback(*) {
-        if (this._revealed || this.closed)
-            return
-        XamlUiDiag("RevealFallback force themeWas=" this._themeReady " contentWas=" this._contentReady, "SettingMgr")
-        this._themeReady := true
-        this._contentReady := true
         this._TryReveal("fallback")
     }
 

@@ -1173,12 +1173,19 @@ public partial class AhkWpfEngine
         {
             win.ShowActivated = false; // 内容未就绪前不抢焦点
             win.Resources["_NativeAlphaPending"] = true;
-            // 预计算居中位置（复刻 WindowStartupLocation=CenterScreen，DIP 坐标）
-            double winW = double.IsNaN(win.Width) ? 800 : win.Width;
-            double winH = double.IsNaN(win.Height) ? 600 : win.Height;
-            double cx = Math.Max(0, (System.Windows.SystemParameters.PrimaryScreenWidth - winW) / 2);
-            double cy = Math.Max(0, (System.Windows.SystemParameters.PrimaryScreenHeight - winH) / 2);
-            win.Resources["_RevealPos"] = new System.Windows.Point(cx, cy);
+            // 揭盖还原位：窗口 XAML 已显式定位（Manual+Left/Top，如主窗口的保存位置）则沿用，
+            // 避免揭盖时先居中再被 WinMove 拉回导致可见跳变（闪烁）；
+            // 未显式定位的窗口（CenterScreen 默认）按 CenterScreen 规则居中（DIP 坐标）。
+            if (!double.IsNaN(win.Left) && !double.IsNaN(win.Top))
+                win.Resources["_RevealPos"] = new System.Windows.Point(win.Left, win.Top);
+            else
+            {
+                double winW = double.IsNaN(win.Width) ? 800 : win.Width;
+                double winH = double.IsNaN(win.Height) ? 600 : win.Height;
+                double cx = Math.Max(0, (System.Windows.SystemParameters.PrimaryScreenWidth - winW) / 2);
+                double cy = Math.Max(0, (System.Windows.SystemParameters.PrimaryScreenHeight - winH) / 2);
+                win.Resources["_RevealPos"] = new System.Windows.Point(cx, cy);
+            }
             win.WindowStartupLocation = System.Windows.WindowStartupLocation.Manual;
             // HWND 创建瞬间、首帧绘制前
             win.SourceInitialized += (s, e) =>
