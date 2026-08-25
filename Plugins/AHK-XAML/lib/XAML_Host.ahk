@@ -881,11 +881,15 @@ class XAMLHost {
 
         XAMLHost.RestoreWebView2Dlls()
         errLog := XAMLHost.GetLogDir() "\AhkWpfError.log"
-        sourceCs := libDir "\dep\XAML_AHK_Bridge.cs"
-        if !FileExist(sourceCs) {
-            MsgBox("XAML_AHK_Bridge.cs not found in lib\dep directory!`nCannot compile shared engine.", "AHK-XAML", "Iconx")
+        ; 桥接源码已拆分为 lib\dep\src\*.cs（单文件不超 1500 行），全部参与编译
+        srcDir := libDir "\dep\src"
+        if !DirExist(srcDir) {
+            MsgBox("C# bridge sources not found in lib\dep\src directory!`nCannot compile shared engine.", "AHK-XAML", "Iconx")
             return false
         }
+        srcArgs := ""
+        Loop Files srcDir "\*.cs"
+            srcArgs .= ' "' A_LoopFilePath '"'
 
         cscPath := "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
         if !FileExist(cscPath)
@@ -1005,7 +1009,7 @@ class XAMLHost {
             return false
         }
 
-        cmd := A_ComSpec ' /c ""' cscPath '" /nologo /target:winexe /out:"' sharedExe '" /lib:"' wpfDir '" /reference:System.dll /reference:System.Core.dll /reference:System.Xml.dll /reference:PresentationFramework.dll /reference:PresentationCore.dll /reference:WindowsBase.dll /reference:System.Xaml.dll /reference:UIAutomationProvider.dll /reference:UIAutomationTypes.dll' wvRefs wvDef aeRefs aeDef docRefs docDef shDef gifRef embeddedRes ' "' sourceCs '" > "' errLog '" 2>&1"'
+        cmd := A_ComSpec ' /c ""' cscPath '" /nologo /target:winexe /out:"' sharedExe '" /lib:"' wpfDir '" /reference:System.dll /reference:System.Core.dll /reference:System.Xml.dll /reference:PresentationFramework.dll /reference:PresentationCore.dll /reference:WindowsBase.dll /reference:System.Xaml.dll /reference:UIAutomationProvider.dll /reference:UIAutomationTypes.dll' wvRefs wvDef aeRefs aeDef docRefs docDef shDef gifRef embeddedRes srcArgs ' > "' errLog '" 2>&1"'
         RunWait(cmd, "", "Hide")
 
         if !FileExist(sharedExe) {
@@ -1239,7 +1243,14 @@ class XAMLHost {
         if (A_IsCompiled) {
             targetExe := A_ScriptDir "\Plugins\AHK-XAML\lib\dep\" baseDllName
         } else if (!A_IsCompiled) {
-            sourceCs := libDir "\dep\XAML_AHK_Bridge.cs"
+            srcDir := libDir "\dep\src"
+            ; 取 src 下最新的 .cs 修改时间作为"源码是否更新"的基准（拆分后为多文件）
+            newestSrcTime := "00000000000000"
+            Loop Files srcDir "\*.cs" {
+                t := FileGetTime(A_LoopFilePath)
+                if (t > newestSrcTime)
+                    newestSrcTime := t
+            }
             configAhk := libDir "\XAML_Config.ahk"
             configTime := FileExist(configAhk) ? FileGetTime(configAhk) : 0
             forceCompile := IsSet(XAML_FORCE_DYNAMIC_COMPILE) && XAML_FORCE_DYNAMIC_COMPILE
@@ -1252,9 +1263,9 @@ class XAMLHost {
             }
 
             ; 先重编译（必要时杀掉任意 ahk-xaml），再校验 daemon 路径，避免误连桌面 Release 旧引擎
-            if (forceCompile && FileExist(sourceCs)) {
+            if (forceCompile && DirExist(srcDir)) {
                 compileTarget := (buildLoc == "temp") ? targetExe : sharedExe
-                needCompile := !FileExist(compileTarget) || FileGetTime(sourceCs) > FileGetTime(compileTarget) || configTime > FileGetTime(compileTarget)
+                needCompile := !FileExist(compileTarget) || newestSrcTime > FileGetTime(compileTarget) || configTime > FileGetTime(compileTarget)
                 if (needCompile) {
                     XAMLHost.KillDaemon()
                     try {

@@ -4,7 +4,7 @@
 ; ==============================================================================
 
 ; --- Engine Compilation ---
-; When true, the C# engine (.dll) is recompiled from XAML_AHK_Bridge.cs on every run.
+; When true, the C# engine (.dll) is recompiled from the src\*.cs files (split from the former XAML_AHK_Bridge.cs) on every run.
 ; When false, uses the pre-compiled ahk-xaml.dll from the lib/dep directory.
 global XAML_FORCE_DYNAMIC_COMPILE := true
 

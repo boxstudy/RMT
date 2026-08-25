@@ -1,7 +1,7 @@
 #Requires AutoHotkey v2.0
 
 ; ===== AHK-XAML 生产模式配置 =====
-; 注意：true 时若 XAML_AHK_Bridge.cs 比 lib/dep/ahk-xaml.dll 新会自动重新编译桥接 DLL。
+; 注意：true 时若 lib/dep/src 下的 .cs 源码（拆分后为多文件）比 lib/dep/ahk-xaml.dll 新会自动重新编译桥接 DLL。
 ; 直接运行 .ahk 调试必须开着，否则改了 C# 也不会重编译（旧 DLL 存在就一直用旧的）。
 ; 编译成 exe 发布(A_IsCompiled)时此开关被忽略、始终用打包好的 DLL，故开着对发布无影响。
 global XAML_FORCE_DYNAMIC_COMPILE := true
