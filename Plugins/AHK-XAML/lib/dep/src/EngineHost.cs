@@ -1215,6 +1215,8 @@ public partial class AhkWpfEngine
                 win.Resources["_RevealPos"] = new System.Windows.Point(cx, cy);
             }
             win.WindowStartupLocation = System.Windows.WindowStartupLocation.Manual;
+            win.Left = -32000;
+            win.Top = -32000;
             // HWND 创建瞬间、首帧绘制前
             win.SourceInitialized += (s, e) =>
             {
@@ -1246,8 +1248,9 @@ public partial class AhkWpfEngine
             return;
         try
         {
-            // Show 后补一次 LWA（防 WPF 重置）；窗口位置已在 PrepareDeferredReveal 中移到屏幕外，
-            // 揭盖时由 CommandDispatcher.RevealNativeWindow 还原位置并显示。
+            IntPtr h = new System.Windows.Interop.WindowInteropHelper(win).Handle;
+            if (h != IntPtr.Zero)
+                SetWindowPos(h, IntPtr.Zero, -32000, -32000, 0, 0, 0x0001 | 0x0004 | 0x0010);
             ApplyNativeAlphaZero(win);
         }
         catch { }

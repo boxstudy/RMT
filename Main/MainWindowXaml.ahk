@@ -248,13 +248,14 @@ class MainWin {
             startLoc := 'WindowStartupLocation="Manual" Left="' x '" Top="' y '"'
             wh := 'Width="' w '" Height="' h '"'
         }
-        ; 主界面不隐藏：直接 Show（WindowChrome+GlassFrame=0 下框架先出现、内容后填充，无黑/紫/白壳过渡）
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' title '" ' wh)
+        ; 先填内容再显示：Opacity=0 走引擎离屏揭盖，避免空壳→主题/列表刷入时抖动
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' title '" ' wh ' Opacity="0"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'WindowStartupLocation="CenterScreen"', startLoc)
 
         ; ---- 壳级事件（初始 XAML 内，经 eventBindings 绑定） ----
         this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
         this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
+        this.ui.OnEvent("Window", "Revealed", ObjBindMethod(this, "OnWindowRevealed"))
         this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCloseClick"))
         this.ui.OnEvent("BtnMinimize", "Click", ObjBindMethod(this, "OnMinimizeClick"))
         this.ui.OnEvent("BtnMaximize", "Click", ObjBindMethod(this, "OnMaximizeClick"))
@@ -269,6 +270,7 @@ class MainWin {
 
         this._vl := VirtualListHost(this.ui)
         this.LoadLeftBarValues()
+        this._startHidden := MainSoftData.HasProp("IsMinStart") && MainSoftData.IsMinStart
         ; ===== 先填充内容（Show 前入队，LoadedHwnd 时一次刷入），填充完再显示，避免空壳闪烁 =====
         try {
             this.PopulateAll()
@@ -280,8 +282,7 @@ class MainWin {
         loop 40 {
             if (this.ui.wpfHwnd) {
                 gotHwnd := true
-                XamlUiDiag("MainWin shown hwnd=" this.ui.wpfHwnd, "MainWin")
-                try WinActivate("ahk_id " this.ui.wpfHwnd)
+                XamlUiDiag("MainWin hwnd=" this.ui.wpfHwnd, "MainWin")
                 break
             }
             Sleep(50)
@@ -314,7 +315,14 @@ class MainWin {
         } catch as e {
             XamlUiDiag("MainWin OnWindowLoad err: " e.Message, "MainWin")
         }
-        ; 位置已由 BuildAndShow 注入 XAML（Manual+Left/Top），无需 WinMove
+        ; 最小化启动：保持隐藏，不揭盖
+        if (this.HasOwnProp("_startHidden") && this._startHidden)
+            return
+        try this.ui.Update("Window", "Opacity", "1")
+    }
+
+    OnWindowRevealed(state, ctrl, event) {
+        try WinActivate("ahk_id " this.ui.wpfHwnd)
     }
 
     OnWindowClosing(state, ctrl, event) {

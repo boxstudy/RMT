@@ -59,7 +59,14 @@ OnOpen() {
         return
     }
 
-    RefreshGui()
+    IniWrite(false, IniFile, IniSection, "IsReload")
+    if (MainSoftData.LastShowMonth != A_Mon) {
+        MainSoftData.TabCtrl.Value := 9
+        MainSoftData.LastShowMonth := A_Mon
+        IniWrite(MainSoftData.LastShowMonth, IniFile, IniSection, "LastShowMonth")
+    }
+    ; 首次打开不 WinMove/WinShow：主窗口 Opacity=0，内容填完再揭盖；再 Move 会抖一下
+    RefreshListenVarGui()
 }
 
 ; 主窗口关闭时清理所有鼠标热键订阅

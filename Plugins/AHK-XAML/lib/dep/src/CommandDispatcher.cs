@@ -3744,21 +3744,9 @@ public partial class AhkWpfEngine
                                             // 窗口已关闭则放弃
                                             if (!win.IsLoaded || new System.Windows.Interop.WindowInteropHelper(win).Handle != wHwnd)
                                                 return;
-                                            // 第一步：移到屏内（保持 LWA 透明）；SetWindowPos 不触发 WPF 重排
-                                            if (win.Resources.Contains("_RevealPos"))
-                                            {
-                                                try
-                                                {
-                                                    System.Windows.Point pos = (System.Windows.Point)win.Resources["_RevealPos"];
-                                                    double scale = 1.0;
-                                                    try { scale = GetDpiForSystem() / 96.0; } catch { }
-                                                    SetWindowPos(wHwnd, IntPtr.Zero, (int)(pos.X * scale), (int)(pos.Y * scale), 0, 0, 0x0001 | 0x0004 | 0x0010); // SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE
-                                                }
-                                                catch { }
-                                            }
-                                            // 补 LWA 防重置
+                                            // 内容在屏外画完；GlassFrame=0 时屏上 LWA 藏不住，揭盖前不要移回屏内
                                             try { ApplyNativeAlphaZero(win); } catch { }
-                                            // 屏内合成中设 backdrop=0 才真正生效（未显示过的窗口上可能被忽略）
+                                            try { SetWindowPos(wHwnd, IntPtr.Zero, -32000, -32000, 0, 0, 0x0001 | 0x0004 | 0x0010); } catch { }
                                             if (!win.AllowsTransparency)
                                             {
                                                 try
@@ -3770,7 +3758,6 @@ public partial class AhkWpfEngine
                                                 }
                                                 catch { }
                                             }
-                                            // 第二步：等首帧 present 完成再清 LWA
                                             var presentTimer = new System.Windows.Threading.DispatcherTimer();
                                             presentTimer.Interval = TimeSpan.FromMilliseconds(80);
                                             presentTimer.Tick += (s2, e2) =>
@@ -3781,7 +3768,6 @@ public partial class AhkWpfEngine
                                                     if (!win.IsLoaded || new System.Windows.Interop.WindowInteropHelper(win).Handle != wHwnd)
                                                         return;
                                                     RevealNativeWindow(win, wHwnd);
-                                                    // 揭盖完成通知 AHK 激活窗口
                                                     try { SendToAhkAsync("EVENT|" + winId + "|Window|Revealed\n"); } catch { }
                                                 }
                                                 catch { }
@@ -3911,28 +3897,38 @@ public partial class AhkWpfEngine
             fe.MinHeight = need;
     }
 
-    // 揭盖：窗口创建时被移到屏外（见 PrepareDeferredReveal），AHK 置 Opacity=1 时还原位置并清 LWA 显示
+    // 揭盖：屏外先去掉 layered，再一次移到目标位置（避免 GlassFrame=0 时屏上 LWA 露出黑框）
     private static void RevealNativeWindow(Window win, IntPtr hwnd)
     {
         if (hwnd == IntPtr.Zero)
             return;
-        // 清 LWA 前先关 DWM backdrop（Acrylic 会让首帧闪系统玻璃紫；此处窗口即将可见才生效）
         if (!win.AllowsTransparency)
         {
             try
             {
-                int noBackdrop = 0; // DWMSBT_NONE
+                int noBackdrop = 0;
                 int darkMode = 0;
                 DwmSetWindowAttribute(hwnd, 20, ref darkMode, 4);
                 DwmSetWindowAttribute(hwnd, 38, ref noBackdrop, 4);
             }
             catch { }
         }
-        // 位置已在第一步由 SetWindowPos 设好，此处不用 win.Left/Top（透明状态下 WPF 移动会重置 LWA）
-        SetLayeredWindowAttributes(hwnd, 0, 255, 0x2);      // LWA_ALPHA=255，兜底
+        SetLayeredWindowAttributes(hwnd, 0, 255, 0x2);
         int ex = GetWindowLong(hwnd, -20);
-        SetWindowLong(hwnd, -20, new IntPtr(ex & ~0x80000)); // 去掉 WS_EX_LAYERED，恢复正常窗口（保留阴影）
-        ShowWindow(hwnd, 5);                                 // SW_SHOW，兜底
+        SetWindowLong(hwnd, -20, new IntPtr(ex & ~0x80000));
+        if (win.Resources.Contains("_RevealPos"))
+        {
+            try
+            {
+                System.Windows.Point pos = (System.Windows.Point)win.Resources["_RevealPos"];
+                double scale = 1.0;
+                try { scale = GetDpiForSystem() / 96.0; } catch { }
+                SetWindowPos(hwnd, IntPtr.Zero, (int)(pos.X * scale), (int)(pos.Y * scale), 0, 0, 0x0001 | 0x0004 | 0x0010);
+                win.Resources.Remove("_RevealPos");
+            }
+            catch { }
+        }
+        ShowWindow(hwnd, 5);
     }
 
 }
