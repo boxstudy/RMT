@@ -271,6 +271,7 @@ class MainWin {
         this._vl := VirtualListHost(this.ui)
         this.LoadLeftBarValues()
         this._startHidden := MainSoftData.HasProp("IsMinStart") && MainSoftData.IsMinStart
+        this.ui._skipAutoReveal := this._startHidden
         ; ===== 先填充内容（Show 前入队，LoadedHwnd 时一次刷入），填充完再显示，避免空壳闪烁 =====
         try {
             this.PopulateAll()

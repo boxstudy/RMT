@@ -3727,56 +3727,14 @@ public partial class AhkWpfEngine
                         else if (pt == "Geometry") val = System.Windows.Media.Geometry.Parse(parts[2]);
                         else val = Convert.ChangeType(parts[2], prop.PropertyType);
                         prop.SetValue(ctrl, val, null);
-                        // 离屏隐藏窗口揭盖：先移回屏内（SetWindowPos 同步移动，避免 WPF 异步移动重置 LWA 露黑帧），
-                        // 等首帧 present 完成（80ms）再清 LWA，显示完整内容。
+                        // 配置管理同款：Opacity=1 立即揭盖。屏上再等 present 只会拉长黑框（GlassFrame=0 时 LWA 藏不住）。
                         if (ctrl == win && parts[1] == "Opacity" && win.Resources.Contains("_NativeAlphaPending"))
                         {
                             try
                             {
-                                win.Resources.Remove("_NativeAlphaPending");
                                 IntPtr wHwnd = new System.Windows.Interop.WindowInteropHelper(win).Handle;
                                 if (wHwnd != IntPtr.Zero)
-                                {
-                                    win.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.ContextIdle, new Action(() =>
-                                    {
-                                        try
-                                        {
-                                            // 窗口已关闭则放弃
-                                            if (!win.IsLoaded || new System.Windows.Interop.WindowInteropHelper(win).Handle != wHwnd)
-                                                return;
-                                            // 内容在屏外画完；GlassFrame=0 时屏上 LWA 藏不住，揭盖前不要移回屏内
-                                            try { ApplyNativeAlphaZero(win); } catch { }
-                                            try { SetWindowPos(wHwnd, IntPtr.Zero, -32000, -32000, 0, 0, 0x0001 | 0x0004 | 0x0010); } catch { }
-                                            if (!win.AllowsTransparency)
-                                            {
-                                                try
-                                                {
-                                                    int noBackdrop = 0;
-                                                    int darkMode = 0;
-                                                    DwmSetWindowAttribute(wHwnd, 20, ref darkMode, 4);
-                                                    DwmSetWindowAttribute(wHwnd, 38, ref noBackdrop, 4);
-                                                }
-                                                catch { }
-                                            }
-                                            var presentTimer = new System.Windows.Threading.DispatcherTimer();
-                                            presentTimer.Interval = TimeSpan.FromMilliseconds(80);
-                                            presentTimer.Tick += (s2, e2) =>
-                                            {
-                                                presentTimer.Stop();
-                                                try
-                                                {
-                                                    if (!win.IsLoaded || new System.Windows.Interop.WindowInteropHelper(win).Handle != wHwnd)
-                                                        return;
-                                                    RevealNativeWindow(win, wHwnd);
-                                                    try { SendToAhkAsync("EVENT|" + winId + "|Window|Revealed\n"); } catch { }
-                                                }
-                                                catch { }
-                                            };
-                                            presentTimer.Start();
-                                        }
-                                        catch { }
-                                    }));
-                                }
+                                    RevealNativeWindow(win, wHwnd);
                             }
                             catch { }
                         }
@@ -3897,11 +3855,12 @@ public partial class AhkWpfEngine
             fe.MinHeight = need;
     }
 
-    // 揭盖：屏外先去掉 layered，再一次移到目标位置（避免 GlassFrame=0 时屏上 LWA 露出黑框）
+    // 揭盖：立刻移到目标位置并去掉 layered。不要在屏上再等一帧（GlassFrame=0 时会露出黑框）。
     private static void RevealNativeWindow(Window win, IntPtr hwnd)
     {
         if (hwnd == IntPtr.Zero)
             return;
+        try { win.Resources.Remove("_NativeAlphaPending"); } catch { }
         if (!win.AllowsTransparency)
         {
             try
@@ -3916,6 +3875,8 @@ public partial class AhkWpfEngine
         SetLayeredWindowAttributes(hwnd, 0, 255, 0x2);
         int ex = GetWindowLong(hwnd, -20);
         SetWindowLong(hwnd, -20, new IntPtr(ex & ~0x80000));
+        // 先在屏外去掉 layered，让 Win11 阴影一次成型，再移回目标位置（避免先出内容再补阴影）
+        try { SetWindowPos(hwnd, IntPtr.Zero, -32000, -32000, 0, 0, 0x0001 | 0x0004 | 0x0010 | 0x0020); } catch { }
         if (win.Resources.Contains("_RevealPos"))
         {
             try

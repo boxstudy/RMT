@@ -206,8 +206,15 @@ class ThemeSettingGui {
         for def in AppThemeUtil.ColorDefs
             this.ui.OnEvent(def.Key "_Preview", "MouseLeftButtonDown", ObjBindMethod(this, "OnPickColor", def.Key, def.Label))
 
-        ; Show 前入队配置，LoadedHwnd 时立即刷入，避免先闪默认值
+        ; Show 前入队主题色+控件值：LoadedHwnd 一次刷完再揭盖，避免白框→描边→滚动条→阴影分段刷新
+        this._applyingTheme := true
         this.LoadInitValues()
+        try {
+            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
+            ApplyXamlTheme(this.ui, themeName)
+        } catch as e {
+            XamlUiDiag("preShow ApplyXamlTheme err: " e.Message, "Theme")
+        }
         this.ApplyValuesToUI()
         XamlUiDiag("before ui.Show() hostId=" this.ui.id, "Theme")
         tShow := A_TickCount
@@ -300,6 +307,7 @@ class ThemeSettingGui {
     }
 
     ApplyValuesToUI() {
+        wasApplying := this._applyingTheme
         this._applyingTheme := true
         try {
             themeIdx := AppThemeUtil.Presets.Length  ; 自定义
@@ -327,7 +335,9 @@ class ThemeSettingGui {
             }
             this.ui.Update("FontFamilyCon", "SelectedIndex", String(fIdx))
         } finally {
-            this._applyingTheme := false
+            ; 开窗入队期间保持抑制：SelectionChanged/ValueChanged 是异步的，立刻清会在揭盖后再刷一遍主题
+            if (!wasApplying)
+                this._applyingTheme := false
         }
     }
 
@@ -466,16 +476,15 @@ class ThemeSettingGui {
     OnWindowLoad(state, ctrl, event) {
         hwnd := (IsObject(this.ui) && this.ui.HasProp("wpfHwnd")) ? this.ui.wpfHwnd : 0
         XamlUiDiag("OnWindowLoad enter hwnd=" hwnd, "Theme")
-        try {
-            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
-            ApplyXamlTheme(this.ui, themeName)
-            this.ApplyValuesToUI()
-        } catch as e {
-            XamlUiDiag("OnWindowLoad err: " e.Message, "Theme")
-        } finally {
-            try this.ui.Update("Window", "Opacity", "1")
-            XamlUiDiagWindow(hwnd, "Theme.loaded", true)
-        }
+        ; 主题/色值已在 Show 前入队，LoadedHwnd 揭盖前已刷完。这里再 ApplyXamlTheme 会后补描边、滚动条和阴影。
+        if (this._applyingTheme)
+            SetTimer(ObjBindMethod(this, "_ReleaseApplyingGuard"), -200)
+        try this.ui.Update("Window", "Opacity", "1")
+        XamlUiDiagWindow(hwnd, "Theme.loaded", true)
+    }
+
+    _ReleaseApplyingGuard(*) {
+        this._applyingTheme := false
     }
 
     Close() {

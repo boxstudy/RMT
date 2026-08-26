@@ -245,23 +245,6 @@ class XAMLHost {
             DllCall("user32\PostMessageW", "Ptr", this.wpfHwnd, "UInt", 0x0010, "Ptr", 0, "Ptr", 0) ; WM_CLOSE
             return
         }
-        ; 揭盖防抖（统一方案）：Opacity=1 请求先不立即发送，等后续内容更新停歇后再真正揭盖。
-        ; 兼容"Show 后才 Init"的旧窗口——内容应用/渲染完才显示，避免空壳→内容闪烁
-        ; （等效于主题界面"先填充后 Show"，对所有窗口统一生效，无需逐个改 GUI）。
-        if (controlName = "Window" && propertyName = "Opacity" && valueStr = "1") {
-            if (!this.HasOwnProp("_revealFlushing") || !this._revealFlushing) {
-                this._revealPending := true
-                this._revealStart := A_TickCount
-                this._revealTick := A_TickCount
-                SetTimer(ObjBindMethod(this, "_RevealFlush"), -80)
-                return
-            }
-        }
-        ; 揭盖等待期间还有内容更新：重置停歇计时
-        if (this.HasOwnProp("_revealPending") && this._revealPending) {
-            this._revealTick := A_TickCount
-            SetTimer(ObjBindMethod(this, "_RevealFlush"), -80)
-        }
         val := StrReplace(valueStr, "`r", "&#x0D;")
         val := StrReplace(val, "`n", "&#x0A;")
         payload := controlName "|" propertyName "|" val
@@ -280,32 +263,12 @@ class XAMLHost {
         ; 注意：Opacity 由引擎 LWA_ALPHA 处理。禁止此处 WinHide/WinShow，否则会出现「白壳→隐藏→再显示」。
     }
 
-    ; 揭盖防抖落地：内容更新停歇 >=80ms（或等待超 800ms 强制）后发送真正的 Opacity=1
-    _RevealFlush(*) {
-        if (!this.HasOwnProp("_revealPending") || !this._revealPending)
-            return
-        now := A_TickCount
-        if (now - this._revealTick < 80 && now - this._revealStart < 800) {
-            SetTimer(ObjBindMethod(this, "_RevealFlush"), -80)
-            return
-        }
-        this._revealPending := false
-        this._revealFlushing := true
-        try this.Update("Window", "Opacity", "1")
-        this._revealFlushing := false
-    }
-
     BatchUpdate(updatesArray) {
         if !this.wpfHwnd {
             if !this.HasOwnProp("_updateQueue")
                 this._updateQueue := []
             this._updateQueue.Push({ type: "batch", arr: updatesArray })
             return
-        }
-        ; 揭盖等待期间的内容批量更新：重置停歇计时
-        if (this.HasOwnProp("_revealPending") && this._revealPending) {
-            this._revealTick := A_TickCount
-            SetTimer(ObjBindMethod(this, "_RevealFlush"), -80)
         }
 
         payload := ""
@@ -1999,6 +1962,11 @@ class XAMLHost {
                     themeFs := XAMLHost.GetThemeFontSize()
                     instance.Update("Window", "ApplyFonts", XAMLHost.BuildApplyFontsPayload(0, themeFs))
                 }
+            }
+            ; 配置管理同款：队列和字号刷完立刻揭盖。再等 OnWindowLoad 只会让已在屏上的黑框更久。
+            if (InStr(instance.xaml, 'Opacity="0"') && !InStr(instance.xaml, 'AllowsTransparency="True"')) {
+                if (!instance.HasOwnProp("_skipAutoReveal") || !instance._skipAutoReveal)
+                    try instance.Update("Window", "Opacity", "1")
             }
         }
         if (ctrlName == "Window" && eventName == "Closed") {
