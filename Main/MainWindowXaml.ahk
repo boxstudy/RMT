@@ -116,6 +116,23 @@ class GuiAdapter {
     }
 }
 
+; 休眠/暂停 状态按钮适配器：激活时显示「蓝色背景+右上角红点」按钮，否则显示普通按钮
+; BindUtil 通过 UIControls.SuspendToggle/PauseToggle.Value 写入状态，与本类对接
+class StateBtnAdapter {
+    __New(normalName, activeName, ui) {
+        this._normal := normalName
+        this._active := activeName
+        this._ui := ui
+    }
+    Value {
+        get => ""
+        set {
+            this._ui.Update(this._normal, "Visibility", value ? "Collapsed" : "Visible")
+            this._ui.Update(this._active, "Visibility", value ? "Visible" : "Collapsed")
+        }
+    }
+}
+
 ; ============================================================================
 ; MainWin — 主窗口壳 + 静态页 + 宏列表渲染
 ; ============================================================================
@@ -154,37 +171,53 @@ class MainWin {
         ; ---- 标题栏 ----
         tb := main.Add("Border").Grid_Row(0).Grid_ColumnSpan(2).Background("{DynamicResource TitleBarColor}").Name("DragArea")
         tbInner := tb.Add("Grid")
-        tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TitleBarForeground}").FontSize(XAMLHost.GetThemeFontSize() + 2).FontWeight("Bold").VerticalAlignment("Center").Margin("15,0,0,0").Padding("0")
+        ; 标题左侧软件图标（rabit.png 带透明通道，作标题栏小图标；Grid 内需左对齐，否则会居中）
+        tbInner.Add("Image").Name("TitleIcon").Width(20).Height(20).Margin("14,0,10,0").HorizontalAlignment("Left").VerticalAlignment("Center").Source(StrReplace(A_WorkingDir "\Images\Soft\rabit.png", "\", "/"))
+        tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TitleBarForeground}").FontSize(XAMLHost.GetThemeFontSize() + 2).FontWeight("Bold").VerticalAlignment("Center").Margin("44,0,0,0").Padding("0")
         btnGroup := tbInner.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Right").VerticalAlignment("Stretch").Height(36)
         minBtn := btnGroup.Add("Button").Name("BtnMinimize").WindowChrome_IsHitTestVisibleInChrome("True").Width(46).Height(36).Padding("0").Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
         minBtn.Add("TextBlock").Text(Chr(0xE921)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
         maxBtn := btnGroup.Add("Button").Name("BtnMaximize").WindowChrome_IsHitTestVisibleInChrome("True").Width(46).Height(36).Padding("0").Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
         maxBtn.Add("TextBlock").Text(Chr(0xE922)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
-        closeBtn := btnGroup.Add("Button").Name("BtnClosePanel").Style("{StaticResource TitleBarCloseButton}").WindowChrome_IsHitTestVisibleInChrome("True").Width(46).Height(36).Padding("0").Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
+        ; 最小化/最大化/关闭 统一外观：同一背景（Transparent）、同一悬停效果（默认样式）。
+        ; 注意：命名 BtnClosePanel/BtnClose 会被 XAML_Host/引擎强制套 TitleBarCloseButton 样式，故用 BtnWinClose
+        closeBtn := btnGroup.Add("Button").Name("BtnWinClose").WindowChrome_IsHitTestVisibleInChrome("True").Width(46).Height(36).Padding("0").Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
         closeBtn.Add("TextBlock").Text(Chr(0xE8BB)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
 
         ; ---- 左操作栏 ----
         left := main.Add("Grid").Grid_Row(1).Grid_Column(0).Margin("6,6,4,6")
         left.Rows("*", "Auto")
         leftTop := left.Add("StackPanel").Grid_Row(0)
-        leftTop.Add("TextBlock").Text(GetLang("当前配置")).FontWeight("Bold").FontSize(11).Opacity("0.7").Margin("4,0,0,2")
-        leftTop.Add("TextBlock").Name("TxtCurSetting").Text(MySoftData.CurSettingName).FontWeight("SemiBold").Margin("4,0,0,2").TextTrimming("CharacterEllipsis")
-        leftTop.Add("Button").Name("BtnConfig").Content(GetLang("配置管理")).Height(28).MinHeight(28).Margin("0,2,0,2")
+        leftTop.Add("TextBlock").Name("TxtCurSetting").Text(MySoftData.CurSettingName).FontWeight("SemiBold").Margin("4,0,0,2").MinHeight("40").TextWrapping("Wrap").TextAlignment("Left")
+        leftTop.Add("Button").Name("BtnConfig").Content(GetLang("配置管理")).Height(33).MinHeight(33).Margin("0,45,0,2")
         leftTop.Add("Rectangle").Height(1).Margin("2,8,2,6").Fill("{DynamicResource ControlBorder}").Stretch("Fill")
-        leftTop.Add("TextBlock").Text(GetLang("全局操作")).FontWeight("Bold").FontSize(11).Opacity("0.7").Margin("4,0,0,4")
-        leftTop.Add("CheckBox").Name("ChkSuspend").Content(GetLang("休眠")).Margin("2,0,0,0")
-        leftTop.Add("TextBlock").Name("TxtSuspendKey").Text(FormatHotkeyDisplay(MainSoftData.SuspendHotkey)).Opacity("0.6").FontSize(11).Margin("6,0,0,0")
-        leftTop.Add("CheckBox").Name("ChkPause").Content(GetLang("暂停")).Margin("2,8,0,0")
-        leftTop.Add("TextBlock").Name("TxtPauseKey").Text(FormatHotkeyDisplay(MainSoftData.PauseHotkey)).Opacity("0.6").FontSize(11).Margin("6,0,0,0")
-        leftTop.Add("Button").Name("BtnKill").Content(GetLang("终止所有宏")).Height(28).MinHeight(28).Margin("0,8,0,0")
-        leftTop.Add("TextBlock").Name("TxtKillKey").Text(FormatHotkeyDisplay(MainSoftData.KillMacroHotkey)).Opacity("0.6").FontSize(11).Margin("6,0,0,0")
-        leftTop.Add("Button").Name("BtnReload").Content(GetLang("重载")).Height(28).MinHeight(28).Margin("0,8,0,0")
+        ; 全局操作标题 + 右侧展开按钮（控制休眠/暂停/终止所有宏的快捷键提示显隐，默认显示）
+        globalOps := leftTop.Add("Grid").Margin("4,0,0,4")
+        globalOps.Add("TextBlock").Text(GetLang("全局操作")).FontWeight("Bold").FontSize(11).Opacity("0.7").VerticalAlignment("Center").HorizontalAlignment("Left")
+        globalOps.Add("Button").Name("BtnToggleHotkeyHint").Content(Chr(0xE70D)).Width(20).Height(20).MinHeight(20).Margin("0,0,2,0").Padding("0").HorizontalAlignment("Right").VerticalAlignment("Center").FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).Background("Transparent").BorderThickness("0").Cursor("Hand").Foreground("{DynamicResource TextMain}")
+        ; 休眠按钮：激活（休眠中）时切换为主题 Action 色背景 + 右上角白点
+        suspendGrid := leftTop.Add("Grid").Margin("2,0,0,0")
+        suspendGrid.Add("Button").Name("BtnSuspend").Content(GetLang("休眠")).Height(33).MinHeight(33)
+        susGridAct := suspendGrid.Add("Grid").Name("SuspendActiveGrid").Visibility("Collapsed")
+        susGridAct.Add("Button").Name("BtnSuspendActive").Content(GetLang("休眠")).Height(33).MinHeight(33).Style("{StaticResource StateBtnActive}")
+        susGridAct.Add("Ellipse").Name("SuspendDot").Width(8).Height(8).Fill("#FFFFFFFF").HorizontalAlignment("Right").VerticalAlignment("Top").Margin("0,4,4,0").IsHitTestVisible("False")
+        leftTop.Add("TextBlock").Name("TxtSuspendKey").Text(FormatHotkeyDisplay(MainSoftData.SuspendHotkey)).Opacity("0.6").FontSize(11).Margin("0,0,6,0").HorizontalAlignment("Right").TextAlignment("Right")
+        ; 暂停按钮：激活（暂停中）时切换为主题 Action 色背景 + 右上角白点
+        pauseGrid := leftTop.Add("Grid").Margin("2,8,0,0")
+        pauseGrid.Add("Button").Name("BtnPause").Content(GetLang("暂停")).Height(33).MinHeight(33)
+        pauGridAct := pauseGrid.Add("Grid").Name("PauseActiveGrid").Visibility("Collapsed")
+        pauGridAct.Add("Button").Name("BtnPauseActive").Content(GetLang("暂停")).Height(33).MinHeight(33).Style("{StaticResource StateBtnActive}")
+        pauGridAct.Add("Ellipse").Name("PauseDot").Width(8).Height(8).Fill("#FFFFFFFF").HorizontalAlignment("Right").VerticalAlignment("Top").Margin("0,4,4,0").IsHitTestVisible("False")
+        leftTop.Add("TextBlock").Name("TxtPauseKey").Text(FormatHotkeyDisplay(MainSoftData.PauseHotkey)).Opacity("0.6").FontSize(11).Margin("0,0,6,0").HorizontalAlignment("Right").TextAlignment("Right")
+        leftTop.Add("Button").Name("BtnKill").Content(GetLang("终止所有宏")).Height(33).MinHeight(33).Margin("0,8,0,0")
+        leftTop.Add("TextBlock").Name("TxtKillKey").Text(FormatHotkeyDisplay(MainSoftData.KillMacroHotkey)).Opacity("0.6").FontSize(11).Margin("0,0,6,0").HorizontalAlignment("Right").TextAlignment("Right")
+        leftTop.Add("Button").Name("BtnReload").Content(GetLang("重载")).Height(33).MinHeight(33).Margin("0,8,0,0")
         leftBottom := left.Add("StackPanel").Grid_Row(1).VerticalAlignment("Bottom")
         leftBottom.Add("Button").Name("BtnHelp").Content(GetLang("RMT文档")).Height(28).MinHeight(28).Margin("0,2,0,2")
-        leftBottom.Add("Button").Name("BtnSave").Content(GetLang("应用并保存")).Height(30).MinHeight(30).Margin("0,2,0,2").FontWeight("Bold")
+        leftBottom.Add("Button").Name("BtnSave").Content(GetLang("应用并保存")).Height(35).MinHeight(35).Margin("0,2,0,2").FontWeight("Bold")
 
         ; ---- 右侧 TabControl ----
-        right := main.Add("Grid").Grid_Row(1).Grid_Column(1).Margin("0,4,8,4")
+        right := main.Add("Grid").Grid_Row(1).Grid_Column(1).Margin("0,2,8,4")
         tab := right.Add("TabControl").Name("TabControl").Style("{StaticResource RmtMainTabCtrl}").Background("{DynamicResource BgColor}").SelectedIndex(String(MainSoftData.TableIndex - 1))
         loop MainSoftData.TabNameArr.Length {
             idx := A_Index
@@ -220,12 +253,58 @@ class MainWin {
             . '<Setter Property="Padding" Value="0"/>'
             . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TabControl"><Grid>'
             . '<Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>'
-            . '<Border Grid.Row="0" Margin="4,10,4,0" CornerRadius="4" BorderThickness="1" BorderBrush="{DynamicResource InputStroke}" Padding="6,2"><WrapPanel IsItemsHost="True"/></Border>'
+            . '<Border Grid.Row="0" Margin="4,0,4,0" CornerRadius="4" BorderThickness="1" BorderBrush="{DynamicResource InputStroke}" Padding="6,2"><WrapPanel IsItemsHost="True"/></Border>'
             . '<Border Grid.Row="1" Background="Transparent"><ContentPresenter ContentSource="SelectedContent"/></Border>'
             . '</Grid></ControlTemplate></Setter.Value></Setter>'
             . '</Style>'
+        ; 休眠/暂停激活态按钮样式：跟随主题 Action 色（各主题自动适配），悬停/按下用主题 ActionHover 色，
+        ; 不走默认 Button 模板（默认模板悬停会把背景刷成半透明白，导致激活态「无底、白字」看不清）
+        stateBtnStyle := '<Style x:Key="StateBtnActive" TargetType="Button">'
+            . '<Setter Property="Foreground" Value="{DynamicResource ActionText}"/>'
+            . '<Setter Property="Background" Value="{DynamicResource ActionBg}"/>'
+            . '<Setter Property="BorderBrush" Value="{DynamicResource ActionStroke}"/>'
+            . '<Setter Property="BorderThickness" Value="1"/>'
+            . '<Setter Property="Padding" Value="10,0"/>'
+            . '<Setter Property="HorizontalContentAlignment" Value="Center"/>'
+            . '<Setter Property="VerticalContentAlignment" Value="Center"/>'
+            . '<Setter Property="Cursor" Value="Hand"/>'
+            . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">'
+            . '<Border x:Name="Border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3" Padding="{TemplateBinding Padding}">'
+            . '<ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" Margin="0"/>'
+            . '</Border>'
+            . '<ControlTemplate.Triggers>'
+            . '<Trigger Property="IsMouseOver" Value="True">'
+            . '<Setter TargetName="Border" Property="Background" Value="{DynamicResource ActionHoverBg}"/>'
+            . '<Setter TargetName="Border" Property="BorderBrush" Value="{DynamicResource ActionHoverStroke}"/>'
+            . '</Trigger>'
+            . '<Trigger Property="IsPressed" Value="True">'
+            . '<Setter TargetName="Border" Property="Background" Value="{DynamicResource ActionHoverBg}"/>'
+            . '</Trigger>'
+            . '</ControlTemplate.Triggers>'
+            . '</ControlTemplate></Setter.Value></Setter>'
+            . '</Style>'
+        ; 主窗口页签样式（隐式 Style，只作用于本窗口）：
+        ; 1) 文字用主题色 TextMain，不再用未随主题变化的暗淡 TextSub；悬停下划线用主题 InputStroke
+        ; 2) 高度整体降低 5px：内边距 上下 8/12 → 6/9（共 20→15）
+        tabItemStyle := '<Style TargetType="TabItem">'
+            . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TabItem">'
+            . '<Border x:Name="Bd" Background="Transparent" BorderThickness="0,0,0,2" BorderBrush="Transparent" Padding="5,6,5,9" Margin="0,0,25,0" Cursor="Hand">'
+            . '<ContentPresenter ContentSource="Header" TextElement.Foreground="{DynamicResource TextMain}" TextElement.FontSize="14" TextElement.FontWeight="SemiBold"/>'
+            . '</Border>'
+            . '<ControlTemplate.Triggers>'
+            . '<Trigger Property="IsMouseOver" Value="True">'
+            . '<Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource InputStroke}"/>'
+            . '<Setter Property="TextElement.Foreground" Value="{DynamicResource TextMain}"/>'
+            . '</Trigger>'
+            . '<Trigger Property="IsSelected" Value="True">'
+            . '<Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}"/>'
+            . '<Setter Property="TextElement.Foreground" Value="{DynamicResource TextMain}"/>'
+            . '</Trigger>'
+            . '</ControlTemplate.Triggers>'
+            . '</ControlTemplate></Setter.Value></Setter>'
+            . '</Style>'
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
-        tmp := StrReplace(tmp, "%resources%", tabStyle . this._BuildVListTemplates())
+        tmp := StrReplace(tmp, "%resources%", tabStyle . tabItemStyle . stateBtnStyle . this._BuildVListTemplates())
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", "")
         ; 首帧即定死保存位置：模板 CenterScreen 会让 WPF 强制居中并覆盖后续 WinMove → 先默认位置闪一帧。
         ; 改 Manual + 注入 Left/Top/Width/Height（AHK 逻辑坐标 = WPF DIP，125% DPI 下物理 132,126 已实测吻合，无单位错位）。
@@ -256,13 +335,16 @@ class MainWin {
         this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
         this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
         this.ui.OnEvent("Window", "Revealed", ObjBindMethod(this, "OnWindowRevealed"))
-        this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCloseClick"))
+        this.ui.OnEvent("BtnWinClose", "Click", ObjBindMethod(this, "OnCloseClick"))
         this.ui.OnEvent("BtnMinimize", "Click", ObjBindMethod(this, "OnMinimizeClick"))
         this.ui.OnEvent("BtnMaximize", "Click", ObjBindMethod(this, "OnMaximizeClick"))
         this.ui.OnEvent("TabControl", "SelectionChanged", ObjBindMethod(this, "OnTabChanged"))
         this.ui.OnEvent("BtnConfig", "Click", (*) => SettingMgrGui.ShowGui())
-        this.ui.OnEvent("ChkSuspend", "Click", OnSuspendHotkey)
-        this.ui.OnEvent("ChkPause", "Click", OnPauseHotKey)
+        this.ui.OnEvent("BtnSuspend", "Click", OnSuspendHotkey)
+        this.ui.OnEvent("BtnSuspendActive", "Click", OnSuspendHotkey)
+        this.ui.OnEvent("BtnPause", "Click", OnPauseHotKey)
+        this.ui.OnEvent("BtnPauseActive", "Click", OnPauseHotKey)
+        this.ui.OnEvent("BtnToggleHotkeyHint", "Click", ObjBindMethod(this, "OnToggleHotkeyHint"))
         this.ui.OnEvent("BtnKill", "Click", OnKillAllMacro)
         this.ui.OnEvent("BtnReload", "Click", MenuReload)
         this.ui.OnEvent("BtnHelp", "Click", (*) => Run(A_WorkingDir "\index.html"))
@@ -306,8 +388,9 @@ class MainWin {
     OnWindowLoad(state, ctrl, event) {
         try {
             ; 任务栏/Alt-Tab 图标：托盘已用 rabit.ico，窗口本身也要显式设置（脚本运行时默认是 AHK 图标）
+            ; rabit.ico 已内置 16~128 多尺寸，这里取最大尺寸，Windows 会按任务栏尺寸/DPI 自动缩放到合适大小
             try {
-                hIcon := LoadPicture("Images\Soft\rabit.ico", "Icon1", &ImageType := 1)
+                hIcon := LoadPicture("Images\Soft\rabit.ico", "Icon1 w128 h128", &ImageType := 1)
                 if (hIcon)
                     this.ui.Update("Window", "Icon", "HICON:" hIcon)
             }
@@ -367,11 +450,23 @@ class MainWin {
 
     LoadLeftBarValues() {
         this.ui.Update("TxtCurSetting", "Text", MySoftData.CurSettingName)
-        this.ui.Update("ChkSuspend", "IsChecked", MainSoftData.IsSuspend ? "True" : "False")
-        this.ui.Update("ChkPause", "IsChecked", MainSoftData.IsPause ? "True" : "False")
-        ; BindUtil 读写侧栏开关状态，须挂 CtrlAdapter 否则 SuspendToggle/PauseToggle 是空串
-        UIControls.SuspendToggle := CtrlAdapter("ChkSuspend", this.ui, "IsChecked")
-        UIControls.PauseToggle := CtrlAdapter("ChkPause", this.ui, "IsChecked")
+        ; 休眠/暂停按钮状态：普通态 ↔ 激活态（蓝色背景+红点）；BindUtil 通过 UIControls.*Toggle.Value 写入状态
+        UIControls.SuspendToggle := StateBtnAdapter("BtnSuspend", "SuspendActiveGrid", this.ui)
+        UIControls.PauseToggle := StateBtnAdapter("BtnPause", "PauseActiveGrid", this.ui)
+        UIControls.SuspendToggle.Value := MainSoftData.IsSuspend
+        UIControls.PauseToggle.Value := MainSoftData.IsPause
+    }
+
+    ; 全局操作右侧展开按钮：切换休眠/暂停/终止所有宏的快捷键提示显隐（默认显示）
+    OnToggleHotkeyHint(state, ctrl, event) {
+        if (!this.HasOwnProp("_showHotkeyHint"))
+            this._showHotkeyHint := true
+        this._showHotkeyHint := !this._showHotkeyHint
+        vis := this._showHotkeyHint ? "Visible" : "Collapsed"
+        this.ui.Update("TxtSuspendKey", "Visibility", vis)
+        this.ui.Update("TxtPauseKey", "Visibility", vis)
+        this.ui.Update("TxtKillKey", "Visibility", vis)
+        this.ui.Update("BtnToggleHotkeyHint", "Content", this._showHotkeyHint ? Chr(0xE70D) : Chr(0xE76C))
     }
 
     ; ============ 宏列表渲染 ============
