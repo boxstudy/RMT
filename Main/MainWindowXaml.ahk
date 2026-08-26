@@ -188,9 +188,11 @@ class MainWin {
         left := main.Add("Grid").Grid_Row(1).Grid_Column(0).Margin("6,6,4,6")
         left.Rows("*", "Auto")
         leftTop := left.Add("StackPanel").Grid_Row(0)
-        leftTop.Add("TextBlock").Name("TxtCurSetting").Text(MySoftData.CurSettingName).FontWeight("SemiBold").Margin("4,0,0,2").MinHeight("40").TextWrapping("Wrap").TextAlignment("Left")
-        leftTop.Add("Button").Name("BtnConfig").Content(GetLang("配置管理")).Height(33).MinHeight(33).Margin("0,45,0,2")
-        leftTop.Add("Rectangle").Height(1).Margin("2,8,2,6").Fill("{DynamicResource ControlBorder}").Stretch("Fill")
+        ; 当前配置名称：单行居中、非粗体；字号=主题字号；超长由 Viewbox 仅缩小不放大（改 FontSize 会被主题下限钳制）
+        curNameBox := leftTop.Add("Viewbox").Margin("0,3,0,2").Stretch("Uniform").StretchDirection("DownOnly").HorizontalAlignment("Stretch")
+        curNameBox.Add("TextBlock").Name("TxtCurSetting").Text(MySoftData.CurSettingName).TextAlignment("Center").HorizontalAlignment("Center").VerticalAlignment("Center").TextWrapping("NoWrap")
+        leftTop.Add("Button").Name("BtnConfig").Content(GetLang("配置管理")).Height(33).MinHeight(33).Margin("0,3,0,2")
+        leftTop.Add("Rectangle").Height(1).Margin("2,6,2,6").Fill("{DynamicResource ControlBorder}").Stretch("Fill")
         ; 全局操作标题 + 右侧展开按钮（控制休眠/暂停/终止所有宏的快捷键提示显隐，默认显示）
         globalOps := leftTop.Add("Grid").Margin("4,0,0,4")
         globalOps.Add("TextBlock").Text(GetLang("全局操作")).FontWeight("Bold").FontSize(11).Opacity("0.7").VerticalAlignment("Center").HorizontalAlignment("Left")
@@ -222,9 +224,14 @@ class MainWin {
         loop MainSoftData.TabNameArr.Length {
             idx := A_Index
             tabItem := tab.Add("TabItem").Header(GetLang(MainSoftData.TabNameArr[idx]))
+            ; 首个/末个页签打 Tag，模板按 Tag 适配圆角（首个左圆角、末个右圆角），末个同时隐藏分割线
+            if (idx == 1)
+                tabItem.Tag("first")
+            else if (idx == MainSoftData.TabNameArr.Length)
+                tabItem.Tag("last")
             if (idx <= 7) {
-                ; 宏/模块显示区：自适应剩余空间，外层边框包裹
-                bd := tabItem.Add("Border").BorderThickness("1").BorderBrush("{DynamicResource InputStroke}").CornerRadius("4").Margin("4,2,4,4").Padding("2,2")
+                ; 宏/模块显示区：自适应剩余空间，外层边框包裹；上边距 -2 让内容框上边框与页签条下边框重叠
+                bd := tabItem.Add("Border").BorderThickness("1").BorderBrush("{DynamicResource InputStroke}").CornerRadius("4").Margin("4,-2,4,4").Padding("2,2")
                 if (this._useVirtual.Has(idx)) {
                     ; Epic5 虚拟列表：ListBox + DataTemplate + VirtualizingStackPanel(Recycling)，
                     ; 行模板注入 Window.Resources，由 _vl.Init 一次 VL_INIT 填充
@@ -253,7 +260,7 @@ class MainWin {
             . '<Setter Property="Padding" Value="0"/>'
             . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TabControl"><Grid>'
             . '<Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>'
-            . '<Border Grid.Row="0" Margin="4,0,4,0" CornerRadius="4" BorderThickness="1" BorderBrush="{DynamicResource InputStroke}" Padding="6,2"><WrapPanel IsItemsHost="True"/></Border>'
+            . '<Border Grid.Row="0" Margin="4,0,4,0" CornerRadius="4" BorderThickness="1,1,1,2" BorderBrush="{DynamicResource InputStroke}" Padding="0,0"><WrapPanel IsItemsHost="True"/></Border>'
             . '<Border Grid.Row="1" Background="Transparent"><ContentPresenter ContentSource="SelectedContent"/></Border>'
             . '</Grid></ControlTemplate></Setter.Value></Setter>'
             . '</Style>'
@@ -284,27 +291,44 @@ class MainWin {
             . '</ControlTemplate></Setter.Value></Setter>'
             . '</Style>'
         ; 主窗口页签样式（隐式 Style，只作用于本窗口）：
-        ; 1) 文字用主题色 TextMain，不再用未随主题变化的暗淡 TextSub；悬停下划线用主题 InputStroke
-        ; 2) 高度整体降低 5px：内边距 上下 8/12 → 6/9（共 20→15）
+        ; - 固定每个页签大小（宽 80），页签间用 1px 垂直线分割，仅上 20% ~ 下 20%（高度 60%）显示
+        ; - 选中态：整块主题强调色低透明度背景（TabSelBg，各主题自动适配）+ 右上角 Accent 小圆点
+        ; - 悬停：主题 ListAltBg 轻微高亮
+        ; - 圆角：仅第一个页签左侧（4,0,0,4）、最后一个页签右侧（0,4,4,0）适配页签条圆角，其余页签直角
         tabItemStyle := '<Style TargetType="TabItem">'
+            . '<Setter Property="Width" Value="80"/>'
             . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TabItem">'
-            . '<Border x:Name="Bd" Background="Transparent" BorderThickness="0,0,0,2" BorderBrush="Transparent" Padding="5,6,5,9" Margin="0,0,25,0" Cursor="Hand">'
-            . '<ContentPresenter ContentSource="Header" TextElement.Foreground="{DynamicResource TextMain}" TextElement.FontSize="14" TextElement.FontWeight="SemiBold"/>'
+            . '<Grid>'
+            . '<Border x:Name="Bd" Background="Transparent" BorderThickness="0" BorderBrush="Transparent" Padding="5,5,5,5" Cursor="Hand" CornerRadius="0">'
+            . '<Grid>'
+            . '<ContentPresenter ContentSource="Header" TextElement.Foreground="{DynamicResource TextMain}" TextElement.FontSize="14" TextElement.FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/>'
+            . '<Ellipse x:Name="SelDot" Width="6" Height="6" Fill="{DynamicResource Accent}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-3,-1,-3" Visibility="Collapsed" IsHitTestVisible="False"/>'
+            . '</Grid>'
             . '</Border>'
+            . '<Rectangle x:Name="Divider" Width="2" Fill="{DynamicResource ControlBorder}" HorizontalAlignment="Right" VerticalAlignment="Stretch" Margin="0,3,0,3" IsHitTestVisible="False" SnapsToDevicePixels="True" RenderOptions.EdgeMode="Aliased"/>'
+            . '</Grid>'
             . '<ControlTemplate.Triggers>'
             . '<Trigger Property="IsMouseOver" Value="True">'
-            . '<Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource InputStroke}"/>'
-            . '<Setter Property="TextElement.Foreground" Value="{DynamicResource TextMain}"/>'
+            . '<Setter TargetName="Bd" Property="Background" Value="{DynamicResource ListAltBg}"/>'
             . '</Trigger>'
             . '<Trigger Property="IsSelected" Value="True">'
-            . '<Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}"/>'
-            . '<Setter Property="TextElement.Foreground" Value="{DynamicResource TextMain}"/>'
+            . '<Setter TargetName="Bd" Property="Background" Value="{DynamicResource TabSelBg}"/>'
+            . '<Setter TargetName="SelDot" Property="Visibility" Value="Visible"/>'
+            . '</Trigger>'
+            . '<Trigger Property="Tag" Value="first">'
+            . '<Setter TargetName="Bd" Property="CornerRadius" Value="4,0,0,4"/>'
+            . '</Trigger>'
+            . '<Trigger Property="Tag" Value="last">'
+            . '<Setter TargetName="Bd" Property="CornerRadius" Value="0,4,4,0"/>'
+            . '<Setter TargetName="Divider" Property="Visibility" Value="Collapsed"/>'
             . '</Trigger>'
             . '</ControlTemplate.Triggers>'
             . '</ControlTemplate></Setter.Value></Setter>'
             . '</Style>'
+        ; 页签选中背景默认占位（主题应用时由 ApplyWinThemeToXaml 用 Accent 低透明度覆盖）
+        tabSelBgRes := '<SolidColorBrush x:Key="TabSelBg" Color="#33FFFFFF"/>'
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
-        tmp := StrReplace(tmp, "%resources%", tabStyle . tabItemStyle . stateBtnStyle . this._BuildVListTemplates())
+        tmp := StrReplace(tmp, "%resources%", tabStyle . tabItemStyle . tabSelBgRes . stateBtnStyle . this._BuildVListTemplates())
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", "")
         ; 首帧即定死保存位置：模板 CenterScreen 会让 WPF 强制居中并覆盖后续 WinMove → 先默认位置闪一帧。
         ; 改 Manual + 注入 Left/Top/Width/Height（AHK 逻辑坐标 = WPF DIP，125% DPI 下物理 132,126 已实测吻合，无单位错位）。

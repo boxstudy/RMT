@@ -485,6 +485,8 @@ class AppThemeUtil {
         actionHoverBg := AppThemeUtil.ResolveColor(colors, "Win_ActionHoverBg")
         actionHoverStroke := AppThemeUtil.ResolveColor(colors, "Win_ActionHoverStroke")
         progress := AppThemeUtil.ResolveColor(colors, "Win_ProgressBar")
+        ; 页签选中背景：主题强调色低透明度（各主题自动适配，见主窗口 tabItemStyle 的 TabSelBg）
+        tabSelBg := AppThemeUtil.WithAlpha(progress, "40")
 
         ; 合并为一次 BatchUpdate：~28 条资源逐条 Update 是 28 次同步 IPC 往返（拖慢开窗）
         if (ui.HasMethod("BatchUpdate")) {
@@ -514,6 +516,8 @@ class AppThemeUtil {
                 {ControlName: "Resource", PropertyName: "ActionHoverStroke", Value: actionHoverStroke},
                 {ControlName: "Resource", PropertyName: "Accent", Value: progress},
                 {ControlName: "Resource", PropertyName: "ProgressBar", Value: progress},
+                ; 页签选中背景（主窗口 tabItemStyle 用）
+                {ControlName: "Resource", PropertyName: "TabSelBg", Value: tabSelBg},
                 ; 下拉弹出层与输入框同色，避免浅色底 + 深色主题文字导致看不清
                 {ControlName: "Resource", PropertyName: "DropdownBg", Value: inputBg},
                 ; 列表斑马纹：取标题色 RGB，降低透明度，随主题变化
@@ -548,6 +552,8 @@ class AppThemeUtil {
             try ui.Update("Resource", "ActionHoverStroke", actionHoverStroke)
             try ui.Update("Resource", "Accent", progress)
             try ui.Update("Resource", "ProgressBar", progress)
+            ; 页签选中背景（主窗口 tabItemStyle 用）
+            try ui.Update("Resource", "TabSelBg", tabSelBg)
             ; 下拉弹出层与输入框同色，避免浅色底 + 深色主题文字导致看不清
             try ui.Update("Resource", "DropdownBg", inputBg)
             ; 列表斑马纹：取标题色 RGB，降低透明度，随主题变化
@@ -561,6 +567,12 @@ class AppThemeUtil {
     static MakeListAltBg(baseColor) {
         c := AppThemeUtil.NormalizeArgb(baseColor)  ; #AARRGGBB
         return "#40" SubStr(c, 4)                   ; ~25% 不透明度
+    }
+
+    ; #AARRGGBB 颜色上叠加透明度：alphaHex 为两位十六进制（"40"≈25%）
+    static WithAlpha(color, alphaHex) {
+        c := AppThemeUtil.NormalizeArgb(color)      ; #AARRGGBB
+        return "#" alphaHex SubStr(c, 4)
     }
 
     ; 刷新已打开的通用窗口类设置界面（主题保存后同步）
