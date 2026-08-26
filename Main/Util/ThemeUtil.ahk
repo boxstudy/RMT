@@ -438,6 +438,8 @@ class AppThemeUtil {
         IniWrite(MainSoftData.CMDRunBGColor, IniFile, IniSection, "CMDRunBGColor")
         IniWrite(MainSoftData.CMDFontColor, IniFile, IniSection, "CMDFontColor")
         IniWrite(MainSoftData.AppTheme, IniFile, IniSection, "AppTheme")
+        if (MainSoftData.HasProp("FontSize"))
+            IniWrite(MainSoftData.FontSize, IniFile, IniSection, "FontSize")
     }
 
     ; 轮盘取色：ThemeColors → 默认主题；defaultVal 仅作额外兜底（调用方可省略）

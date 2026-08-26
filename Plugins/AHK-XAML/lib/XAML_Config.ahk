@@ -76,11 +76,12 @@ global XAML_ENABLE_DEVTOOLS := true
 global XAML_IN_PROCESS_PREVIEW := false
 
 ; --- 全局字体缩放（主题字体大小驱动所有界面字号）---
-; 基准 = 主界面「配置管理」按钮继承的窗口默认字号（13）；
-; 增量 = 主题字体大小 - 基准。所有窗口 XAML 的 FontSize 在发送前统一平移该增量，
-; 覆盖生成器构建与字符串拼接的全部 XAML（含窗口级 TextElement.FontSize 默认值）。
-; 应用启动/切主题时设置：XAML_FontSizeDelta := 主题FontSize - XAML_FontSizeBase
-global XAML_FontSizeBase := 13
+; 统一接口：XAMLHost.ScaleFontSize / ApplyFontSizeDelta / ApplyFontsToAllWindows
+; 设计基准与软件默认均为主题字体大小（15）。改主题滑条时：XAML_FontSizeDelta := 主题FontSize - 基准。
+; 实际字号 = max(主题字体大小, 声明字号 + (主题字体大小 - 基准))，主题值为下限。
+; 图形节点编辑器通过 XAMLHost.skipFontScale 排除；其余界面均走统一接口。
+global XAML_FontSizeBase := 15
+global XAML_FontSizeDefault := 15
 global XAML_FontSizeDelta := 0
 ; 主题字体粗细 / 文字清晰度（窗口级默认值，元素显式设置时以元素为准）
 global XAML_FontWeight := "400"               ; 100-900（100细~400常规~700粗~900黑）

@@ -729,9 +729,9 @@ public partial class AhkWpfEngine
         else if (parts[0] == "Window" && parts[1] == "ApplyFonts")
         {
             // 主题字体运行时应用（改主题字体后立即生效，无需重开窗口）：
-            //   Window|ApplyFonts|字体|字号增量|字重数值(100-900)|清晰度(1=标准 2=锐利 3=极锐利)
+            //   Window|ApplyFonts|字体|字号增量|字重数值(100-900)|清晰度(1=标准 2=锐利 3=极锐利)|字号下限
             // 字体/字重/清晰度按绝对值设置（窗口根，未显式设置的元素继承）；
-            // 字号按「增量」逐元素平移（覆盖生成期硬编码字号）。
+            // 字号按「增量」逐元素平移，且不低于字号下限（主题字体大小）。
             try
             {
                 string[] seg = parts[2].Split('|');
@@ -750,6 +750,10 @@ public partial class AhkWpfEngine
                 int cc;
                 if (seg.Length > 3 && int.TryParse(seg[3], out cc))
                     clarity = cc;
+                double minSize = 6;
+                double md;
+                if (seg.Length > 4 && double.TryParse(seg[4], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out md))
+                    minSize = Math.Max(6, md);
                 if (!string.IsNullOrEmpty(family))
                     win.SetValue(TextElement.FontFamilyProperty, new System.Windows.Media.FontFamily(family));
                 if (hasWeight)
@@ -763,24 +767,40 @@ public partial class AhkWpfEngine
                     win.SetValue(TextOptions.TextRenderingModeProperty, TextRenderingMode.Aliased);
                 else
                     win.SetValue(TextOptions.TextRenderingModeProperty, TextRenderingMode.ClearType);
-                if (delta != 0)
+                // 只缩放「非继承」字号（Local / Style / Template），避免子元素把已放大的父级再加一遍。
+                // 逻辑树覆盖 ComboBoxItem（下拉未展开也在），视觉树覆盖模板内 ContentPresenter（Tab/GroupBox 标题）。
+                var seen = new System.Collections.Generic.HashSet<System.Windows.DependencyObject>();
+                System.Action<System.Windows.DependencyObject> apply = (node) =>
                 {
-                    WalkVisualTree(win, (System.Windows.DependencyObject node) =>
+                    if (node == null || !seen.Add(node))
+                        return;
+                    if (IsInTitleBar(node))
                     {
-                        if (node is System.Windows.Controls.TextBlock
-                            || node is System.Windows.Controls.TextBox
-                            || node is System.Windows.Controls.Control)
+                        ApplyTitleBarNode(node, minSize);
+                        return;
+                    }
+                    try
+                    {
+                        var src = DependencyPropertyHelper.GetValueSource(node, TextElement.FontSizeProperty);
+                        double useSize = minSize;
+                        bool skipFont = src.IsExpression
+                            || src.BaseValueSource == BaseValueSource.Inherited
+                            || src.BaseValueSource == BaseValueSource.Default
+                            || src.BaseValueSource == BaseValueSource.Unknown;
+                        object v = node.GetValue(TextElement.FontSizeProperty);
+                        if (v is double && !double.IsNaN((double)v))
                         {
-                            try
-                            {
-                                object v = node.GetValue(TextElement.FontSizeProperty);
-                                if (v is double && !double.IsNaN((double)v))
-                                    node.SetValue(TextElement.FontSizeProperty, Math.Max(6, (double)v + delta));
-                            }
-                            catch { }
+                            useSize = skipFont ? Math.Max(minSize, (double)v) : Math.Max(minSize, (double)v + delta);
+                            if (!skipFont && Math.Abs(useSize - (double)v) > 0.01)
+                                node.SetValue(TextElement.FontSizeProperty, useSize);
                         }
-                    });
-                }
+                        FitControlHeightToFont(node, useSize);
+                    }
+                    catch { }
+                };
+                apply(win);
+                WalkLogicalTree(win, apply);
+                WalkVisualTree(win, apply);
             }
             catch { }
         }
@@ -3365,7 +3385,6 @@ public partial class AhkWpfEngine
                         if (slider != null)
                         {
                             bool isSeeking = false;
-                            bool isUpdating = false;
 
                             // Detect user drag start/end via Thumb routed events
                             slider.AddHandler(Thumb.DragStartedEvent, new DragStartedEventHandler((ds, de) =>
@@ -3393,10 +3412,8 @@ public partial class AhkWpfEngine
                             {
                                 if (me.NaturalDuration.HasTimeSpan && !isSeeking)
                                 {
-                                    isUpdating = true;
                                     slider.Maximum = me.NaturalDuration.TimeSpan.TotalSeconds;
                                     slider.Value = me.Position.TotalSeconds;
-                                    isUpdating = false;
                                 }
                             };
                             posTimer.Start();
@@ -3739,6 +3756,109 @@ public partial class AhkWpfEngine
     // 揭盖：窗口在创建前就被移到屏幕外（见 EngineHost.PrepareDeferredReveal），
     // 保持可见 → WPF 持续渲染内容进表面。AHK 置 Opacity=1 时还原位置（DIP，WPF 处理 DPI 缩放）
     // 并清 LWA，一次到位显示已渲染好的完整内容（无白壳、无闪烁）。
+    static void ApplyTitleBarNode(DependencyObject node, double themeSize)
+    {
+        TextBlock tb = node as TextBlock;
+        if (tb != null)
+        {
+            string fam = tb.FontFamily != null ? tb.FontFamily.Source : "";
+            if (fam.IndexOf("Segoe Fluent") < 0 && fam.IndexOf("MDL2") < 0)
+            {
+                tb.FontSize = themeSize + 2;
+                tb.FontWeight = FontWeights.Bold;
+            }
+            return;
+        }
+        Button btn = node as Button;
+        if (btn == null || string.IsNullOrEmpty(btn.Name))
+            return;
+        if (btn.Name != "BtnClosePanel" && btn.Name != "BtnClose" && btn.Name != "BtnMinimize" && btn.Name != "BtnMaximize")
+            return;
+        btn.Width = 46;
+        btn.Height = 36;
+        btn.MinWidth = 46;
+        btn.MinHeight = 36;
+        btn.Padding = new Thickness(0);
+        btn.Margin = new Thickness(0);
+        btn.VerticalAlignment = VerticalAlignment.Stretch;
+        if ((btn.Parent as Grid) != null)
+            btn.HorizontalAlignment = HorizontalAlignment.Right;
+        bool isClose = (btn.Name == "BtnClosePanel" || btn.Name == "BtnClose");
+        if (isClose)
+        {
+            try
+            {
+                Window owner = Window.GetWindow(btn);
+                if (owner != null)
+                {
+                    Style closeStyle = owner.TryFindResource("TitleBarCloseButton") as Style;
+                    if (closeStyle != null)
+                        btn.Style = closeStyle;
+                }
+            }
+            catch { }
+        }
+        try
+        {
+            btn.ApplyTemplate();
+            Border bd = BridgeUtil.FindVisualChild<Border>(btn);
+            if (bd != null)
+            {
+                bd.ClearValue(FrameworkElement.WidthProperty);
+                bd.ClearValue(FrameworkElement.HeightProperty);
+                bd.HorizontalAlignment = HorizontalAlignment.Stretch;
+                bd.VerticalAlignment = VerticalAlignment.Stretch;
+                bd.MinWidth = 46;
+                bd.MinHeight = 36;
+            }
+        }
+        catch { }
+    }
+
+    static bool IsInTitleBar(DependencyObject node)
+    {
+        DependencyObject p = node;
+        int guard = 0;
+        while (p != null && guard++ < 40)
+        {
+            FrameworkElement fe = p as FrameworkElement;
+            if (fe != null && fe.Name == "DragArea")
+                return true;
+            DependencyObject next = LogicalTreeHelper.GetParent(p);
+            if (next == null)
+            {
+                Visual vis = p as Visual;
+                if (vis != null)
+                    next = VisualTreeHelper.GetParent(vis);
+            }
+            p = next;
+        }
+        return false;
+    }
+
+    // 固定 Height 的按钮/下拉/输入框随字号加高，避免文字被裁切；标题栏窄按钮（宽<=40 且未设高）不改。
+    private static void FitControlHeightToFont(DependencyObject node, double fontSize)
+    {
+        FrameworkElement fe = node as FrameworkElement;
+        if (fe == null)
+            return;
+        if ((node as Button) == null && (node as ComboBox) == null && (node as TextBox) == null)
+            return;
+        if ((node as Button) != null && !double.IsNaN(fe.Width) && fe.Width <= 40 && double.IsNaN(fe.Height))
+            return;
+        double need = Math.Ceiling(fontSize + 12);
+        if (need < 26)
+            need = 26;
+        var hSrc = DependencyPropertyHelper.GetValueSource(fe, FrameworkElement.HeightProperty);
+        if ((hSrc.BaseValueSource == BaseValueSource.Local || hSrc.BaseValueSource == BaseValueSource.Style)
+            && !double.IsNaN(fe.Height) && fe.Height > 0 && fe.Height < need)
+            fe.Height = need;
+        var mSrc = DependencyPropertyHelper.GetValueSource(fe, FrameworkElement.MinHeightProperty);
+        if ((mSrc.BaseValueSource == BaseValueSource.Local || mSrc.BaseValueSource == BaseValueSource.Style)
+            && fe.MinHeight > 0 && fe.MinHeight < need)
+            fe.MinHeight = need;
+    }
+
     private static void RevealNativeWindow(Window win, IntPtr hwnd)
     {
         if (hwnd == IntPtr.Zero)

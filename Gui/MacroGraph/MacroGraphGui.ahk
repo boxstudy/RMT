@@ -258,6 +258,7 @@ class MacroGraphGui {
         ; ---- 宿主 ----
         ownerHwnd := this.OwnerHwnd != "" ? this.OwnerHwnd : 0
         this.ui := XAMLHost(win.ToString(), "", ownerHwnd)
+        this.ui.skipFontScale := true
         this.graph.Bind(this.ui)
         this._HookGraphIfProPaths()
         for id in this.order {

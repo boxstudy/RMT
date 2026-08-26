@@ -226,6 +226,18 @@ public partial class AhkWpfEngine
         }
     }
 
+    private void WalkLogicalTree(System.Windows.DependencyObject parent, Action<System.Windows.DependencyObject> callback)
+    {
+        foreach (object raw in System.Windows.LogicalTreeHelper.GetChildren(parent))
+        {
+            var child = raw as System.Windows.DependencyObject;
+            if (child == null)
+                continue;
+            callback(child);
+            WalkLogicalTree(child, callback);
+        }
+    }
+
     private object FindControlByPath(string path)
     {
         if (string.IsNullOrEmpty(path)) return null;

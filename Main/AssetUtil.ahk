@@ -506,12 +506,19 @@ LoadMainSetting() {
     MainSoftData.MenuWheelShowTooltip := IniRead(IniFile, IniSection, "MenuWheelShowTooltip", false)
     MainSoftData.MenuWheelScale := IniRead(IniFile, IniSection, "MenuWheelScale", 100)
     MainSoftData.Theme := IniRead(IniFile, IniSection, "Theme", "RMT_Light")
-    ; 主题字体：大小（默认 22）/ 粗细（400）；清晰度固定 1（标准平滑），见 XAMLHost.ApplyFontSizeDelta 与 Show 的模板替换
-    global XAML_FontSizeDelta, XAML_FontSizeBase, XAML_FontWeight, XAML_TextClarity
+    ; 主题字体：大小与 FontType 一样落在用户设置；旧版 themes.ini 仅作迁移回退
+    global XAML_FontSizeDelta, XAML_FontSizeBase, XAML_FontSizeDefault, XAML_FontWeight, XAML_TextClarity
+    defFs := IsSet(XAML_FontSizeDefault) ? XAML_FontSizeDefault : 15
+    fs := IniRead(IniFile, IniSection, "FontSize", "")
+    if (fs == "" || !IsNumber(fs)) {
+        themeIni := GetThemesIniPath()
+        fs := IniRead(themeIni, MainSoftData.Theme, "FontSize", defFs)
+    }
+    ApplyUserFontSize(fs, false)
+    if (IniRead(IniFile, IniSection, "FontSize", "") == "")
+        try IniWrite(MainSoftData.FontSize, IniFile, IniSection, "FontSize")
     try {
-        themeIni := IsSet(ThemesIniPath) ? ThemesIniPath : (A_ScriptDir "\Setting\themes.ini")
-        MainSoftData.FontSize := IniRead(themeIni, MainSoftData.Theme, "FontSize", 22)
-        XAML_FontSizeDelta := MainSoftData.FontSize - XAML_FontSizeBase
+        themeIni := GetThemesIniPath()
         MainSoftData.FontWeight := FontWeightToNum(IniRead(themeIni, MainSoftData.Theme, "FontWeight", "400"))
         XAML_FontWeight := MainSoftData.FontWeight
         MainSoftData.FontClarity := "1"   ; 文字清晰度固定 1（标准平滑）
@@ -599,11 +606,38 @@ LoadMainSetting() {
     LangKeysInit()
 }
 
+GetThemesIniPath() {
+    if (IsSet(ThemesIniPath) && ThemesIniPath != "")
+        return ThemesIniPath
+    return A_WorkingDir "\Setting\themes.ini"
+}
+
+; persistIni=true 时写入 MainSettings（权威）并同步 themes.ini
+ApplyUserFontSize(fs, persistIni := true) {
+    global XAML_FontSizeDelta, XAML_FontSizeBase, XAML_FontSizeDefault
+    baseFs := IsSet(XAML_FontSizeBase) ? XAML_FontSizeBase : 15
+    defFs := IsSet(XAML_FontSizeDefault) ? XAML_FontSizeDefault : 15
+    if (!IsNumber(fs))
+        fs := defFs
+    fs := Integer(fs)
+    if (fs < 0)
+        fs := 0
+    if (fs > 40)
+        fs := 40
+    MainSoftData.FontSize := fs
+    XAML_FontSizeDelta := fs - baseFs
+    if (persistIni) {
+        try IniWrite(fs, IniFile, IniSection, "FontSize")
+        try IniWrite(fs, GetThemesIniPath(), MainSoftData.Theme, "FontSize")
+    }
+    return fs
+}
+
 EnsureXAMLThemesIni() {
     static done := false
     if (done)
         return
-    iniPath := IsSet(ThemesIniPath) ? ThemesIniPath : A_ScriptDir "\Setting\themes.ini"
+    iniPath := GetThemesIniPath()
     if (FileExist(iniPath)) {
         done := true
         return
@@ -611,7 +645,7 @@ EnsureXAMLThemesIni() {
     if (!DirExist(A_ScriptDir "\Setting"))
         DirCreate(A_ScriptDir "\Setting")
     IniWrite("2,0", iniPath, "RMT_Light", "Window_DWM")
-    IniWrite("22", iniPath, "RMT_Light", "FontSize")   ; 主题字体大小（默认 22，滑动条 0-40）
+    IniWrite("15", iniPath, "RMT_Light", "FontSize")   ; 主题字体大小（软件默认 15）
     IniWrite("400", iniPath, "RMT_Light", "FontWeight")
     IniWrite("1", iniPath, "RMT_Light", "FontClarity")
     IniWrite("CornerRadius:8", iniPath, "RMT_Light", "Resource_WindowRadius")
@@ -644,7 +678,7 @@ EnsureXAMLThemesIni() {
     IniWrite("#FF0078D7", iniPath, "RMT_Light", "Resource_ScrollBarHover")
 
     IniWrite("2,1", iniPath, "RMT_Dark", "Window_DWM")
-    IniWrite("22", iniPath, "RMT_Dark", "FontSize")   ; 主题字体大小（默认 22，滑动条 0-40）
+    IniWrite("15", iniPath, "RMT_Dark", "FontSize")   ; 主题字体大小（软件默认 15）
     IniWrite("400", iniPath, "RMT_Dark", "FontWeight")
     IniWrite("1", iniPath, "RMT_Dark", "FontClarity")
     IniWrite("CornerRadius:8", iniPath, "RMT_Dark", "Resource_WindowRadius")

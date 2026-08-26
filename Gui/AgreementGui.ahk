@@ -49,7 +49,7 @@ class AgreementGui {
         Agreement5 := GetLang("若不同意上述条款，请立即停止使用本软件。")
         AgreeAgreementStr := Format("{}`n`n{}`n`n{}`n`n{}`n`n{}", Agreement1, Agreement2, Agreement3, Agreement4, Agreement5)
 
-        main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize("12")
+        main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize(XAMLHost.GetDesignFontSize())
         main.Rows(titleHeight, "*")
 
         ; === 标题栏 ===

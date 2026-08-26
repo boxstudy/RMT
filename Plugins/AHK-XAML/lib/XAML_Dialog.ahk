@@ -55,7 +55,7 @@ class XDialog {
             tb.Name("DragArea")
         }
         
-        titleTb := tb.Add("TextBlock").Text(title).FontSize(12).VerticalAlignment("Center").Margin("15,0,0,0")
+        titleTb := tb.Add("TextBlock").Text(title).FontSize(XAMLHost.GetThemeFontSize() + 2).FontWeight("Bold").VerticalAlignment("Center").Margin("15,0,0,0")
         titleTb.Foreground(options.HasProp("TitleForeground") ? options.TitleForeground : "{DynamicResource TextMain}")
         if (options.HasProp("TitleFontFamily")) {
             titleTb.FontFamily(options.TitleFontFamily)
@@ -79,9 +79,7 @@ class XDialog {
                 if (options.HasProp("CloseBtnVerticalAlignment")) closeBtn._Props["VerticalAlignment"] := options.CloseBtnVerticalAlignment
                 closeBtn.InjectResources(options.CloseBtnTemplate)
             } else {
-                CloseBtnTemplate := '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CloseBtnRadius}"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="border" Property="Background" Value="#E0FF3333"/><Setter Property="Foreground" Value="White"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
-                closeBtn.Width(45).Foreground("{DynamicResource TextMain}")
-                closeBtn.InjectResources(CloseBtnTemplate)
+                closeBtn.Style("{StaticResource TitleBarCloseButton}").Width(46).Height(36).MinHeight(36).Padding("0").Foreground("{DynamicResource TextMain}")
                 closeBtn.Add("TextBlock").Text(Chr(0xE8BB)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
             }
         }

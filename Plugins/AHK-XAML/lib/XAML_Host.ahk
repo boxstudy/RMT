@@ -1,5 +1,6 @@
 #Requires AutoHotkey v2.0
 #SingleInstance Force
+#Include "XAML_Config.ahk"
 
 
 class CodeBox {
@@ -172,6 +173,8 @@ class XAMLHost {
             xaml := StrReplace(xaml, "%Height%", "700")
         if (InStr(xaml, "%ResizeMode%"))
             xaml := StrReplace(xaml, "%ResizeMode%", "CanResize")
+        if (InStr(xaml, "%FontSize%"))
+            xaml := StrReplace(xaml, "%FontSize%", String(XAMLHost.GetDesignFontSize()))
 
         this.xaml := xaml
         this.exePath := exePath
@@ -180,6 +183,7 @@ class XAMLHost {
         this.tracked := Map()
         this.wpfHwnd := 0
         this.pid := 0
+        this.skipFontScale := false
         XAMLHost.GetAppDir()
         if !DirExist(A_WorkingDir "\Log")
             DirCreate(A_WorkingDir "\Log")
@@ -226,7 +230,9 @@ class XAMLHost {
         ; 动态注入的 XAML（AddXamlItem/InsertXamlItem/Document）与 Show 一致应用字体缩放，
         ; 否则设置页等运行时内容不随「字体大小」缩放，导致与主题窗口等烘焙内容字号不一致
         if (propertyName = "AddXamlItem" || propertyName = "InsertXamlItem" || propertyName = "Document")
-            valueStr := XAMLHost.ApplyFontSizeDelta(valueStr)
+            valueStr := XAMLHost.ApplyFontSizeDelta(valueStr, this.IsFontScaleSkipped())
+        else if (propertyName = "FontSize" && IsNumber(valueStr))
+            valueStr := String(XAMLHost.FormatFontSize(XAMLHost.ScaleFontSize(valueStr, this.IsFontScaleSkipped())))
         if !this.wpfHwnd {
             if !this.HasOwnProp("_updateQueue")
                 this._updateQueue := []
@@ -309,7 +315,9 @@ class XAMLHost {
 
             val := String(updateObj.Value)
             if (updateObj.PropertyName = "AddXamlItem" || updateObj.PropertyName = "InsertXamlItem" || updateObj.PropertyName = "Document")
-                val := XAMLHost.ApplyFontSizeDelta(val)
+                val := XAMLHost.ApplyFontSizeDelta(val, this.IsFontScaleSkipped())
+            else if (updateObj.PropertyName = "FontSize" && IsNumber(val))
+                val := String(XAMLHost.FormatFontSize(XAMLHost.ScaleFontSize(val, this.IsFontScaleSkipped())))
             val := StrReplace(val, "`r", "&#x0D;")
             val := StrReplace(val, "`n", "&#x0A;")
             payload .= updateObj.ControlName "|" updateObj.PropertyName "|" val "`n"
@@ -379,18 +387,285 @@ class XAMLHost {
         try Func("XamlUiDiag").Call(msg, tag)
     }
 
-    ; 主题字体缩放：把 XAML 里所有 FontSize="N" 统一平移 XAML_FontSizeDelta。
-    ; 覆盖生成器构建与字符串拼接的 XAML，以及窗口级 TextElement.FontSize 默认值；
-    ; 增量 0 时原样返回。回调内须显式声明全局。
-    static ApplyFontSizeDelta(xaml) {
-        global XAML_FontSizeDelta
-        if (!XAML_FontSizeDelta)
+    IsFontScaleSkipped() {
+        return this.HasProp("skipFontScale") && this.skipFontScale
+    }
+
+    ; --- 统一字号接口（所有界面声明字号都走这里，图形节点编辑器 skipFontScale 除外）---
+    ; 实际字号 = max(主题字体大小, 声明字号 + (主题字体大小 - 基准))
+    ; 设计与默认均为主题字体大小；后续单独设控件字号时声明相对基准的值。
+    static GetThemeFontSize() {
+        global XAML_FontSizeBase, XAML_FontSizeDelta
+        XAMLHost.SyncThemeFontDelta()
+        base := IsSet(XAML_FontSizeBase) ? XAML_FontSizeBase : 15
+        delta := IsSet(XAML_FontSizeDelta) ? XAML_FontSizeDelta : 0
+        return base + delta
+    }
+
+    ; 界面声明用的设计字号（与主题默认相同，当前为 15）；Show 时再按主题滑条缩放
+    static GetDesignFontSize() {
+        global XAML_FontSizeBase
+        return IsSet(XAML_FontSizeBase) ? XAML_FontSizeBase : 15
+    }
+
+    ; 标题栏高度固定，不随主题字号变化
+    static GetTitleBarHeight() {
+        return 36
+    }
+
+    static ApplyTitleBarHeight(&xaml) {
+    }
+
+    ; MainSoftData.FontSize 是权威值；防止只写了数值、全局增量仍为 0
+    static SyncThemeFontDelta() {
+        global XAML_FontSizeDelta, XAML_FontSizeBase
+        if (!IsSet(MainSoftData) || !IsObject(MainSoftData) || !MainSoftData.HasProp("FontSize"))
+            return
+        if (!IsNumber(MainSoftData.FontSize))
+            return
+        base := IsSet(XAML_FontSizeBase) ? XAML_FontSizeBase : 15
+        XAML_FontSizeDelta := Integer(MainSoftData.FontSize) - base
+    }
+
+    ; 主界面根内容按 1400×787 设计，引擎 Viewbox 按窗口实际尺寸等比缩放。
+    ; 其它窗口若要和设置页签「看起来一样大」，窗口尺寸 = 设计尺寸 × 该系数。
+    static GetMainViewboxScale() {
+        designW := 1400, designH := 787
+        scale := 1.0
+        try {
+            hwnd := 0
+            if (IsSet(MyMainWin) && IsObject(MyMainWin) && IsObject(MyMainWin.ui) && MyMainWin.ui.HasProp("wpfHwnd"))
+                hwnd := MyMainWin.ui.wpfHwnd
+            if (hwnd && DllCall("user32\IsWindow", "Ptr", hwnd, "Int")) {
+                WinGetPos(, , &w, &h, "ahk_id " hwnd)
+                dpi := DllCall("user32\GetDpiForWindow", "Ptr", hwnd, "UInt")
+                if (!dpi)
+                    dpi := DllCall("user32\GetDpiForSystem", "UInt")
+                dipW := w / (dpi / 96.0)
+                dipH := h / (dpi / 96.0)
+                if (dipW > 0 && dipH > 0)
+                    scale := Min(dipW / designW, dipH / designH)
+            }
+        }
+        if (scale < 0.6)
+            scale := 0.6
+        if (scale > 3)
+            scale := 3
+        return scale
+    }
+
+    ; 只看资源后的第一个内容根。内部 Grid 的 Width 不代表窗口已按设计稿钉尺寸。
+    static RootContentHasDesignSize(xaml) {
+        pos := InStr(xaml, "</Window.Resources>")
+        if (!pos)
+            return false
+        rest := SubStr(xaml, pos + StrLen("</Window.Resources>"))
+        if (!RegExMatch(rest, "i)<(Grid|DockPanel|StackPanel|Border|Canvas)\b([^>]*)>", &m))
+            return false
+        return InStr(m[2], "Width=")
+    }
+
+    ; 子窗口只跟主界面 Viewbox 比例，不因主题字号改变宽高。
+    ; 主界面 / 主题选项 / 取色与准星等已自带根尺寸则跳过；图形节点 skipFontScale 跳过。
+    ; 透明浮层、自由粘贴不改尺寸，避免坐标/内容被拉伸。
+    static ApplyDialogVisualScale(&xaml, skip := false) {
+        if (skip)
+            return
+        if (InStr(xaml, 'AllowsTransparency="True"'))
+            return
+        if (InStr(xaml, "SizeToContent=") && InStr(xaml, "WidthAndHeight"))
+            return
+        ; 用户已保存尺寸的窗口（如变量监视器）不再二次放大，避免越开越大
+        winEnd := InStr(xaml, ">")
+        if (winEnd && InStr(SubStr(xaml, 1, winEnd), "MinWidth="))
+            return
+        if (XAMLHost.RootContentHasDesignSize(xaml))
+            return
+        pos := InStr(xaml, "</Window.Resources>")
+        if (!pos)
+            return
+        uiScale := XAMLHost.GetMainViewboxScale()
+        hasSizeToContent := InStr(xaml, "SizeToContent=")
+        ; SizeToContent 时引擎不包 Viewbox
+        if (hasSizeToContent)
+            uiScale := 1.0
+        if (uiScale <= 1.001)
+            return
+        if (!RegExMatch(xaml, 'Width="(\d+(?:\.\d+)?)"', &mw))
+            return
+        designW := Float(mw[1])
+        rootW := Round(designW)
+        winW := Round(rootW * uiScale)
+        xaml := RegExReplace(xaml, 'Width="' mw[1] '"', 'Width="' winW '"', , 1)
+
+        rootH := ""
+        if (!hasSizeToContent && RegExMatch(xaml, 'Height="(\d+(?:\.\d+)?)"', &mh)) {
+            rootH := Round(Float(mh[1]))
+            xaml := RegExReplace(xaml, 'Height="' mh[1] '"', 'Height="' Round(rootH * uiScale) '"', , 1)
+        }
+
+        pos := InStr(xaml, "</Window.Resources>")
+        if (!pos)
+            return
+        tagLen := StrLen("</Window.Resources>")
+        head := SubStr(xaml, 1, pos + tagLen - 1)
+        tail := SubStr(xaml, pos + tagLen)
+        attrs := ' Width="' (hasSizeToContent ? winW : rootW) '"'
+        if (!hasSizeToContent && rootH != "")
+            attrs .= ' Height="' rootH '"'
+        tail := RegExReplace(tail, "i)<(Grid|DockPanel|StackPanel|Border|Canvas)\b", "<$1" attrs, , 1)
+        xaml := head tail
+    }
+
+    static ScaleFontSize(declared, skip := false) {
+        global XAML_FontSizeDelta, XAML_FontSizeBase
+        if (skip)
+            return Float(declared)
+        XAMLHost.SyncThemeFontDelta()
+        base := IsSet(XAML_FontSizeBase) ? XAML_FontSizeBase : 15
+        delta := IsSet(XAML_FontSizeDelta) ? XAML_FontSizeDelta : 0
+        themeMin := base + delta
+        v := Float(declared) + delta
+        return Max(themeMin, Max(6, v))
+    }
+
+    static FormatFontSize(v) {
+        v := Float(v)
+        return (v = Floor(v)) ? Integer(v) : v
+    }
+
+    static ApplyFontSizeDelta(xaml, skip := false) {
+        if (skip)
             return xaml
         try {
-            return RegExReplace(xaml, 'FontSize="\K\d+(?:\.\d+)?'
-                , (m) => (v := Max(6, Float(m[0]) + XAML_FontSizeDelta), v = Floor(v) ? Integer(v) : v))
+            scale(s) => RegExReplace(s, 'FontSize="\K\d+(?:\.\d+)?'
+                , (m) => XAMLHost.FormatFontSize(XAMLHost.ScaleFontSize(m[0])))
+            dragPos := InStr(xaml, 'Name="DragArea"')
+            if (!dragPos)
+                return scale(xaml)
+            tagStart := InStr(SubStr(xaml, 1, dragPos), "<", , -1)
+            endPos := XAMLHost._FindMatchingClose(xaml, tagStart)
+            if (!tagStart || !endPos)
+                return scale(xaml)
+            mid := SubStr(xaml, tagStart, endPos - tagStart + 1)
+            mid := XAMLHost._PatchTitleBarXaml(mid)
+            return scale(SubStr(xaml, 1, tagStart - 1)) mid scale(SubStr(xaml, endPos + 1))
         } catch {
             return xaml
+        }
+    }
+
+    ; 按标签嵌套找到与 tagStart 配对的结束标签，避免 Grid 标题栏误吃到后面的 </Border>
+    static _FindMatchingClose(xaml, tagStart) {
+        if (tagStart < 1 || !RegExMatch(SubStr(xaml, tagStart, 64), "^<([A-Za-z][A-Za-z0-9]*)", &m))
+            return 0
+        name := m[1]
+        openPat := "<" name
+        closePat := "</" name ">"
+        depth := 0
+        pos := tagStart
+        loop 80 {
+            nOpen := InStr(xaml, openPat, , pos)
+            nClose := InStr(xaml, closePat, , pos)
+            if (!nClose)
+                return 0
+            realOpen := 0
+            if (nOpen && nOpen <= nClose) {
+                ch := SubStr(xaml, nOpen + StrLen(openPat), 1)
+                if (ch = " " || ch = ">" || ch = "`t" || ch = "`n" || ch = "`r")
+                    realOpen := nOpen
+            }
+            if (realOpen) {
+                depth += 1
+                pos := realOpen + StrLen(openPat)
+            } else {
+                depth -= 1
+                endPos := nClose + StrLen(closePat) - 1
+                if (depth = 0)
+                    return endPos
+                pos := nClose + StrLen(closePat)
+            }
+        }
+        return 0
+    }
+
+    ; 标题栏：窗口标题 = 主题字号+2 且粗体；关闭按钮铺满右上角
+    static _PatchTitleBarXaml(mid) {
+        titleFs := XAMLHost.FormatFontSize(XAMLHost.GetThemeFontSize() + 2)
+        out := ""
+        pos := 1
+        while (RegExMatch(mid, "i)<(TextBlock|Button)\b[^>]*>", &m, pos)) {
+            tag := m[0]
+            out .= SubStr(mid, pos, m.Pos[0] - pos)
+            kind := m[1]
+            if (kind = "TextBlock") {
+                isIcon := InStr(tag, "Segoe Fluent") || InStr(tag, "MDL2") || InStr(tag, 'FontSize="10"')
+                if (!isIcon) {
+                    if (RegExMatch(tag, 'FontSize="\d+(?:\.\d+)?"'))
+                        tag := RegExReplace(tag, 'FontSize="\d+(?:\.\d+)?"', 'FontSize="' titleFs '"')
+                    else
+                        tag := RegExReplace(tag, ">$", ' FontSize="' titleFs '">')
+                    if (InStr(tag, "FontWeight="))
+                        tag := RegExReplace(tag, 'FontWeight="[^"]*"', 'FontWeight="Bold"')
+                    else
+                        tag := RegExReplace(tag, ">$", ' FontWeight="Bold">')
+                }
+            } else if (InStr(tag, 'Name="BtnClosePanel"') || InStr(tag, 'Name="BtnClose"')
+                || InStr(tag, 'Name="BtnMinimize"') || InStr(tag, 'Name="BtnMaximize"')) {
+                if (InStr(tag, "Width="))
+                    tag := RegExReplace(tag, '\bWidth="\d+(?:\.\d+)?"', 'Width="46"')
+                else
+                    tag := RegExReplace(tag, ">$", ' Width="46">')
+                if (InStr(tag, "Height="))
+                    tag := RegExReplace(tag, '\bHeight="\d+(?:\.\d+)?"', 'Height="36"')
+                else
+                    tag := RegExReplace(tag, ">$", ' Height="36">')
+                if (InStr(tag, "MinHeight="))
+                    tag := RegExReplace(tag, '\bMinHeight="\d+(?:\.\d+)?"', 'MinHeight="36"')
+                else
+                    tag := RegExReplace(tag, ">$", ' MinHeight="36">')
+                if (InStr(tag, "Padding="))
+                    tag := RegExReplace(tag, '\bPadding="[^"]*"', 'Padding="0"')
+                else
+                    tag := RegExReplace(tag, ">$", ' Padding="0">')
+                if ((InStr(tag, 'Name="BtnClosePanel"') || InStr(tag, 'Name="BtnClose"')) && !InStr(tag, "Style="))
+                    tag := RegExReplace(tag, ">$", ' Style="{StaticResource TitleBarCloseButton}">')
+            }
+            out .= tag
+            pos := m.Pos[0] + m.Len[0]
+        }
+        return out SubStr(mid, pos)
+    }
+
+    static BuildApplyFontsPayload(change, minSize := "") {
+        global XAML_FontWeight
+        family := ""
+        weight := XAML_FontWeight
+        try {
+            if (IsSet(MainSoftData) && IsObject(MainSoftData)) {
+                if (MainSoftData.HasProp("FontType"))
+                    family := MainSoftData.FontType
+                if (MainSoftData.HasProp("FontWeight"))
+                    weight := MainSoftData.FontWeight
+            }
+        }
+        if (minSize == "")
+            minSize := XAMLHost.GetThemeFontSize()
+        return family "|" change "|" weight "|1|" minSize
+    }
+
+    static ApplyFontsToAllWindows(change, minSize := "", excludeHost := 0) {
+        payload := XAMLHost.BuildApplyFontsPayload(change, minSize)
+        for , host in XAMLHost._instances {
+            if (!IsObject(host) || !host.HasProp("wpfHwnd") || !host.wpfHwnd)
+                continue
+            if (excludeHost != 0 && host == excludeHost)
+                continue
+            if (host.IsFontScaleSkipped())
+                continue
+            if (!DllCall("user32\IsWindow", "Ptr", host.wpfHwnd, "Int"))
+                continue
+            try host.Update("Window", "ApplyFonts", payload)
         }
     }
 
@@ -1502,18 +1777,35 @@ class XAMLHost {
             ; 非透明窗口：窗口级背景铺实色 BgColor，避免首帧先闪 DWM 玻璃边框（Win11 下偏紫/系统色）
             if (!InStr(this.xaml, 'AllowsTransparency="True"'))
                 cleanXaml := StrReplace(cleanXaml, 'Background="Transparent"', 'Background="{DynamicResource BgColor}"')
-            ; 主题字体缩放：统一平移所有 FontSize（含窗口级 TextElement.FontSize 默认值）
-            cleanXaml := XAMLHost.ApplyFontSizeDelta(cleanXaml)
+            XAMLHost.SyncThemeFontDelta()
+            cleanXaml := XAMLHost.ApplyFontSizeDelta(cleanXaml, this.IsFontScaleSkipped())
+            if (!this.IsFontScaleSkipped())
+                XAMLHost.ApplyTitleBarHeight(&cleanXaml)
             ; 主题字体粗细 / 文字清晰度（窗口级默认值，元素显式设置时以元素为准）
             try {
                 global XAML_FontWeight, XAML_TextClarity
+                if (!this.IsFontScaleSkipped()) {
+                    fontFamily := ""
+                    try {
+                        if (IsSet(MainSoftData) && IsObject(MainSoftData) && MainSoftData.HasProp("FontType") && MainSoftData.FontType != "")
+                            fontFamily := MainSoftData.FontType
+                    }
+                    if (fontFamily != "") {
+                        fontFamily := StrReplace(fontFamily, '"', "")
+                        if (InStr(cleanXaml, "TextElement.FontFamily="))
+                            cleanXaml := RegExReplace(cleanXaml, 'TextElement\.FontFamily="[^"]*"', 'TextElement.FontFamily="' fontFamily '"')
+                        else
+                            cleanXaml := StrReplace(cleanXaml, "TextElement.FontSize=", 'TextElement.FontFamily="' fontFamily '" TextElement.FontSize=')
+                    }
+                }
                 cleanXaml := StrReplace(cleanXaml, 'TextElement.FontWeight="Normal"', 'TextElement.FontWeight="' XAML_FontWeight '"')
                 if (XAML_TextClarity == 1) {
                     cleanXaml := StrReplace(cleanXaml, 'TextOptions.TextFormattingMode="Display"', 'TextOptions.TextFormattingMode="Ideal"')
-                } else if (XAML_TextClarity == 3) {
+                } else                 if (XAML_TextClarity == 3) {
                     cleanXaml := StrReplace(cleanXaml, 'TextOptions.TextRenderingMode="ClearType"', 'TextOptions.TextRenderingMode="Aliased"')
                 }
             }
+            XAMLHost.ApplyDialogVisualScale(&cleanXaml, this.IsFontScaleSkipped())
             inlinePayload := cleanXaml "`n---AHK-XAML-EVENTS---`n" eventBindings
             payload := "CREATE_WINDOW_INLINE|" this.id "|" trackedCsv "|" A_ScriptName "|" String(this.ownerHwnd) "|" inlinePayload
 
@@ -1699,6 +1991,14 @@ class XAMLHost {
                         instance.BatchUpdate(item.arr)
                 }
                 instance._updateQueue := []
+            }
+            ; 控件样式（xaml.components）里写死的 FontSize 不会被 XAML 字符串替换；
+            ; 与主题滑条一致：开窗后再按主题下限夹一次，重启后才能看到实际字号。
+            if (!instance.IsFontScaleSkipped()) {
+                try {
+                    themeFs := XAMLHost.GetThemeFontSize()
+                    instance.Update("Window", "ApplyFonts", XAMLHost.BuildApplyFontsPayload(0, themeFs))
+                }
             }
         }
         if (ctrlName == "Window" && eventName == "Closed") {
@@ -2363,7 +2663,7 @@ XAML_TEMPLATE := '
             ResizeMode="%ResizeMode%"
             WindowStyle="None" AllowsTransparency="False" Background="Transparent"
             WindowStartupLocation="CenterScreen"
-            TextElement.Foreground="{DynamicResource TextMain}" TextElement.FontSize="13" TextElement.FontWeight="Normal"
+            TextElement.Foreground="{DynamicResource TextMain}" TextElement.FontSize="%FontSize%" TextElement.FontWeight="Normal"
             TextOptions.TextFormattingMode="Display" TextOptions.TextRenderingMode="ClearType"
             RenderOptions.ClearTypeHint="Enabled" UseLayoutRounding="True"
             SnapsToDevicePixels="True">

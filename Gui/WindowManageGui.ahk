@@ -62,7 +62,7 @@ class WindowManageGui {
         this._title := title
         titleHeight := "30"
 
-        main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize("12")
+        main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize(XAMLHost.GetDesignFontSize())
         main.Rows(titleHeight, "32", "32", "34", "30", "30", "30", "30", "44")
 
         ; === 标题栏 ===

@@ -115,6 +115,7 @@ OnSaveSetting(*) {
     CheckAndAddDirty("TableIndex", MainSoftData.TabCtrl.Value)
     CheckAndAddDirty("Lang", MainSoftData.Lang)
     CheckAndAddDirty("FontType", MainSoftData.FontType)
+    CheckAndAddDirty("FontSize", MainSoftData.HasProp("FontSize") ? MainSoftData.FontSize : 15)
     CheckAndAddDirty("JoyType", MainSoftData.JoyType)
     CheckAndAddDirty("TriggerJoyType", MainSoftData.TriggerJoyType)
     CheckAndAddDirty("PreferredMacroEditor", MainSoftData.PreferredMacroEditor)

@@ -60,7 +60,7 @@ class InputBtnXamlGui {
         }
         genName := "XAML_Generator"
         gen := %genName%
-        main := gen("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize("12")
+        main := gen("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize(XAMLHost.GetDesignFontSize())
         main.Rows(titleHeight, "*")
 
         ; === 标题栏 ===

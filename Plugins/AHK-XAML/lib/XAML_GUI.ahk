@@ -170,12 +170,12 @@ class XAML_GUI {
             titleSp.Add("Image").Name("AppIcon").Width(16).Height(16).Margin("0,0,10,0")
         }
 
-        titleSp.Add("TextBlock").Name("AppTitle").Text(this.title).Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold")
+        titleSp.Add("TextBlock").Name("AppTitle").Text(this.title).Foreground("{DynamicResource TitleBarForeground}").FontSize(XAMLHost.GetThemeFontSize() + 2).FontWeight("Bold")
 
         winBtns := grid.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Right").VerticalAlignment("Top")
 
         ChromeBtnTemplate := '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="border" Background="{TemplateBinding Background}"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="border" Property="Background" Value="#20FFFFFF"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
-        CloseBtnTemplate := '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CloseBtnRadius}"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="border" Property="Background" Value="#E0FF3333"/><Setter Property="Foreground" Value="White"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
+        CloseBtnTemplate := '<Style TargetType="Button" BasedOn="{StaticResource TitleBarCloseButton}"/>'
 
         if (this.showMinMax) {
             minBtn := winBtns.Add("Button").Name("BtnMinimize").WindowChrome_IsHitTestVisibleInChrome("True").Width(45).Height(String(this.titleBarHeight)).Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0).Cursor("Hand").ToolTip("Minimize")
@@ -189,7 +189,7 @@ class XAML_GUI {
             }
         }
 
-        closeBtn := winBtns.Add("Button").Name("BtnClose").WindowChrome_IsHitTestVisibleInChrome("True").Width(45).Height(String(this.titleBarHeight)).Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0).Cursor("Hand").ToolTip("Close Application")
+        closeBtn := winBtns.Add("Button").Name("BtnClose").Style("{StaticResource TitleBarCloseButton}").WindowChrome_IsHitTestVisibleInChrome("True").Width(46).Height(36).Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0).Cursor("Hand").ToolTip("Close Application")
         closeBtn.InjectResources(CloseBtnTemplate)
         closeBtn.Add("TextBlock").Text(Chr(0xE8BB)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
 
