@@ -66,6 +66,7 @@
 #Include ..\Gui\InputBtnXamlGui.ahk
 #Include ..\Gui\ConfigMergeGui.ahk
 #Include ..\Gui\VoiceGui.ahk
+#Include ..\Gui\TableMgrGui.ahk
 #Include ..\Gui\TabItemUIUtil.ahk
 
 
@@ -146,6 +147,7 @@ global MySubmitGraphBranches := SubmitGraphBranchesHandler
 global MySetGlobalVariable := SetGlobalVariable
 global MyDelGlobalVariable := DelGlobalVariable
 global MyCMDReportAciton := CMDReport
+global MyCMDTipForceAction := CmdTipForceShow
 global MyExcuteRMTCMDAction := ExcuteRMTCMDAction
 global MySetTableItemState := SetTableItemState
 global MySetItemPauseState := SetItemPauseState

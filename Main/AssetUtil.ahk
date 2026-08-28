@@ -1,5 +1,6 @@
 #Requires AutoHotkey v2.0
 #Include "DataClass.ahk"
+#Include Util\TableLocator.ahk
 #Include Util\ExcelUtil.ahk
 #Include Util\SerialUtil.ahk
 #Include Util\JsonUtil.ahk
@@ -568,6 +569,7 @@ LoadMainSetting() {
     MySoftData.WinPosX := IniRead(IniFile, IniSection, "WinPosX", 0)
     MySoftData.WinPosY := IniRead(IniFile, IniSection, "WinPosY", 0)
     MainSoftData.TableIndex := IniRead(IniFile, IniSection, "TableIndex", 1)
+    MainSoftData.CurTableID := IsNumber(MainSoftData.TableIndex) ? "" : MainSoftData.TableIndex
     MainSoftData.Lang := IniRead(IniFile, IniSection, "Lang", "无语言")
     MainSoftData.FontType := IniRead(IniFile, IniSection, "FontType", "微软雅黑")
     MainSoftData.JoyType := IniRead(IniFile, IniSection, "JoyType", "Xbox")
@@ -899,16 +901,345 @@ SetFontList() {
     }
 }
 
+; ============================================================
+; 加载当前配置方案的所有表（动态表集合）
+; 新格式：[Tables] 段 List=TableID|Symbol|Name|Order 用 π 分隔
+; 旧格式：无 [Tables] 段 → 使用默认 13 表定义（每条目按旧格式迁移）
+; ============================================================
 LoadCurMacroSetting() {
-    loop MainSoftData.TabNameArr.Length {
-        ReadTableItemInfo(A_Index)
+    global MySoftData
+    tableListStr := IniRead(MacroFile, "Tables", "List", "")
+    migrated := false
+    if (tableListStr != "") {
+        ; 新格式：解析动态表集合（JSON 数组 [[ID, Symbol, Name, Order], ...]）
+        ; 表身份固定 = Symbol（entry[2]）；entry[1] 若是旧动态 t_xxx 段名则记入 PersistSeg 供迁移读取
+        MySoftData.TableInfo := []
+        try {
+            tableArr := JSON.parse(tableListStr, , false)
+            if (IsObject(tableArr)) {
+                for entry in tableArr {
+                    if (!IsObject(entry) || entry.Length < 4)
+                        continue
+                    t := TableItem()
+                    t.Symbol := entry[2]
+                    t.ID := t.Symbol
+                    t.Name := entry[3]
+                    t.Order := Integer(entry[4])
+                    ; 仅旧式动态段名（t_ 前缀）视为迁移源（PersistSeg）；新固定 Symbol 或 Symbol_N 多实例不做迁移
+                    t.PersistSeg := (SubStr(entry[1], 1, 2) == "t_") ? entry[1] : ""
+                    MySoftData.TableInfo.Push(t)
+                }
+            }
+        } catch as e {
+            ; JSON 解析失败（异常损坏）→ 回退默认表集合
+            CreateTableItemArr()
+        }
+        if (MySoftData.TableInfo.Length == 0)
+            CreateTableItemArr()
+        RebuildTableLocator()
+    } else {
+        ; 旧格式：默认 13 表骨架（条目数据按旧格式逐表迁移）
+        CreateTableItemArr()
+        migrated := true
+    }
+    for tableItem in MySoftData.TableInfo {
+        if (ReadTableItemInfo(tableItem))
+            migrated := true
+        EnsureTableHasFold(tableItem)
+    }
+    ; 仅当发生过迁移（旧格式→新格式）才落盘表集合，避免 Worker 并发写
+    if (migrated)
+        SaveTableCollection()
+    RebuildTableLocator()
+    ; 持久化的当前 tab 是 TableID（身份）：解析为显示顺序下标；无效则回落 1
+    if (MainSoftData.CurTableID != "") {
+        idx := GetTableIndexByID(MainSoftData.CurTableID)
+        MainSoftData.TableIndex := idx > 0 ? idx : 1
+    } else if (MainSoftData.TableIndex < 1 || MainSoftData.TableIndex > MySoftData.TableInfo.Length) {
+        MainSoftData.TableIndex := 1
     }
 }
 
-ReadTableItemInfo(index) {
+; ============================================================
+; 读取单个表的数据（tableItem 为表对象）
+; 读三级段结构：[表ID]/[表ID.ModuleN]/[表ID.ModuleN.MacroM]，无三级数据则按全新表生成默认
+; 返回 true 表示发生了初始化（需要落盘表集合），false 表示纯三级格式读取
+; ============================================================
+ReadTableItemInfo(tableItem) {
     global MySoftData
-    symbol := GetTableSymbol(index)
-    defaultInfo := GetTableItemDefaultInfo(index)
+    symbol := tableItem.Symbol
+
+    ; 非配置表（Tool/Setting/Help/Reward/Thank 等静态页）：不参与宏配置，
+    ; 一律不读新/旧格式、不迁移，内存结构清空（Items/Folds 恒为空），磁盘由 SaveTableItemInfo 清空。
+    if (IsStaticTable(tableItem)) {
+        tableItem.Items := []
+        tableItem.ItemMap := Map()
+        tableItem.Folds := []
+        tableItem.FoldMap := Map()
+        return false
+    }
+
+    segID := tableItem.PersistSeg   ; 迁移源段名（旧 t_xxx；新格式为空）
+
+    ; ---- 新格式检测：表段有 ModuleOrder 键，或存在 [tableID.*] 三级子段 ----
+    if (HasThreeLevelData(tableItem.ID)) {
+        ReadTableItemInfoNew(tableItem, tableItem.ID)
+        return false
+    }
+
+    ; ---- 旧 t_xxx 迁移段检测：回退 PersistSeg ----
+    if (segID != "" && HasThreeLevelData(segID)) {
+        ; 旧 t_xxx 段数据仍在：按旧段名读取，并落盘迁移到固定 Symbol 段
+        ReadTableItemInfoNew(tableItem, segID)
+        SaveTableItemInfo(tableItem)   ; 迁移：写固定 Symbol 段
+        tableItem.PersistSeg := ""     ; 迁移完成，清除迁移标记
+        return true
+    }
+
+    ; ---- 全新表：初始化默认条目并落盘为三级格式 ----
+    InitTableItemDefault(tableItem)
+    SaveTableItemInfo(tableItem)
+    return true
+}
+
+; 判断某表是否存在三级段结构数据（ModuleOrder 键或 [表ID.*] 子段）
+HasThreeLevelData(tableID) {
+    if (IniRead(MacroFile, tableID, "ModuleOrder", "") != "")
+        return true
+    return EnumerateDottedSubSegments(tableID).Length > 0
+}
+
+; 全新表：按表类型生成默认条目
+InitTableItemDefault(tableItem) {
+    symbol := tableItem.Symbol
+    defs := GetTableItemDefaultInfo(tableItem)
+    ; 非宏表（Tool/Setting/Help/Reward/Thank）无默认条目配置（ModeArr 为空串 → 0 条）
+    if (defs[3] == "") {
+        EnsureTableHasFold(tableItem)
+        tableItem.RebuildIndex()
+        return
+    }
+    ; 先确保有默认模块（路径身份 Normal.Module{max+1}），宏路径依赖父模块路径
+    EnsureTableHasFold(tableItem)
+    defaultFold := tableItem.Folds.Length > 0 ? tableItem.Folds[1] : ""
+    itemCount := StrSplit(defs[3], "π").Length      ; ModeArr 决定条目数
+    loop itemCount {
+        item := MacroItem()
+        item.ID := NewMacroPath(tableItem, defaultFold.ID)     ; 路径身份 foldSeg.Macro{max+1}
+        item.FoldID := defaultFold.ID
+        tableItem.Items.Push(item)
+    }
+    ApplyLegacyArraysToItems(tableItem, defs, [])
+    ; 首次启动（从未保存过配置）：给首个条目填默认宏模板，
+    ; 与旧格式迁移路径 ReadTableItemInfoLegacy 保持一致，避免首次创建 Macro_* 落盘为空
+    if (!MainSoftData.HasSaved && itemCount >= 1)
+        tableItem.Items[1].Macro := GetGetTableItemDefaultMacro(symbol)
+    tableItem.RebuildIndex()
+}
+
+; 确保表有 ≥1 个折叠框：缺失时创建默认折叠框并把全部条目归入
+; 非宏/非条目表（Tool/Setting/Help/Reward/Thank 等静态页）不参与折叠渲染，一律不加默认折叠框
+EnsureTableHasFold(tableItem) {
+    if (IsStaticTable(tableItem))
+        return
+    if (tableItem.Folds.Length > 0)
+        return
+    fold := MacroFold()
+    fold.ID := NewModulePath(tableItem)   ; 路径身份 Normal.Module{max+1}
+    fold.Remark := GetLang("RMT默认初始化配置")
+    tableItem.Folds.Push(fold)
+    for item in tableItem.Items
+        item.FoldID := fold.ID
+    tableItem.RebuildIndex()
+}
+
+; ============================================================
+; 路径身份分配（纯自增不复用）：模块 = tableID.Module{max+1}；宏 = foldSeg.Macro{max+1}
+; 序号自增不复用：取现有同层最大序号 + 1，基于内存现有对象扫描（首次生成时磁盘无数据，不能枚举磁盘）。
+; ============================================================
+NewModulePath(tableItem) {
+    max := 0
+    for fold in tableItem.Folds {
+        n := SegTailNum(fold.ID, "Module")
+        if (n > max)
+            max := n
+    }
+    return tableItem.ID "." "Module" (max + 1)
+}
+
+NewMacroPath(tableItem, foldSeg) {
+    max := 0
+    for item in tableItem.Items {
+        if (item.FoldID != foldSeg)
+            continue
+        n := SegTailNum(item.ID, "Macro")
+        if (n > max)
+            max := n
+    }
+    return foldSeg "." "Macro" (max + 1)
+}
+
+; 解析段名尾节的序号（Normal.Module3 → 3），前缀不匹配或非纯数字返回 0
+SegTailNum(seg, prefix) {
+    if (seg == "")
+        return 0
+    tail := GetSegTail(seg)
+    if (SubStr(tail, 1, StrLen(prefix)) != prefix)
+        return 0
+    numStr := SubStr(tail, StrLen(prefix) + 1)
+    return (RegExMatch(numStr, "^\d+$")) ? Integer(numStr) : 0
+}
+
+; ============================================================
+; 新格式读取（三级段结构）：[TableID] / [TableID.ModuleN] / [TableID.ModuleN.MacroM]
+;   [TableID]                表段：ModuleOrder=ModuleNπ...（模块显示顺序，重排不改段名）
+;   [TableID.ModuleN]        模块段：MacroOrder=MacroNπ...（宏显示顺序）+ 模块字段；段名即模块身份
+;   [TableID.ModuleN.MacroM] 宏段：宏字段 + Macro 实义；段名即宏身份（表内唯一路径）
+;   段名序号 = 稳定身份（纯自增不复用、移动改路径），顺序由父段 Order 列表单独控制。
+; ============================================================
+ReadTableItemInfoNew(tableItem, segID := "") {
+    tableID := (segID == "") ? tableItem.ID : segID
+    tableItem.Items := []
+    tableItem.ItemMap := Map()
+    tableItem.Folds := []
+    tableItem.FoldMap := Map()
+
+    ; ---- 模块级：按表段 ModuleOrder 列表顺序加载 [tableID.ModuleN] 段 ----
+    foldSegmentOrder := StrSplit(IniRead(MacroFile, tableID, "ModuleOrder", ""), "π")
+    foldSegs := EnumerateDottedSubSegments(tableID)   ; 合法子段集合（去重确认存在）
+    for foldRef in foldSegmentOrder {
+        foldRef := Trim(foldRef, "`r`n ")
+        if (foldRef == "")
+            continue
+        foldSeg := tableID "." foldRef     ; 例 Normal.Module1
+        if (!HasSegment(foldSeg, foldSegs))
+            continue   ; 段不存在则跳过（避免读残留）
+        fold := MacroFold()
+        fold.ID := foldSeg                 ; 段名即模块身份（全局唯一路径）
+        fold.Remark := IniRead(MacroFile, foldSeg, "Remark", "")
+        fold.FrontInfo := IniRead(MacroFile, foldSeg, "FrontInfo", "")
+        fold.ForbidState := !!Integer(IniRead(MacroFile, foldSeg, "ForbidState", "0"))
+        fold.FoldState := !!Integer(IniRead(MacroFile, foldSeg, "FoldState", "0"))
+        fold.TKType := Integer(IniRead(MacroFile, foldSeg, "TKType", "4"))
+        fold.TK := IniRead(MacroFile, foldSeg, "TK", "")
+        fold.HoldTime := IniRead(MacroFile, foldSeg, "HoldTime", "500")
+        fold.UnorderedTrigger := !!Integer(IniRead(MacroFile, foldSeg, "UnorderedTrigger", "0"))
+        tableItem.Folds.Push(fold)
+        tableItem.FoldMap[foldSeg] := fold
+
+        ; ---- 宏级：按模块段 MacroOrder 列表顺序加载 [foldSeg.MacroM] 段 ----
+        macroSegs := EnumerateDottedSubSegments(foldSeg)
+        macroOrder := StrSplit(IniRead(MacroFile, foldSeg, "MacroOrder", ""), "π")
+        for macroRef in macroOrder {
+            macroRef := Trim(macroRef, "`r`n ")
+            if (macroRef == "")
+                continue
+            macroSeg := foldSeg "." macroRef   ; 例 Normal.Module1.Macro1
+            if (!HasSegment(macroSeg, macroSegs))
+                continue
+            item := MacroItem()
+            item.ID := macroSeg                ; 段名即宏身份（表内唯一路径）
+            item.TK := IniRead(MacroFile, macroSeg, "TK", "")
+            item.HoldTime := IniRead(MacroFile, macroSeg, "HoldTime", "500")
+            item.UnorderedTrigger := !!Integer(IniRead(MacroFile, macroSeg, "UnorderedTrigger", "0"))
+            item.Forbid := ParseBoolInt(IniRead(MacroFile, macroSeg, "Forbid", "0"))
+            item.LoopCount := IniRead(MacroFile, macroSeg, "LoopCount", "1")
+            item.Remark := IniRead(MacroFile, macroSeg, "Remark", "")
+            item.TriggerType := IniRead(MacroFile, macroSeg, "TriggerType", "1")
+            item.TimingSerial := IniRead(MacroFile, macroSeg, "TimingSerial", "")
+            item.Mode := IniRead(MacroFile, macroSeg, "Mode", "1")
+            item.StartTipSound := IniRead(MacroFile, macroSeg, "StartTipSound", "1")
+            item.EndTipSound := IniRead(MacroFile, macroSeg, "EndTipSound", "1")
+            item.IcoPath := IniRead(MacroFile, macroSeg, "IcoPath", "")
+            item.VoiceKeywords := IniRead(MacroFile, macroSeg, "VoiceKeywords", "")
+            item.Macro := IniRead(MacroFile, macroSeg, "Macro", "")
+            item.FoldID := foldSeg             ; 父模块路径身份
+            tableItem.Items.Push(item)
+            tableItem.ItemMap[macroSeg] := item
+        }
+    }
+}
+
+; 判断 seg 是否在 segList（已枚举的子段名数组）中
+HasSegment(seg, segList) {
+    for s in segList {
+        if (s == seg)
+            return true
+    }
+    return false
+}
+
+; 归一化 Forbid 布尔（兼容旧格式字符串 "0"/"1" / 布尔 / 数字）
+ParseBoolInt(x) {
+    return (x == true || x == "1" || x == 1) ? 1 : 0
+}
+
+; ============================================================
+; 枚举某个段名前缀下的全部直接子段（不含更深的孙段），按段名最后一节的数字自然排序。
+; 例：prefix="Normal" → ["Normal.Module1","Normal.Module2"]
+;     prefix="Normal.Module1" → ["Normal.Module1.Macro1", ...]
+; 仅返回比 prefix 多一节（不含更深层级）的段。
+; ============================================================
+EnumerateDottedSubSegments(prefix) {
+    segs := []
+    orderMap := Map()   ; 段名 -> 末节数字
+    try {
+        allSegs := IniRead(MacroFile)   ; 全部段名，换行分隔
+        for rawLine in StrSplit(allSegs, "`n") {
+            seg := Trim(rawLine, "`r`n ")
+            if (seg == "" || seg == prefix)
+                continue
+            ; 只接受 prefix + "." + 单节（tail 不含点 = 直接子段；含点 = 更深孙段跳过）
+            prefixDot := prefix "."
+            if (SubStr(seg, 1, StrLen(prefixDot)) != prefixDot)
+                continue
+            tail := SubStr(seg, StrLen(prefixDot) + 1)
+            if (InStr(tail, "."))
+                continue   ; 更深层级孙段
+            ; 提取末节序号（ModuleN / MacroN 的 N）
+            num := 0
+            if (RegExMatch(tail, "(\d+)$", &m))
+                num := Integer(m[1])
+            segs.Push(seg)
+            orderMap[seg] := num
+        }
+    } catch as e {
+        RMTLogSys(RMT_LV_ERROR, "EnumerateDottedSubSegments", Format("枚举 {1} 子段失败: {2}", prefix, e.Message))
+    }
+    ; 按末节数字自然升序
+    BuildSortIndex(segs, orderMap)
+    return segs
+}
+
+; 按 orderMap 提供的末节数字对 segs 做稳定升序（冒泡，量小）
+BuildSortIndex(segs, orderMap) {
+    n := segs.Length
+    loop n - 1 {
+        swapped := false
+        inn := n - (A_Index - 1)
+        j := 1
+        while j < inn {
+            if (orderMap[segs[j + 1]] < orderMap[segs[j]]) {
+                tmp := segs[j]
+                segs[j] := segs[j + 1]
+                segs[j + 1] := tmp
+                swapped := true
+            }
+            j++
+        }
+        if (!swapped)
+            break
+    }
+}
+
+; ============================================================
+; 旧格式读取：symbol 前缀 π 拼接 + MacroArr N + FoldInfo JSON
+; 解析后迁移为新格式对象结构
+; ============================================================
+ReadTableItemInfoLegacy(tableItem) {
+    global MySoftData
+    symbol := tableItem.Symbol
+    defaultInfo := GetTableItemDefaultInfo(tableItem)
     savedTKArrStr := IniRead(MacroFile, IniSection, symbol "TKArr", "")
     savedModeArrStr := IniRead(MacroFile, IniSection, symbol "ModeArr", "")
     savedForbidArrStr := IniRead(MacroFile, IniSection, symbol "ForbidArr", "")
@@ -922,11 +1253,10 @@ ReadTableItemInfo(index) {
     savedEndTipSoundStr := IniRead(MacroFile, IniSection, symbol "EndTipSoundArr", "")
     savedIcoPathArrStr := IniRead(MacroFile, IniSection, symbol "IcoPathArr", "")
     savedUnorderedTriggerArrStr := IniRead(MacroFile, IniSection, symbol "UnorderedTriggerArr", "")
-    savedVoiceTriggerArrStr := IniRead(MacroFile, IniSection, symbol "VoiceTriggerArr", "")
     savedVoiceKeywordsArrStr := IniRead(MacroFile, IniSection, symbol "VoiceKeywordsArr", "")
     savedFoldInfoStr := IniRead(MacroFile, IniSection, symbol "FoldInfo", "")
 
-    ;不存在折叠筐就初始化，并读取默认配置
+    ; 不存在折叠筐就初始化，并读取默认配置
     if (savedFoldInfoStr == "") {
         savedTKArrStr := defaultInfo[1]
         savedHoldTimeArrStr := defaultInfo[2]
@@ -941,8 +1271,7 @@ ReadTableItemInfo(index) {
         savedEndTipSoundStr := defaultInfo[11]
         savedIcoPathArrStr := defaultInfo[12]
         savedUnorderedTriggerArrStr := defaultInfo[13]
-        savedVoiceTriggerArrStr := defaultInfo[14]
-        savedVoiceKeywordsArrStr := defaultInfo[15]
+        savedVoiceKeywordsArrStr := defaultInfo[14]
 
         defaultFoldInfo := ItemFoldInfo()
         defaultFoldInfo.RemarkArr := [GetLang("RMT默认初始化配置")]
@@ -962,75 +1291,112 @@ ReadTableItemInfo(index) {
         savedFoldInfoStr := JSON.stringify(defaultFoldInfo, 0)
     }
 
-    tableItem := MySoftData.TableInfo[index]
-    SetArr(savedTKArrStr, "π", tableItem.TKArr)
-    SetArr(savedModeArrStr, "π", tableItem.ModeArr)
-    SetArr(savedForbidArrStr, "π", tableItem.ForbidArr)
-    SetArr(savedRemarkArrStr, "π", tableItem.RemarkArr)
-    SetIntArr(savedLoopCountStr, "π", tableItem.LoopCountArr)
-    SetArr(savedHoldTimeArrStr, "π", tableItem.HoldTimeArr)
-    SetArr(savedTriggerTypeArrStr, "π", tableItem.TriggerTypeArr)
-    SetArr(savedSerialStr, "π", tableItem.SerialArr)
-    SetArr(savedTimingSerialStr, "π", tableItem.TimingSerialArr)
-    SetArr(savedStartTipSoundStr, "π", tableItem.StartTipSoundArr)
-    SetArr(savedEndTipSoundStr, "π", tableItem.EndTipSoundArr)
-    SetArr(savedIcoPathArrStr, "π", tableItem.IcoPathArr)
-    SetIntArr(savedUnorderedTriggerArrStr, "π", tableItem.UnorderedTriggerArr)
-    SetIntArr(savedVoiceTriggerArrStr, "π", tableItem.VoiceTriggerArr)
-    SetArr(savedVoiceKeywordsArrStr, "π", tableItem.VoiceKeywordsArr)
+    ; 解析旧数组 → 条目对象
+    ; 非宏表（Tool/Setting/Help/Reward/Thank）无条目配置：ModeArr 空 → 0 条
+    if (savedModeArrStr == "") {
+        tableItem.Folds := []
+        tableItem.FoldMap := Map()
+        tableItem.Items := []
+        tableItem.ItemMap := Map()
+        return
+    }
+    itemCount := StrSplit(savedModeArrStr, "π").Length
+    if (itemCount == 0)
+        itemCount := 1
 
-    tableItem.FoldInfo := JSON.parse(savedFoldInfoStr, , false)
-    SetSerialByArr(tableItem.SerialArr)
-    SetSerialByArr(tableItem.TimingSerialArr)
-    Compat1_0_8F4FlodInfo(tableItem.FoldInfo)
-    CompatEnsureArrLength(tableItem)
+    oldTKArr := StrSplit(savedTKArrStr, "π")
+    oldHoldTimeArr := StrSplit(savedHoldTimeArrStr, "π")
+    oldModeArr := StrSplit(savedModeArrStr, "π")
+    oldForbidArr := StrSplit(savedForbidArrStr, "π")
+    oldRemarkArr := StrSplit(savedRemarkArrStr, "π")
+    oldLoopCountArr := StrSplit(savedLoopCountStr, "π")
+    oldTriggerTypeArr := StrSplit(savedTriggerTypeArrStr, "π")
+    oldSerialArr := StrSplit(savedSerialStr, "π")
+    oldTimingSerialArr := StrSplit(savedTimingSerialStr, "π")
+    oldStartTipSoundArr := StrSplit(savedStartTipSoundStr, "π")
+    oldEndTipSoundArr := StrSplit(savedEndTipSoundStr, "π")
+    oldIcoPathArr := StrSplit(savedIcoPathArrStr, "π")
+    oldUnorderedTriggerArr := StrSplit(savedUnorderedTriggerArrStr, "π")
+    oldVoiceKeywordsArr := StrSplit(savedVoiceKeywordsArrStr, "π")
 
-    if (tableItem.ModeArr.Length == 1) {
-        if (tableItem.TKArr.Length == 0)
-            tableItem.TKArr := [""]
+    ; 迁移折叠框：IndexSpanArr → FoldID
+    oldFoldInfo := JSON.parse(savedFoldInfoStr, , false)
+    Compat1_0_8F4FlodInfo(oldFoldInfo)
+    mig := MigrateIndexSpanToFoldID(oldFoldInfo, itemCount)
+    foldsArr := mig[1]
+    itemFoldIDArr := mig[2]
 
-        if (tableItem.RemarkArr.Length == 0)
-            tableItem.RemarkArr := [""]
+    tableItem.Folds := foldsArr
+    tableItem.FoldMap := Map()
+    for fold in foldsArr
+        tableItem.FoldMap[fold.ID] := fold
+
+    tableItem.Items := []
+    tableItem.ItemMap := Map()
+    loop itemCount {
+        item := MacroItem()
+        item.ID := (oldSerialArr.Has(A_Index) && oldSerialArr[A_Index] != "") ? oldSerialArr[A_Index] : GetCMDSerialStr("Item")
+        item.TK := oldTKArr.Has(A_Index) ? oldTKArr[A_Index] : ""
+        item.HoldTime := oldHoldTimeArr.Has(A_Index) && oldHoldTimeArr[A_Index] != "" ? oldHoldTimeArr[A_Index] : 500
+        item.Mode := oldModeArr.Has(A_Index) && oldModeArr[A_Index] != "" ? oldModeArr[A_Index] : 1
+        item.Forbid := oldForbidArr.Has(A_Index) && oldForbidArr[A_Index] != "" ? oldForbidArr[A_Index] : 0
+        item.Remark := oldRemarkArr.Has(A_Index) ? oldRemarkArr[A_Index] : ""
+        item.LoopCount := oldLoopCountArr.Has(A_Index) && oldLoopCountArr[A_Index] != "" ? oldLoopCountArr[A_Index] : "1"
+        item.TriggerType := oldTriggerTypeArr.Has(A_Index) && oldTriggerTypeArr[A_Index] != "" ? oldTriggerTypeArr[A_Index] : 1
+        item.TimingSerial := oldTimingSerialArr.Has(A_Index) ? oldTimingSerialArr[A_Index] : ""
+        item.StartTipSound := oldStartTipSoundArr.Has(A_Index) && oldStartTipSoundArr[A_Index] != "" ? oldStartTipSoundArr[A_Index] : 1
+        item.EndTipSound := oldEndTipSoundArr.Has(A_Index) && oldEndTipSoundArr[A_Index] != "" ? oldEndTipSoundArr[A_Index] : 1
+        item.IcoPath := oldIcoPathArr.Has(A_Index) ? oldIcoPathArr[A_Index] : ""
+        item.UnorderedTrigger := oldUnorderedTriggerArr.Has(A_Index) ? (oldUnorderedTriggerArr[A_Index] == "1" || oldUnorderedTriggerArr[A_Index] == "true") : false
+        item.VoiceKeywords := oldVoiceKeywordsArr.Has(A_Index) ? oldVoiceKeywordsArr[A_Index] : ""
+        item.FoldID := itemFoldIDArr.Has(A_Index) ? itemFoldIDArr[A_Index] : ""
+        tableItem.Items.Push(item)
+        tableItem.ItemMap[item.ID] := item
     }
 
-    loop tableItem.ModeArr.length {
+    ; 宏内容单独 key（旧格式：symbol"MacroArr" N）
+    loop itemCount {
         str := IniRead(MacroFile, IniSection, symbol "MacroArr" A_Index, "")
         if (str == "" && !MainSoftData.HasSaved && A_Index == 1)
-            str := GetGetTableItemDefaultMacro(index)
+            str := GetGetTableItemDefaultMacro(symbol)
         else {
             str := StrReplace(str, "⫶", "`n")
         }
-        tableItem.MacroArr.Push(str)
+        tableItem.Items[A_Index].Macro := str
+    }
+
+    ; 登记条目 ID / TimingSerial 到全局序列号（防重复生成）
+    for item in tableItem.Items {
+        if (item.ID != "")
+            SetSerialByArr([item.ID])
+        if (item.TimingSerial != "")
+            SetSerialByArr([item.TimingSerial])
+    }
+    CompatEnsureArrLength(tableItem)
+}
+
+; 把旧默认信息数组应用为条目（供全新表初始化）
+ApplyLegacyArraysToItems(tableItem, defs, macroArr) {
+    itemCount := StrSplit(defs[3], "π").Length
+    loop itemCount {
+        item := tableItem.Items[A_Index]
+        item.TK := (StrSplit(defs[1], "π").Has(A_Index)) ? StrSplit(defs[1], "π")[A_Index] : ""
+        item.HoldTime := (StrSplit(defs[2], "π").Has(A_Index)) ? StrSplit(defs[2], "π")[A_Index] : 500
+        item.Mode := (StrSplit(defs[3], "π").Has(A_Index)) ? StrSplit(defs[3], "π")[A_Index] : 1
+        item.Forbid := (StrSplit(defs[4], "π").Has(A_Index)) ? StrSplit(defs[4], "π")[A_Index] : 0
+        item.Remark := (StrSplit(defs[5], "π").Has(A_Index)) ? StrSplit(defs[5], "π")[A_Index] : ""
+        item.LoopCount := (StrSplit(defs[6], "π").Has(A_Index)) ? StrSplit(defs[6], "π")[A_Index] : "1"
+        item.TriggerType := (StrSplit(defs[7], "π").Has(A_Index)) ? StrSplit(defs[7], "π")[A_Index] : 1
+        item.TimingSerial := (StrSplit(defs[8], "π").Has(A_Index)) ? StrSplit(defs[8], "π")[A_Index] : ""
+        item.StartTipSound := (StrSplit(defs[10], "π").Has(A_Index)) ? StrSplit(defs[10], "π")[A_Index] : 1
+        item.EndTipSound := (StrSplit(defs[11], "π").Has(A_Index)) ? StrSplit(defs[11], "π")[A_Index] : 1
+        item.IcoPath := (StrSplit(defs[12], "π").Has(A_Index)) ? StrSplit(defs[12], "π")[A_Index] : ""
+        item.UnorderedTrigger := (StrSplit(defs[13], "π").Has(A_Index)) ? (StrSplit(defs[13], "π")[A_Index] == "1") : false
+        item.VoiceKeywords := (StrSplit(defs[14], "π").Has(A_Index)) ? StrSplit(defs[14], "π")[A_Index] : ""
     }
 }
 
-SetArr(str, symbol, Arr) {
-    for index, value in StrSplit(str, symbol) {
-        if (Arr.Length < index) {
-            Arr.Push(value)
-        }
-        else {
-            Arr[index] = value
-        }
-    }
-}
-
-SetIntArr(str, symbol, Arr) {
-    for index, value in StrSplit(str, symbol) {
-        curValue := value
-        if (value == "")
-            curValue := 1
-        if (Arr.Length < index) {
-            Arr.Push(Integer(curValue))
-        }
-        else {
-            Arr[index] = Integer(curValue)
-        }
-    }
-}
-
-GetGetTableItemDefaultMacro(index) {
-    symbol := GetTableSymbol(index)
+GetGetTableItemDefaultMacro(symbol) {
     if (symbol == "Normal") {
         return "按键_a_点击_100_10_200,间隔_3000"
     }
@@ -1049,7 +1415,8 @@ GetGetTableItemDefaultMacro(index) {
     return ""
 }
 
-GetTableItemDefaultInfo(index) {
+GetTableItemDefaultInfo(tableItem) {
+    symbol := tableItem.Symbol
     savedTKArrStr := ""
     savedModeArrStr := ""
     savedForbidArrStr := ""
@@ -1063,9 +1430,7 @@ GetTableItemDefaultInfo(index) {
     savedEndTipSoundStr := ""
     savedIcoPathArrStr := ""
     savedUnorderedTriggerArrStr := ""
-    savedVoiceTriggerArrStr := ""
     savedVoiceKeywordsArrStr := ""
-    symbol := GetTableSymbol(index)
 
     if (symbol == "Normal") {
         savedTKArrStr := "k"
@@ -1141,7 +1506,6 @@ GetTableItemDefaultInfo(index) {
         savedEndTipSoundStr := "1π1π1"
         savedIcoPathArrStr := "0π0π0"
         savedUnorderedTriggerArrStr := "0π0π0"
-        savedVoiceTriggerArrStr := "1π1π1"        ; 语音宏默认启用语音触发
         savedVoiceKeywordsArrStr := "你好π开始π停止"   ; 默认唤醒词
     }
     else if (symbol == "Timing") {
@@ -1189,196 +1553,285 @@ GetTableItemDefaultInfo(index) {
         savedIcoPathArrStr := "00π"
         savedUnorderedTriggerArrStr := "0"
     }
-    ; 语音字段默认值：非 Voice 表（普通按键/字串等宏）语音触发默认关闭(0)、唤醒词为空，
-    ; 避免 SetIntArr("") 把 VoiceTriggerArr 误填为 1（启用语音）导致普通宏被语音引擎误扫。
-    if (symbol != "Voice") {
-        if (savedVoiceTriggerArrStr == "") {
-            itemCount := StrSplit(savedModeArrStr, "π").Length
-            savedVoiceTriggerArrStr := ""
-            savedVoiceKeywordsArrStr := ""
-            loop itemCount {
-                if (A_Index > 1)
-                    savedVoiceTriggerArrStr .= "π"
-                savedVoiceTriggerArrStr .= "0"
-            }
-        }
-    }
     return [savedTKArrStr, savedHoldTimeArrStr, savedModeArrStr, savedForbidArrStr, savedRemarkArrStr,
         savedLoopCountStr, savedTriggerTypeStr, savedSerialeArrStr, savedTimingSerialStr, savedStartTipSoundStr,
-        savedEndTipSoundStr, savedIcoPathArrStr, savedUnorderedTriggerArrStr, savedVoiceTriggerArrStr, savedVoiceKeywordsArrStr]
+        savedEndTipSoundStr, savedIcoPathArrStr, savedUnorderedTriggerArrStr, savedVoiceKeywordsArrStr]
 }
 
-SaveTableItemInfo(index) {
-    SavedInfo := GetSavedTableItemInfo(index)
-    symbol := GetTableSymbol(index)
-    tableItem := MySoftData.TableInfo[index]
-    IniWrite(SavedInfo[1], MacroFile, IniSection, symbol "TKArr")
-    IniWrite(SavedInfo[2], MacroFile, IniSection, symbol "HoldTimeArr")
-    IniWrite(SavedInfo[3], MacroFile, IniSection, symbol "ModeArr")
-    IniWrite(SavedInfo[4], MacroFile, IniSection, symbol "ForbidArr")
-    IniWrite(SavedInfo[5], MacroFile, IniSection, symbol "RemarkArr")
-    IniWrite(SavedInfo[6], MacroFile, IniSection, symbol "LoopCountArr")
-    IniWrite(SavedInfo[7], MacroFile, IniSection, symbol "TriggerTypeArr")
-    IniWrite(SavedInfo[8], MacroFile, IniSection, symbol "SerialArr")
-    IniWrite(SavedInfo[9], MacroFile, IniSection, symbol "TimingSerialArr")
-    IniWrite(SavedInfo[10], MacroFile, IniSection, symbol "StartTipSoundArr")
-    IniWrite(SavedInfo[11], MacroFile, IniSection, symbol "EndTipSoundArr")
-    IniWrite(SavedInfo[12], MacroFile, IniSection, symbol "IcoPathArr")
-    IniWrite(SavedInfo[13], MacroFile, IniSection, symbol "UnorderedTriggerArr")
-    IniWrite(SavedInfo[14], MacroFile, IniSection, symbol "VoiceTriggerArr")
-    IniWrite(SavedInfo[15], MacroFile, IniSection, symbol "VoiceKeywordsArr")
-    IniWrite(JSON.stringify(tableItem.FoldInfo, 0), MacroFile, IniSection, symbol "FoldInfo")
-
-    SaveTableItemMacro(index)
-}
-
-SaveTableItemMacro(index) {
-    tableItem := MySoftData.TableInfo[index]
-    symbol := GetTableSymbol(index)
-    loop tableItem.ModeArr.Length {
-        MacroStr := tableItem.MacroArr[A_Index]
-        MacroStr := Trim(MacroStr)
-        MacroStr := Trim(MacroStr, "`n")
-        MacroStr := Trim(MacroStr, ",")
-        MacroStr := StrReplace(MacroStr, "`n", "⫶")
-        IniWrite(MacroStr, MacroFile, IniSection, symbol "MacroArr" A_Index)
+; ============================================================
+; 保存单个表（三级段结构）：[TableID] / [TableID.ModuleN] / [TableID.ModuleN.MacroM]
+;   [TableID]                表段：ModuleOrder=ModuleNπ...（冗余调试键，顺序以枚举子段为准）
+;   [TableID.ModuleN]        模块段：ID=<真实全局 f_xxx> + 模块字段
+;   [TableID.ModuleN.MacroM] 宏段：ID=<真实全局 ItemN> + 宏字段 + Macro 实义
+;   段名序号 ModuleN/MacroN 为层级内易读序号，真实对象 ID 存段内 ID= 键恢复全局唯一引用。
+; ============================================================
+; 枚举删除 INI 某段内的全部键（保留段头）。用于非配置表（静态页）在保存时清空整段，保证零配置、零残留。
+WipeIniSectionKeys(filename, section) {
+    allKeys := IniRead(filename, section)
+    for key in StrSplit(allKeys, "`n") {
+        if (key != "")
+            IniDelete(filename, section, key)
     }
 }
 
-GetSavedTableItemInfo(index) {
-    ; XAML 版：数据统一从 tableItem 读取（RecycleTabItem/ReadTabValues 已同步控件值），
-    ; 原生 Gui.Submit() 回读语义已废弃（GuiAdapter.Submit 为 no-op），不再调用
-    TKArrStr := ""
-    HoldTimeArrStr := ""
-    ModeArrStr := ""
-    ForbidArrStr := ""
-    RemarkArrStr := ""
-    LoopCountArrStr := ""
-    TriggerTypeArrStr := ""
-    SerialArrStr := ""
-    TimingSerialArrStr := ""
-    StartTipSoundArrStr := ""
-    EndTipSoundArrStr := ""
-    IcoPathArrStr := ""
-    UnorderedTriggerArrStr := ""
-    VoiceTriggerArrStr := ""
-    VoiceKeywordsArrStr := ""
+; 删除某表名前缀下的全部带点子段（[tableID.*]），供非配置表清空与孤儿清理。
+WipeDottedSubSections(filename, tableID) {
+    allSegs := IniRead(filename)   ; 全部段名，换行分隔
+    prefixDot := tableID "."
+    for rawLine in StrSplit(allSegs, "`n") {
+        seg := Trim(rawLine, "`r`n ")
+        if (seg == "")
+            continue
+        if (SubStr(seg, 1, StrLen(prefixDot)) == prefixDot)
+            IniDelete(filename, seg)
+    }
+}
 
-    tableItem := MySoftData.TableInfo[index]
-    symbol := GetTableSymbol(index)
+SaveTableItemInfo(tableItem) {
+    tableID := tableItem.ID
+    symbol := tableItem.Symbol
 
-    loop tableItem.ModeArr.Length {
-        TKArrStr .= tableItem.TKArr[A_Index]
-        HoldTimeArrStr .= tableItem.HoldTimeArr[A_Index]
-        ModeArrStr .= tableItem.ModeArr[A_Index]
-        ForbidArrStr .= tableItem.ForbidArr[A_Index]
-        RemarkArrStr .= tableItem.RemarkArr[A_Index]
-        TriggerTypeArrStr .= tableItem.TriggerTypeArr[A_Index]
-        LoopCountArrStr .= tableItem.LoopCountArr[A_Index]
-        SerialArrStr .= tableItem.SerialArr[A_Index]
-        TimingSerialArrStr .= tableItem.TimingSerialArr[A_Index]
-        StartTipSoundArrStr .= tableItem.StartTipSoundArr[A_Index]
-        EndTipSoundArrStr .= tableItem.EndTipSoundArr[A_Index]
-        UnorderedTriggerArrStr .= tableItem.UnorderedTriggerArr[A_Index]
-        IcoPathArrStr .= tableItem.IcoPathArr[A_Index]
-        VoiceTriggerArrStr .= tableItem.VoiceTriggerArr[A_Index]
-        VoiceKeywordsArrStr .= tableItem.VoiceKeywordsArr[A_Index]
-
-        if (tableItem.ModeArr.Length > A_Index) {
-            TKArrStr .= "π"
-            HoldTimeArrStr .= "π"
-            ModeArrStr .= "π"
-            ForbidArrStr .= "π"
-            RemarkArrStr .= "π"
-            LoopCountArrStr .= "π"
-            TriggerTypeArrStr .= "π"
-            SerialArrStr .= "π"
-            TimingSerialArrStr .= "π"
-            StartTipSoundArrStr .= "π"
-            EndTipSoundArrStr .= "π"
-            IcoPathArrStr .= "π"
-            UnorderedTriggerArrStr .= "π"
-            VoiceTriggerArrStr .= "π"
-            VoiceKeywordsArrStr .= "π"
+    ; 非配置表（Tool/Setting/Help/Reward/Thank 等静态页）：不参与宏配置，
+    ; 清空本段全部键 + 全部 [tableID.*] 带点子段，保证磁盘零配置、零残留。
+    if (IsStaticTable(tableItem)) {
+        try {
+            WipeIniSectionKeys(MacroFile, tableID)
+            WipeDottedSubSections(MacroFile, tableID)
+        } catch as e {
+            RMTLogSys(RMT_LV_ERROR, "SaveTableItemInfo", Format("清空静态表段 {1} 失败: {2}", tableID, e.Message))
         }
+        return
     }
 
-    return [TKArrStr, HoldTimeArrStr, ModeArrStr, ForbidArrStr, RemarkArrStr,
-        LoopCountArrStr, TriggerTypeArrStr, SerialArrStr, TimingSerialArrStr, StartTipSoundArrStr, EndTipSoundArrStr,
-        IcoPathArrStr, UnorderedTriggerArrStr, VoiceTriggerArrStr, VoiceKeywordsArrStr]
+    ; ---- 模块级 + 宏级三级落盘（路径身份） ----
+    ; 段名即对象身份（fold.ID = tableID.ModuleN，item.ID = foldSeg.MacroM），无独立 ID= 键。
+    ; 顺序由父段 Order 列表单独控制：表段 ModuleOrder、模块段 MacroOrder（存各直属尾节）。
+    ; 孤儿宏（FoldID 无匹配模块）先归入首模块，保证不丢失。
+    fallbackFold := tableItem.Folds.Length > 0 ? tableItem.Folds[1] : ""
+    for item in tableItem.Items {
+        if ((item.FoldID == "" || !FoldIDBelongs(item.FoldID, tableItem)) && fallbackFold != "")
+            item.FoldID := fallbackFold.ID
+    }
+
+    currentSegs := Map()   ; 本次写入的段名集合，用于孤儿清理
+    moduleOrder := []      ; 表段 ModuleOrder：模块段尾节（ModuleN）
+    for fold in tableItem.Folds {
+        foldSeg := fold.ID
+        if (foldSeg == "") {
+            RMTLogSys(RMT_LV_ERROR, "SaveTableItemInfo", "模块缺少路径身份(ID)，无法确定段名，跳过")
+            continue
+        }
+        currentSegs[foldSeg] := true
+        ; 收集模块尾节（如 Normal.Module1 → Module1）
+        moduleOrder.Push(GetSegTail(foldSeg))
+        IniWrite(fold.Remark,       MacroFile, foldSeg, "Remark")
+        IniWrite(fold.FrontInfo,    MacroFile, foldSeg, "FrontInfo")
+        IniWrite(fold.ForbidState ? 1 : 0, MacroFile, foldSeg, "ForbidState")
+        IniWrite(fold.FoldState ? 1 : 0,   MacroFile, foldSeg, "FoldState")
+        IniWrite(fold.TKType,       MacroFile, foldSeg, "TKType")
+        IniWrite(fold.TK,           MacroFile, foldSeg, "TK")
+        IniWrite(fold.HoldTime,     MacroFile, foldSeg, "HoldTime")
+        IniWrite(fold.UnorderedTrigger ? 1 : 0, MacroFile, foldSeg, "UnorderedTrigger")
+
+        macroOrder := []   ; 模块段 MacroOrder：宏段尾节（MacroN）
+        for item in tableItem.Items {
+            if (item.FoldID != foldSeg)
+                continue   ; 宏归属按 FoldID（父路径）归入对应模块段
+            macroSeg := item.ID
+            if (macroSeg == "") {
+                RMTLogSys(RMT_LV_ERROR, "SaveTableItemInfo", Format("模块{1}内宏缺少路径身份(ID)，跳过", foldSeg))
+                continue
+            }
+            currentSegs[macroSeg] := true
+            macroOrder.Push(GetSegTail(macroSeg))
+            IniWrite(item.TK,            MacroFile, macroSeg, "TK")
+            IniWrite(item.HoldTime,      MacroFile, macroSeg, "HoldTime")
+            IniWrite(item.Mode,          MacroFile, macroSeg, "Mode")
+            IniWrite(item.Forbid ? 1 : 0, MacroFile, macroSeg, "Forbid")
+            IniWrite(item.Remark,        MacroFile, macroSeg, "Remark")
+            IniWrite(item.LoopCount,     MacroFile, macroSeg, "LoopCount")
+            IniWrite(item.TriggerType,   MacroFile, macroSeg, "TriggerType")
+            IniWrite(item.TimingSerial,  MacroFile, macroSeg, "TimingSerial")
+            IniWrite(item.StartTipSound, MacroFile, macroSeg, "StartTipSound")
+            IniWrite(item.EndTipSound,   MacroFile, macroSeg, "EndTipSound")
+            IniWrite(item.IcoPath,       MacroFile, macroSeg, "IcoPath")
+            IniWrite(item.UnorderedTrigger ? 1 : 0, MacroFile, macroSeg, "UnorderedTrigger")
+            IniWrite(item.VoiceKeywords, MacroFile, macroSeg, "VoiceKeywords")
+            ; 宏内容：直接存（换行用 ⫶ 编码，避免 INI 值含换行）
+            MacroStr := Trim(item.Macro)
+            MacroStr := Trim(MacroStr, "`n")
+            MacroStr := Trim(MacroStr, ",")
+            MacroStr := StrReplace(MacroStr, "`n", "⫶")
+            IniWrite(MacroStr, MacroFile, macroSeg, "Macro")
+        }
+        IniWrite(JoinPi(macroOrder), MacroFile, foldSeg, "MacroOrder")
+    }
+    IniWrite(JoinPi(moduleOrder), MacroFile, tableID, "ModuleOrder")
+
+    ; 清理孤儿 [tableID.*] 子段：删除不在当前写入集合中的段，防累积。
+    try {
+        allSegs := IniRead(MacroFile)
+        prefixDot := tableID "."
+        for rawLine in StrSplit(allSegs, "`n") {
+            seg := Trim(rawLine, "`r`n ")
+            if (seg == "" || SubStr(seg, 1, StrLen(prefixDot)) != prefixDot)
+                continue
+            if (!currentSegs.Has(seg))
+                IniDelete(MacroFile, seg)
+        }
+    } catch as e {
+        RMTLogSys(RMT_LV_ERROR, "SaveTableItemInfo", Format("清理孤儿子段失败: {1}", e.Message))
+    }
+
+    ; 清除旧格式残留 key（symbol 前缀，避免双格式并存误判）
+    IniDelete(MacroFile, IniSection, symbol "TKArr")
+    IniDelete(MacroFile, IniSection, symbol "ModeArr")
+    IniDelete(MacroFile, IniSection, symbol "ForbidArr")
+    IniDelete(MacroFile, IniSection, symbol "RemarkArr")
+    IniDelete(MacroFile, IniSection, symbol "LoopCountArr")
+    IniDelete(MacroFile, IniSection, symbol "HoldTimeArr")
+    IniDelete(MacroFile, IniSection, symbol "TriggerTypeArr")
+    IniDelete(MacroFile, IniSection, symbol "SerialArr")
+    IniDelete(MacroFile, IniSection, symbol "TimingSerialArr")
+    IniDelete(MacroFile, IniSection, symbol "StartTipSoundArr")
+    IniDelete(MacroFile, IniSection, symbol "EndTipSoundArr")
+    IniDelete(MacroFile, IniSection, symbol "IcoPathArr")
+    IniDelete(MacroFile, IniSection, symbol "UnorderedTriggerArr")
+    IniDelete(MacroFile, IniSection, symbol "VoiceTriggerArr")
+    IniDelete(MacroFile, IniSection, symbol "VoiceKeywordsArr")
+    IniDelete(MacroFile, IniSection, symbol "FoldInfo")
 }
+
+; 判断某 FoldID 是否属于本表现有模块集合
+FoldIDBelongs(foldID, tableItem) {
+    for fold in tableItem.Folds {
+        if (fold.ID == foldID)
+            return true
+    }
+    return false
+}
+
+; 取段名最后一节（Normal.Module1 → Module1）
+GetSegTail(seg) {
+    pos := InStr(seg, ".", , , -1)
+    return (pos > 0) ? SubStr(seg, pos + 1) : seg
+}
+
+; 数组 π 拼接
+JoinPi(arr) {
+    out := ""
+    for v in arr {
+        if (out != "")
+            out .= "π"
+        out .= v
+    }
+    return out
+}
+
+; 保存整个表集合（[Tables] 段，动态表定义）
+; 用 JSON 数组序列化，避免表名含 | / π 等分隔符导致解析错位
+SaveTableCollection() {
+    tableArr := []
+    for tableItem in MySoftData.TableInfo {
+        tableArr.Push([tableItem.ID, tableItem.Symbol, tableItem.Name, tableItem.Order])
+    }
+    IniWrite(JSON.stringify(tableArr, 0), MacroFile, "Tables", "List")
+}
+
+; ============================================================
+; 旧格式 π 拼接序列化已废弃（新格式见 SaveTableItemInfo/ReadTableItemInfoNew）
+; ============================================================
 
 ;Table信息相关
+; 默认表定义（新体系：动态表集合的初始骨架）
+; 每项 [Symbol, 显示名(语言键), 顺序]
+CreateDefaultTableDefs() {
+    return [
+        ["Normal", "按键宏", 1],
+        ["String", "字串宏", 2],
+        ["Menu", "菜单宏", 3],
+        ["UI", "界面宏", 4],
+        ["Voice", "语音宏", 5],
+        ["Timing", "定时宏", 6],
+        ["SubMacro", "宏", 7],
+        ["Replace", "按键替换", 8],
+        ["Tool", "工具", 9],
+        ["Setting", "设置", 10],
+        ["Help", "帮助", 11],
+        ["Reward", "打赏作者", 12],
+        ["Thank", "特别感谢", 13]
+    ]
+}
+
 CreateTableItemArr() {
+    global MySoftData
     Arr := []
-    loop MainSoftData.TabNameArr.Length {
-        newTableItem := TableItem()
-        newTableItem.Index := A_Index
-        if (Arr.Length < A_Index) {
-            Arr.Push(newTableItem)
-        }
-        else {
-            Arr[A_Index] := newTableItem
-        }
+    defs := CreateDefaultTableDefs()
+    for def in defs {
+        t := TableItem()
+        t.ID := def[1]      ; 表身份固定 = 表类型 Symbol（Normal/String/...），不用动态 t_xxx → 重启不漂移，段名固定
+        t.Symbol := def[1]
+        t.Name := def[2]
+        t.Order := def[3]
+        Arr.Push(t)
     }
+    MySoftData.TableInfo := Arr
+    RebuildTableLocator()
     return Arr
 }
 
 InitTableItemState() {
-    loop MainSoftData.TabNameArr.Length {
+    loop MySoftData.TableInfo.Length {
         tableItem := MySoftData.TableInfo[A_Index]
         InitSingleTableState(tableItem)
     }
 
     tableItem := MySoftData.SpecialTableItem
-    tableItem.ModeArr := [1]
+    if (tableItem.Items.Length == 0) {
+        item := MacroItem()
+        item.ID := GetCMDSerialStr("Item")
+        tableItem.Items.Push(item)
+        tableItem.RebuildIndex()
+    }
     InitSingleTableState(tableItem)
 }
 
+; 运行时状态随条目对象初始化（每条目一个状态，增删条目不破坏其它条目）
 InitSingleTableState(tableItem) {
-    tableItem.KilledArr := []
-    tableItem.ActionCount := []
-    tableItem.HoldKeyArr := []
-    tableItem.ToggleStateArr := []
-    tableItem.ToggleActionArr := []
-    tableItem.VariableMapArr := []
-    tableItem.IsWorkIndexArr := []
-    tableItem.GraphBranchCountArr := []
-    tableItem.PauseArr := []
-    tableItem.ColorStateArr := []
-    for index, value in tableItem.ModeArr {
-        tableItem.KilledArr.Push(false)
-        tableItem.PauseArr.Push(false)
-        tableItem.ActionCount.Push(0)
-        tableItem.HoldKeyArr.Push(Map())
-        tableItem.ToggleStateArr.Push(false)
-        tableItem.ToggleActionArr.Push("")
-        tableItem.IsWorkIndexArr.Push(false)
-        tableItem.GraphBranchCountArr.Push(0)
-        tableItem.ColorStateArr.Push(0)
-
-        VariableMap := Map()
-        VariableMap["宏循环次数"] := 0
-        VariableMap["循环-跳过本轮"] := false
-        VariableMap["循环-跳出"] := false
-        VariableMap["分支-跳出"] := false
-        tableItem.VariableMapArr.Push(VariableMap)
+    ; 内置控制键统一默认值（缺失才补，兼容已有运行态映射）
+    static CtlKeys := Map(
+        "宏循环次数", 0,
+        "循环-跳过本轮", false,
+        "循环-跳出", false,
+        "分支-跳出", false
+    )
+    for item in tableItem.Items {
+        if (!item.HoldKey)
+            item.HoldKey := Map()
+        ; 注意：空 Map() 也是真值，不能只用 !item.VariableMap 判断缺失键
+        if (!ObjHasOwnProp(item, "VariableMap"))   ;属性未创建
+            item.VariableMap := Map()
+        for key, def in CtlKeys {
+            if (!item.VariableMap.Has(key))
+                item.VariableMap[key] := def
+        }
     }
 }
 
 KillSingleTableMacro(tableItem) {
-    for index, value in tableItem.ModeArr {
+    for index, item in tableItem.Items {
         KillTableItemMacro(tableItem, index)
     }
 }
 
-; 松开宏项仍按住的按键（不修改 KilledArr）
+; 松开宏项仍按住的按键（不修改 Killed）
 ReleaseTableItemHoldKeys(tableItem, index) {
-    if (tableItem.HoldKeyArr.Length < index)
+    item := tableItem.Items[index]
+    if (!item || !item.HoldKey || item.HoldKey.Count == 0)
         return
-    HoldKeyMap := tableItem.HoldKeyArr[index].Clone()
+    HoldKeyMap := item.HoldKey.Clone()
     GraphPoolLog("ReleaseHoldKeys", Format("tab={1} item={2} count={3} keys=[{4}]"
-        , tableItem.Index, index, HoldKeyMap.Count, HoldKeyMap.Count ? "..." : ""))
+        , tableItem.ID, item.ID, HoldKeyMap.Count, HoldKeyMap.Count ? "..." : ""))
     for key, value in HoldKeyMap {
         if (value == "Game") {
             SendGameModeKey(key, 0, tableItem, index)
@@ -1405,19 +1858,20 @@ ReleaseTableItemHoldKeys(tableItem, index) {
             SendGameMouseKey(key, 0, tableItem, index)
         }
     }
-    tableItem.HoldKeyArr[index] := Map()
+    item.HoldKey := Map()
 }
 
 ; Worker 同步过来的按键按住状态（供主进程强杀后松开）
-SyncWorkerHoldKey(tableIndex, itemIndex, key, state, source := "") {
-    tableIndex := Integer(tableIndex)
-    itemIndex := Integer(itemIndex)
-    if (tableIndex < 1 || itemIndex < 1 || tableIndex > MySoftData.TableInfo.Length)
+; Worker 同步按键按住状态（供主进程强杀后松开）：tableID/itemID 字符串
+SyncWorkerHoldKey(tableID, itemID, key, state, source := "") {
+    tableItem := GetTableByID(String(tableID))
+    if (!tableItem)
         return
-    tableItem := MySoftData.TableInfo[tableIndex]
-    if (tableItem.HoldKeyArr.Length < itemIndex)
+    itemIndex := GetItemIndexInTable(tableItem, String(itemID))
+    item := tableItem.Items[itemIndex]
+    if (!item || !item.HoldKey)
         return
-    bucket := tableItem.HoldKeyArr[itemIndex]
+    bucket := item.HoldKey
     if (Integer(state)) {
         if (source != "")
             bucket[key] := source
@@ -1427,23 +1881,23 @@ SyncWorkerHoldKey(tableIndex, itemIndex, key, state, source := "") {
 }
 
 KillTableItemMacro(tableItem, index) {
-    if (tableItem.KilledArr.Length < index)
+    item := tableItem.Items[index]
+    if (!item)
         return
-    GraphPoolLog("KillTableItemMacro", Format("tab={1} item={2} trig={3}", tableItem.Index, index
-        , tableItem.TriggerTypeArr.Length >= index ? tableItem.TriggerTypeArr[index] : -1))
-    tableItem.KilledArr[index] := true
+    GraphPoolLog("KillTableItemMacro", Format("tab={1} item={2} trig={3}", tableItem.ID, item.ID
+        , item.TriggerType))
+    item.Killed := true
     ReleaseTableItemHoldKeys(tableItem, index)
 
     ; 如果是开关型按键宏，重置其开关状态
-    if (tableItem.TriggerTypeArr.Length >= index && tableItem.TriggerTypeArr[index] == 4) {
-        if (tableItem.ToggleStateArr.Length >= index)
-            tableItem.ToggleStateArr[index] := false
+    if (item.TriggerType == 4) {
+        item.ToggleState := false
     }
 }
 
 GetTabHeight() {
     maxY := 0
-    loop MainSoftData.TabNameArr.Length {
+    loop MySoftData.TableInfo.Length {
         posY := MySoftData.TableInfo[A_Index].UnderPosY
         if (posY > maxY)
             maxY := posY
@@ -1460,27 +1914,59 @@ UpdateUnderPosY(tableIndex, value) {
 }
 
 GetTableSymbol(index) {
-    return MainSoftData.TabSymbolArr[index]
+    global MySoftData
+    t := MySoftData.TableInfo[index]
+    return t ? t.Symbol : ""
 }
 
+; 按表 Symbol 返回第一个匹配表的显示顺序下标（1 基；找不到返回 0）
 GetTimingTableIndex() {
-    loop MainSoftData.TabNameArr.Length {
-        symbol := GetTableSymbol(A_Index)
-        if (symbol == "Timing")
-            return A_Index
+    global MySoftData
+    for i, t in MySoftData.TableInfo {
+        if (t.Symbol == "Timing")
+            return i
     }
     return ""
 }
 
+; 按 Symbol 或表名返回显示顺序下标（1 基；找不到返回 0）
 GetTableIndex(SymbolOrName) {
-    loop MainSoftData.TabNameArr.Length {
-        if (SymbolOrName == MainSoftData.TabNameArr[A_Index])
-            return A_Index
-
-        if (SymbolOrName == MainSoftData.TabSymbolArr[A_Index])
-            return A_Index
+    global MySoftData
+    for i, t in MySoftData.TableInfo {
+        if (SymbolOrName == t.Name || SymbolOrName == t.Symbol)
+            return i
     }
     return 0
+}
+
+; 判断某个 Symbol 是否为参与宏的条目类型（与 CheckIsItemTable(index) 同集合，但直接按 Symbol 判定，
+; 不依赖 tableItem.Index 走 GetTableIndexByID 的定位，避免在表集合尚未完全构建／表索引错位时误判）。
+IsItemSymbol(symbol) {
+    if (symbol == "Normal")
+        return true
+    if (symbol == "String")
+        return true
+    if (symbol == "SubMacro")
+        return true
+    if (symbol == "Timing")
+        return true
+    if (symbol == "Menu")
+        return true
+    if (symbol == "Replace")
+        return true
+    if (symbol == "UI")
+        return true
+    if (symbol == "Voice")
+        return true
+    return false
+}
+
+; 是否静态/非配置表（Tool/Setting/Help/Reward/Thank 等 非 CheckIsItemSymbol）：不参与宏配置。
+; 用于 ReadTableItemInfo / SaveTableItemInfo / EnsureTableHasFold 在读写入口统一短路。
+IsStaticTable(tableItem) {
+    if (!IsObject(tableItem) || !tableItem.HasProp("Symbol"))
+        return true
+    return !IsItemSymbol(tableItem.Symbol)
 }
 
 CheckIsNormalTable(index) {
@@ -2254,8 +2740,10 @@ TryGetVarValue(&Value, varName, variTip := true, tableVarMap := Map()) {
 }
 
 TryGetTabVarValue(&Value, tableItem, index, varName, variTip := true) {
-    TableVariableMap := tableItem.VariableMapArr[index]
-    return TryGetVarValue(&Value, varName, variTip, TableVariableMap)
+    item := tableItem.Items[index]
+    if (!item)
+        return false
+    return TryGetVarValue(&Value, varName, variTip, item.VariableMap)
 }
 
 ShowNoVariableTip(VarName) {
@@ -2279,8 +2767,11 @@ GetRandomStr(length) {
 }
 
 WaitIfPaused(tableItem, itemIndex) {
-    while (tableItem.PauseArr[itemIndex]) {
-        if (tableItem.KilledArr[itemIndex])
+    item := tableItem.Items[itemIndex]
+    if (!item)
+        return
+    while (item.Pause) {
+        if (item.Killed)
             break
 
         Sleep(200)
@@ -2291,11 +2782,12 @@ WaitIfPaused(tableItem, itemIndex) {
 InterruptibleSleep(tableItem, index, duration) {
     if (duration <= 0)
         return
+    item := tableItem.Items[index]
     curTime := 0
     clip := Min(100, duration)
     while (curTime < duration) {
         WaitIfPaused(tableItem, index)
-        if (tableItem.KilledArr[index])
+        if (item && item.Killed)
             break
         Sleep(clip)
         curTime += clip
@@ -2303,39 +2795,30 @@ InterruptibleSleep(tableItem, index, duration) {
     }
 }
 
+; ============================================================
+; 折叠归属辅助（对象化）：条目通过 item.FoldID 归属折叠框
+; ============================================================
+; 条目所属折叠框下标（1 基；无归属或找不到返回 0）
 GetItemFoldIndex(tableItem, itemIndex) {
-    FoldInfo := tableItem.FoldInfo
-    if (!IsObject(FoldInfo) || !FoldInfo.HasProp("IndexSpanArr"))
+    item := tableItem.Items[itemIndex]
+    if (!item || item.FoldID == "")
         return 0
-    for Index, IndexSpanStr in FoldInfo.IndexSpanArr {
-        IndexSpan := StrSplit(IndexSpanStr, "-")
-        if (IsInteger(IndexSpan[1]) && IsInteger(IndexSpan[2])) {
-            if (IndexSpan[1] <= itemIndex && IndexSpan[2] >= itemIndex)
-                return Index
-        }
-    }
-    return 0
+    return GetFoldIndexInTable(tableItem, item.FoldID)
 }
 
-; 统一获取某项的所有Fold信息（避免重复遍历IndexSpanArr）
+; 统一获取某项的所有Fold信息（对象化：条目 FoldID → 折叠框）
 GetItemFoldData(tableItem, itemIndex) {
-    if (!tableItem.FoldInfo || !tableItem.FoldInfo.HasOwnProp("IndexSpanArr"))
+    item := tableItem.Items[itemIndex]
+    if (!item || item.FoldID == "")
         return { foldIndex: 0, forbidState: false, frontInfo: "", offset: 1 }
 
-    FoldInfo := tableItem.FoldInfo
-    if (!IsObject(FoldInfo) || !FoldInfo.HasProp("IndexSpanArr") || !FoldInfo.IndexSpanArr.Length) {
-        return { foldIndex: 0, forbidState: false, frontInfo: "", offset: 1 }
-    }
-    for Index, IndexSpanStr in FoldInfo.IndexSpanArr {
-        IndexSpan := StrSplit(IndexSpanStr, "-")
-        if (IsInteger(IndexSpan[1]) && IsInteger(IndexSpan[2])) {
-            if (IndexSpan[1] <= itemIndex && IndexSpan[2] >= itemIndex) {
-                return {
-                    foldIndex: Index,
-                    forbidState: FoldInfo.ForbidStateArr[Index],
-                    frontInfo: FoldInfo.FrontInfoArr[Index],
-                    offset: itemIndex - IndexSpan[1] + 1
-                }
+    for Index, fold in tableItem.Folds {
+        if (fold.ID == item.FoldID) {
+            return {
+                foldIndex: Index,
+                forbidState: fold.ForbidState,
+                frontInfo: fold.FrontInfo,
+                offset: 1
             }
         }
     }
@@ -2351,19 +2834,7 @@ GetItemFrontInfo(tableItem, itemIndex) {
 }
 
 GetItemOffsetOfFold(tableItem, itemIndex) {
-    FoldInfo := tableItem.FoldInfo
-    if (!IsObject(FoldInfo) || !FoldInfo.HasProp("IndexSpanArr"))
-        return 1
-    for Index, IndexSpanStr in FoldInfo.IndexSpanArr {
-        IndexSpan := StrSplit(IndexSpanStr, "-")
-        if (IsInteger(IndexSpan[1]) && IsInteger(IndexSpan[2])) {
-            if (IndexSpan[1] <= itemIndex && IndexSpan[2] >= itemIndex) {
-                return itemIndex - IndexSpan[1] + 1
-            }
-        }
-    }
-
-    return 1
+    return GetItemFoldData(tableItem, itemIndex).offset
 }
 
 CustomMsgBox(Text := "", Title := "", Buttons := "") {
@@ -2453,31 +2924,34 @@ IncrementTextNumber(str) {
 
 ;macroState 1start 2end
 HandTipSound(tableItem, itmeIndex, macroState, isFirst, isLast) {
+    item := tableItem.Items[itmeIndex]
+    if (!item)
+        return
     if (macroState == 1) {
-        if (tableItem.StartTipSoundArr[itmeIndex] == 1)
+        if (item.StartTipSound == 1)
             return
 
-        if (tableItem.StartTipSoundArr[itmeIndex] == 2) {
+        if (item.StartTipSound == 2) {
             PlayTipSound(1)
             return
         }
 
-        if (tableItem.StartTipSoundArr[itmeIndex] == 3 && isFirst) {
+        if (item.StartTipSound == 3 && isFirst) {
             PlayTipSound(1)
             return
         }
     }
 
     if (macroState == 2) {
-        if (tableItem.EndTipSoundArr[itmeIndex] == 1)
+        if (item.EndTipSound == 1)
             return
 
-        if (tableItem.EndTipSoundArr[itmeIndex] == 2) {
+        if (item.EndTipSound == 2) {
             PlayTipSound(2)
             return
         }
 
-        if (tableItem.EndTipSoundArr[itmeIndex] == 3 && isLast) {
+        if (item.EndTipSound == 3 && isLast) {
             PlayTipSound(2)
             return
         }
@@ -2655,13 +3129,16 @@ DoCompare(&currentComparison, tableItem, index, CompareType, Name, OtherValue) {
 }
 
 HandleControlType(tableItem, index, ControlType) {
+    item := tableItem.Items[index]
+    if (!item)
+        return
     switch (ControlType) {
         case "循环-跳过本轮":
-            tableItem.VariableMapArr[index]["循环-跳过本轮"] := true
+            item.VariableMap["循环-跳过本轮"] := true
         case "循环-跳出":
-            tableItem.VariableMapArr[index]["循环-跳出"] := true
+            item.VariableMap["循环-跳出"] := true
         case "分支-跳出":
-            tableItem.VariableMapArr[index]["分支-跳出"] := true
+            item.VariableMap["分支-跳出"] := true
     }
 }
 

@@ -160,36 +160,23 @@ CompatEnsureRunData(Data) {
     return fixed
 }
 
-;旧版本兼容：确保各数组长度与ModeArr一致（新增字段补齐）
+;旧版本兼容：条目对象化后，确保每个 MacroItem 的运行时状态字段已初始化（迁移期）
 CompatEnsureArrLength(tableItem) {
-    needFill := false
-    if (tableItem.ModeArr.Length != tableItem.StartTipSoundArr.Length)
-        needFill := true
-    if (tableItem.ModeArr.Length != tableItem.EndTipSoundArr.Length)
-        needFill := true
-    if (tableItem.ModeArr.Length != tableItem.IcoPathArr.Length)
-        needFill := true
-    if (tableItem.ModeArr.Length != tableItem.UnorderedTriggerArr.Length)
-        needFill := true
-    if (tableItem.ModeArr.Length != tableItem.VoiceTriggerArr.Length)
-        needFill := true
-    if (tableItem.ModeArr.Length != tableItem.VoiceKeywordsArr.Length)
-        needFill := true
-    if (!needFill)
-        return
-
-    for index, value in tableItem.ModeArr {
-        if (tableItem.StartTipSoundArr.Length < index)
-            tableItem.StartTipSoundArr.Push(1)
-        if (tableItem.EndTipSoundArr.Length < index)
-            tableItem.EndTipSoundArr.Push(1)
-        if (tableItem.IcoPathArr.Length < index)
-            tableItem.IcoPathArr.Push("")
-        if (tableItem.UnorderedTriggerArr.Length < index)
-            tableItem.UnorderedTriggerArr.Push(0)
-        if (tableItem.VoiceTriggerArr.Length < index)
-            tableItem.VoiceTriggerArr.Push(0)
-        if (tableItem.VoiceKeywordsArr.Length < index)
-            tableItem.VoiceKeywordsArr.Push("")
+    static CtlKeys := Map(
+        "宏循环次数", 0,
+        "循环-跳过本轮", false,
+        "循环-跳出", false,
+        "分支-跳出", false
+    )
+    for item in tableItem.Items {
+        if (!item.HoldKey)
+            item.HoldKey := Map()
+        ; 空 Map() 是真值，需按缺失键补齐，不能只判 !item.VariableMap
+        if (!ObjHasOwnProp(item, "VariableMap"))   ;属性未创建
+            item.VariableMap := Map()
+        for key, def in CtlKeys {
+            if (!item.VariableMap.Has(key))
+                item.VariableMap[key] := def
+        }
     }
 }
