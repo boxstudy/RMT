@@ -336,9 +336,11 @@ InitRMTHttpPlugin() {
         RMT_ASM := CLR_LoadLibrary(RMTPath)
         RMT_Http := RMT_ASM.CreateInstance("RMT.Http")
         ApplyRMTServerStatus(RMT_Http.GetStatus(RMT_VERSION_DISPLAY))
-    } catch {
+    } catch as e {
         RMT_Http := ""
         RMT_HasDotNet := false
+        ; 常见原因：打包时未带上 Plugins\RMT\RMT.dll（PackRMT.ps1 需执行 Copy-RMTDll）或 .NET 加载失败
+        JoyDebugLog(Format("RMT Http 插件初始化失败：{} | {} | {}", e.Message, e.What, RMTPath), "init")
     }
 }
 

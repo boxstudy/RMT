@@ -106,6 +106,25 @@ class ReplaceKeyGui {
             return
         }
         replaceKey := this.GetReplaceKey()
+
+        ; 替换键中包含手柄按键时检查 ViGEm 驱动是否已安装（与按键编辑器一致），未安装则弹出安装提示
+        isJoy := false
+        for k in StrSplit(replaceKey, ",") {
+            k := StrReplace(k, "逗号", ",")
+            if (InStr(MySoftData.GetJoyFriendlyKey(k), "Joy")) {
+                isJoy := true
+                break
+            }
+        }
+        isInstalled := IsViGEmInstalled()
+        JoyDebugLog(Format("ReplaceKeyGui.OnSureBtnClick ReplaceKey='{}' IsJoy={} ViGEmInstalled={}"
+            , replaceKey, isJoy, isInstalled), "vigeminstall")
+
+        if (isJoy && !isInstalled) {
+            ShowViGEmInstallTip()
+            return
+        }
+
         action := this.SureBtnAction
         action(replaceKey)
         this._CloseWindow()

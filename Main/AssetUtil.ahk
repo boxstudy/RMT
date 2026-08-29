@@ -2610,13 +2610,33 @@ CheckContainText(source, text) {
     return RegExMatch(source, text)
 }
 
-GetMatchCoord(screenTextObj, x1, y1) {
+; 计算命中文本在识别框中的坐标：按命中文本在识别文本中的位置比例定位到框内水平位置，
+; 不再简单取整个识别框的中心（否则长段落/长行里鼠标会落在段落中间而不是目标文本上）。
+; searchText 与 CheckContainText 使用同一正则匹配规则。
+GetMatchCoord(screenTextObj, x1, y1, searchText := "") {
     value := screenTextObj
-    pointX := value.boxPoint[1].x + value.boxPoint[2].x + value.boxPoint[3].x + value.boxPoint[4].x
-    pointY := value.boxPoint[1].y + value.boxPoint[2].y + value.boxPoint[3].y + value.boxPoint[4].y
-    OutputVarX := x1 + pointX / 4
-    OutputVarY := y1 + pointY / 4
-    return [OutputVarX, OutputVarY]
+    p1 := value.boxPoint[1]
+    p2 := value.boxPoint[2]
+    p3 := value.boxPoint[3]
+    p4 := value.boxPoint[4]
+
+    ; 文本框中心（垂直方向始终取中心；水平方向无命中文本时也退回中心）
+    centerX := (p1.x + p2.x + p3.x + p4.x) / 4
+    centerY := (p1.y + p2.y + p3.y + p4.y) / 4
+    posX := centerX
+
+    if (searchText != "") {
+        textLen := StrLen(value.text)
+        if (textLen > 0 && RegExMatch(value.text, searchText, &m)) {
+            ; 命中文本中心在识别文本中的比例（0~1），按该比例在文本框左右边界间定位
+            frac := (m.Pos - 1 + m.Len / 2) / textLen
+            frac := Max(0, Min(1, frac))
+            xs := [p1.x, p2.x, p3.x, p4.x]
+            posX := Min(xs*) + frac * (Max(xs*) - Min(xs*))
+        }
+    }
+
+    return [x1 + posX, y1 + centerY]
 }
 
 IsClipboardText() {
