@@ -446,14 +446,8 @@ class ThemeSettingGui {
             XAMLHost.ApplyFontsToAllWindows(change, fs, this.ui)
             try this.ui.Update("Window", "ApplyFonts", XAMLHost.BuildApplyFontsPayload(0, fs))
         }
-        ; 浮窗 / 指令显示运行时已打开时刷新业务色
-        if (IsSet(MyUIMacroGui) && IsObject(MyUIMacroGui))
-            MyUIMacroGui.RefreshPanels()
-        if (IsSet(MyCMDTipGui) && IsObject(MyCMDTipGui))
-            MyCMDTipGui.ApplyThemeColors()
-        ; 已打开的设置窗 / 节点编辑器同步「通用窗口」色
-        AppThemeUtil.RefreshOpenSettingWindows()
-        try MacroGraphGui.RefreshOpenThemes()
+        ; 已打开的全部界面同步「通用窗口」色与业务浮层色
+        AppThemeUtil.RefreshAllOpenWindows()
     }
 
     OnWindowClosing(state, ctrl, event) {

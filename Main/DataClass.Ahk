@@ -343,7 +343,7 @@ class MainConfig {
         this.StartAreaPosY := ""        ; 框选起点 Y 坐标
 
         ; ========== 其他 ==========
-        this.LastShowMonth := 0         ; 上次显示"打赏"Tab 的月份
+        this.LastShowMonth := 0         ; 上次显示"赞助"Tab 的月份
 
         ; ============================================================
         ; 以下为原 ToolCheckInfo 字段 — 工具检测 / 录制 / OCR

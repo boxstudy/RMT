@@ -471,6 +471,7 @@ class AppThemeUtil {
         graphConn := AppThemeUtil.ResolveColor(colors, "Win_GraphConn")
         graphConnSel := AppThemeUtil.ResolveColor(colors, "Win_GraphConnSel")
         labelColor := AppThemeUtil.ResolveColor(colors, "Win_LabelColor")
+        textSub := AppThemeUtil.WithAlpha(labelColor, "99")
         inputBg := AppThemeUtil.ResolveColor(colors, "Win_InputBg")
         inputStroke := AppThemeUtil.ResolveColor(colors, "Win_InputStroke")
         inputText := AppThemeUtil.ResolveColor(colors, "Win_InputText")
@@ -495,6 +496,7 @@ class AppThemeUtil {
                 {ControlName: "Resource", PropertyName: "TitleBarForeground", Value: titleText},
                 {ControlName: "Resource", PropertyName: "BgColor", Value: windowBg},
                 {ControlName: "Resource", PropertyName: "TextMain", Value: labelColor},
+                {ControlName: "Resource", PropertyName: "TextSub", Value: textSub},
                 {ControlName: "Resource", PropertyName: "ControlBg", Value: windowBg},
                 {ControlName: "Resource", PropertyName: "ControlBorder", Value: groupStroke},
                 {ControlName: "Resource", PropertyName: "GroupStroke", Value: groupStroke},
@@ -531,6 +533,7 @@ class AppThemeUtil {
             try ui.Update("Resource", "TitleBarForeground", titleText)
             try ui.Update("Resource", "BgColor", windowBg)
             try ui.Update("Resource", "TextMain", labelColor)
+            try ui.Update("Resource", "TextSub", textSub)
             try ui.Update("Resource", "ControlBg", windowBg)
             try ui.Update("Resource", "ControlBorder", groupStroke)
             try ui.Update("Resource", "GroupStroke", groupStroke)
@@ -573,6 +576,28 @@ class AppThemeUtil {
     static WithAlpha(color, alphaHex) {
         c := AppThemeUtil.NormalizeArgb(color)      ; #AARRGGBB
         return "#" alphaHex SubStr(c, 4)
+    }
+
+    ; 刷新已打开的全部 XAML 窗口（主题确定后主界面、编辑窗、设置窗等）
+    static RefreshAllOpenWindows() {
+        colors := IsObject(MainSoftData.ThemeColors) ? MainSoftData.ThemeColors : Map()
+        try {
+            if (IsSet(XAMLHost) && XAMLHost.HasOwnProp("_instances")) {
+                for , host in XAMLHost._instances {
+                    if (!IsObject(host) || !host.HasProp("wpfHwnd") || !host.wpfHwnd)
+                        continue
+                    if (!DllCall("user32\IsWindow", "Ptr", host.wpfHwnd, "Int"))
+                        continue
+                    AppThemeUtil.ApplyWinThemeToXaml(host, colors)
+                }
+            }
+        }
+        AppThemeUtil.RefreshOpenSettingWindows()
+        try MacroGraphGui.RefreshOpenThemes()
+        if (IsSet(MyUIMacroGui) && IsObject(MyUIMacroGui))
+            MyUIMacroGui.RefreshPanels()
+        if (IsSet(MyCMDTipGui) && IsObject(MyCMDTipGui))
+            MyCMDTipGui.ApplyThemeColors()
     }
 
     ; 刷新已打开的通用窗口类设置界面（主题保存后同步）

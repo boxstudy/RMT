@@ -76,10 +76,14 @@ OnFoldSwitchHotkey(tableIndex, foldIndex, *) {
     tip := (fold.ForbidState ? GetLang("模块已禁用：") : GetLang("模块已启用：")) (fold.Remark == "" ? fold.ID : fold.Remark)
     if (MySoftData.CMDTip)
         MyCMDReportAciton(tip)
-    ; 同步主界面折叠行「禁用」勾选框（非虚拟列表路径；VL 视图下次渲染自然一致）
+    ; 同步主界面折叠行「禁用」按钮态
     try {
-        if (IsSet(MyMainWin) && IsObject(MyMainWin) && !MyMainWin._useVirtual.Has(tableIndex) && MyMainWin.ui)
-            MyMainWin.ui.Update("FoldForbid_" tableIndex "_" foldIndex, "IsChecked", fold.ForbidState ? "True" : "False")
+        if (IsSet(MyMainWin) && IsObject(MyMainWin) && IsObject(MyMainWin.ui)) {
+            if (MyMainWin._useVirtual.Has(tableIndex))
+                MyMainWin._vl.Init(tableIndex, tableItem)
+            else
+                MyMainWin.SyncFoldForbidBtnUI(tableIndex, foldIndex, fold.ForbidState)
+        }
     } catch as e {
     }
 }

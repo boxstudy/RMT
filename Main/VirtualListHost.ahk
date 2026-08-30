@@ -169,8 +169,10 @@ class VirtualListHost {
                 case "FoldBtn": OnFoldBtnClick(tableItem, idx, event)
                 case "FoldFrontBtn": OnFoldFrontInfoEdit(tableItem, idx, event)
                 case "FoldTKEdit": OnFlodTKEditClick(tableItem, idx, event)
-                case "FoldForbidHK": OnFoldForbidHKEditClick(tableItem, idx, event)
-                case "FoldMenu": OnFoldMenuClick(tableItem, idx, event)
+                case "FoldAddMacro": OnItemAddMacroBtnClick(tableItem, idx, event)
+                case "FoldPasteMacro": OnItemPasteMacroBtnClick(tableItem, idx, event)
+                case "FoldForbidBtn": OnFoldForbidToggleClick(tableItem, idx, event)
+                case "FoldDel": OnItemDelFoldBtnClick(tableItem, idx, event)
             }
         }
     }
@@ -336,9 +338,7 @@ class VirtualListHost {
                 return
             switch field {
                 case "FoldRemark": fold.Remark := value
-                case "FoldFront": fold.FrontInfo := value
                 case "FoldTKType": fold.TKType := Integer(value) + 1
-                case "FoldForbid": fold.ForbidState := (value == "1")
                 case "FoldTK": fold.TK := value
             }
         }

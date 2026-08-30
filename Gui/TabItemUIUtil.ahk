@@ -352,6 +352,12 @@ OnFoldFrontInfoEdit(tableItem, foldIndex, *) {
         fold.FrontInfo := newInfo
         if (oldInfo != newInfo && IsSet(MyUIMacroGui) && IsObject(MyUIMacroGui))
             MyUIMacroGui.DestroyFoldPanels(fold.ID)
+        try {
+            if (MyMainWin._useVirtual.Has(tableItem.Index))
+                MyMainWin._vl.Init(tableItem.Index, tableItem)
+            else
+                MyMainWin.ui.Update("FoldFront_" tableItem.Index "_" foldIndex, "Text", newInfo)
+        }
         ; §17 热重载：窗口条件（FrontInfo）live 广播 → 重绑热键（HotIfWinActive 新条件即时生效）
         HotReloadPublish(tableItem.Index, 0)
     }
@@ -404,6 +410,12 @@ OnFlodTKEditClick(tableItem, foldIndex, *) {
     MyTriggerKeyGui.SureBtnAction := SureAction
     MyTriggerKeyGui.UnorderedTrigger := fold.UnorderedTrigger
     MyTriggerKeyGui.ShowGui(fold.TK, fold.HoldTime, false)
+}
+
+; §2 模块禁用切换：按钮态（非勾选框）；复用开关热键同链路
+OnFoldForbidToggleClick(tableItem, foldIndex, *) {
+    MyMainWin.ReadTabValues(tableItem)
+    OnFoldSwitchHotkey(tableItem.Index, foldIndex)
 }
 
 ; §2 模块启用/禁用开关快捷键：弹触发键编辑窗，仅取按键值（切换模块启用状态用，无需长按/顺序语义）

@@ -386,12 +386,13 @@ public class VirtualListHost
         if (tag == "Forbid" || tag == "FoldForbid")
         {
             CheckBox cb = fe as CheckBox;
-            SendChange(item.Id, tag, cb != null && cb.IsChecked == true ? "1" : "0");
+            if (cb != null)
+            {
+                SendChange(item.Id, tag, cb.IsChecked == true ? "1" : "0");
+                return;
+            }
         }
-        else
-        {
-            SendClick(item.Id, tag);
-        }
+        SendClick(item.Id, tag);
     }
 
     private void OnRightUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
