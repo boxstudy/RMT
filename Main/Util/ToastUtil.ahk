@@ -35,16 +35,6 @@ class Toast {
         Toast._ShowTyped(msg, "error", holdMs)
     }
 
-    ; ── 通用显示（兼容旧调用 Show(msg) / Show(msg, holdMs)） ──
-    static Show(msg, typeOrHold := "info", holdMs := 0) {
-        ; 兼容旧调用：Show(msg, 2000) → 第二参数为纯数字时视为 holdMs，类型默认 info
-        if (IsNumber(typeOrHold)) {
-            Toast._ShowTyped(msg, "info", Integer(typeOrHold))
-        } else {
-            Toast._ShowTyped(msg, typeOrHold, holdMs)
-        }
-    }
-
     ; ── 内部统一入口 ─────────────────────────────────────────
     static _ShowTyped(msg, type := "info", holdMs := 0) {
         msg := Trim(String(msg))
