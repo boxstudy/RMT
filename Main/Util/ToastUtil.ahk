@@ -5,7 +5,6 @@
 ; 基于 AHK-XAML，在屏幕右下角显示一段信息，停留后向右移动并渐隐消失。
 ;
 ; 用法：
-;   Toast.Show("已复制")              ; info 类型，默认停留 1.5 秒
 ;   Toast.Show("已复制", "success")   ; 指定类别（success / info / warning / error）
 ;   Toast.Show("已复制", "success", 2000) ; 指定类别 + 停留 2 秒
 ;   Toast.Show("已复制", 2000)        ; 兼容旧用法：纯数字视为 holdMs
@@ -35,14 +34,9 @@ class Toast {
         Toast._ShowTyped(msg, "error", holdMs)
     }
 
-    ; ── 通用显示（兼容旧调用 Show(msg) / Show(msg, holdMs)） ──
-    static Show(msg, typeOrHold := "info", holdMs := 0) {
-        ; 兼容旧调用：Show(msg, 2000) → 第二参数为纯数字时视为 holdMs，类型默认 info
-        if (IsNumber(typeOrHold)) {
-            Toast._ShowTyped(msg, "info", Integer(typeOrHold))
-        } else {
-            Toast._ShowTyped(msg, typeOrHold, holdMs)
-        }
+    ; ── 通用显示 ──
+    static Show(msg, type, holdMs := 0) {
+        Toast._ShowTyped(msg, type, holdMs)
     }
 
     ; ── 内部统一入口 ─────────────────────────────────────────
