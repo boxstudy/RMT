@@ -196,6 +196,18 @@ class MainWin {
         this._useVirtualBuilt := true
     }
 
+    ; 按钮 hover/按下交互片段（hover=ControlBorder，按下=BtnPressBg 略深于 hover）
+    _RmtBtnInteractionTriggers(bd := "Bd") {
+        return '<Trigger Property="IsMouseOver" Value="True">'
+            . '<Setter TargetName="' bd '" Property="Background" Value="{DynamicResource ControlBorder}"/>'
+            . '<Setter TargetName="' bd '" Property="BorderBrush" Value="{DynamicResource Accent}"/>'
+            . '</Trigger>'
+            . '<Trigger Property="IsPressed" Value="True">'
+            . '<Setter TargetName="' bd '" Property="Background" Value="{DynamicResource BtnPressBg}"/>'
+            . '<Setter TargetName="' bd '" Property="BorderBrush" Value="{DynamicResource Accent}"/>'
+            . '</Trigger>'
+    }
+
     BuildAndShow() {
         this._InitUseVirtual()
         ; 动态表集合：配置持久化的 TableIndex 可能越界（表已删/表数变化），钳制到有效范围
@@ -246,8 +258,7 @@ class MainWin {
         ; 当前配置名称：单行居中、非粗体；字号=主题字号；超长由 Viewbox 仅缩小不放大（改 FontSize 会被主题下限钳制）
         curNameBox := leftTop.Add("Viewbox").Margin("0,3,0,2").Stretch("Uniform").StretchDirection("DownOnly").HorizontalAlignment("Stretch")
         curNameBox.Add("TextBlock").Name("TxtCurSetting").Text(MySoftData.CurSettingName).TextAlignment("Center").HorizontalAlignment("Center").VerticalAlignment("Center").TextWrapping("NoWrap")
-        leftTop.Add("Button").Name("BtnConfig").Content(GetLang("配置管理")).Height(33).MinHeight(33).Margin("0,3,0,2")
-        leftTop.Add("Button").Name("BtnTableMgr").Content(GetLang("表管理")).Height(33).MinHeight(33).Margin("0,3,0,2")
+        leftTop.Add("Button").Name("BtnConfig").Content(GetLang("配置管理")).Height(33).MinHeight(33).Margin("0,3,0,2").Style("{StaticResource RmtSidebarBtn}")
         leftTop.Add("Rectangle").Height(1).Margin("2,6,2,6").Fill("{DynamicResource ControlBorder}").Stretch("Fill")
         ; 全局操作标题 + 右侧展开按钮（控制休眠/暂停/终止所有宏的快捷键提示显隐，默认显示）
         globalOps := leftTop.Add("Grid").Margin("4,0,0,4")
@@ -255,21 +266,21 @@ class MainWin {
         globalOps.Add("Button").Name("BtnToggleHotkeyHint").Content(Chr(0xE70D)).Width(24).Height(24).MinHeight(24).Margin("0,0,2,0").HorizontalAlignment("Right").VerticalAlignment("Center").FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).Style("{StaticResource RmtIconBtn}")
         ; 休眠按钮：激活（休眠中）时切换为主题 Action 色背景 + 右上角白点
         suspendGrid := leftTop.Add("Grid").Margin("2,0,0,0")
-        suspendGrid.Add("Button").Name("BtnSuspend").Content(GetLang("休眠")).Height(33).MinHeight(33)
+        suspendGrid.Add("Button").Name("BtnSuspend").Content(GetLang("休眠")).Height(33).MinHeight(33).Style("{StaticResource RmtSidebarBtn}")
         susGridAct := suspendGrid.Add("Grid").Name("SuspendActiveGrid").Visibility("Collapsed")
         susGridAct.Add("Button").Name("BtnSuspendActive").Content(GetLang("休眠")).Height(33).MinHeight(33).Style("{StaticResource StateBtnActive}")
         susGridAct.Add("Ellipse").Name("SuspendDot").Width(8).Height(8).Fill("#FFFFFFFF").HorizontalAlignment("Right").VerticalAlignment("Top").Margin("0,4,4,0").IsHitTestVisible("False")
         leftTop.Add("TextBlock").Name("TxtSuspendKey").Text(FormatHotkeyDisplay(MainSoftData.SuspendHotkey)).Opacity("0.6").FontSize(11).Margin("0,0,6,0").HorizontalAlignment("Right").TextAlignment("Right")
         ; 暂停按钮：激活（暂停中）时切换为主题 Action 色背景 + 右上角白点
         pauseGrid := leftTop.Add("Grid").Margin("2,8,0,0")
-        pauseGrid.Add("Button").Name("BtnPause").Content(GetLang("暂停")).Height(33).MinHeight(33)
+        pauseGrid.Add("Button").Name("BtnPause").Content(GetLang("暂停")).Height(33).MinHeight(33).Style("{StaticResource RmtSidebarBtn}")
         pauGridAct := pauseGrid.Add("Grid").Name("PauseActiveGrid").Visibility("Collapsed")
         pauGridAct.Add("Button").Name("BtnPauseActive").Content(GetLang("暂停")).Height(33).MinHeight(33).Style("{StaticResource StateBtnActive}")
         pauGridAct.Add("Ellipse").Name("PauseDot").Width(8).Height(8).Fill("#FFFFFFFF").HorizontalAlignment("Right").VerticalAlignment("Top").Margin("0,4,4,0").IsHitTestVisible("False")
         leftTop.Add("TextBlock").Name("TxtPauseKey").Text(FormatHotkeyDisplay(MainSoftData.PauseHotkey)).Opacity("0.6").FontSize(11).Margin("0,0,6,0").HorizontalAlignment("Right").TextAlignment("Right")
-        leftTop.Add("Button").Name("BtnKill").Content(GetLang("终止所有宏")).Height(33).MinHeight(33).Margin("0,8,0,0")
+        leftTop.Add("Button").Name("BtnKill").Content(GetLang("终止所有宏")).Height(33).MinHeight(33).Margin("0,8,0,0").Style("{StaticResource RmtSidebarBtn}")
         leftTop.Add("TextBlock").Name("TxtKillKey").Text(FormatHotkeyDisplay(MainSoftData.KillMacroHotkey)).Opacity("0.6").FontSize(11).Margin("0,0,6,0").HorizontalAlignment("Right").TextAlignment("Right")
-        leftTop.Add("Button").Name("BtnReload").Content(GetLang("重载")).Height(33).MinHeight(33).Margin("0,8,0,0")
+        leftTop.Add("Button").Name("BtnReload").Content(GetLang("重载")).Height(33).MinHeight(33).Margin("0,8,0,0").Style("{StaticResource RmtSidebarBtn}")
         leftBottom := left.Add("StackPanel").Grid_Row(1).VerticalAlignment("Bottom")
         leftBottom.Add("Button").Name("BtnHelp").Content(GetLang("RMT文档")).Height(28).MinHeight(28).Margin("0,2,0,2")
         leftBottom.Add("Button").Name("BtnSave").Content(GetLang("应用并保存")).Height(35).MinHeight(35).Margin("0,2,0,2").FontWeight("Bold")
@@ -362,12 +373,32 @@ class MainWin {
             . '<Setter TargetName="Border" Property="BorderBrush" Value="{DynamicResource ActionHoverStroke}"/>'
             . '</Trigger>'
             . '<Trigger Property="IsPressed" Value="True">'
-            . '<Setter TargetName="Border" Property="Background" Value="{DynamicResource ActionHoverBg}"/>'
+            . '<Setter TargetName="Border" Property="Background" Value="{DynamicResource ActionPressBg}"/>'
+            . '<Setter TargetName="Border" Property="BorderBrush" Value="{DynamicResource ActionHoverStroke}"/>'
             . '</Trigger>'
             . '</ControlTemplate.Triggers>'
             . '</ControlTemplate></Setter.Value></Setter>'
             . '</Style>'
-        ; 图标按钮：透明底 + 主题 ListAltBg 悬停（折叠、工具栏、全局操作折叠）
+        ; 主窗口默认按钮：hover=ControlBorder，按下=BtnPressBg（略深于 hover）
+        defaultBtnStyle := '<Style TargetType="Button">'
+            . '<Setter Property="Foreground" Value="{DynamicResource TextMain}"/>'
+            . '<Setter Property="Background" Value="{DynamicResource ControlBg}"/>'
+            . '<Setter Property="BorderBrush" Value="{DynamicResource ControlBorder}"/>'
+            . '<Setter Property="BorderThickness" Value="1"/>'
+            . '<Setter Property="Padding" Value="10,0"/>'
+            . '<Setter Property="HorizontalContentAlignment" Value="Center"/>'
+            . '<Setter Property="VerticalContentAlignment" Value="Center"/>'
+            . '<Setter Property="Cursor" Value="Hand"/>'
+            . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">'
+            . '<Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3" Padding="{TemplateBinding Padding}">'
+            . '<ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" Margin="0"/>'
+            . '</Border>'
+            . '<ControlTemplate.Triggers>' this._RmtBtnInteractionTriggers("Bd") '</ControlTemplate.Triggers>'
+            . '</ControlTemplate></Setter.Value></Setter>'
+            . '</Style>'
+        ; 侧栏按钮别名（与默认按钮交互一致，便于显式引用）
+        sidebarBtnStyle := '<Style x:Key="RmtSidebarBtn" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}"/>'
+        ; 图标按钮：透明底 + ControlBorder 悬停 / BtnPressBg 按下
         iconBtnStyle := '<Style x:Key="RmtIconBtn" TargetType="Button">'
             . '<Setter Property="Background" Value="Transparent"/>'
             . '<Setter Property="BorderBrush" Value="Transparent"/>'
@@ -380,15 +411,16 @@ class MainWin {
             . '<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>'
             . '</Border>'
             . '<ControlTemplate.Triggers>'
-            . '<Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource ListAltBg}"/></Trigger>'
-            . '<Trigger Property="IsPressed" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource ControlBorder}"/></Trigger>'
+            . '<Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource ControlBorder}"/><Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}"/></Trigger>'
+            . '<Trigger Property="IsPressed" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource BtnPressBg}"/><Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}"/></Trigger>'
             . '</ControlTemplate.Triggers>'
             . '</ControlTemplate></Setter.Value></Setter>'
             . '</Style>'
+        foldRowStyles := this._BuildFoldRowStyles()
         ; 主窗口页签样式（隐式 Style，只作用于本窗口）：
         ; - 固定每个页签大小（宽 80），页签间用 1px 垂直线分割，仅上 20% ~ 下 20%（高度 60%）显示
         ; - 选中态：整块主题强调色低透明度背景（TabSelBg，各主题自动适配）+ 右上角 Accent 小圆点
-        ; - 悬停：主题 ListAltBg 轻微高亮
+        ; - 悬停：ControlBorder（TabItem 无 IsPressed，按下态无法用 Storyboard+DynamicResource，故仅做 hover）
         ; - 圆角：仅第一个页签左侧（4,0,0,4）、最后一个页签右侧（0,4,4,0）适配页签条圆角，其余页签直角
         tabItemStyle := '<Style TargetType="TabItem">'
             . '<Setter Property="Width" Value="80"/>'
@@ -403,13 +435,24 @@ class MainWin {
             . '<Rectangle x:Name="Divider" Width="2" Fill="{DynamicResource ControlBorder}" HorizontalAlignment="Right" VerticalAlignment="Stretch" Margin="0,3,0,3" IsHitTestVisible="False" SnapsToDevicePixels="True" RenderOptions.EdgeMode="Aliased"/>'
             . '</Grid>'
             . '<ControlTemplate.Triggers>'
-            . '<Trigger Property="IsMouseOver" Value="True">'
-            . '<Setter TargetName="Bd" Property="Background" Value="{DynamicResource ListAltBg}"/>'
-            . '</Trigger>'
+            . '<MultiTrigger><MultiTrigger.Conditions>'
+            . '<Condition Property="IsMouseOver" Value="True"/>'
+            . '<Condition Property="IsSelected" Value="False"/>'
+            . '</MultiTrigger.Conditions>'
+            . '<Setter TargetName="Bd" Property="Background" Value="{DynamicResource ControlBorder}"/>'
+            . '<Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}"/>'
+            . '</MultiTrigger>'
             . '<Trigger Property="IsSelected" Value="True">'
             . '<Setter TargetName="Bd" Property="Background" Value="{DynamicResource TabSelBg}"/>'
             . '<Setter TargetName="SelDot" Property="Visibility" Value="Visible"/>'
             . '</Trigger>'
+            . '<MultiTrigger><MultiTrigger.Conditions>'
+            . '<Condition Property="IsMouseOver" Value="True"/>'
+            . '<Condition Property="IsSelected" Value="True"/>'
+            . '</MultiTrigger.Conditions>'
+            . '<Setter TargetName="Bd" Property="Background" Value="{DynamicResource TabSelBg}"/>'
+            . '<Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}"/>'
+            . '</MultiTrigger>'
             . '<Trigger Property="Tag" Value="first">'
             . '<Setter TargetName="Bd" Property="CornerRadius" Value="4,0,0,4"/>'
             . '</Trigger>'
@@ -422,12 +465,14 @@ class MainWin {
             . '</Style>'
         ; 页签选中背景默认占位（主题应用时由 ApplyWinThemeToXaml 用 Accent 低透明度覆盖）
         tabSelBgRes := '<SolidColorBrush x:Key="TabSelBg" Color="#33FFFFFF"/>'
+            . '<SolidColorBrush x:Key="BtnPressBg" Color="#E0CCCCCC"/>'
+            . '<SolidColorBrush x:Key="ActionPressBg" Color="#FF106EBE"/>'
         this._foldFieldW := 168
         this._foldFrontW := this._foldFieldW + 80
         this._foldFrontShift := 180
         this._foldToolbarShift := 150
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
-        tmp := StrReplace(tmp, "%resources%", tabStyle . tabItemStyle . tabSelBgRes . stateBtnStyle . iconBtnStyle . this._BuildVListTemplates())
+        tmp := StrReplace(tmp, "%resources%", tabStyle . tabItemStyle . tabSelBgRes . stateBtnStyle . defaultBtnStyle . sidebarBtnStyle . iconBtnStyle . foldRowStyles . this._BuildVListTemplates())
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", "")
         ; 首帧即定死保存位置：模板 CenterScreen 会让 WPF 强制居中并覆盖后续 WinMove → 先默认位置闪一帧。
         ; 改 Manual + 注入 Left/Top/Width/Height（AHK 逻辑坐标 = WPF DIP，125% DPI 下物理 132,126 已实测吻合，无单位错位）。
@@ -463,7 +508,6 @@ class MainWin {
         this.ui.OnEvent("BtnMaximize", "Click", ObjBindMethod(this, "OnMaximizeClick"))
         this.ui.OnEvent("TabControl", "SelectionChanged", ObjBindMethod(this, "OnTabChanged"))
         this.ui.OnEvent("BtnConfig", "Click", (*) => SettingMgrGui.ShowGui())
-        this.ui.OnEvent("BtnTableMgr", "Click", (*) => TableMgrGui.ShowGui())
         this.ui.OnEvent("BtnSuspend", "Click", OnSuspendHotkey)
         this.ui.OnEvent("BtnSuspendActive", "Click", OnSuspendHotkey)
         this.ui.OnEvent("BtnPause", "Click", OnPauseHotKey)
@@ -512,6 +556,17 @@ class MainWin {
         cur := MainSoftData.TableIndex
         this._renderedTabs[cur] := true
         this.RenderTab(MySoftData.TableInfo[cur])
+    }
+
+    ; VL_INIT 重建虚拟行后补刷主题字号（否则新行仍用样式声明 11，比已缩放行偏小）
+    RefreshVLFonts() {
+        if (!IsObject(this.ui) || this.ui.IsFontScaleSkipped())
+            return
+        try {
+            fs := XAMLHost.GetThemeFontSize()
+            this.ui.Update("Window", "ApplyFonts", XAMLHost.BuildApplyFontsPayload(0, fs))
+        } catch {
+        }
     }
 
     OnWindowLoad(state, ctrl, event) {
@@ -717,7 +772,7 @@ class MainWin {
         isUI := GetTableSymbol(t) == "UI"
         ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
         xaml := '<Border ' ns ' CornerRadius="4" BorderThickness="1" BorderBrush="{DynamicResource InputStroke}" Background="{DynamicResource ListAltBg}" Margin="0,2,0,4" Padding="6,4">'
-            . '<StackPanel>'
+            . '<StackPanel TextElement.FontSize="' XAMLHost.FormatFontSize(XAMLHost.ScaleFontSize(11)) '">'
             . this._BuildFoldHeaderRowXaml(t, f, fold, false)
         if (isMenu || isUI) {
             xaml .= '<StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,4,0,0">'
@@ -763,27 +818,116 @@ class MainWin {
             . '</Button>'
     }
 
-    ; 模块头输入框：仅左侧内边距，背景跟主题 ControlBg（避免 InputBg 默认纯白）
-    _FoldFieldBoxAttrs() {
-        return ' Padding="4,0,0,0" VerticalContentAlignment="Center" TextAlignment="Left" FontSize="11"'
-            . ' Foreground="{DynamicResource InputText}" Background="{DynamicResource ControlBg}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1"'
+    ; 模块头专用样式：输入框左内边距与占位符对齐；工具按钮悬停跟主题色
+    _BuildFoldRowStyles() {
+        foldFs := XAMLHost.FormatFontSize(XAMLHost.ScaleFontSize(11))
+        fieldBox := '<Style x:Key="RmtFoldFieldBox" TargetType="TextBox">'
+            . '<Setter Property="FontSize" Value="' foldFs '"/>'
+            . '<Setter Property="MinHeight" Value="26"/>'
+            . '<Setter Property="Height" Value="26"/>'
+            . '<Setter Property="Padding" Value="1,0,1,0"/>'
+            . '<Setter Property="VerticalContentAlignment" Value="Center"/>'
+            . '<Setter Property="TextAlignment" Value="Left"/>'
+            . '<Setter Property="Foreground" Value="{DynamicResource InputText}"/>'
+            . '<Setter Property="Background" Value="{DynamicResource ControlBg}"/>'
+            . '<Setter Property="BorderBrush" Value="{DynamicResource InputStroke}"/>'
+            . '<Setter Property="BorderThickness" Value="1"/>'
+            . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TextBox">'
+            . '<Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3">'
+            . '<ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" HorizontalScrollBarVisibility="{TemplateBinding HorizontalScrollBarVisibility}" VerticalScrollBarVisibility="{TemplateBinding VerticalScrollBarVisibility}"/>'
+            . '</Border></ControlTemplate></Setter.Value></Setter>'
+            . '<Style.Triggers>'
+            . '<Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="1"/><Setter Property="FontSize" Value="' foldFs '"/></Trigger>'
+            . '<Trigger Property="IsReadOnly" Value="True"><Setter Property="FontSize" Value="' foldFs '"/></Trigger>'
+            . '</Style.Triggers></Style>'
+        toolBtn := '<Style x:Key="RmtFoldToolBtn" TargetType="Button">'
+            . '<Setter Property="Width" Value="26"/><Setter Property="Height" Value="26"/><Setter Property="MinHeight" Value="26"/>'
+            . '<Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0,0,4,0"/>'
+            . '<Setter Property="Cursor" Value="Hand"/>'
+            . '<Setter Property="Background" Value="{DynamicResource ControlBg}"/>'
+            . '<Setter Property="BorderBrush" Value="{DynamicResource ControlBorder}"/>'
+            . '<Setter Property="BorderThickness" Value="1"/>'
+            . '<Setter Property="Foreground" Value="{DynamicResource TextMain}"/>'
+            . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">'
+            . '<Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3">'
+            . '<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>'
+            . '</Border>'
+            . '<ControlTemplate.Triggers>' this._RmtBtnInteractionTriggers("Bd") '</ControlTemplate.Triggers>'
+            . '</ControlTemplate></Setter.Value></Setter></Style>'
+        forbidBtn := '<Style x:Key="RmtFoldForbidBtn" TargetType="Button">'
+            . '<Setter Property="Width" Value="26"/><Setter Property="Height" Value="26"/><Setter Property="MinHeight" Value="26"/>'
+            . '<Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0,0,4,0"/>'
+            . '<Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets"/>'
+            . '<Setter Property="FontSize" Value="12"/>'
+            . '<Setter Property="Cursor" Value="Hand"/>'
+            . '<Setter Property="Background" Value="{DynamicResource ControlBg}"/>'
+            . '<Setter Property="BorderBrush" Value="{DynamicResource ControlBorder}"/>'
+            . '<Setter Property="BorderThickness" Value="1"/>'
+            . '<Setter Property="Foreground" Value="{DynamicResource TextMain}"/>'
+            . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">'
+            . '<Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3">'
+            . '<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>'
+            . '</Border>'
+            . '<ControlTemplate.Triggers>'
+            . '<MultiDataTrigger><MultiDataTrigger.Conditions>'
+            . '<Condition Binding="{Binding FoldForbid}" Value="False"/>'
+            . '<Condition Binding="{Binding RelativeSource={RelativeSource Self}, Path=IsMouseOver}" Value="True"/>'
+            . '</MultiDataTrigger.Conditions>'
+            . '<Setter TargetName="Bd" Property="Background" Value="{DynamicResource ControlBorder}"/>'
+            . '<Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}"/>'
+            . '</MultiDataTrigger>'
+            . '<MultiDataTrigger><MultiDataTrigger.Conditions>'
+            . '<Condition Binding="{Binding FoldForbid}" Value="False"/>'
+            . '<Condition Binding="{Binding RelativeSource={RelativeSource Self}, Path=IsPressed}" Value="True"/>'
+            . '</MultiDataTrigger.Conditions>'
+            . '<Setter TargetName="Bd" Property="Background" Value="{DynamicResource BtnPressBg}"/>'
+            . '<Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}"/>'
+            . '</MultiDataTrigger>'
+            . '<DataTrigger Binding="{Binding FoldForbid}" Value="True">'
+            . '<Setter Property="Foreground" Value="{DynamicResource ActionText}"/>'
+            . '<Setter TargetName="Bd" Property="Background" Value="{DynamicResource ActionBg}"/>'
+            . '<Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource ActionStroke}"/>'
+            . '</DataTrigger>'
+            . '<MultiDataTrigger><MultiDataTrigger.Conditions>'
+            . '<Condition Binding="{Binding FoldForbid}" Value="True"/>'
+            . '<Condition Binding="{Binding RelativeSource={RelativeSource Self}, Path=IsMouseOver}" Value="True"/>'
+            . '</MultiDataTrigger.Conditions>'
+            . '<Setter TargetName="Bd" Property="Background" Value="{DynamicResource ActionHoverBg}"/>'
+            . '<Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource ActionHoverStroke}"/>'
+            . '</MultiDataTrigger>'
+            . '<MultiDataTrigger><MultiDataTrigger.Conditions>'
+            . '<Condition Binding="{Binding FoldForbid}" Value="True"/>'
+            . '<Condition Binding="{Binding RelativeSource={RelativeSource Self}, Path=IsPressed}" Value="True"/>'
+            . '</MultiDataTrigger.Conditions>'
+            . '<Setter TargetName="Bd" Property="Background" Value="{DynamicResource ActionPressBg}"/>'
+            . '<Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource ActionHoverStroke}"/>'
+            . '</MultiDataTrigger>'
+            . '</ControlTemplate.Triggers>'
+            . '</ControlTemplate></Setter.Value></Setter></Style>'
+        return fieldBox . toolBtn . forbidBtn
+    }
+
+    ; 模块头输入框：RmtFoldFieldBox 覆盖全局 TextBox Padding=12，保证与占位符左对齐
+    _FoldFieldBoxAttrs(extra := "") {
+        return ' Style="{StaticResource RmtFoldFieldBox}"' extra
     }
 
     _BuildFoldRemarkFieldXaml(t, f, remark, vlMode) {
+        foldFs := XAMLHost.FormatFontSize(XAMLHost.ScaleFontSize(11))
         ph := this._XmlEsc(GetLang("请输入备注信息"))
         fw := this._foldFieldW
         box := this._FoldFieldBoxAttrs()
         if (vlMode) {
             return '<Grid Width="' fw '" Height="26" MinHeight="26" Margin="0,0,8,0">'
-                . '<TextBox Tag="FoldRemark" Text="{Binding FoldRemark}" Height="26" MinHeight="26"' box '/>'
-                . '<TextBlock Text="' ph '" IsHitTestVisible="False" VerticalAlignment="Center" Margin="4,0,0,0" HorizontalAlignment="Left" Foreground="{DynamicResource TextSub}" Opacity="0.55" FontSize="11">'
+                . '<TextBox Tag="FoldRemark" Text="{Binding FoldRemark}"' box '/>'
+                . '<TextBlock Text="' ph '" IsHitTestVisible="False" VerticalAlignment="Center" Margin="1,0,1,0" HorizontalAlignment="Left" Foreground="{DynamicResource TextSub}" Opacity="0.55" FontSize="' foldFs '">'
                 . '<TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/>'
                 . '<Style.Triggers><DataTrigger Binding="{Binding FoldRemark}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>'
                 . '</Style></TextBlock.Style></TextBlock></Grid>'
         }
         return '<Grid Width="' fw '" Height="26" MinHeight="26" Margin="0,0,8,0">'
-            . '<TextBox Name="FoldRemark_' t '_' f '" Text="' this._XmlEsc(remark) '" Height="26" MinHeight="26"' box '/>'
-            . '<TextBlock Text="' ph '" IsHitTestVisible="False" VerticalAlignment="Center" Margin="4,0,0,0" HorizontalAlignment="Left" Foreground="{DynamicResource TextSub}" Opacity="0.55" FontSize="11">'
+            . '<TextBox Name="FoldRemark_' t '_' f '" Text="' this._XmlEsc(remark) '"' box '/>'
+            . '<TextBlock Text="' ph '" IsHitTestVisible="False" VerticalAlignment="Center" Margin="1,0,1,0" HorizontalAlignment="Left" Foreground="{DynamicResource TextSub}" Opacity="0.55" FontSize="' foldFs '">'
             . '<TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/>'
             . '<Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=FoldRemark_' t '_' f '}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>'
             . '</Style></TextBlock.Style></TextBlock></Grid>'
@@ -791,14 +935,15 @@ class MainWin {
 
     _BuildFoldFrontCenterXaml(t, f, frontInfo, vlMode) {
         fw := this._foldFrontW
-        box := this._FoldFieldBoxAttrs() . ' IsReadOnly="True" Focusable="False"'
+        foldFs := XAMLHost.FormatFontSize(XAMLHost.ScaleFontSize(11))
+        box := this._FoldFieldBoxAttrs(' IsReadOnly="True" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled"')
         if (vlMode) {
-            return '<TextBlock Text="' GetLang("前台:") '" VerticalAlignment="Center" Foreground="{DynamicResource TextMain}" Margin="0,0,4,0"/>'
-                . '<TextBox Tag="FoldFront" Text="{Binding FoldFront}" Width="' fw '" Height="26" MinHeight="26"' box '/>'
+            return '<TextBlock Text="' GetLang("前台:") '" VerticalAlignment="Center" Foreground="{DynamicResource TextMain}" FontSize="' foldFs '" Margin="0,0,4,0"/>'
+                . '<TextBox Tag="FoldFront" Text="{Binding FoldFront}" Width="' fw '"' box '/>'
                 . '<Button Tag="FoldFrontBtn" Content="' GetLang("编辑") '" Height="26" MinHeight="26" Padding="6,0" Margin="4,0,0,0"/>'
         }
-        return '<TextBlock Text="' GetLang("前台:") '" VerticalAlignment="Center" Foreground="{DynamicResource TextMain}" Margin="0,0,4,0"/>'
-            . '<TextBox Name="FoldFront_' t '_' f '" Text="' this._XmlEsc(frontInfo) '" Width="' fw '" Height="26" MinHeight="26"' box '/>'
+        return '<TextBlock Text="' GetLang("前台:") '" VerticalAlignment="Center" Foreground="{DynamicResource TextMain}" FontSize="' foldFs '" Margin="0,0,4,0"/>'
+            . '<TextBox Name="FoldFront_' t '_' f '" Text="' this._XmlEsc(frontInfo) '" Width="' fw '"' box '/>'
             . '<Button Name="FoldFrontBtn_' t '_' f '" Content="' GetLang("编辑") '" Height="26" MinHeight="26" Padding="6,0" Margin="4,0,0,0"/>'
     }
 
@@ -1016,9 +1161,10 @@ class MainWin {
             . '<Button Grid.Column="11" Tag="Copy" Content="' GetLang("复制") '" Height="26" MinHeight="26" Cursor="Hand" Padding="4,0"/>'
             . '<Button Grid.Column="12" Tag="Del" Content="' GetLang("删除") '" Height="26" MinHeight="26" Cursor="Hand" Padding="4,0"/>'
             . '</Grid></DataTemplate>'
+        foldFs := XAMLHost.FormatFontSize(XAMLHost.ScaleFontSize(11))
         fold := '<DataTemplate x:Key="RmtFoldHeader">'
             . '<Border CornerRadius="4" BorderThickness="1" BorderBrush="{DynamicResource InputStroke}" Background="{DynamicResource ListAltBg}" Margin="0,2,0,4" Padding="6,4">'
-            . '<StackPanel>'
+            . '<StackPanel TextElement.FontSize="' foldFs '">'
             . this._BuildFoldHeaderRowXaml(0, 0, "", true)
             . '<StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,4,0,0" Visibility="{Binding ShowTKRowVisibility}">'
             . '<TextBlock Text="' GetLang("菜单触发键：") '" VerticalAlignment="Center" Foreground="{DynamicResource TextMain}"/>'
@@ -1032,13 +1178,12 @@ class MainWin {
         return row . fold
     }
 
-    ; 模块行图标按钮（ToolTip 保留中文说明）
     _BuildFoldIconBtn(tag, name, t, f, content, tip, vlMode, isIcon := true, last := false) {
         margin := last ? "" : ' Margin="0,0,4,0"'
         font := isIcon ? ' FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"' : ' FontSize="14"'
-        attrs := ' Content="' content '" Width="26" Height="26" MinHeight="26" Padding="0" Cursor="Hand" ToolTip="' tip '"'
-            . ' Background="{DynamicResource ControlBg}" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" Foreground="{DynamicResource TextMain}"'
-            . font margin
+        attrs := ' Style="{StaticResource RmtFoldToolBtn}" Content="' content '" ToolTip="' tip '"' . font
+        if (last)
+            attrs .= ' Margin="0"'
         if (vlMode)
             return '<Button Tag="' tag '" ' attrs '/>'
         return '<Button Name="' name '_' t '_' f '" Tag="' tag '" ' attrs '/>'
@@ -1052,33 +1197,14 @@ class MainWin {
             . this._BuildFoldIconBtn("FoldDel", "FoldDel", t, f, "&#xE74D;", GetLang("删除"), vlMode, true, true)
     }
 
-    ; 禁用：单按钮 + DataTrigger/同步刷新，避免取消禁用后背景不恢复
+    ; 禁用：RmtFoldForbidBtn 悬停走主题 ActionHover；非 VL 由 SyncFoldForbidBtnUI 同步激活态
     _BuildFoldForbidBtnXaml(t, f, forbidState, vlMode) {
         icon := "&#xE7BA;"
         tip := GetLang("禁用")
         dot := '<Ellipse Width="6" Height="6" Fill="{DynamicResource Accent}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,2,2,0" IsHitTestVisible="False"/>'
-        btnStyle := '<Style TargetType="Button">'
-            . '<Setter Property="Content" Value="' icon '"/>'
-            . '<Setter Property="Width" Value="26"/><Setter Property="Height" Value="26"/><Setter Property="MinHeight" Value="26"/>'
-            . '<Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0,0,4,0"/>'
-            . '<Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets"/><Setter Property="FontSize" Value="12"/>'
-            . '<Setter Property="Cursor" Value="Hand"/><Setter Property="ToolTip" Value="' tip '"/>'
-            . '<Setter Property="Background" Value="{DynamicResource ControlBg}"/>'
-            . '<Setter Property="BorderBrush" Value="{DynamicResource ControlBorder}"/><Setter Property="BorderThickness" Value="1"/>'
-            . '<Setter Property="Foreground" Value="{DynamicResource TextMain}"/>'
-            . '<Style.Triggers>'
-            . '<Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="{DynamicResource ListAltBg}"/></Trigger>'
-        if (vlMode) {
-            btnStyle .= '<DataTrigger Binding="{Binding FoldForbid}" Value="True">'
-                . '<Setter Property="Background" Value="{DynamicResource ActionBg}"/>'
-                . '<Setter Property="BorderBrush" Value="{DynamicResource ActionStroke}"/>'
-                . '<Setter Property="Foreground" Value="{DynamicResource ActionText}"/>'
-                . '</DataTrigger>'
-        }
-        btnStyle .= '</Style.Triggers></Style>'
         if (vlMode) {
             return '<Grid VerticalAlignment="Center" ClipToBounds="False">'
-                . '<Button Tag="FoldForbidBtn"><Button.Style>' btnStyle '</Button.Style></Button>'
+                . '<Button Tag="FoldForbidBtn" Content="' icon '" ToolTip="' tip '" Style="{StaticResource RmtFoldForbidBtn}"/>'
                 . '<Ellipse Width="6" Height="6" Fill="{DynamicResource Accent}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,2,6,0" IsHitTestVisible="False">'
                 . '<Ellipse.Style><Style TargetType="Ellipse"><Setter Property="Visibility" Value="Collapsed"/>'
                 . '<Style.Triggers><DataTrigger Binding="{Binding FoldForbid}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>'
@@ -1089,9 +1215,9 @@ class MainWin {
         actFg := forbidState ? "{DynamicResource ActionText}" : "{DynamicResource TextMain}"
         dotVis := forbidState ? "Visible" : "Collapsed"
         return '<Grid VerticalAlignment="Center" ClipToBounds="False">'
-            . '<Button Name="FoldForbidBtn_' t '_' f '" Tag="FoldForbidBtn" Content="' icon '" Width="26" Height="26" MinHeight="26" Padding="0" Margin="0,0,4,0"'
-            . ' FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" Cursor="Hand" ToolTip="' tip '"'
-            . ' Background="' actBg '" BorderBrush="' actBr '" BorderThickness="1" Foreground="' actFg '"/>'
+            . '<Button Name="FoldForbidBtn_' t '_' f '" Tag="FoldForbidBtn" Content="' icon '" ToolTip="' tip '" Style="{StaticResource RmtFoldToolBtn}"'
+            . ' FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"'
+            . ' Background="' actBg '" BorderBrush="' actBr '" Foreground="' actFg '"/>'
             . '<Grid Name="FoldForbidDot_' t '_' f '" Visibility="' dotVis '">' dot '</Grid>'
             . '</Grid>'
     }

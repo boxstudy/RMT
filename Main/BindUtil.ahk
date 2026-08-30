@@ -80,7 +80,7 @@ OnFoldSwitchHotkey(tableIndex, foldIndex, *) {
     try {
         if (IsSet(MyMainWin) && IsObject(MyMainWin) && IsObject(MyMainWin.ui)) {
             if (MyMainWin._useVirtual.Has(tableIndex))
-                MyMainWin._vl.Init(tableIndex, tableItem)
+                MyMainWin._vl.UpdateFoldForbid(tableIndex, foldIndex, fold.ForbidState)
             else
                 MyMainWin.SyncFoldForbidBtnUI(tableIndex, foldIndex, fold.ForbidState)
         }

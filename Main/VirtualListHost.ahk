@@ -32,6 +32,13 @@ class VirtualListHost {
     Init(t, tableItem) {
         this.EnsureEvents(t)
         this._ui.Update("FoldList_" t, "VL_INIT", this._BuildRecords(t, tableItem))
+        try MyMainWin.RefreshVLFonts()
+    }
+
+    ; 仅刷新模块禁用态，避免 VL_INIT 全量重建导致字号回落
+    UpdateFoldForbid(t, f, forbidState) {
+        this.EnsureEvents(t)
+        this._ui.Update("FoldList_" t, "VL_FF", "F" t "_" f US (forbidState ? "1" : "0"))
     }
 
     ; 单行刷新：增量更新 VM（不可见行由 C# no-op），滚动/折叠态天然保留

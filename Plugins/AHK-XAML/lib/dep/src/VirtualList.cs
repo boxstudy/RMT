@@ -81,6 +81,7 @@ public class VirtualListHost
             case "VL_INIT": host.Rebuild(val); break;
             case "VL_ROW": host.SetRow(val); break;
             case "VL_FOLD": host.SetFold(val); break;
+            case "VL_FF": host.SetFoldForbid(val); break;
             case "VL_MOVE": host.Move(val); break;
             case "VL_COMMIT_ALL": host.CommitAll(); break;
         }
@@ -341,6 +342,18 @@ public class VirtualListHost
         {
             RestoreAnchor();
         }
+    }
+
+    // 模块禁用态增量刷新（避免 VL_INIT 全量重建导致虚拟行字号未再经 ApplyFonts 缩小）
+    private void SetFoldForbid(string val)
+    {
+        string[] f = val.Split('\x1F');
+        if (f.Length < 2) return;
+        object o;
+        if (!_byId.TryGetValue(f[0], out o)) return;
+        VListFold fo = o as VListFold;
+        if (fo == null) return;
+        fo.FoldForbid = f[1] == "1";
     }
 
     private void Move(string val)
