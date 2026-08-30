@@ -220,7 +220,7 @@ class LogCenterGui {
         txt := this.ui.Query("LogCon")
         if (txt != "") {
             A_Clipboard := txt
-            try ToolTip(GetLang("已复制"), , , 2)
+            Toast.Success(GetLang("已复制"))
         }
     }
 
@@ -244,7 +244,7 @@ class LogCenterGui {
         savePath := FileSelect("S", defName, GetLang("导出日志"), "日志文件 (*.log)")
         if (savePath != "") {
             try FileAppend(txt, savePath, "UTF-8")
-            try ToolTip(GetLang("已导出"), , , 2)
+            Toast.Success(GetLang("已导出"))
         }
     }
 
