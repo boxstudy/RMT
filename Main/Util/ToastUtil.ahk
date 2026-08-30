@@ -3,16 +3,50 @@
 ; ============================================================
 ; 通用右下角提示窗口（Toast）
 ; 基于 AHK-XAML，在屏幕右下角显示一段信息，停留后向右移动并渐隐消失。
+;
 ; 用法：
-;   Toast.Show("已复制")          ; 默认停留 1.5 秒
-;   Toast.Show("已粘贴", 2000)    ; 停留 2 秒（自动钳制到 1~3 秒）
-;   Toast.HoldMs := 2000          ; 修改默认停留时长（毫秒）
+;   Toast.Show("已复制")              ; info 类型，默认停留 1.5 秒
+;   Toast.Show("已复制", "success")   ; 指定类别（success / info / warning / error）
+;   Toast.Show("已复制", "success", 2000) ; 指定类别 + 停留 2 秒
+;   Toast.Show("已复制", 2000)        ; 兼容旧用法：纯数字视为 holdMs
+;
+;   Toast.Success("操作成功")         ; 绿色成功提示
+;   Toast.Info("提示信息")            ; 蓝色信息提示（默认）
+;   Toast.Warning("请注意")           ; 黄色警告提示
+;   Toast.Error("发生错误")           ; 红色错误提示
+;
+;   Toast.HoldMs := 2000              ; 修改默认停留时长（毫秒）
 ; ============================================================
 class Toast {
     static HoldMs := 1500    ; 默认停留时长（毫秒）
     static _inst := ""       ; 当前活动实例
 
-    static Show(msg, holdMs := 0) {
+    ; ── 分类快捷方法 ──────────────────────────────────────────
+    static Success(msg, holdMs := 0) {
+        Toast._ShowTyped(msg, "success", holdMs)
+    }
+    static Info(msg, holdMs := 0) {
+        Toast._ShowTyped(msg, "info", holdMs)
+    }
+    static Warning(msg, holdMs := 0) {
+        Toast._ShowTyped(msg, "warning", holdMs)
+    }
+    static Error(msg, holdMs := 0) {
+        Toast._ShowTyped(msg, "error", holdMs)
+    }
+
+    ; ── 通用显示（兼容旧调用 Show(msg) / Show(msg, holdMs)） ──
+    static Show(msg, typeOrHold := "info", holdMs := 0) {
+        ; 兼容旧调用：Show(msg, 2000) → 第二参数为纯数字时视为 holdMs，类型默认 info
+        if (IsNumber(typeOrHold)) {
+            Toast._ShowTyped(msg, "info", Integer(typeOrHold))
+        } else {
+            Toast._ShowTyped(msg, typeOrHold, holdMs)
+        }
+    }
+
+    ; ── 内部统一入口 ─────────────────────────────────────────
+    static _ShowTyped(msg, type := "info", holdMs := 0) {
         msg := Trim(String(msg))
         if (msg == "")
             return
@@ -21,15 +55,16 @@ class Toast {
             try Toast._inst.Close()
             Toast._inst := ""
         }
-        inst := Toast.Instance(msg, holdMs > 0 ? holdMs : Toast.HoldMs)
+        inst := Toast.Instance(msg, type, holdMs > 0 ? holdMs : Toast.HoldMs)
         Toast._inst := inst
         inst.Start()
     }
 
-    ; ── 单个提示实例 ──────────────────────────────────────
+    ; ── 单个提示实例 ──────────────────────────────────────────
     class Instance {
         ui := ""
         msg := ""
+        type := "info"       ; success / info / warning / error
         holdMs := 1500
         phase := ""          ; fadein / hold / fadeout
         phaseTick := 0
@@ -47,15 +82,39 @@ class Toast {
         fadeOutMs := 320
         slideDIP := 48       ; 右移距离（逻辑像素）
 
-        __New(msg, holdMs) {
+        __New(msg, type, holdMs) {
             this.msg := msg
+            this.type := (type == "") ? "info" : type
             this.holdMs := Max(1000, Min(3000, Integer(holdMs)))
         }
 
+        ; 根据 type 返回 [icon前缀, fill, stroke, text] 四元素
+        _TypeStyle() {
+            switch this.type {
+            case "success":
+                return ["✔ ", "#FFF6FFED", "#FF95DE64", "#FF389E0D"]
+            case "warning":
+                return ["⚠ ", "#FFFFFBE6", "#FFE8D080", "#FFD46B08"]
+            case "error":
+                return ["✖ ", "#FFFFF2F0", "#FFFFCCC7", "#FFCF1322"]
+            default: ; info
+                return ["ℹ ", "", "", ""]   ; 空字符串 → 使用主题色
+            }
+        }
+
         Start() {
-            fill   := AppThemeUtil.GetWheelColor("NormalFill", "#FFF0F7FF")
-            stroke := AppThemeUtil.GetWheelColor("NormalStroke", "#FF90CAF9")
-            text   := AppThemeUtil.GetWheelColor("NormalText", "#CC1A365D")
+            style := this._TypeStyle()
+            icon   := style[1]
+            fillOv := style[2]
+            strkOv := style[3]
+            textOv := style[4]
+
+            ; info 类型使用应用主题色，其他类型使用固定语义色
+            fill   := (fillOv != "") ? fillOv : AppThemeUtil.GetWheelColor("NormalFill",   "#FFF0F7FF")
+            stroke := (strkOv != "") ? strkOv : AppThemeUtil.GetWheelColor("NormalStroke", "#FF90CAF9")
+            text   := (textOv != "") ? textOv : AppThemeUtil.GetWheelColor("NormalText",   "#CC1A365D")
+
+            displayMsg := icon . this.msg
 
             win := XAML_Generator("Window")
             win.SetProp("xmlns", "http://schemas.microsoft.com/winfx/2006/xaml/presentation")
@@ -77,7 +136,7 @@ class Toast {
             eff.BlurRadius(10).ShadowDepth(1).Opacity(0.35).SetProp("Color", "#66000000")
 
             lbl := border.Add("TextBlock")
-            lbl.Text(this.msg).TextWrapping("Wrap").Foreground(text)
+            lbl.Text(displayMsg).TextWrapping("Wrap").Foreground(text)
             lbl.FontFamily("Segoe UI Variable Display, Segoe UI, Microsoft YaHei UI, sans-serif")
             lbl.FontSize(14)
 

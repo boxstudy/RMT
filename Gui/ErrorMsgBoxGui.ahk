@@ -138,7 +138,7 @@ class ErrorMsgBoxGui {
     OnCopyBtnClick(state, ctrl, event) {
         if (this.ui.Query("TextCon") != "") {
             A_Clipboard := this.ui.Query("TextCon")
-            ToolTipContent(GetLang("已复制"))
+            Toast.Success(GetLang("已复制"))
         }
     }
 
