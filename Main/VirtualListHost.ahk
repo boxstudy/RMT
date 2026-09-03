@@ -16,6 +16,7 @@ class VirtualListHost {
     __New(ui) {
         this._ui := ui
         this._registered := Map()
+        this._vlFonts := Map()
     }
 
     EnsureEvents(t) {
@@ -29,10 +30,27 @@ class VirtualListHost {
         this._ui.OnEvent(listName, "VL_DROP", ObjBindMethod(this, "_OnVLDrop", t))
     }
 
-    Init(t, tableItem) {
+    ; 离开 VL_CLICK 后再弹窗；fn 必须是 BoundFunc 且保存在 this，否则 AHK 可能丢掉定时器
+    _DeferDialog(tag, fn) {
+        try RmtDialog._Trace("VL defer " tag)
+        this._dlgFn := fn
+        SetTimer(this._dlgFn, -50)
+    }
+
+    Init(t, tableItem, refreshFonts := "") {
         this.EnsureEvents(t)
         this._ui.Update("FoldList_" t, "VL_INIT", this._BuildRecords(t, tableItem))
-        try MyMainWin.RefreshVLFonts()
+        ; 拖拽/揭盖后的二次 VL_INIT 不要整窗 ApplyFonts，否则会闪一帧字号重算
+        doFonts := refreshFonts == "" ? !this._vlFonts.Has(t) : refreshFonts
+        if (doFonts) {
+            this._vlFonts[t] := true
+            try MyMainWin.RefreshVLFonts()
+        }
+    }
+
+    Relayout(t) {
+        this.EnsureEvents(t)
+        this._ui.Update("FoldList_" t, "VL_RELAYOUT", "")
     }
 
     ; 仅刷新模块禁用态，避免 VL_INIT 全量重建导致字号回落
@@ -159,6 +177,7 @@ class VirtualListHost {
         if (p.Length < 2)
             return
         id := p[1], action := p[2]
+        try RmtDialog._Trace("VL_CLICK id=" id " action=" action)
         tableItem := MySoftData.TableInfo[t]
         if (SubStr(id, 1, 1) == "A") {
             OnItemAddFoldBtnClick(tableItem, tableItem.Folds.Length, event)
@@ -173,10 +192,10 @@ class VirtualListHost {
                 case "Edit":
                     (CheckIsMacroTable(t) ? OnItemEditMacro : OnItemEditReplaceKey)(tableItem, idx, event)
                 case "Forbid": OnItemForbidToggle(tableItem, idx, event)
-                ; 复制/删除会弹通用 XAML 弹窗；必须延迟到本 WM_COPYDATA(VL_CLICK) 回调返回后再执行，
-                ; 否则守护进程分发线程仍被阻塞，弹窗的 CREATE_WINDOW 无法处理 → 死锁 → 回退成 AHK 弹窗、无提示。
-                case "Copy": SetTimer(() => OnItemCopyMacroBtnClick(tableItem, idx), -1)
-                case "Del": SetTimer(() => OnItemDelMacroBtnClick(tableItem, idx), -1)
+                ; 复制/删除会弹 XAML 窗；必须离开 VL_CLICK/WM_COPYDATA 后再弹。
+                ; BoundFunc 挂在 this 上，避免匿名闭包被回收导致定时器不触发（点了没反应、也没日志）。
+                case "Copy": this._DeferDialog("Copy", OnItemCopyMacroBtnClick.Bind(tableItem, idx))
+                case "Del": this._DeferDialog("Del", OnItemDelMacroBtnClick.Bind(tableItem, idx))
             }
         }
         else {
@@ -187,7 +206,7 @@ class VirtualListHost {
                 case "FoldAddMacro": OnItemAddMacroBtnClick(tableItem, idx, event)
                 case "FoldPasteMacro": OnItemPasteMacroBtnClick(tableItem, idx, event)
                 case "FoldForbidBtn": OnFoldForbidToggleClick(tableItem, idx, event)
-                case "FoldDel": OnItemDelFoldBtnClick(tableItem, idx, event)
+                case "FoldDel": this._DeferDialog("FoldDel", OnItemDelFoldBtnClick.Bind(tableItem, idx))
             }
         }
     }
@@ -269,7 +288,7 @@ class VirtualListHost {
             }
             tableItem.RebuildIndex()
             RebuildTableLocator()
-            this.Init(t, tableItem)
+            this.Init(t, tableItem, false)
             ; §17 热重载：拖拽移动宏/模块改变索引 → 重绑触发键（防热键闭包数字索引错位误触发）
             HotReloadPublish(t, 0)
         } catch as e {

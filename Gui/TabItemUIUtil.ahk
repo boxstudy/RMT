@@ -64,6 +64,7 @@ OnItemAddMacroBtnClick(tableItem, foldIndex, *) {
 
 ;删除宏配置
 OnItemDelMacroBtnClick(tableItem, DelIndex, *) {
+    try RmtDialog._Trace("Del click idx=" DelIndex)
     if (!RmtDialog.Confirm(GetLang("是否删除当前宏"), GetLang("提示")))
         return
 
@@ -119,12 +120,12 @@ OnItemAddMenuItem(tableItem, foldIndex, count := 4) {
 
 ;删除模块
 OnItemDelFoldBtnClick(tableItem, foldIndex, *) {
-    result := MsgBox(GetLang("是否删除当前模块以及模块中所有的宏配置"), GetLang("提示"), 1)
-    if (result == "Cancel")
+    try RmtDialog._Trace("FoldDel click idx=" foldIndex)
+    if (!RmtDialog.Confirm(GetLang("是否删除当前模块以及模块中所有的宏配置"), GetLang("提示")))
         return
 
     if (tableItem.Folds.Length == 1) {
-        MsgBox(GetLang("最后一个模块，不可删除！！！"))
+        RmtDialog.Info(GetLang("最后一个模块，不可删除！！！"), GetLang("提示"))
         return
     }
 

@@ -7,24 +7,28 @@
 class RmtDialog {
     ; 单按钮提示（确定）
     static Info(msg, title := "") {
+        RmtDialog._Trace("Info enter msg=" RmtDialog._Clip(msg))
         opts := RmtDialog._BaseOpts()
         opts.Title := title != "" ? title : GetLang("提示")
         opts.Message := String(msg)
         opts.Icon := Chr(0xE946)
         opts.Buttons := [GetLang("确定")]
         try {
-            XDialog.Show(opts)
-        } catch {
+            res := XDialog.Show(opts)
+            RmtDialog._Trace("Info Show returned button=" (IsObject(res) && res.HasProp("Button") ? res.Button : "n/a")
+                " hwnd=" (IsObject(res) && IsObject(res.Instance) ? res.Instance.wpfHwnd : 0))
+        } catch as e {
+            RmtDialog._Log("Info", e)
             try {
                 if (opts.Owner)
                     WinSetEnabled(1, "ahk_id " opts.Owner)
             }
-            MsgBox(String(msg), opts.Title)
         }
     }
 
     ; 确定/取消，返回是否点了确定
     static Confirm(msg, title := "") {
+        RmtDialog._Trace("Confirm enter msg=" RmtDialog._Clip(msg))
         opts := RmtDialog._BaseOpts()
         opts.Title := title != "" ? title : GetLang("提示")
         opts.Message := String(msg)
@@ -33,13 +37,16 @@ class RmtDialog {
         opts.Buttons := [GetLang("确定"), GetLang("取消")]
         try {
             res := XDialog.Show(opts)
-            return IsObject(res) && res.Button == GetLang("确定")
-        } catch {
+            ok := IsObject(res) && res.Button == GetLang("确定")
+            RmtDialog._Trace("Confirm Show returned button=" (IsObject(res) ? res.Button : "n/a") " ok=" ok)
+            return ok
+        } catch as e {
+            RmtDialog._Log("Confirm", e)
             try {
                 if (opts.Owner)
                     WinSetEnabled(1, "ahk_id " opts.Owner)
             }
-            return MsgBox(String(msg), opts.Title, "OKCancel") == "OK"
+            return false
         }
     }
 
@@ -50,7 +57,6 @@ class RmtDialog {
         opts.IconFontSize := 36
         opts.IconColWidth := 72
         opts.UniformButtons := true
-        opts.CloseBtnStyle := "{StaticResource TitleBarCloseButton}"
         opts.Resources := RmtDialog._DialogStyles()
         try {
             if (IsSet(MyMainWin) && IsObject(MyMainWin) && IsObject(MyMainWin.ui) && MyMainWin.ui.wpfHwnd)
@@ -62,12 +68,48 @@ class RmtDialog {
             if (IsSet(MainSoftData) && MainSoftData.HasProp("FontType") && MainSoftData.FontType != "")
                 opts.FontFamily := MainSoftData.FontType
         }
+        RmtDialog._Trace("opts owner=" opts.Owner " theme=" (opts.HasOwnProp("Theme") ? opts.Theme : "")
+            " font=" (opts.HasOwnProp("FontFamily") ? opts.FontFamily : "")
+            " daemon=" (IsSet(XAMLHost) ? XAMLHost.daemonHwnd : 0))
         return opts
     }
 
+    static _LogPath() {
+        dir := A_ScriptDir "\Log"
+        if !DirExist(dir)
+            DirCreate(dir)
+        return dir "\RmtDialog.log"
+    }
+
+    static _Trace(msg) {
+        try FileAppend(FormatTime(, "yyyy-MM-dd HH:mm:ss") "." SubStr(A_TickCount, -2) " " msg "`n", RmtDialog._LogPath(), "UTF-8")
+    }
+
+    static _Clip(s, n := 80) {
+        s := StrReplace(String(s), "`n", " ")
+        return StrLen(s) > n ? SubStr(s, 1, n) "..." : s
+    }
+
+    static _Log(where, e) {
+        try FileAppend(FormatTime(, "yyyy-MM-dd HH:mm:ss") " [" where "] " e.Message "`n" e.Stack "`n`n", RmtDialog._LogPath(), "UTF-8")
+    }
+
     static _DialogStyles() {
-        snap := ' SnapsToDevicePixels="True" UseLayoutRounding="False" RenderOptions.EdgeMode="Aliased"'
-        ; 与主题选项「确定」相同：Action 底/描边，悬停 ActionHover；确定/取消共用，不区分主次色
+        close := '<Style x:Key="TitleBarCloseButton" TargetType="Button">'
+            . '<Setter Property="Width" Value="46"/><Setter Property="Height" Value="36"/>'
+            . '<Setter Property="MinWidth" Value="46"/><Setter Property="MinHeight" Value="36"/>'
+            . '<Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0"/>'
+            . '<Setter Property="VerticalAlignment" Value="Stretch"/>'
+            . '<Setter Property="Background" Value="Transparent"/>'
+            . '<Setter Property="BorderThickness" Value="0"/>'
+            . '<Setter Property="Cursor" Value="Hand"/>'
+            . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">'
+            . '<Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CloseBtnRadius}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SnapsToDevicePixels="True">'
+            . '<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>'
+            . '</Border>'
+            . '<ControlTemplate.Triggers>'
+            . '<Trigger Property="IsMouseOver" Value="True"><Setter TargetName="border" Property="Background" Value="#E0FF3333"/><Setter Property="Foreground" Value="White"/></Trigger>'
+            . '</ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
         btn := '<Style x:Key="DialogBtn" TargetType="Button">'
             . '<Setter Property="Height" Value="32"/><Setter Property="MinHeight" Value="32"/>'
             . '<Setter Property="Width" Value="80"/>'
@@ -79,29 +121,13 @@ class RmtDialog {
             . '<Setter Property="BorderBrush" Value="{DynamicResource ActionStroke}"/>'
             . '<Setter Property="BorderThickness" Value="1"/>'
             . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">'
-            . '<Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3"' snap '>'
+            . '<Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3" SnapsToDevicePixels="True">'
             . '<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>'
             . '</Border>'
             . '<ControlTemplate.Triggers>'
             . '<Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource ActionHoverBg}"/><Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource ActionHoverStroke}"/></Trigger>'
             . '<Trigger Property="IsPressed" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource ActionPressBg}"/><Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource ActionHoverStroke}"/></Trigger>'
             . '</ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
-        primary := StrReplace(btn, 'x:Key="DialogBtn"', 'x:Key="DialogPrimaryBtn"')
-        closeBtn := '<Style x:Key="TitleBarCloseButton" TargetType="Button">'
-            . '<Setter Property="Width" Value="46"/><Setter Property="Height" Value="36"/><Setter Property="MinHeight" Value="36"/>'
-            . '<Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0"/>'
-            . '<Setter Property="Cursor" Value="Hand"/>'
-            . '<Setter Property="Background" Value="Transparent"/>'
-            . '<Setter Property="BorderThickness" Value="0"/>'
-            . '<Setter Property="Foreground" Value="{DynamicResource TextMain}"/>'
-            . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">'
-            . '<Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="0,8,0,0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"' snap '>'
-            . '<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>'
-            . '</Border>'
-            . '<ControlTemplate.Triggers>'
-            . '<Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource ControlBorder}"/><Setter Property="Foreground" Value="{DynamicResource TextMain}"/></Trigger>'
-            . '<Trigger Property="IsPressed" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource BtnPressBg}"/><Setter Property="Foreground" Value="{DynamicResource TextMain}"/></Trigger>'
-            . '</ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
-        return btn . primary . closeBtn
+        return close . btn . StrReplace(btn, 'x:Key="DialogBtn"', 'x:Key="DialogPrimaryBtn"')
     }
 }

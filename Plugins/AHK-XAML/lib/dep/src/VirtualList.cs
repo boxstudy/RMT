@@ -89,6 +89,7 @@ public class VirtualListHost
             case "VL_FOLD": host.SetFold(val); break;
             case "VL_FF": host.SetFoldForbid(val); break;
             case "VL_MOVE": host.Move(val); break;
+            case "VL_RELAYOUT": host.Relayout(); break;
             case "VL_COMMIT_ALL": host.CommitAll(); break;
         }
     }
@@ -294,7 +295,7 @@ public class VirtualListHost
         double keepOff = CaptureScroll();
         _anchorId = FirstVisibleId();
         _byId.Clear();
-        _items.Clear();
+        var newItems = new System.Collections.Generic.List<object>();
         VListFold inFold = null;
         string[] lines = val.Split('\x1E');
         foreach (string line in lines)
@@ -316,7 +317,7 @@ public class VirtualListHost
                 VListAddFold add = new VListAddFold();
                 add.Id = f[0];
                 _byId[add.Id] = add;
-                _items.Add(add);
+                newItems.Add(add);
                 continue;
             }
             if (f[0][0] == 'F')
@@ -332,7 +333,7 @@ public class VirtualListHost
                 fo.ShowTKRow = f.Length > 7 && f[7] == "1";
                 fo.FoldTKTypeEnabled = _foldTKTypeEn;
                 _byId[fo.Id] = fo;
-                _items.Add(fo);
+                newItems.Add(fo);
                 inFold = fo.Folded ? fo : null; // 折叠态 fold 吸收入后续行
             }
             else if (inFold != null)
@@ -347,24 +348,127 @@ public class VirtualListHost
                 VListRow r = ParseRow(f);
                 r.TKBtnEnabled = _tkBtnEn; r.TKTypeEnabled = _tkTypeEn; r.LoopEnabled = _loopEn;
                 _byId[r.Id] = r;
-                _items.Add(r);
+                newItems.Add(r);
             }
         }
-        MarkFoldRowFlags(_items);
-        if (_lb != null)
+        MarkFoldRowFlags(newItems);
+        if (_lb == null)
+            return;
+        // 结构未变（同模块内拖拽换位）：就地写回已有 VM，不 Reset、不重建容器，避免抖动和首帧底边丢失
+        if (_items.Count > 0 && SameShape(_items, newItems))
         {
-            // 结构重建布局期压制容器回收产生的伪 SelectionChanged/LostFocus（同 SetFold）
-            _suppressChange = true;
-            _lb.ItemsSource = _items;
-            RestoreScroll(keepOff);
-            _lb.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, new System.Action(() =>
-            {
-                _suppressChange = false;
-                RestoreScroll(keepOff);
-                UpdateSticky();
-            }));
-            _stickyFold = null;
+            AdoptItems(_items, newItems);
+            return;
         }
+        ApplyReset(newItems, keepOff);
+        _stickyFold = null;
+        // 结构重建首帧常在视口未定时量出；空闲后再 Reset 一次，与展开/折叠后的界面一致
+        _lb.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.ContextIdle, new System.Action(() => Relayout()));
+    }
+
+    // 与折叠同一条显示路径：对现有对象再发一次 Reset，逼容器按已落定视口重测
+    private void Relayout()
+    {
+        if (_lb == null || _items.Count == 0)
+            return;
+        double keepOff = CaptureScroll();
+        var snap = new System.Collections.Generic.List<object>(_items);
+        MarkFoldRowFlags(snap);
+        ApplyReset(snap, keepOff);
+    }
+
+    private void ApplyReset(System.Collections.Generic.IList<object> newItems, double keepOff)
+    {
+        _suppressChange = true;
+        _items.ResetTo(newItems);
+        if (_lb == null)
+        {
+            _suppressChange = false;
+            return;
+        }
+        if (_lb.ItemsSource != _items)
+            _lb.ItemsSource = _items;
+        RestoreScroll(keepOff);
+        _lb.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, new System.Action(() =>
+        {
+            _suppressChange = false;
+            RestoreScroll(keepOff);
+            UpdateSticky();
+        }));
+    }
+
+    private static bool SameShape(System.Collections.Generic.IList<object> a, System.Collections.Generic.IList<object> b)
+    {
+        if (a.Count != b.Count)
+            return false;
+        for (int i = 0; i < a.Count; i++)
+        {
+            if (a[i].GetType() != b[i].GetType())
+                return false;
+        }
+        return true;
+    }
+
+    private void AdoptItems(VListCollection dst, System.Collections.Generic.List<object> src)
+    {
+        _byId.Clear();
+        for (int i = 0; i < dst.Count; i++)
+        {
+            AdoptOne(dst[i], src[i]);
+            VLItem vi = dst[i] as VLItem;
+            if (vi != null && !string.IsNullOrEmpty(vi.Id))
+                _byId[vi.Id] = dst[i];
+            VListFold fo = dst[i] as VListFold;
+            if (fo != null)
+            {
+                for (int c = 0; c < fo.ChildRows.Count; c++)
+                {
+                    if (!string.IsNullOrEmpty(fo.ChildRows[c].Id))
+                        _byId[fo.ChildRows[c].Id] = fo.ChildRows[c];
+                }
+            }
+        }
+    }
+
+    private static void AdoptOne(object dst, object src)
+    {
+        VListRow dr = dst as VListRow, sr = src as VListRow;
+        if (dr != null && sr != null)
+        {
+            dr.Id = sr.Id;
+            dr.Remark = sr.Remark;
+            dr.TKStr = sr.TKStr;
+            dr.TKType = sr.TKType;
+            dr.LoopText = sr.LoopText;
+            dr.Forbid = sr.Forbid;
+            dr.ColorHex = sr.ColorHex;
+            dr.SeqNo = sr.SeqNo;
+            dr.TKBtnEnabled = sr.TKBtnEnabled;
+            dr.TKTypeEnabled = sr.TKTypeEnabled;
+            dr.LoopEnabled = sr.LoopEnabled;
+            dr.IsAltRow = sr.IsAltRow;
+            dr.IsLastInFold = sr.IsLastInFold;
+            return;
+        }
+        VListFold df = dst as VListFold, sf = src as VListFold;
+        if (df != null && sf != null)
+        {
+            df.Id = sf.Id;
+            df.FoldRemark = sf.FoldRemark;
+            df.FoldFront = sf.FoldFront;
+            df.FoldForbid = sf.FoldForbid;
+            df.FoldTKType = sf.FoldTKType;
+            df.FoldTK = sf.FoldTK;
+            df.Folded = sf.Folded;
+            df.HasBody = sf.HasBody;
+            df.ShowTKRow = sf.ShowTKRow;
+            df.FoldTKTypeEnabled = sf.FoldTKTypeEnabled;
+            df.ChildRows = sf.ChildRows;
+            return;
+        }
+        VListAddFold da = dst as VListAddFold, sa = src as VListAddFold;
+        if (da != null && sa != null)
+            da.Id = sa.Id;
     }
 
     private void SetRow(string val)
@@ -438,19 +542,7 @@ public class VirtualListHost
         }
         MarkFoldRowFlags(newItems);
         double keepOff = CaptureScroll();
-        _items.ResetTo(newItems); // 一次 Reset 通知，避免逐条 RemoveAt/Insert 的容器回收抖动
-        // 压制结构变更后的布局期容器回收伪事件（SelectionChanged/LostFocus），布局落定后恢复
-        if (_lb != null)
-        {
-            _suppressChange = true;
-            RestoreScroll(keepOff);
-            _lb.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, new System.Action(() =>
-            {
-                _suppressChange = false;
-                RestoreScroll(keepOff);
-                UpdateSticky();
-            }));
-        }
+        ApplyReset(newItems, keepOff);
     }
 
     // 模块禁用态增量刷新（避免 VL_INIT 全量重建导致虚拟行字号未再经 ApplyFonts 缩小）
@@ -1001,7 +1093,7 @@ public class VListRow : VLItem
     public string LoopText { get { return _LoopText; } set { Set(ref _LoopText, value, "LoopText"); } } private string _LoopText;
     public bool Forbid { get { return _Forbid; } set { Set(ref _Forbid, value, "Forbid"); } } private bool _Forbid;
     public string ColorHex { get { return _ColorHex; } set { Set(ref _ColorHex, value, "ColorHex"); } } private string _ColorHex;
-    public string SeqNo { get; set; }
+    public string SeqNo { get { return _SeqNo; } set { Set(ref _SeqNo, value, "SeqNo"); } } private string _SeqNo;
     public bool TKBtnEnabled { get; set; }
     public bool TKTypeEnabled { get; set; }
     public bool LoopEnabled { get; set; }

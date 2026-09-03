@@ -141,8 +141,15 @@ class Toast {
                 ; 这样 WPF 用 ShowActivated=False 显示时不抢前台，关闭时桥接层也会把焦点还给 owner，
                 ; 彻底避免每次粘贴时主界面短暂盖过编辑器造成闪烁。
                 this.ui := XAMLHost(win.ToString(), "", this.restoreHwnd)
+                this.ui.skipFontScale := true
                 this.ui.Show()
-            } catch {
+            } catch as e {
+                try {
+                    dir := A_WorkingDir "\Log"
+                    if !DirExist(dir)
+                        DirCreate(dir)
+                    FileAppend(FormatTime(, "yyyy-MM-dd HH:mm:ss") " Toast " e.Message "`n" e.Stack "`n`n", dir "\RmtDialog.log", "UTF-8")
+                }
                 this.ui := ""
                 this.closed := true
                 return

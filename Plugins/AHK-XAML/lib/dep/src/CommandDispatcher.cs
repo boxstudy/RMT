@@ -3734,7 +3734,10 @@ public partial class AhkWpfEngine
                             {
                                 IntPtr wHwnd = new System.Windows.Interop.WindowInteropHelper(win).Handle;
                                 if (wHwnd != IntPtr.Zero)
+                                {
                                     RevealNativeWindow(win, wHwnd);
+                                    SendToAhkAsync("EVENT|" + winId + "|Window|Revealed\n");
+                                }
                             }
                             catch { }
                         }

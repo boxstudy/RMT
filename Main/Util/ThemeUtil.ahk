@@ -595,11 +595,11 @@ class AppThemeUtil {
         return Format("#FF{:02X}{:02X}{:02X}", r, g, b2)
     }
 
-    ; 宏配置斑马纹（第一、三…行）：窗口底混入少量操作色；比第二行深、比旧 12% 混色浅
+    ; 宏配置斑马纹（第一、三…行）：比第二行（窗口底）只深一点点
     static MakeListRowAltBg(windowBg, actionBg) {
-        c := AppThemeUtil.BlendRgb(windowBg, actionBg, 0.08)
+        c := AppThemeUtil.BlendRgb(windowBg, actionBg, 0.035)
         if (AppThemeUtil.RgbLuma(c) >= AppThemeUtil.RgbLuma(windowBg) - 1)
-            c := AppThemeUtil.AdjustRgbBrightness(windowBg, 0.93)
+            c := AppThemeUtil.AdjustRgbBrightness(windowBg, 0.97)
         return c
     }
 
@@ -609,9 +609,9 @@ class AppThemeUtil {
         return Round(0.299 * r + 0.587 * g + 0.114 * b)
     }
 
-    ; 模块头：标题色混入更多，与第一条宏行（窗口底）拉开对比
+    ; 模块头与偶数宏行同色（ControlBg / 窗口底），奇数行才用斑马纹加深
     static MakeFoldHeaderBg(windowBg, titleBg) {
-        return AppThemeUtil.BlendRgb(windowBg, titleBg, 0.42)
+        return windowBg
     }
 
     ; 按 factor 缩放 RGB（factor<1 略加深，用于按钮按下背景）

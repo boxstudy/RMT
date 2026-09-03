@@ -494,15 +494,18 @@ ReplaceSerialInCmdList(cmdList, oldSerial, newSerial) {
 
 ; 复制宏指令集（完整复制所有指令及外部配置，用于跨设备迁移）
 OnItemCopyMacroBtnClick(tableItem, CopyIndex, *) {
+    try RmtDialog._Trace("Copy click idx=" CopyIndex)
     try {
         OnItemCopyMacroBtnClick_Impl(tableItem, CopyIndex)
     } catch as e {
+        RmtDialog._Log("Copy", e)
         RmtDialog.Info(GetLang("复制到剪贴板失败，请重试"), GetLang("提示"))
     }
 }
 
 OnItemCopyMacroBtnClick_Impl(tableItem, CopyIndex) {
     macroText := tableItem.Items[CopyIndex].Macro
+    try RmtDialog._Trace("Copy impl idx=" CopyIndex " macroLen=" StrLen(macroText))
     if (macroText == "") {
         RmtDialog.Info(GetLang("当前宏没有指令内容，无法复制"), GetLang("提示"))
         return

@@ -7,50 +7,66 @@ class XDialog {
         XAMLHost.Prewarm()
     }
 
+    ; AHK v2：对象上的 HasOwnProp/HasProp 对缺失字段会误报，读字段才抛错。只以 try 读取为准。
+    static Opt(options, name, default := "") {
+        try return options.%name%
+        catch
+            return default
+    }
+
+    static Has(options, name) {
+        try {
+            dummy := options.%name%
+            return true
+        } catch {
+            return false
+        }
+    }
+
     static Show(options) {
         ; --- CONFIGURATION ---
-        title := options.HasProp("Title") ? options.Title : "Dialog"
-        msg := options.HasProp("Message") ? options.Message : ""
-        iconChar := options.HasProp("Icon") ? options.Icon : ""
-        iconColor := options.HasProp("IconColor") ? options.IconColor : "{DynamicResource TextMain}"
-        iconFontSize := options.HasProp("IconFontSize") ? options.IconFontSize : 18
-        iconColW := options.HasProp("IconColWidth") ? options.IconColWidth : 40
-        detail := options.HasProp("DetailText") ? options.DetailText : ""
-        detailRows := options.HasProp("DetailRows") ? options.DetailRows : 4
-        inputText := options.HasProp("InputText") ? options.InputText : ""
-        hasProgress := options.HasProp("Progress") ? options.Progress : false
-        buttons := options.HasProp("Buttons") ? options.Buttons : ["OK"]
-        width := options.HasProp("Width") ? options.Width : 450
-        height := options.HasProp("Height") ? options.Height : "Auto"
-        resizable := options.HasProp("Resizable") ? options.Resizable : false
-        modal := options.HasProp("Modal") ? options.Modal : false
-        owner := options.HasProp("Owner") ? options.Owner : 0
-        alwaysOnTop := options.HasProp("AlwaysOnTop") ? options.AlwaysOnTop : false
-        waitForResponse := options.HasProp("WaitForResponse") ? options.WaitForResponse : true
-        themeName := options.HasProp("Theme") ? options.Theme : XAMLHost.LastTheme
-        iniPath := options.HasProp("IniPath") ? options.IniPath : (XAMLHost.LastThemeIni != "" ? XAMLHost.LastThemeIni : (FileExist("themes.ini") ? "themes.ini" : "../themes.ini"))
-        soundFx := options.HasProp("Sound") ? options.Sound : ""
-        disableAltF4 := options.HasProp("DisableAltF4") ? options.DisableAltF4 : false
-        movable := options.HasProp("Movable") ? options.Movable : true
-        showCloseBtn := options.HasProp("ShowCloseBtn") ? options.ShowCloseBtn : true
-        darkenOwner := options.HasProp("DarkenOwner") ? options.DarkenOwner : false
+        title := XDialog.Opt(options, "Title", "Dialog")
+        msg := XDialog.Opt(options, "Message", "")
+        iconChar := XDialog.Opt(options, "Icon", "")
+        iconColor := XDialog.Opt(options, "IconColor", "{DynamicResource TextMain}")
+        iconFontSize := XDialog.Opt(options, "IconFontSize", 18)
+        iconColW := XDialog.Opt(options, "IconColWidth", 40)
+        detail := XDialog.Opt(options, "DetailText", "")
+        detailRows := XDialog.Opt(options, "DetailRows", 4)
+        inputText := XDialog.Opt(options, "InputText", "")
+        hasProgress := XDialog.Opt(options, "Progress", false)
+        buttons := XDialog.Opt(options, "Buttons", ["OK"])
+        width := XDialog.Opt(options, "Width", 450)
+        height := XDialog.Opt(options, "Height", "Auto")
+        resizable := XDialog.Opt(options, "Resizable", false)
+        modal := XDialog.Opt(options, "Modal", false)
+        owner := XDialog.Opt(options, "Owner", 0)
+        alwaysOnTop := XDialog.Opt(options, "AlwaysOnTop", false)
+        waitForResponse := XDialog.Opt(options, "WaitForResponse", true)
+        themeName := XDialog.Opt(options, "Theme", XAMLHost.LastTheme)
+        iniPath := XDialog.Opt(options, "IniPath", (XAMLHost.LastThemeIni != "" ? XAMLHost.LastThemeIni : (FileExist("themes.ini") ? "themes.ini" : "../themes.ini")))
+        soundFx := XDialog.Opt(options, "Sound", "")
+        disableAltF4 := XDialog.Opt(options, "DisableAltF4", false)
+        movable := XDialog.Opt(options, "Movable", true)
+        showCloseBtn := XDialog.Opt(options, "ShowCloseBtn", true)
+        darkenOwner := XDialog.Opt(options, "DarkenOwner", false)
 
         bgRes := "DropdownBg"
 
         ; --- BUILD LAYOUT ---
         main := XAML_Generator("Grid")
         dialogResources := ""
-        if (options.HasProp("CustomBackground")) {
+        if (XDialog.Has(options, "CustomBackground")) {
             fn := options.CustomBackground
             fn(main)
         } else {
             main.Background("Transparent")
         }
-        if (options.HasProp("Resources")) {
+        if (XDialog.Has(options, "Resources")) {
             dialogResources .= "`n" options.Resources
         }
         main.Rows("40", "*", "Auto")
-        if (options.HasProp("ContentFontSize"))
+        if (XDialog.Has(options, "ContentFontSize"))
             main.TextElement_FontSize(options.ContentFontSize)
         else
             main.TextElement_FontSize(XAMLHost.GetDesignFontSize())
@@ -61,30 +77,31 @@ class XDialog {
             tb.Name("DragArea")
         }
         
-        titleTb := tb.Add("TextBlock").Text(title).FontSize(options.HasProp("TitleFontSize") ? options.TitleFontSize : 12).FontWeight("Bold").VerticalAlignment("Center").Margin("15,0,0,0")
-        titleTb.Foreground(options.HasProp("TitleForeground") ? options.TitleForeground : "{DynamicResource TextMain}")
-        if (options.HasProp("TitleFontFamily")) {
+        titleTb := tb.Add("TextBlock").Text(title).FontSize(XDialog.Opt(options, "TitleFontSize", 12)).FontWeight("Bold").VerticalAlignment("Center").Margin("15,0,0,0")
+        titleTb.Foreground(XDialog.Opt(options, "TitleForeground", "{DynamicResource TextMain}"))
+        if (XDialog.Has(options, "TitleFontFamily")) {
             titleTb.FontFamily(options.TitleFontFamily)
         }
-        if (options.HasProp("TitleFontWeight")) {
+        if (XDialog.Has(options, "TitleFontWeight")) {
             titleTb.FontWeight(options.TitleFontWeight)
         }
-        if (options.HasProp("TitleFontSize")) {
+        if (XDialog.Has(options, "TitleFontSize")) {
             titleTb.FontSize(options.TitleFontSize)
         }
-        if (options.HasProp("TitleMargin")) {
+        if (XDialog.Has(options, "TitleMargin")) {
             titleTb.Margin(options.TitleMargin)
         }
 
         if (showCloseBtn) {
-            closeBtnName := options.HasProp("CloseBtnName") ? options.CloseBtnName : "BtnClose"
+            closeBtnName := XDialog.Opt(options, "CloseBtnName", "BtnClose")
             closeBtn := tb.Add("Button").Name(closeBtnName).WindowChrome_IsHitTestVisibleInChrome("True").HorizontalAlignment("Right").Background("Transparent").BorderThickness(0).Width(46).Height(36).MinHeight(36).Padding("0").Cursor("Hand").Foreground("{DynamicResource TextMain}")
-            if (options.HasProp("CloseBtnWidth")) closeBtn._Props["Width"] := options.CloseBtnWidth
-            if (options.HasProp("CloseBtnHeight")) closeBtn._Props["Height"] := options.CloseBtnHeight
-            if (options.HasProp("CloseBtnMargin")) closeBtn._Props["Margin"] := options.CloseBtnMargin
-            if (options.HasProp("CloseBtnVerticalAlignment")) closeBtn._Props["VerticalAlignment"] := options.CloseBtnVerticalAlignment
-            if (options.HasProp("CloseBtnStyle"))
-                closeBtn.Style(options.CloseBtnStyle)
+            try closeBtn._Props["Width"] := options.CloseBtnWidth
+            try closeBtn._Props["Height"] := options.CloseBtnHeight
+            try closeBtn._Props["Margin"] := options.CloseBtnMargin
+            try closeBtn._Props["VerticalAlignment"] := options.CloseBtnVerticalAlignment
+            closeStyle := XDialog.Opt(options, "CloseBtnStyle", "")
+            if (closeStyle != "")
+                closeBtn.Style(closeStyle)
             else
                 closeBtn.Style("{StaticResource TitleBarCloseButton}")
             closeBtn.Add("TextBlock").Text(Chr(0xE8BB)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
@@ -103,20 +120,20 @@ class XDialog {
             msgRow.Add("TextBlock").Text(iconChar).Foreground(iconColor).FontSize(iconFontSize).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").VerticalAlignment(msgAlign).HorizontalAlignment("Center").Margin(shortMsg ? "0" : "0,2,0,0").Grid_Column(0)
             msgTb.Grid_Column(1).VerticalAlignment(msgAlign)
         }
-        msgTb.Foreground(options.HasProp("MessageForeground") ? options.MessageForeground : "{DynamicResource TextMain}")
-        if (options.HasProp("MessageFontFamily")) {
-            msgTb.FontFamily(options.MessageFontFamily)
-        } else if (options.HasProp("FontFamily")) {
-            msgTb.FontFamily(options.FontFamily)
-        }
-        if (options.HasProp("TitleFontFamily")) {
-            titleTb.FontFamily(options.TitleFontFamily)
-        } else if (options.HasProp("FontFamily")) {
-            titleTb.FontFamily(options.FontFamily)
-        }
-        if (options.HasProp("MessageFontSize")) {
-            msgTb.FontSize(options.MessageFontSize)
-        }
+        msgTb.Foreground(XDialog.Opt(options, "MessageForeground", "{DynamicResource TextMain}"))
+        msgFont := XDialog.Opt(options, "MessageFontFamily", "")
+        if (msgFont == "")
+            msgFont := XDialog.Opt(options, "FontFamily", "")
+        if (msgFont != "")
+            msgTb.FontFamily(msgFont)
+        titleFont := XDialog.Opt(options, "TitleFontFamily", "")
+        if (titleFont == "")
+            titleFont := XDialog.Opt(options, "FontFamily", "")
+        if (titleFont != "")
+            titleTb.FontFamily(titleFont)
+        msgSize := XDialog.Opt(options, "MessageFontSize", "")
+        if (msgSize != "")
+            msgTb.FontSize(msgSize)
 
         ; Detail Textbox
         if (detail != "") {
@@ -140,7 +157,7 @@ class XDialog {
         }
 
         ; Buttons Footer
-        footerBg := options.HasProp("FooterBackground") ? options.FooterBackground : "{DynamicResource ControlBg}"
+        footerBg := XDialog.Opt(options, "FooterBackground", "{DynamicResource ControlBg}")
         footer := main.Add("Border").Grid_Row(2).Background(footerBg).Padding("15").CornerRadius("0,0,10,10")
         btnSp := footer.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Center")
 
@@ -153,14 +170,15 @@ class XDialog {
             isPrimary := (btnText == "OK" || btnText == "Confirm" || btnText == "Allow Execution" || btnText == "Yes" || btnText == "Save" || btnText == "Awesome" || btnText == "确定" || btnText == "是" || btnText == "确认")
             isCancel := (btnText == "Cancel" || btnText == "Close" || btnText == "Abort" || btnText == "取消" || btnText == "关闭")
 
-            btnEl := btnSp.Add("Button").Name("Btn" index).Content(btnText).Width(options.HasProp("ButtonWidth") ? options.ButtonWidth : 100).Margin("6,0").Cursor("Hand")
-            if (options.HasProp("ButtonHeight")) {
-                btnEl.Height(options.ButtonHeight).MinHeight(options.ButtonHeight)
+            btnEl := btnSp.Add("Button").Name("Btn" index).Content(btnText).Width(XDialog.Opt(options, "ButtonWidth", 100)).Margin("6,0").Cursor("Hand")
+            btnH := XDialog.Opt(options, "ButtonHeight", "")
+            if (btnH != "") {
+                btnEl.Height(btnH).MinHeight(btnH)
             } else {
                 btnEl.Height(26).MinHeight(26)
             }
 
-            uniformBtns := options.HasProp("UniformButtons") && options.UniformButtons
+            uniformBtns := XDialog.Opt(options, "UniformButtons", false)
             if (uniformBtns || isPrimary) {
                 if (uniformBtns)
                     btnEl.Style("{StaticResource DialogBtn}")
@@ -178,37 +196,21 @@ class XDialog {
             }
         }
 
-        ; --- INIT LOGIC ---
+        try RmtDialog._Trace("XDialog.Show start wait=" waitForResponse " modal=" modal " owner=" owner " w=" width)
         exePath := ""
-        if (IsSet(XAML_FORCE_DYNAMIC_COMPILE) && !XAML_FORCE_DYNAMIC_COMPILE && options.HasProp("Id")) {
+        if (IsSet(XAML_FORCE_DYNAMIC_COMPILE) && !XAML_FORCE_DYNAMIC_COMPILE && XDialog.Has(options, "Id")) {
             exePath := options.Id "_dialog.dll"
         }
 
         ui := ""
-        ; Modal logic
         overlayGui := ""
-        if (modal && owner) {
-            WinSetEnabled(0, "ahk_id " owner)
+        ownerDisabled := false
 
-            if (darkenOwner) {
-                try {
-                    WinGetPos(&ox, &oy, &ow, &oh, "ahk_id " owner)
-                    overlayGui := Gui("-Caption +ToolWindow +Owner" owner)
-                    overlayGui.BackColor := "Black"
-                    WinSetTransparent(150, overlayGui.Hwnd)
-                    overlayGui.Show("x" ox " y" oy " w" ow " h" oh " NoActivate")
-                }
-            }
-        }
-
-        actualOwner := overlayGui != "" ? overlayGui.Hwnd : owner
-
-        if (dialogResources != "") {
-            main.InjectResources(dialogResources)
-        }
+        actualOwner := owner
 
         if (exePath != "" && FileExist(exePath)) {
             ui := XAMLHost("", exePath, actualOwner)
+            ui.skipFontScale := true
         } else {
             ; Use a lightweight template without the 75KB component library for speed
             captionH := movable ? "45" : "0"
@@ -231,7 +233,7 @@ class XDialog {
                         <WindowChrome GlassFrameThickness="0" ResizeBorderThickness="6" CaptionHeight="%captionH%" CornerRadius="{DynamicResource WindowRadius}" />
                     </WindowChrome.WindowChrome>
                 
-                    <Border Margin="15" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" CornerRadius="{DynamicResource WindowRadius}" Background="{DynamicResource %bgRes%}" SnapsToDevicePixels="True" UseLayoutRounding="False" RenderOptions.EdgeMode="Aliased">
+                    <Border Margin="15" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" CornerRadius="{DynamicResource WindowRadius}" Background="{DynamicResource %bgRes%}" SnapsToDevicePixels="True">
                         <Border.Effect>
                             <DropShadowEffect BlurRadius="15" Direction="270" RenderingBias="Performance" ShadowDepth="2" Opacity="0.3" Color="Black" />
                         </Border.Effect>
@@ -244,14 +246,12 @@ class XDialog {
             dialogTemplate := StrReplace(dialogTemplate, "%bgRes%", bgRes)
             dialogTemplate := StrReplace(dialogTemplate, "%dialogRes%", dialogResources)
             ui := XAMLHost(StrReplace(dialogTemplate, "%app%", main.ToString()), exePath, actualOwner)
+            ui.skipFontScale := true
         }
 
         ; Replace some default xaml.ahk window stuff to match the dialog needs
         heightAttr := (height == "Auto") ? 'SizeToContent="Height"' : 'Height="' height '"'
         resizeAttr := resizable ? 'ResizeMode="CanResize"' : 'ResizeMode="NoResize"'
-
-        ; Auto Focus Logic
-        focusAttr := inputText != "" ? 'FocusManager.FocusedElement="{Binding ElementName=DialogInput}"' : 'FocusManager.FocusedElement="{Binding ElementName=Btn1}"'
 
         ; Clean title and fetch default icon for the OS Window frame
         safeTitle := StrReplace(title, "&", "&amp;")
@@ -262,9 +262,10 @@ class XDialog {
         hIcon := ""
         try hIcon := LoadPicture("shell32.dll", "Icon26", &ImageType := 1)
 
-        ui.xaml := StrReplace(ui.xaml, 'Width="940" Height="700"', 'Title="' safeTitle '" Width="' (width + 30) '" ' heightAttr ' ' resizeAttr ' ' focusAttr (alwaysOnTop ? ' Topmost="True"' : ''))
-        if (options.HasProp("FontFamily") && options.FontFamily != "") {
-            ui.xaml := StrReplace(ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' options.FontFamily '"')
+        ui.xaml := StrReplace(ui.xaml, 'Width="940" Height="700"', 'Title="' safeTitle '" Width="' (width + 30) '" ' heightAttr ' ' resizeAttr (alwaysOnTop ? ' Topmost="True"' : ''))
+        dlgFont := XDialog.Opt(options, "FontFamily", "")
+        if (dlgFont != "") {
+            ui.xaml := StrReplace(ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' dlgFont '"')
         }
 
         resultObj := { Button: "", Input: "", Instance: ui }
@@ -281,7 +282,7 @@ class XDialog {
         for index, btnText in buttons {
             ui.OnEvent("Btn" index, "Click", ObjBindMethod(XDialog, "OnButtonClick", ui, resultObj, btnText, owner, modal), 255)
         }
-        if (showCloseBtn && options.HasProp("CloseBtnName") && options.CloseBtnName != "BtnClose") {
+        if (showCloseBtn && XDialog.Opt(options, "CloseBtnName", "BtnClose") != "BtnClose") {
             ui.OnEvent(options.CloseBtnName, "Click", (state, ctrl, event) => ui.Update("Window", "Close", ""), 255)
         }
 
@@ -290,13 +291,37 @@ class XDialog {
         }
 
         ui.Show()
+        try RmtDialog._Trace("XDialog.Show after ui.Show hwnd=" ui.wpfHwnd " id=" ui.id " daemon=" XAMLHost.daemonHwnd)
 
         if (waitForResponse) {
-            ; Wait for dialog to close. hwnd 一直为 0 说明引擎建窗失败，勿死等。
             waitStart := A_TickCount
+            lastBeat := 0
             while (resultObj.Button == "" && (ui.wpfHwnd == 0 || WinExist("ahk_id " ui.wpfHwnd))) {
-                if (ui.wpfHwnd == 0 && A_TickCount - waitStart > 5000)
+                if (ui.wpfHwnd && modal && owner && !ownerDisabled) {
+                    try WinSetEnabled(0, "ahk_id " owner)
+                    ownerDisabled := true
+                    try RmtDialog._Trace("XDialog owner disabled hwnd=" ui.wpfHwnd)
+                }
+                elapsed := A_TickCount - waitStart
+                if (elapsed - lastBeat >= 1000) {
+                    lastBeat := elapsed
+                    wx := 0, wy := 0, ww := 0, wh := 0
+                    try {
+                        if (ui.wpfHwnd)
+                            WinGetPos(&wx, &wy, &ww, &wh, "ahk_id " ui.wpfHwnd)
+                    }
+                    try RmtDialog._Trace("XDialog wait elapsed=" elapsed " hwnd=" ui.wpfHwnd " exist=" (ui.wpfHwnd && WinExist("ahk_id " ui.wpfHwnd) ? 1 : 0) " pos=" wx "," wy " size=" ww "x" wh)
+                }
+                if (ui.wpfHwnd == 0 && A_TickCount - waitStart > 5000) {
+                    try {
+                        dir := A_ScriptDir "\Log"
+                        if !DirExist(dir)
+                            DirCreate(dir)
+                        FileAppend(ui.xaml, dir "\XDialog.last.xaml", "UTF-8")
+                    }
+                    try RmtDialog._Trace("XDialog timeout hwnd=0 dumped XDialog.last.xaml len=" StrLen(ui.xaml))
                     throw Error("Dialog window failed to open")
+                }
                 Sleep(50)
             }
             if (resultObj.Button == "") {
@@ -330,14 +355,22 @@ class XDialog {
     }
 
     static OnDialogLoad(ui, owner, modal, themeName, iniPath, buttons, resultObj, hIcon := "", state := "", ctrl := "", event := "") {
+        try RmtDialog._Trace("OnDialogLoad hwnd=" ui.wpfHwnd " owner=" owner " theme=" themeName)
         if (owner) {
             ui.Update("Window", "NativeOwner", owner)
         }
         if (hIcon != "") {
             ui.Update("Window", "Icon", "HICON:" hIcon)
         }
-        XDialog.ApplyTheme(ui, themeName, iniPath)
+        try {
+            XDialog.ApplyTheme(ui, themeName, iniPath)
+        } catch as e {
+            try RmtDialog._Trace("ApplyTheme err=" e.Message)
+        }
         try ApplyXamlTheme(ui, themeName)
+        catch as e {
+            try RmtDialog._Trace("ApplyXamlTheme err=" e.Message)
+        }
     }
 
     static OnDialogClose(ui, resultObj, owner, modal, overlayGui, state := "", ctrl := "", event := "") {

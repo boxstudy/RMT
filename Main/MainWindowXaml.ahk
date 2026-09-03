@@ -329,7 +329,7 @@ class MainWin {
                 ; 行距忽大忽小、侧边框断点、备注底边被吞）。关闭后位置为稳定小数，边框仍清晰。
                 vg.Add("ListBox").Name("FoldList_" idx).SelectionMode("Single").BorderThickness("0").Background("Transparent")
                     .Margin("4,2,4,2").UseLayoutRounding("False").SnapsToDevicePixels("True")
-                    .VirtualizingPanel_IsVirtualizing("True").VirtualizingPanel_VirtualizationMode("Recycling")
+                    .VirtualizingPanel_IsVirtualizing("True").VirtualizingPanel_VirtualizationMode("Standard")
                     .VirtualizingPanel_CacheLength("2,2").VirtualizingPanel_CacheLengthUnit("Page")
                 ; 吸顶折叠头 overlay（sticky header）：滚动时当前模块头钉在列表顶部
                 vg.Add("ContentControl").Name("VLSticky_" idx).VerticalAlignment("Top").HorizontalAlignment("Stretch").Visibility("Collapsed").Margin("4,2,4,2").UseLayoutRounding("False").SnapsToDevicePixels("True")
@@ -588,10 +588,23 @@ class MainWin {
         if (this.HasOwnProp("_startHidden") && this._startHidden)
             return
         try this.ui.Update("Window", "Opacity", "1")
+        ; 主题/揭盖后再走折叠同款 Reset，避免首帧在视口未定时量出的底边/行距
+        SetTimer(ObjBindMethod(this, "_RelayoutCurrentVL"), -1)
+    }
+
+    _RelayoutCurrentVL() {
+        try {
+            if (!IsObject(this._vl) || !IsObject(this._useVirtual))
+                return
+            cur := MainSoftData.TableIndex
+            if (this._useVirtual.Has(cur))
+                this._vl.Relayout(cur)
+        }
     }
 
     OnWindowRevealed(state, ctrl, event) {
         try WinActivate("ahk_id " this.ui.wpfHwnd)
+        this._RelayoutCurrentVL()
     }
 
     OnWindowClosing(state, ctrl, event) {
@@ -986,30 +999,28 @@ class MainWin {
     }
 
     _ItemInnerColDefs() {
+        ; 触发键/类型/循环右缘 4px 与模块头工具按钮间距一致；操作区用 Auto+StackPanel，不再靠列宽硬凑
         return '<ColumnDefinition Width="20"/><ColumnDefinition Width="22"/><ColumnDefinition Width="150"/>'
             . '<ColumnDefinition Width="125"/><ColumnDefinition Width="82"/><ColumnDefinition Width="82"/>'
-            . '<ColumnDefinition Width="28"/><ColumnDefinition Width="28"/>'
-            . '<ColumnDefinition Width="28"/><ColumnDefinition Width="28"/><ColumnDefinition Width="24"/>'
+            . '<ColumnDefinition Width="Auto"/>'
     }
 
     _BuildItemCardOpen(ns := "") {
         nsAttr := ns != "" ? " " ns : ""
-        ; 同一模块内各宏行「贴合」（行间无 Margin 缝隙），左右边框才连续无断点；
-        ; 行距靠内边距(上下各2)+斑马纹区分。UseLayoutRounding 已在列表级关闭，内边距不再因取整忽大忽小。
-        return '<Border' nsAttr ' BorderBrush="{DynamicResource InputStroke}" ClipToBounds="False" MinHeight="28"' this._BorderSnap() '>'
+        ; 宏行固定 30px；末行只加 2px 底边距，与下一模块隔开。Padding 不随末行变化，避免回收后行高粘住。
+        return '<Border' nsAttr ' BorderBrush="{DynamicResource InputStroke}" ClipToBounds="False" Height="30" MinHeight="30" MaxHeight="30"' this._BorderSnap() '>'
             . '<Border.Style><Style TargetType="Border">'
             . '<Setter Property="CornerRadius" Value="0"/>'
             . '<Setter Property="BorderThickness" Value="1,0,1,0"/>'
             . '<Setter Property="Margin" Value="0"/>'
-            . '<Setter Property="Padding" Value="4,2,6,2"/>'
+            . '<Setter Property="Padding" Value="4,3,6,3"/>'
             . '<Setter Property="Background" Value="{DynamicResource ControlBg}"/>'
             . '<Style.Triggers>'
             . '<DataTrigger Binding="{Binding IsAltRow}" Value="True"><Setter Property="Background" Value="{DynamicResource ListRowAltBg}"/></DataTrigger>'
             . '<DataTrigger Binding="{Binding IsLastInFold}" Value="True">'
             . '<Setter Property="CornerRadius" Value="0,0,4,4"/>'
             . '<Setter Property="BorderThickness" Value="1,0,1,1"/>'
-            . '<Setter Property="Padding" Value="4,2,6,6"/>'
-            . '<Setter Property="Margin" Value="0,0,0,4"/>'
+            . '<Setter Property="Margin" Value="0,0,0,2"/>'
             . '</DataTrigger>'
             . '</Style.Triggers></Style></Border.Style>'
             . '<Grid>'
@@ -1023,21 +1034,24 @@ class MainWin {
     }
 
     _BuildFoldCardBorderOpen() {
-        return '<Border BorderBrush="{DynamicResource InputStroke}" Background="{DynamicResource FoldHeaderBg}" ClipToBounds="False" Padding="6,4,6,6"' this._BorderSnap() '>'
+        return '<Border BorderBrush="{DynamicResource InputStroke}" Background="{DynamicResource FoldHeaderBg}" ClipToBounds="False"' this._BorderSnap() '>'
             . '<Border.Style><Style TargetType="Border">'
             . '<Setter Property="CornerRadius" Value="4,4,0,0"/>'
-            . '<Setter Property="BorderThickness" Value="1,1,1,0"/>'
-            . '<Setter Property="Margin" Value="0,2,0,0"/>'
+            . '<Setter Property="BorderThickness" Value="1,1,1,1"/>'
+            . '<Setter Property="Margin" Value="0,4,0,0"/>'
+            . '<Setter Property="Padding" Value="6,4,6,10"/>'
             . '<Style.Triggers>'
             . '<DataTrigger Binding="{Binding Folded}" Value="True">'
             . '<Setter Property="CornerRadius" Value="4"/>'
             . '<Setter Property="BorderThickness" Value="1"/>'
-            . '<Setter Property="Margin" Value="0,2,0,4"/>'
+            . '<Setter Property="Margin" Value="0,4,0,4"/>'
+            . '<Setter Property="Padding" Value="6,4,6,6"/>'
             . '</DataTrigger>'
             . '<DataTrigger Binding="{Binding HasBody}" Value="False">'
             . '<Setter Property="CornerRadius" Value="4"/>'
             . '<Setter Property="BorderThickness" Value="1"/>'
-            . '<Setter Property="Margin" Value="0,2,0,4"/>'
+            . '<Setter Property="Margin" Value="0,4,0,4"/>'
+            . '<Setter Property="Padding" Value="6,4,6,6"/>'
             . '</DataTrigger>'
             . '</Style.Triggers></Style></Border.Style>'
     }
@@ -1153,25 +1167,27 @@ class MainWin {
             . '<Border Grid.Column="0" Name="Color_' t '_' i '" Width="12" Height="12" CornerRadius="6" Background="' colorHex '" VerticalAlignment="Center" HorizontalAlignment="Center"/>'
             . '<TextBlock Grid.Column="1" Text="' i '." VerticalAlignment="Center" HorizontalAlignment="Left" Margin="-15,0,0,0" Foreground="{DynamicResource TextSub}"/>'
             . this._BuildItemRemarkFieldXaml(t, i, item.Remark, false)
-            . '<Button Grid.Column="3" Name="TKBtn_' t '_' i '" Style="{StaticResource RmtItemFieldBtn}" Margin="5,0,4,0" ToolTip="' GetLang("触发键") '" IsEnabled="' (isSubMacro ? "False" : "True") '">' this._BuildTKBtnInnerXaml(tkStr, false) '</Button>'
+            . '<Button Grid.Column="3" Name="TKBtn_' t '_' i '" Style="{StaticResource RmtItemFieldBtn}" Margin="4,0,4,0" ToolTip="' GetLang("触发键") '" IsEnabled="' (isSubMacro ? "False" : "True") '">' this._BuildTKBtnInnerXaml(tkStr, false) '</Button>'
             . '<ComboBox Grid.Column="4" Name="TKType_' t '_' i '" Style="{StaticResource RmtItemCombo}" Margin="0,0,4,0" SelectedIndex="' tkTypeIdx '" IsEnabled="' (isNormal ? "True" : "False") '" ToolTip="' GetLang("触发类型") '">'
             . '<ComboBoxItem Content="' GetLang("按下") '"/><ComboBoxItem Content="' GetLang("松开") '"/><ComboBoxItem Content="' GetLang("松止") '"/><ComboBoxItem Content="' GetLang("开关") '"/><ComboBoxItem Content="' GetLang("长按") '"/><ComboBoxItem Content="' GetLang("双击") '"/>'
             . '</ComboBox>'
             . '<ComboBox Grid.Column="5" Name="Loop_' t '_' i '" Style="{StaticResource RmtItemCombo}" Margin="0,0,4,0" IsEditable="True" IsEnabled="' (isMacro ? "True" : "False") '" ToolTip="' GetLang("循环次数") '">'
             . '<ComboBoxItem Content="' GetLang("无限") '"/>'
             . '</ComboBox>'
-            . '<Button Grid.Column="6" Name="Edit_' t '_' i '" Style="{StaticResource RmtFoldToolBtn}" Content="&#xE70F;" ToolTip="' GetLang("编辑") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"/>'
-            . '<Button Grid.Column="7" Name="Setting_' t '_' i '" Style="{StaticResource RmtFoldToolBtn}" Content="&#xE713;" ToolTip="' GetLang("设置") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"/>'
-            . '<Button Grid.Column="8" Name="Copy_' t '_' i '" Style="{StaticResource RmtFoldToolBtn}" Content="&#xE8C8;" ToolTip="' GetLang("复制") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"/>'
+            . '<StackPanel Grid.Column="6" Orientation="Horizontal" VerticalAlignment="Center">'
+            . '<Button Name="Edit_' t '_' i '" Style="{StaticResource RmtFoldToolBtn}" Content="&#xE70F;" ToolTip="' GetLang("编辑") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"/>'
+            . '<Button Name="Setting_' t '_' i '" Style="{StaticResource RmtFoldToolBtn}" Content="&#xE713;" ToolTip="' GetLang("设置") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"/>'
+            . '<Button Name="Copy_' t '_' i '" Style="{StaticResource RmtFoldToolBtn}" Content="&#xE8C8;" ToolTip="' GetLang("复制") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"/>'
             . this._BuildItemForbidBtnXaml(t, i, item.Forbid, false)
-            . '<Button Grid.Column="10" Name="Del_' t '_' i '" Style="{StaticResource RmtFoldToolBtn}" Content="&#xE74D;" ToolTip="' GetLang("删除") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" Margin="0"/>'
+            . '<Button Name="Del_' t '_' i '" Style="{StaticResource RmtFoldToolBtn}" Content="&#xE74D;" ToolTip="' GetLang("删除") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" Margin="0"/>'
+            . '</StackPanel>'
             . this._ItemCardClose()
         return xaml
     }
 
     _BuildItemForbidBtnXaml(t, i, forbidState, vlMode) {
         if (vlMode) {
-            return '<Grid Grid.Column="9" VerticalAlignment="Center" ClipToBounds="False">'
+            return '<Grid VerticalAlignment="Center" ClipToBounds="False">'
                 . '<Button Tag="Forbid" Content="&#xE7BA;" ToolTip="' GetLang("禁用") '" Style="{StaticResource RmtItemForbidBtn}"/>'
                 . '<Ellipse Width="6" Height="6" Fill="{DynamicResource Accent}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,2,6,0" IsHitTestVisible="False">'
                 . '<Ellipse.Style><Style TargetType="Ellipse"><Setter Property="Visibility" Value="Collapsed"/>'
@@ -1182,7 +1198,7 @@ class MainWin {
         actBr := forbidState ? "{DynamicResource ActionStroke}" : "{DynamicResource ControlBorder}"
         actFg := forbidState ? "{DynamicResource ActionText}" : "{DynamicResource TextMain}"
         dotVis := forbidState ? "Visible" : "Collapsed"
-        return '<Grid Grid.Column="9" VerticalAlignment="Center" ClipToBounds="False">'
+        return '<Grid VerticalAlignment="Center" ClipToBounds="False">'
             . '<Button Name="Forbid_' t '_' i '" Tag="Forbid" Content="&#xE7BA;" ToolTip="' GetLang("禁用") '" Style="{StaticResource RmtFoldToolBtn}"'
             . ' FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"'
             . ' Background="' actBg '" BorderBrush="' actBr '" Foreground="' actFg '"/>'
@@ -1324,18 +1340,20 @@ class MainWin {
             . '<Border Grid.Column="0" Width="12" Height="12" CornerRadius="6" Background="{Binding ColorHex}" VerticalAlignment="Center" HorizontalAlignment="Center"/>'
             . '<TextBlock Grid.Column="1" Text="{Binding SeqNo}" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="-15,0,0,0" Foreground="{DynamicResource TextSub}"/>'
             . this._BuildItemRemarkFieldXaml(0, 0, "", true)
-            . '<Button Grid.Column="3" Tag="TKBtn" IsEnabled="{Binding TKBtnEnabled}" Style="{StaticResource RmtItemFieldBtn}" Margin="5,0,4,0" ToolTip="' GetLang("触发键") '">' this._BuildTKBtnInnerXaml("", true) '</Button>'
+            . '<Button Grid.Column="3" Tag="TKBtn" IsEnabled="{Binding TKBtnEnabled}" Style="{StaticResource RmtItemFieldBtn}" Margin="4,0,4,0" ToolTip="' GetLang("触发键") '">' this._BuildTKBtnInnerXaml("", true) '</Button>'
             . '<ComboBox Grid.Column="4" Tag="TKType" SelectedIndex="{Binding TKType}" IsEnabled="{Binding TKTypeEnabled}" Style="{StaticResource RmtItemCombo}" Margin="0,0,4,0" ToolTip="' GetLang("触发类型") '">'
             . '<ComboBoxItem Content="' GetLang("按下") '"/><ComboBoxItem Content="' GetLang("松开") '"/><ComboBoxItem Content="' GetLang("松止") '"/><ComboBoxItem Content="' GetLang("开关") '"/><ComboBoxItem Content="' GetLang("长按") '"/><ComboBoxItem Content="' GetLang("双击") '"/>'
             . '</ComboBox>'
             . '<ComboBox Grid.Column="5" Tag="Loop" Text="{Binding LoopText}" IsEditable="True" IsEnabled="{Binding LoopEnabled}" Style="{StaticResource RmtItemCombo}" Margin="0,0,4,0" ToolTip="' GetLang("循环次数") '">'
             . '<ComboBoxItem Content="' GetLang("无限") '"/>'
             . '</ComboBox>'
-            . '<Button Grid.Column="6" Tag="Edit" Style="{StaticResource RmtFoldToolBtn}" Content="&#xE70F;" ToolTip="' GetLang("编辑") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"/>'
-            . '<Button Grid.Column="7" Tag="Setting" Style="{StaticResource RmtFoldToolBtn}" Content="&#xE713;" ToolTip="' GetLang("设置") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"/>'
-            . '<Button Grid.Column="8" Tag="Copy" Style="{StaticResource RmtFoldToolBtn}" Content="&#xE8C8;" ToolTip="' GetLang("复制") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"/>'
+            . '<StackPanel Grid.Column="6" Orientation="Horizontal" VerticalAlignment="Center">'
+            . '<Button Tag="Edit" Style="{StaticResource RmtFoldToolBtn}" Content="&#xE70F;" ToolTip="' GetLang("编辑") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"/>'
+            . '<Button Tag="Setting" Style="{StaticResource RmtFoldToolBtn}" Content="&#xE713;" ToolTip="' GetLang("设置") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"/>'
+            . '<Button Tag="Copy" Style="{StaticResource RmtFoldToolBtn}" Content="&#xE8C8;" ToolTip="' GetLang("复制") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"/>'
             . this._BuildItemForbidBtnXaml(0, 0, false, true)
-            . '<Button Grid.Column="10" Tag="Del" Style="{StaticResource RmtFoldToolBtn}" Content="&#xE74D;" ToolTip="' GetLang("删除") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" Margin="0"/>'
+            . '<Button Tag="Del" Style="{StaticResource RmtFoldToolBtn}" Content="&#xE74D;" ToolTip="' GetLang("删除") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" Margin="0"/>'
+            . '</StackPanel>'
             . this._ItemCardClose() '</DataTemplate>'
         foldFs := XAMLHost.FormatFontSize(XAMLHost.ScaleFontSize(11))
         fold := '<DataTemplate x:Key="RmtFoldHeader">'
@@ -1352,7 +1370,7 @@ class MainWin {
             . '</StackPanel>'
             . '</StackPanel></Border></DataTemplate>'
         addFold := '<DataTemplate x:Key="RmtAddFold">'
-            . '<Grid Height="72">'
+            . '<Grid Height="72" HorizontalAlignment="Stretch">'
             . '<Button Tag="AddFold" Width="56" Height="56" HorizontalAlignment="Center" VerticalAlignment="Center" Cursor="Hand" ToolTip="' GetLang("新增模块") '">'
             . '<Button.Template><ControlTemplate TargetType="Button"><Grid>'
             . '<Ellipse x:Name="Bd" Stroke="{DynamicResource ControlBorder}" StrokeThickness="2" Fill="{DynamicResource ControlBg}"/>'
