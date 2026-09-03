@@ -398,11 +398,12 @@ public partial class AhkWpfEngine
             {
                 var rootContent = win.Content as FrameworkElement;
                 if (rootContent != null && !(rootContent is System.Windows.Controls.Viewbox)
-                    && !double.IsNaN(win.Width) && !double.IsNaN(win.Height))
+                    && !double.IsNaN(win.Width))
                 {
                     if (double.IsNaN(rootContent.Width))
                         rootContent.Width = win.Width;
-                    if (double.IsNaN(rootContent.Height))
+                    // SizeToContent=Height 时窗口高度为 NaN，只钉宽度，Viewbox 按宽把字号拉到与其它弹窗一致
+                    if (!double.IsNaN(win.Height) && double.IsNaN(rootContent.Height))
                         rootContent.Height = win.Height;
                     var oldContent = win.Content;
                     win.Content = null;   // 先从窗口摘除，避免逻辑树父冲突

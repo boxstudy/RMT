@@ -69,12 +69,12 @@ class ThemeSettingGui {
         main := XAML_Generator("Grid").Background("{DynamicResource BgColor}")
         if (IsSet(MainSoftData) && MainSoftData.HasProp("FontType") && MainSoftData.FontType != "")
             main.TextElement_FontFamily(MainSoftData.FontType)
-        main.TextElement_FontSize(XAMLHost.GetDesignFontSize())
+        main.TextElement_FontSize(XAMLHost.FontSize())
         main.Rows(titleHeight, "*")
 
         tb := main.Add("Border").Grid_Row(0).Background("{DynamicResource TitleBarColor}").Name("DragArea")
         tbInner := tb.Add("Grid")
-        tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TitleBarForeground}").FontSize(XAMLHost.GetThemeFontSize() + 2).FontWeight("Bold").VerticalAlignment("Center").Margin("15,0,0,0").Padding("0")
+        tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TitleBarForeground}").FontSize(XAMLHost.TitleFontSize()).FontWeight("Bold").VerticalAlignment("Center").Margin("15,0,0,0").Padding("0")
 
         BtnGroup := tbInner.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Right").VerticalAlignment("Stretch").Height(36)
         closeBtn := BtnGroup.Add("Button").Name("BtnClosePanel").Style("{StaticResource TitleBarCloseButton}").WindowChrome_IsHitTestVisibleInChrome("True").Width(46).Height(36).MinHeight(36).Padding("0").VerticalAlignment("Stretch").Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
@@ -88,7 +88,7 @@ class ThemeSettingGui {
         ; 颜色值用 Border+TextBlock 显示，避免 WPF TextBox 默认 MinHeight 导致高度调不动
         ; 主题界面字号与主题「字体大小」一致（默认 15）
         ; 色块行宽 = labelW + boxW + previewMargin + previewW，字体大小右侧与该宽度对齐
-        uiFs := XAMLHost.GetDesignFontSize()
+        uiFs := XAMLHost.FontSize()
         this._colorUi := {
             labelFg: "{DynamicResource TextMain}", labelFs: uiFs, labelW: 100,
             boxW: 110, boxH: 26, boxFs: uiFs,

@@ -76,7 +76,7 @@ global XAML_ENABLE_DEVTOOLS := true
 global XAML_IN_PROCESS_PREVIEW := false
 
 ; --- 全局字体缩放（主题字体大小驱动所有界面字号）---
-; 统一接口：XAMLHost.ScaleFontSize / ApplyFontSizeDelta / ApplyFontsToAllWindows
+; 统一接口：界面声明只用 XAMLHost.FontSize() / TitleFontSize()；Show 时 ScaleFontSize / ApplyFontSizeDelta / Viewbox
 ; 设计基准与软件默认均为主题字体大小（15）。改主题滑条时：XAML_FontSizeDelta := 主题FontSize - 基准。
 ; 实际字号 = max(主题字体大小, 声明字号 + (主题字体大小 - 基准))，主题值为下限。
 ; 图形节点编辑器通过 XAMLHost.skipFontScale 排除；其余界面均走统一接口。

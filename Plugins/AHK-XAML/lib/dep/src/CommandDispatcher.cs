@@ -33,6 +33,8 @@ using DocumentFormat.OpenXml.Wordprocessing;
 #endif
 public partial class AhkWpfEngine
 {
+    bool _maxBtnPressed = false; // HTMAXBUTTON 不走 WPF IsMouseOver/IsPressed，需在 NC 消息里补 hover/按下底
+
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
         if (msg == 0x004A)
@@ -78,26 +80,16 @@ public partial class AhkWpfEngine
                 {
                     short screenX = (short)(lParam.ToInt64() & 0xFFFF);
                     short screenY = (short)((lParam.ToInt64() >> 16) & 0xFFFF);
-
-                    Point topLeft = btn.PointToScreen(new Point(0, 0));
-                    Point bottomRight = btn.PointToScreen(new Point(btn.ActualWidth, btn.ActualHeight));
-
-                    if (screenX >= topLeft.X && screenX <= bottomRight.X &&
-                        screenY >= topLeft.Y && screenY <= bottomRight.Y)
+                    if (MaxBtnContainsScreen(btn, screenX, screenY))
                     {
-                        // Apply custom hover highlight (same as #20FFFFFF style trigger)
-                        btn.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(0x20, 0xFF, 0xFF, 0xFF));
-
+                        // Win11 分屏要 HTMAXBUTTON，WPF 收不到 IsMouseOver；底色跟最小化/关闭同一套主题
+                        SetMaxBtnChrome(btn, true, _maxBtnPressed);
                         handled = true;
                         return new IntPtr(9); // HTMAXBUTTON
                     }
-                    else
+                    else if (!_maxBtnPressed)
                     {
-                        // Reset background if cursor moved off the button
-                        if (btn.Background != System.Windows.Media.Brushes.Transparent)
-                        {
-                            btn.Background = System.Windows.Media.Brushes.Transparent;
-                        }
+                        SetMaxBtnChrome(btn, false, false);
                     }
                 }
             }
@@ -137,11 +129,10 @@ public partial class AhkWpfEngine
         {
             try
             {
+                _maxBtnPressed = false;
                 var btn = win.FindName("BtnMaximize") as System.Windows.Controls.Button;
-                if (btn != null && btn.Background != System.Windows.Media.Brushes.Transparent)
-                {
-                    btn.Background = System.Windows.Media.Brushes.Transparent;
-                }
+                if (btn != null)
+                    SetMaxBtnChrome(btn, false, false);
             }
             catch { }
         }
@@ -149,7 +140,39 @@ public partial class AhkWpfEngine
         {
             if (wParam.ToInt32() == 9) // HTMAXBUTTON
             {
-                win.WindowState = win.WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+                _maxBtnPressed = true;
+                try
+                {
+                    var btn = win.FindName("BtnMaximize") as System.Windows.Controls.Button;
+                    if (btn != null)
+                        SetMaxBtnChrome(btn, true, true);
+                }
+                catch { }
+                handled = true;
+                return IntPtr.Zero;
+            }
+        }
+        else if (msg == 0x00A2) // WM_NCLBUTTONUP
+        {
+            if (wParam.ToInt32() == 9 || _maxBtnPressed) // HTMAXBUTTON，或按下后在钮外松开
+            {
+                bool doToggle = _maxBtnPressed;
+                _maxBtnPressed = false;
+                try
+                {
+                    var btn = win.FindName("BtnMaximize") as System.Windows.Controls.Button;
+                    bool over = false;
+                    if (btn != null)
+                    {
+                        POINT pt;
+                        if (GetCursorPos(out pt))
+                            over = MaxBtnContainsScreen(btn, (short)pt.x, (short)pt.y);
+                        SetMaxBtnChrome(btn, over, false);
+                    }
+                    if (doToggle && over)
+                        win.WindowState = win.WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+                }
+                catch { }
                 handled = true;
                 return IntPtr.Zero;
             }
@@ -344,6 +367,33 @@ public partial class AhkWpfEngine
             catch { }
         }
         return IntPtr.Zero;
+    }
+
+    static bool MaxBtnContainsScreen(System.Windows.Controls.Button btn, short screenX, short screenY)
+    {
+        Point topLeft = btn.PointToScreen(new Point(0, 0));
+        Point bottomRight = btn.PointToScreen(new Point(btn.ActualWidth, btn.ActualHeight));
+        return screenX >= topLeft.X && screenX <= bottomRight.X &&
+               screenY >= topLeft.Y && screenY <= bottomRight.Y;
+    }
+
+    // 最大化钮被标成 HTMAXBUTTON 后 WPF 触发器不走；底色与最小化/关闭一致：hover=ControlBorder，按下=BtnPressBg
+    void SetMaxBtnChrome(System.Windows.Controls.Button btn, bool hover, bool pressed)
+    {
+        Brush brush = System.Windows.Media.Brushes.Transparent;
+        try
+        {
+            string key = pressed ? "BtnPressBg" : (hover ? "ControlBorder" : null);
+            if (key != null && win != null)
+            {
+                Brush found = win.TryFindResource(key) as Brush;
+                if (found != null)
+                    brush = found;
+            }
+        }
+        catch { }
+        if (!object.ReferenceEquals(btn.Background, brush))
+            btn.Background = brush;
     }
 
     private void ProcessMessage(IntPtr hwnd, string text)
@@ -3771,7 +3821,8 @@ public partial class AhkWpfEngine
         Button btn = node as Button;
         if (btn == null || string.IsNullOrEmpty(btn.Name))
             return;
-        if (btn.Name != "BtnClosePanel" && btn.Name != "BtnClose" && btn.Name != "BtnMinimize" && btn.Name != "BtnMaximize")
+        if (btn.Name != "BtnClosePanel" && btn.Name != "BtnClose" && btn.Name != "BtnWinClose"
+            && btn.Name != "BtnMinimize" && btn.Name != "BtnMaximize")
             return;
         btn.Width = 46;
         btn.Height = 36;
@@ -3780,23 +3831,20 @@ public partial class AhkWpfEngine
         btn.Padding = new Thickness(0);
         btn.Margin = new Thickness(0);
         btn.VerticalAlignment = VerticalAlignment.Stretch;
+        btn.Background = System.Windows.Media.Brushes.Transparent;
         if ((btn.Parent as Grid) != null)
             btn.HorizontalAlignment = HorizontalAlignment.Right;
-        bool isClose = (btn.Name == "BtnClosePanel" || btn.Name == "BtnClose");
-        if (isClose)
+        try
         {
-            try
+            Window owner = Window.GetWindow(btn);
+            if (owner != null)
             {
-                Window owner = Window.GetWindow(btn);
-                if (owner != null)
-                {
-                    Style closeStyle = owner.TryFindResource("TitleBarCloseButton") as Style;
-                    if (closeStyle != null)
-                        btn.Style = closeStyle;
-                }
+                Style chromeStyle = owner.TryFindResource("TitleBarCloseButton") as Style;
+                if (chromeStyle != null)
+                    btn.Style = chromeStyle;
             }
-            catch { }
         }
+        catch { }
         try
         {
             btn.ApplyTemplate();

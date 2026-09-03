@@ -69,7 +69,7 @@ class XDialog {
         if (XDialog.Has(options, "ContentFontSize"))
             main.TextElement_FontSize(options.ContentFontSize)
         else
-            main.TextElement_FontSize(XAMLHost.GetDesignFontSize())
+            main.TextElement_FontSize(XAMLHost.FontSize())
 
         ; Titlebar (draggable)
         tb := main.Add("Grid").Grid_Row(0).Background("Transparent")

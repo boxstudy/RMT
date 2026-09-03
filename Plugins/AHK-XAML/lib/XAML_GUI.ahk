@@ -170,7 +170,7 @@ class XAML_GUI {
             titleSp.Add("Image").Name("AppIcon").Width(16).Height(16).Margin("0,0,10,0")
         }
 
-        titleSp.Add("TextBlock").Name("AppTitle").Text(this.title).Foreground("{DynamicResource TitleBarForeground}").FontSize(XAMLHost.GetThemeFontSize() + 2).FontWeight("Bold")
+        titleSp.Add("TextBlock").Name("AppTitle").Text(this.title).Foreground("{DynamicResource TitleBarForeground}").FontSize(XAMLHost.TitleFontSize()).FontWeight("Bold")
 
         winBtns := grid.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Right").VerticalAlignment("Top")
 

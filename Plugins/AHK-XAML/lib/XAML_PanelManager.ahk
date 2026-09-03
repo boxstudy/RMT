@@ -1220,7 +1220,7 @@ class PanelManager {
         titleFont := "12"
         btnWidth := "45"
 
-        main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize(XAMLHost.GetDesignFontSize())
+        main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize(XAMLHost.FontSize())
         savedScale := IniRead(this.IniFile, "Global", "Scale", "Balanced")
         scaleVal := "1.0"
         if (savedScale == "Thin")

@@ -354,9 +354,17 @@ class XAMLHost {
         return this.HasProp("skipFontScale") && this.skipFontScale
     }
 
-    ; --- 统一字号接口（所有界面声明字号都走这里，图形节点编辑器 skipFontScale 除外）---
+    ; --- 统一字号接口（界面只声明 FontSize / TitleFontSize，Show 时再按主题 delta + Viewbox 缩放）---
     ; 实际字号 = max(主题字体大小, 声明字号 + (主题字体大小 - 基准))
     ; 设计与默认均为主题字体大小；后续单独设控件字号时声明相对基准的值。
+    static FontSize(delta := 0) {
+        return XAMLHost.FormatFontSize(XAMLHost.GetDesignFontSize() + delta)
+    }
+
+    static TitleFontSize() {
+        return XAMLHost.FontSize(2)
+    }
+
     static GetThemeFontSize() {
         global XAML_FontSizeBase, XAML_FontSizeDelta
         XAMLHost.SyncThemeFontDelta()
@@ -449,9 +457,6 @@ class XAMLHost {
             return
         uiScale := XAMLHost.GetMainViewboxScale()
         hasSizeToContent := InStr(xaml, "SizeToContent=")
-        ; SizeToContent 时引擎不包 Viewbox
-        if (hasSizeToContent)
-            uiScale := 1.0
         if (uiScale <= 1.001)
             return
         if (!RegExMatch(xaml, 'Width="(\d+(?:\.\d+)?)"', &mw))
@@ -473,7 +478,8 @@ class XAMLHost {
         tagLen := StrLen("</Window.Resources>")
         head := SubStr(xaml, 1, pos + tagLen - 1)
         tail := SubStr(xaml, pos + tagLen)
-        attrs := ' Width="' (hasSizeToContent ? winW : rootW) '"'
+        ; 根内容钉设计宽度；SizeToContent 只钉宽，引擎 Viewbox 按宽拉伸，字号与固定尺寸弹窗一致
+        attrs := ' Width="' rootW '"'
         if (!hasSizeToContent && rootH != "")
             attrs .= ' Height="' rootH '"'
         tail := RegExReplace(tail, "i)<(Grid|DockPanel|StackPanel|Border|Canvas)\b", "<$1" attrs, , 1)
@@ -552,7 +558,14 @@ class XAMLHost {
         return 0
     }
 
-    ; 标题栏：窗口标题 = 主题字号+2 且粗体；关闭按钮铺满右上角
+    ; 标题栏铬钮（最小/最大/关闭）：统一走 TitleBarCloseButton
+    static IsTitleChromeButton(tag) {
+        return InStr(tag, 'Name="BtnClosePanel"') || InStr(tag, 'Name="BtnClose"')
+            || InStr(tag, 'Name="BtnWinClose"') || InStr(tag, 'Name="BtnMinimize"')
+            || InStr(tag, 'Name="BtnMaximize"')
+    }
+
+    ; 标题栏：窗口标题 = 主题字号+2 且粗体；铬钮统一 TitleBarCloseButton
     static _PatchTitleBarXaml(mid) {
         titleFs := XAMLHost.FormatFontSize(XAMLHost.GetThemeFontSize() + 2)
         out := ""
@@ -573,8 +586,7 @@ class XAMLHost {
                     else
                         tag := RegExReplace(tag, ">$", ' FontWeight="Bold">')
                 }
-            } else if (InStr(tag, 'Name="BtnClosePanel"') || InStr(tag, 'Name="BtnClose"')
-                || InStr(tag, 'Name="BtnMinimize"') || InStr(tag, 'Name="BtnMaximize"')) {
+            } else if (XAMLHost.IsTitleChromeButton(tag)) {
                 if (InStr(tag, "Width="))
                     tag := RegExReplace(tag, '\bWidth="\d+(?:\.\d+)?"', 'Width="46"')
                 else
@@ -591,8 +603,13 @@ class XAMLHost {
                     tag := RegExReplace(tag, '\bPadding="[^"]*"', 'Padding="0"')
                 else
                     tag := RegExReplace(tag, ">$", ' Padding="0">')
-                if ((InStr(tag, 'Name="BtnClosePanel"') || InStr(tag, 'Name="BtnClose"')) && !InStr(tag, "Style="))
+                ; 静止透明（透出标题栏色），hover=ControlBorder，按下=BtnPressBg
+                if (InStr(tag, "Background="))
+                    tag := RegExReplace(tag, '\bBackground="[^"]*"', 'Background="Transparent"')
+                if (!InStr(tag, "Style="))
                     tag := RegExReplace(tag, ">$", ' Style="{StaticResource TitleBarCloseButton}">')
+                else if (!InStr(tag, "TitleBarCloseButton"))
+                    tag := RegExReplace(tag, '\bStyle="[^"]*"', 'Style="{StaticResource TitleBarCloseButton}"')
             }
             out .= tag
             pos := m.Pos[0] + m.Len[0]
@@ -1737,9 +1754,15 @@ class XAMLHost {
             ; This eliminates the Engine|Ready -> XAML_PAYLOAD round-trip entirely
             eventBindings := this._BuildEventBindings()
             cleanXaml := StrReplace(this.xaml, "%resources%", "")
-            ; 非透明窗口：窗口级背景铺实色 BgColor，避免首帧先闪 DWM 玻璃边框（Win11 下偏紫/系统色）
-            if (!InStr(this.xaml, 'AllowsTransparency="True"'))
-                cleanXaml := StrReplace(cleanXaml, 'Background="Transparent"', 'Background="{DynamicResource BgColor}"')
+            ; 只改窗口本身的 Transparent，避免把标题栏关闭/最小化钮也刷成 BgColor（和标题栏色不一致）
+            if (!InStr(this.xaml, 'AllowsTransparency="True"')) {
+                winEnd := InStr(cleanXaml, ">")
+                if (winEnd) {
+                    head := SubStr(cleanXaml, 1, winEnd)
+                    head := StrReplace(head, 'Background="Transparent"', 'Background="{DynamicResource BgColor}"')
+                    cleanXaml := head SubStr(cleanXaml, winEnd + 1)
+                }
+            }
             XAMLHost.SyncThemeFontDelta()
             cleanXaml := XAMLHost.ApplyFontSizeDelta(cleanXaml, this.IsFontScaleSkipped())
             if (!this.IsFontScaleSkipped())
@@ -2668,6 +2691,7 @@ XAML_TEMPLATE := '
             <SolidColorBrush x:Key="ActionHoverStroke" Color="#106EBE" />
             <SolidColorBrush x:Key="ProgressBar" Color="#0078D7" />
             <SolidColorBrush x:Key="Accent" Color="#0078D7" />
+            <CornerRadius x:Key="CloseBtnRadius">0,8,0,0</CornerRadius>
             <CornerRadius x:Key="WindowRadius">12</CornerRadius>
             <Thickness x:Key="WindowBorderThickness">0</Thickness>
             <SolidColorBrush x:Key="WindowBorderBrush" Color="Transparent" />

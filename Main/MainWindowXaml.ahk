@@ -240,15 +240,14 @@ class MainWin {
         tbInner := tb.Add("Grid")
         ; 标题左侧软件图标（rabit.png 带透明通道，作标题栏小图标；Grid 内需左对齐，否则会居中）
         tbInner.Add("Image").Name("TitleIcon").Width(20).Height(20).Margin("14,0,10,0").HorizontalAlignment("Left").VerticalAlignment("Center").Source(StrReplace(A_WorkingDir "\Images\Soft\rabit.png", "\", "/"))
-        tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TitleBarForeground}").FontSize(XAMLHost.GetThemeFontSize() + 2).FontWeight("Bold").VerticalAlignment("Center").Margin("44,0,0,0").Padding("0")
+        tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TitleBarForeground}").FontSize(XAMLHost.TitleFontSize()).FontWeight("Bold").VerticalAlignment("Center").Margin("44,0,0,0").Padding("0")
         btnGroup := tbInner.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Right").VerticalAlignment("Stretch").Height(36)
-        minBtn := btnGroup.Add("Button").Name("BtnMinimize").WindowChrome_IsHitTestVisibleInChrome("True").Width(46).Height(36).Padding("0").Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
+        minBtn := btnGroup.Add("Button").Name("BtnMinimize").Style("{StaticResource TitleBarCloseButton}").WindowChrome_IsHitTestVisibleInChrome("True").Width(46).Height(36).Padding("0").Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
         minBtn.Add("TextBlock").Text(Chr(0xE921)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
-        maxBtn := btnGroup.Add("Button").Name("BtnMaximize").WindowChrome_IsHitTestVisibleInChrome("True").Width(46).Height(36).Padding("0").Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
+        maxBtn := btnGroup.Add("Button").Name("BtnMaximize").Style("{StaticResource TitleBarCloseButton}").WindowChrome_IsHitTestVisibleInChrome("True").Width(46).Height(36).Padding("0").Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
         maxBtn.Add("TextBlock").Text(Chr(0xE922)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
-        ; 最小化/最大化/关闭 统一外观：同一背景（Transparent）、同一悬停效果（默认样式）。
-        ; 注意：命名 BtnClosePanel/BtnClose 会被 XAML_Host/引擎强制套 TitleBarCloseButton 样式，故用 BtnWinClose
-        closeBtn := btnGroup.Add("Button").Name("BtnWinClose").WindowChrome_IsHitTestVisibleInChrome("True").Width(46).Height(36).Padding("0").Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
+        ; 最小/最大/关闭：统一 TitleBarCloseButton（静止透明=标题栏色，hover=ControlBorder，按下=BtnPressBg）
+        closeBtn := btnGroup.Add("Button").Name("BtnWinClose").Style("{StaticResource TitleBarCloseButton}").WindowChrome_IsHitTestVisibleInChrome("True").Width(46).Height(36).Padding("0").Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
         closeBtn.Add("TextBlock").Text(Chr(0xE8BB)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
 
         ; ---- 左操作栏 ----

@@ -9,7 +9,7 @@ class RmtDialog {
     static Info(msg, title := "") {
         RmtDialog._Trace("Info enter msg=" RmtDialog._Clip(msg))
         try {
-            RmtDialog._Show(String(msg), title != "" ? title : GetLang("提示"), [GetLang("确定")], Chr(0xE946), "{DynamicResource TextMain}")
+            RmtDialog._Show(String(msg), title != "" ? title : GetLang("提示"), [GetLang("确定")], Chr(0xE946), "{DynamicResource TextMain}", true)
         } catch as e {
             RmtDialog._Log("Info", e)
         }
@@ -19,7 +19,7 @@ class RmtDialog {
     static Confirm(msg, title := "") {
         RmtDialog._Trace("Confirm enter msg=" RmtDialog._Clip(msg))
         try {
-            btn := RmtDialog._Show(String(msg), title != "" ? title : GetLang("提示"), [GetLang("确定"), GetLang("取消")], Chr(0xE814), "{DynamicResource Accent}")
+            btn := RmtDialog._Show(String(msg), title != "" ? title : GetLang("提示"), [GetLang("确定"), GetLang("取消")], Chr(0xE814), "{DynamicResource Accent}", false)
             ok := (btn == GetLang("确定"))
             RmtDialog._Trace("Confirm result ok=" ok " btn=" btn)
             return ok
@@ -29,7 +29,7 @@ class RmtDialog {
         }
     }
 
-    static _Show(msg, title, buttons, iconChar, iconColor) {
+    static _Show(msg, title, buttons, iconChar, iconColor, offsetMsg := false) {
         owner := 0
         try {
             if (IsSet(MyMainWin) && IsObject(MyMainWin) && IsObject(MyMainWin.ui) && MyMainWin.ui.wpfHwnd)
@@ -38,11 +38,9 @@ class RmtDialog {
         try XAMLHost.EnsureDaemonHealthy()
 
         titleHeight := "36"
-        uiScale := XAMLHost.GetMainViewboxScale()
-        designFs := XAMLHost.GetDesignFontSize()
-        themeFs := XAMLHost.GetThemeFontSize()
-        winW := Round(250 * uiScale)
-        iconFs := Round(designFs * 3)   ; 大图标≈正文 3 倍（走统一缩放管线）
+        fs := XAMLHost.FontSize()
+        winW := 300   ; 设计宽度（250+50）；Show 时 ApplyDialogVisualScale + Viewbox 与其它弹窗同一套管线
+        iconFs := fs * 3
         fontFamily := ""
         try {
             if (IsSet(MainSoftData) && MainSoftData.HasProp("FontType") && MainSoftData.FontType != "")
@@ -52,14 +50,13 @@ class RmtDialog {
         main := XAML_Generator("Grid").Background("{DynamicResource BgColor}")
         if (fontFamily != "")
             main.TextElement_FontFamily(fontFamily)
-        main.TextElement_FontSize(designFs)
+        main.TextElement_FontSize(fs)
         main.Rows(titleHeight, "Auto")
 
         tb := main.Add("Border").Grid_Row(0).Background("{DynamicResource TitleBarColor}").Name("DragArea")
         tbInner := tb.Add("Grid")
-        ; 标题声明基准+2，Show 时按主题 delta 缩放到「主题字号+2」（标题栏补丁也会强制同一值）
         tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TitleBarForeground}")
-            .FontSize(designFs + 2).FontWeight("Bold").VerticalAlignment("Center").Margin("15,0,0,0").Padding("0")
+            .FontSize(XAMLHost.TitleFontSize()).FontWeight("Bold").VerticalAlignment("Center").Margin("15,0,0,0").Padding("0")
 
         btnGroup := tbInner.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Right").VerticalAlignment("Stretch").Height(36)
         ; 关闭钮与各界面统一：TitleBarCloseButton（hover=ControlBorder、按下=BtnPressBg）
@@ -72,15 +69,27 @@ class RmtDialog {
         body := main.Add("Border").Grid_Row(1).Background("{DynamicResource BgColor}")
         panel := body.Add("StackPanel").Margin("14,18,14,14")
 
-        ; 图标叠在左侧，文案按整窗居中（不占列、无左右偏移）；换行后块内左对齐
-        msgRow := panel.Add("Grid").Margin("0,4,0,4")
-        if (iconChar != "") {
-            msgRow.Add("TextBlock").Text(iconChar).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets")
-                .FontSize(iconFs).Foreground(iconColor).VerticalAlignment("Center").HorizontalAlignment("Left")
-                .Margin("2,0,0,0")
+        if (offsetMsg) {
+            ; Info（空复制等）：图标靠左，文案整窗居中后再右偏 50，换行块内左对齐，避免压住图标
+            msgRow := panel.Add("Grid").Margin("0,4,0,4")
+            if (iconChar != "") {
+                msgRow.Add("TextBlock").Text(iconChar).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets")
+                    .FontSize(iconFs).Foreground(iconColor).VerticalAlignment("Center").HorizontalAlignment("Left")
+                    .Margin("2,0,0,0")
+            }
+            msgTb := msgRow.Add("TextBlock").Text(msg).Foreground("{DynamicResource TextMain}").FontSize(fs)
+                .VerticalAlignment("Center").HorizontalAlignment("Center").TextAlignment("Left").TextWrapping("Wrap")
+                .Margin("50,0,0,0")
+        } else {
+            ; Confirm（删除等）：图标+文案作为一组水平居中
+            msgRow := panel.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center").Margin("0,4,0,4")
+            if (iconChar != "") {
+                msgRow.Add("TextBlock").Text(iconChar).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets")
+                    .FontSize(iconFs).Foreground(iconColor).VerticalAlignment("Center").Margin("0,0,10,0")
+            }
+            msgTb := msgRow.Add("TextBlock").Text(msg).Foreground("{DynamicResource TextMain}").FontSize(fs)
+                .VerticalAlignment("Center").TextAlignment("Center")
         }
-        msgTb := msgRow.Add("TextBlock").Text(msg).Foreground("{DynamicResource TextMain}").FontSize(designFs)
-            .VerticalAlignment("Center").HorizontalAlignment("Center").TextAlignment("Left").TextWrapping("Wrap")
         if (fontFamily != "")
             msgTb.FontFamily(fontFamily)
 
@@ -91,11 +100,11 @@ class RmtDialog {
         loop buttons.Length {
             idx := A_Index
             btnText := buttons[idx]
-            gap := (idx < buttons.Length) ? "0,0,8,0" : "0"
+            gap := (idx < buttons.Length) ? "0,0,58,0" : "0"
             btnEl := btnRow.Add("Button").Name("Btn" idx).Content(btnText)
                 .Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}")
                 .FontWeight("Bold").BorderBrush("{DynamicResource ActionStroke}").BorderThickness("1")
-                .FontSize(13).Cursor("Hand").Width(80).Height(32).Margin(gap)
+                .FontSize(fs).Cursor("Hand").Width(80).Height(32).Margin(gap)
             if (btnText == okText)
                 btnEl.IsDefault("True")
             if (btnText == cancelText)
@@ -134,7 +143,7 @@ class RmtDialog {
             RmtDialog._Trace("ApplyXamlTheme err=" e.Message)
         }
 
-        RmtDialog._Trace("Show start owner=" owner " w=" winW " themeFs=" themeFs)
+        RmtDialog._Trace("Show start owner=" owner " w=" winW " fs=" fs)
         ui.Show()
 
         waitStart := A_TickCount

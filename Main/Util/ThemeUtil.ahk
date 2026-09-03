@@ -689,7 +689,8 @@ class AppThemeUtil {
         }
     }
 
-    ; 各编辑窗关闭钮：与主界面标题栏按钮相同，hover=ControlBorder，按下=BtnPressBg（不用系统红底）
+    ; 已收缩：各窗标题栏铬钮请用 Style="{StaticResource TitleBarCloseButton}"（XAML_Host 补丁也会强制套上）。
+    ; 本方法仅作旧 InjectResources 兼容，视觉与 TitleBarCloseButton 相同。
     static TitleCloseBtnStyle() {
         return '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CloseBtnRadius}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="border" Property="Background" Value="{DynamicResource ControlBorder}"/></Trigger><Trigger Property="IsPressed" Value="True"><Setter TargetName="border" Property="Background" Value="{DynamicResource BtnPressBg}"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
     }
