@@ -423,9 +423,12 @@ class MainWin {
         ; - 圆角：仅第一个页签左侧（4,0,0,4）、最后一个页签右侧（0,4,4,0）适配页签条圆角，其余页签直角
         tabItemStyle := '<Style TargetType="TabItem">'
             . '<Setter Property="Width" Value="80"/>'
+            . '<Setter Property="Height" Value="28"/>'
+            . '<Setter Property="MinHeight" Value="28"/>'
+            . '<Setter Property="MaxHeight" Value="28"/>'
             . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TabItem">'
-            . '<Grid>'
-            . '<Border x:Name="Bd" Background="Transparent" BorderThickness="0" BorderBrush="Transparent" Padding="5,5,5,5" Cursor="Hand" CornerRadius="0">'
+            . '<Grid Height="28" ClipToBounds="True">'
+            . '<Border x:Name="Bd" Background="Transparent" BorderThickness="0" BorderBrush="Transparent" Padding="5,4,5,4" Cursor="Hand" CornerRadius="0">'
             . '<Grid>'
             . '<ContentPresenter ContentSource="Header" TextElement.Foreground="{DynamicResource TextMain}" TextElement.FontSize="14" TextElement.FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/>'
             . '<Ellipse x:Name="SelDot" Width="6" Height="6" Fill="{DynamicResource Accent}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-3,-1,-3" Visibility="Collapsed" IsHitTestVisible="False"/>'
@@ -645,6 +648,9 @@ class MainWin {
         ; §10 页签位置 → TableInfo 下标（隐藏页签后位置与下标不再 1:1）
         idx := (this.HasOwnProp("_tabOrder") && IsObject(this._tabOrder) && sel >= 1 && sel <= this._tabOrder.Length)
             ? this._tabOrder[sel] : sel
+        ; ComboBox.SelectionChanged 会冒泡到 TabControl；同页再入不重渲，避免切页/生成行时抖动
+        if (idx == MainSoftData.TableIndex && this.HasOwnProp("_renderedTabs") && this._renderedTabs.Has(idx))
+            return
         MainSoftData.TableIndex := idx
         if (idx >= 1 && idx <= MySoftData.TableInfo.Length)
             MainSoftData.CurTableID := MySoftData.TableInfo[idx].ID
@@ -783,8 +789,8 @@ class MainWin {
         isMenu := CheckIsMenuMacroTable(t)
         isUI := GetTableSymbol(t) == "UI"
         ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
-        xaml := '<Border ' ns ' CornerRadius="4" BorderThickness="1.5" BorderBrush="{DynamicResource OutlineStroke}" Background="{DynamicResource FoldHeaderBg}" Margin="0,2,0,4" Padding="6,4,6,6"' this._BorderSnap() '>'
-            . '<StackPanel TextElement.FontSize="' XAMLHost.FormatFontSize(XAMLHost.ScaleFontSize(11)) '">'
+        xaml := '<Border ' ns ' CornerRadius="4" BorderThickness="1.5" BorderBrush="{DynamicResource OutlineStroke}" Background="{DynamicResource FoldHeaderBg}" Margin="0,2,0,4" Padding="6,4,6,4"' this._BorderSnap() '>'
+            . '<StackPanel VerticalAlignment="Center" TextElement.FontSize="' XAMLHost.FormatFontSize(XAMLHost.ScaleFontSize(11)) '">'
             . this._BuildFoldHeaderRowXaml(t, f, fold, false)
         if (isMenu || isUI) {
             xaml .= '<StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,4,0,0">'
@@ -1021,7 +1027,7 @@ class MainWin {
             . '<Setter Property="MaxHeight" Value="30"/>'
             . '<Style.Triggers>'
             . '<DataTrigger Binding="{Binding IsAltRow}" Value="True"><Setter Property="Background" Value="{DynamicResource ListRowAltBg}"/></DataTrigger>'
-            . '<DataTrigger Binding="{Binding IsLastInFold}" Value="True">'
+            . '<DataTrigger Binding="{Binding IsLastModule}" Value="True">'
             . '<Setter Property="CornerRadius" Value="0,0,4,4"/>'
             . '<Setter Property="BorderThickness" Value="1.5,0,1.5,1.5"/>'
             . '<Setter Property="Height" Value="34"/>'
@@ -1041,25 +1047,56 @@ class MainWin {
     }
 
     _BuildFoldCardBorderOpen() {
+        ; 模块连成一块外框：中间头只画顶边当分割线，末模块才收底。
         return '<Border BorderBrush="{DynamicResource OutlineStroke}" Background="{DynamicResource FoldHeaderBg}" ClipToBounds="False"' this._BorderSnap() '>'
             . '<Border.Style><Style TargetType="Border">'
-            . '<Setter Property="CornerRadius" Value="4,4,0,0"/>'
+            . '<Setter Property="CornerRadius" Value="0"/>'
             . '<Setter Property="BorderThickness" Value="1.5,1.5,1.5,0"/>'
-            . '<Setter Property="Margin" Value="0,4,0,0"/>'
-            . '<Setter Property="Padding" Value="6,4,6,6"/>'
+            . '<Setter Property="Margin" Value="0"/>'
+            . '<Setter Property="Padding" Value="6,4,6,4"/>'
             . '<Style.Triggers>'
-            . '<DataTrigger Binding="{Binding Folded}" Value="True">'
+            . '<DataTrigger Binding="{Binding IsFirstFold}" Value="True">'
+            . '<Setter Property="CornerRadius" Value="4,4,0,0"/>'
+            . '<Setter Property="Margin" Value="0,4,0,0"/>'
+            . '</DataTrigger>'
+            . '<MultiDataTrigger>'
+            . '<MultiDataTrigger.Conditions>'
+            . '<Condition Binding="{Binding IsLastFold}" Value="True"/>'
+            . '<Condition Binding="{Binding Folded}" Value="True"/>'
+            . '</MultiDataTrigger.Conditions>'
+            . '<Setter Property="BorderThickness" Value="1.5"/>'
+            . '<Setter Property="CornerRadius" Value="0,0,4,4"/>'
+            . '<Setter Property="Margin" Value="0,0,0,4"/>'
+            . '</MultiDataTrigger>'
+            . '<MultiDataTrigger>'
+            . '<MultiDataTrigger.Conditions>'
+            . '<Condition Binding="{Binding IsLastFold}" Value="True"/>'
+            . '<Condition Binding="{Binding HasBody}" Value="False"/>'
+            . '</MultiDataTrigger.Conditions>'
+            . '<Setter Property="BorderThickness" Value="1.5"/>'
+            . '<Setter Property="CornerRadius" Value="0,0,4,4"/>'
+            . '<Setter Property="Margin" Value="0,0,0,4"/>'
+            . '</MultiDataTrigger>'
+            . '<MultiDataTrigger>'
+            . '<MultiDataTrigger.Conditions>'
+            . '<Condition Binding="{Binding IsFirstFold}" Value="True"/>'
+            . '<Condition Binding="{Binding IsLastFold}" Value="True"/>'
+            . '<Condition Binding="{Binding Folded}" Value="True"/>'
+            . '</MultiDataTrigger.Conditions>'
             . '<Setter Property="CornerRadius" Value="4"/>'
             . '<Setter Property="BorderThickness" Value="1.5"/>'
             . '<Setter Property="Margin" Value="0,4,0,4"/>'
-            . '<Setter Property="Padding" Value="6,4,6,6"/>'
-            . '</DataTrigger>'
-            . '<DataTrigger Binding="{Binding HasBody}" Value="False">'
+            . '</MultiDataTrigger>'
+            . '<MultiDataTrigger>'
+            . '<MultiDataTrigger.Conditions>'
+            . '<Condition Binding="{Binding IsFirstFold}" Value="True"/>'
+            . '<Condition Binding="{Binding IsLastFold}" Value="True"/>'
+            . '<Condition Binding="{Binding HasBody}" Value="False"/>'
+            . '</MultiDataTrigger.Conditions>'
             . '<Setter Property="CornerRadius" Value="4"/>'
             . '<Setter Property="BorderThickness" Value="1.5"/>'
             . '<Setter Property="Margin" Value="0,4,0,4"/>'
-            . '<Setter Property="Padding" Value="6,4,6,6"/>'
-            . '</DataTrigger>'
+            . '</MultiDataTrigger>'
             . '</Style.Triggers></Style></Border.Style>'
     }
 
@@ -1367,7 +1404,7 @@ class MainWin {
         foldFs := XAMLHost.FormatFontSize(XAMLHost.ScaleFontSize(11))
         fold := '<DataTemplate x:Key="RmtFoldHeader">'
             . this._BuildFoldCardBorderOpen()
-            . '<StackPanel TextElement.FontSize="' foldFs '">'
+            . '<StackPanel VerticalAlignment="Center" TextElement.FontSize="' foldFs '">'
             . this._BuildFoldHeaderRowXaml(0, 0, "", true)
             . '<StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,4,0,0" Visibility="{Binding ShowTKRowVisibility}">'
             . '<TextBlock Text="' GetLang("菜单触发键：") '" VerticalAlignment="Center" Foreground="{DynamicResource TextMain}"/>'

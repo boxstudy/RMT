@@ -362,8 +362,9 @@ public class VirtualListHost
         }
         ApplyReset(newItems, keepOff);
         _stickyFold = null;
-        // 结构重建首帧常在视口未定时量出；空闲后再 Reset 一次，与展开/折叠后的界面一致
-        _lb.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.ContextIdle, new System.Action(() => Relayout()));
+        // 视口已落定则不再二次 Reset（ContextIdle 会在首帧之后重排，切页签时偶发抖动）
+        if (_lb.ActualHeight < 8)
+            _lb.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, new System.Action(() => Relayout()));
     }
 
     // 与折叠同一条显示路径：对现有对象再发一次 Reset，逼容器按已落定视口重测
@@ -448,6 +449,7 @@ public class VirtualListHost
             dr.LoopEnabled = sr.LoopEnabled;
             dr.IsAltRow = sr.IsAltRow;
             dr.IsLastInFold = sr.IsLastInFold;
+            dr.IsLastModule = sr.IsLastModule;
             return;
         }
         VListFold df = dst as VListFold, sf = src as VListFold;
@@ -461,6 +463,8 @@ public class VirtualListHost
             df.FoldTK = sf.FoldTK;
             df.Folded = sf.Folded;
             df.HasBody = sf.HasBody;
+            df.IsFirstFold = sf.IsFirstFold;
+            df.IsLastFold = sf.IsLastFold;
             df.ShowTKRow = sf.ShowTKRow;
             df.FoldTKTypeEnabled = sf.FoldTKTypeEnabled;
             df.ChildRows = sf.ChildRows;
@@ -883,7 +887,11 @@ public class VirtualListHost
             VListFold nextFold = it as VListFold;
             if (nextFold != null)
             {
+                if (fold != null)
+                    fold.IsLastFold = false;
                 CloseFoldFlags(fold, lastRow);
+                nextFold.IsFirstFold = (fold == null);
+                nextFold.IsLastFold = true;
                 fold = nextFold;
                 lastRow = null;
                 i = 0;
@@ -894,6 +902,7 @@ public class VirtualListHost
             {
                 row.IsAltRow = (i % 2) == 0;
                 row.IsLastInFold = false;
+                row.IsLastModule = false;
                 lastRow = row;
                 i++;
                 continue;
@@ -911,7 +920,10 @@ public class VirtualListHost
         if (fold != null)
             fold.HasBody = lastRow != null;
         if (lastRow != null)
+        {
             lastRow.IsLastInFold = true;
+            lastRow.IsLastModule = fold != null && fold.IsLastFold;
+        }
     }
 
     private void EnsureDragUi()
@@ -1099,6 +1111,7 @@ public class VListRow : VLItem
     public bool LoopEnabled { get; set; }
     public bool IsAltRow { get { return _IsAltRow; } set { Set(ref _IsAltRow, value, "IsAltRow"); } } private bool _IsAltRow;
     public bool IsLastInFold { get { return _IsLastInFold; } set { Set(ref _IsLastInFold, value, "IsLastInFold"); } } private bool _IsLastInFold;
+    public bool IsLastModule { get { return _IsLastModule; } set { Set(ref _IsLastModule, value, "IsLastModule"); } } private bool _IsLastModule;
 }
 
 public class VListFold : VLItem
@@ -1110,6 +1123,8 @@ public class VListFold : VLItem
     public string FoldTK { get { return _FoldTK; } set { Set(ref _FoldTK, value, "FoldTK"); } } private string _FoldTK;
     public bool Folded { get { return _Folded; } set { Set(ref _Folded, value, "Folded"); } } private bool _Folded;
     public bool HasBody { get { return _HasBody; } set { Set(ref _HasBody, value, "HasBody"); } } private bool _HasBody;
+    public bool IsFirstFold { get { return _IsFirstFold; } set { Set(ref _IsFirstFold, value, "IsFirstFold"); } } private bool _IsFirstFold;
+    public bool IsLastFold { get { return _IsLastFold; } set { Set(ref _IsLastFold, value, "IsLastFold"); } } private bool _IsLastFold;
     public bool ShowTKRow { get; set; }
     public bool FoldTKTypeEnabled { get; set; }
     public string ShowTKRowVisibility { get { return ShowTKRow ? "Visible" : "Collapsed"; } }

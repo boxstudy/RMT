@@ -40,9 +40,10 @@ class VirtualListHost {
     Init(t, tableItem, refreshFonts := "") {
         this.EnsureEvents(t)
         this._ui.Update("FoldList_" t, "VL_INIT", this._BuildRecords(t, tableItem))
-        ; 拖拽/揭盖后的二次 VL_INIT 不要整窗 ApplyFonts，否则会闪一帧字号重算
-        doFonts := refreshFonts == "" ? !this._vlFonts.Has(t) : refreshFonts
+        ; 只在本窗第一次 VL 填充时刷字号。每个页签首切都 ApplyFonts 会整窗重测，切页偶发抖动
+        doFonts := refreshFonts == "" ? !this._vlFonts.Has(0) : refreshFonts
         if (doFonts) {
+            this._vlFonts[0] := true
             this._vlFonts[t] := true
             try MyMainWin.RefreshVLFonts()
         }
