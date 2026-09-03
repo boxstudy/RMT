@@ -533,6 +533,7 @@ class AppThemeUtil {
                 {ControlName: "Resource", PropertyName: "ListAltBg", Value: AppThemeUtil.MakeListAltBg(titleBg)},
                 {ControlName: "Resource", PropertyName: "ListRowAltBg", Value: AppThemeUtil.MakeListRowAltBg(windowBg, actionBg)},
                 {ControlName: "Resource", PropertyName: "FoldHeaderBg", Value: AppThemeUtil.MakeFoldHeaderBg(windowBg, titleBg)},
+                {ControlName: "Resource", PropertyName: "FoldAltBg", Value: AppThemeUtil.MakeFoldAltBg(windowBg, actionBg)},
                 {ControlName: "DragArea", PropertyName: "Background", Value: titleBg},
                 {ControlName: "Window", PropertyName: "Background", Value: windowBg}
             ]
@@ -575,6 +576,7 @@ class AppThemeUtil {
             try ui.Update("Resource", "ListAltBg", AppThemeUtil.MakeListAltBg(titleBg))
             try ui.Update("Resource", "ListRowAltBg", AppThemeUtil.MakeListRowAltBg(windowBg, actionBg))
             try ui.Update("Resource", "FoldHeaderBg", AppThemeUtil.MakeFoldHeaderBg(windowBg, titleBg))
+            try ui.Update("Resource", "FoldAltBg", AppThemeUtil.MakeFoldAltBg(windowBg, actionBg))
             try ui.Update("DragArea", "Background", titleBg)
             try ui.Update("Window", "Background", windowBg)
         }
@@ -599,11 +601,19 @@ class AppThemeUtil {
         return Format("#FF{:02X}{:02X}{:02X}", r, g, b2)
     }
 
-    ; 宏配置斑马纹（第一、三…行）：比第二行（窗口底）只深一点点
+    ; 宏行斑马：浅粉（比窗口白粉略深），混入少量操作色
     static MakeListRowAltBg(windowBg, actionBg) {
-        c := AppThemeUtil.BlendRgb(windowBg, actionBg, 0.035)
-        if (AppThemeUtil.RgbLuma(c) >= AppThemeUtil.RgbLuma(windowBg) - 1)
-            c := AppThemeUtil.AdjustRgbBrightness(windowBg, 0.97)
+        c := AppThemeUtil.BlendRgb(windowBg, actionBg, 0.04)
+        if (AppThemeUtil.RgbLuma(c) >= AppThemeUtil.RgbLuma(windowBg) - 3)
+            c := AppThemeUtil.AdjustRgbBrightness(windowBg, 0.98)
+        return c
+    }
+
+    ; 模块斑马：混入操作色，比宏行更深一档，无分割线时也能分清
+    static MakeFoldAltBg(windowBg, actionBg) {
+        c := AppThemeUtil.BlendRgb(windowBg, actionBg, 0.22)
+        if (AppThemeUtil.RgbLuma(c) >= AppThemeUtil.RgbLuma(windowBg) - 8)
+            c := AppThemeUtil.AdjustRgbBrightness(windowBg, 0.88)
         return c
     }
 

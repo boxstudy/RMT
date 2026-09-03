@@ -448,6 +448,7 @@ public class VirtualListHost
             dr.TKTypeEnabled = sr.TKTypeEnabled;
             dr.LoopEnabled = sr.LoopEnabled;
             dr.IsAltRow = sr.IsAltRow;
+            dr.IsAltFold = sr.IsAltFold;
             dr.IsLastInFold = sr.IsLastInFold;
             dr.IsLastModule = sr.IsLastModule;
             return;
@@ -465,6 +466,7 @@ public class VirtualListHost
             df.HasBody = sf.HasBody;
             df.IsFirstFold = sf.IsFirstFold;
             df.IsLastFold = sf.IsLastFold;
+            df.IsAltFold = sf.IsAltFold;
             df.ShowTKRow = sf.ShowTKRow;
             df.FoldTKTypeEnabled = sf.FoldTKTypeEnabled;
             df.ChildRows = sf.ChildRows;
@@ -882,6 +884,7 @@ public class VirtualListHost
         VListFold fold = null;
         VListRow lastRow = null;
         int i = 0;
+        int foldIndex = 0;
         foreach (object it in items)
         {
             VListFold nextFold = it as VListFold;
@@ -892,6 +895,8 @@ public class VirtualListHost
                 CloseFoldFlags(fold, lastRow);
                 nextFold.IsFirstFold = (fold == null);
                 nextFold.IsLastFold = true;
+                nextFold.IsAltFold = (foldIndex % 2) == 1;
+                foldIndex++;
                 fold = nextFold;
                 lastRow = null;
                 i = 0;
@@ -901,6 +906,7 @@ public class VirtualListHost
             if (row != null)
             {
                 row.IsAltRow = (i % 2) == 0;
+                row.IsAltFold = fold != null && fold.IsAltFold;
                 row.IsLastInFold = false;
                 row.IsLastModule = false;
                 lastRow = row;
@@ -1110,6 +1116,7 @@ public class VListRow : VLItem
     public bool TKTypeEnabled { get; set; }
     public bool LoopEnabled { get; set; }
     public bool IsAltRow { get { return _IsAltRow; } set { Set(ref _IsAltRow, value, "IsAltRow"); } } private bool _IsAltRow;
+    public bool IsAltFold { get { return _IsAltFold; } set { Set(ref _IsAltFold, value, "IsAltFold"); } } private bool _IsAltFold;
     public bool IsLastInFold { get { return _IsLastInFold; } set { Set(ref _IsLastInFold, value, "IsLastInFold"); } } private bool _IsLastInFold;
     public bool IsLastModule { get { return _IsLastModule; } set { Set(ref _IsLastModule, value, "IsLastModule"); } } private bool _IsLastModule;
 }
@@ -1125,6 +1132,7 @@ public class VListFold : VLItem
     public bool HasBody { get { return _HasBody; } set { Set(ref _HasBody, value, "HasBody"); } } private bool _HasBody;
     public bool IsFirstFold { get { return _IsFirstFold; } set { Set(ref _IsFirstFold, value, "IsFirstFold"); } } private bool _IsFirstFold;
     public bool IsLastFold { get { return _IsLastFold; } set { Set(ref _IsLastFold, value, "IsLastFold"); } } private bool _IsLastFold;
+    public bool IsAltFold { get { return _IsAltFold; } set { Set(ref _IsAltFold, value, "IsAltFold"); } } private bool _IsAltFold;
     public bool ShowTKRow { get; set; }
     public bool FoldTKTypeEnabled { get; set; }
     public string ShowTKRowVisibility { get { return ShowTKRow ? "Visible" : "Collapsed"; } }

@@ -327,11 +327,11 @@ class MainWin {
                 ; 取整会让行 Margin(2)/24px 控件在 125% DPI 下按累计偏移不同而 ±1px（展开/折叠/拖拽后
                 ; 行距忽大忽小、侧边框断点、备注底边被吞）。关闭后位置为稳定小数，边框仍清晰。
                 vg.Add("ListBox").Name("FoldList_" idx).SelectionMode("Single").BorderThickness("0").Background("Transparent")
-                    .Margin("4,2,4,2").UseLayoutRounding("False").SnapsToDevicePixels("True")
+                    .Margin("0").UseLayoutRounding("False").SnapsToDevicePixels("True")
                     .VirtualizingPanel_IsVirtualizing("True").VirtualizingPanel_VirtualizationMode("Standard")
                     .VirtualizingPanel_CacheLength("2,2").VirtualizingPanel_CacheLengthUnit("Page")
                 ; 吸顶折叠头 overlay（sticky header）：滚动时当前模块头钉在列表顶部
-                vg.Add("ContentControl").Name("VLSticky_" idx).VerticalAlignment("Top").HorizontalAlignment("Stretch").Visibility("Collapsed").Margin("4,2,4,2").UseLayoutRounding("False").SnapsToDevicePixels("True")
+                vg.Add("ContentControl").Name("VLSticky_" idx).VerticalAlignment("Top").HorizontalAlignment("Stretch").Visibility("Collapsed").Margin("0").UseLayoutRounding("False").SnapsToDevicePixels("True")
             } else {
                 ; 工具/设置/帮助/赞助/感谢：ScrollViewer 包在统一内容边框内
                 sv := bd.Add("ScrollViewer").VerticalScrollBarVisibility("Auto").HorizontalScrollBarVisibility("Disabled")
@@ -472,6 +472,7 @@ class MainWin {
             . '<SolidColorBrush x:Key="ListAltBg" Color="#40000000"/>'
             . '<SolidColorBrush x:Key="ListRowAltBg" Color="#FF2A2A2A"/>'
             . '<SolidColorBrush x:Key="FoldHeaderBg" Color="#FF333333"/>'
+            . '<SolidColorBrush x:Key="FoldAltBg" Color="#FF3A3A3A"/>'
             ; 主界面主要轮廓描边（按钮/页签/模块）：比 InputStroke 更深，随主题由 ApplyWinThemeToXaml 覆盖
             . '<SolidColorBrush x:Key="OutlineStroke" Color="#FF999999"/>'
         this._foldFieldW := 198
@@ -758,7 +759,7 @@ class MainWin {
         for f, fold in tableItem.Folds {
             vis := fold.FoldState ? ' Visibility="Collapsed"' : ""
             xaml := '<StackPanel ' ns '>'
-                . this._BuildFoldTitleRow(t, f)
+                . this._BuildFoldTitleRow(t, f, Mod(f, 2) == 0)
                 . '<StackPanel Name="FoldItems_' t '_' f '"' vis '>'
             for i, item in tableItem.Items {
                 if (item.FoldID != fold.ID)
@@ -784,12 +785,13 @@ class MainWin {
         this._BindFoldRows(t)
     }
 
-    _BuildFoldTitleRow(t, f) {
+    _BuildFoldTitleRow(t, f, isAlt := false) {
         fold := MySoftData.TableInfo[t].Folds[f]
         isMenu := CheckIsMenuMacroTable(t)
         isUI := GetTableSymbol(t) == "UI"
         ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
-        xaml := '<Border ' ns ' CornerRadius="4" BorderThickness="1.5" BorderBrush="{DynamicResource OutlineStroke}" Background="{DynamicResource FoldHeaderBg}" Margin="0,2,0,4" Padding="6,4,6,4"' this._BorderSnap() '>'
+        foldBg := isAlt ? "{DynamicResource FoldAltBg}" : "{DynamicResource FoldHeaderBg}"
+        xaml := '<Border ' ns ' CornerRadius="0" BorderThickness="0" BorderBrush="{DynamicResource OutlineStroke}" Background="' foldBg '" Margin="0" Padding="6,4,6,4"' this._BorderSnap() '>'
             . '<StackPanel VerticalAlignment="Center" TextElement.FontSize="' XAMLHost.FormatFontSize(XAMLHost.ScaleFontSize(11)) '">'
             . this._BuildFoldHeaderRowXaml(t, f, fold, false)
         if (isMenu || isUI) {
@@ -1014,11 +1016,11 @@ class MainWin {
 
     _BuildItemCardOpen(ns := "") {
         nsAttr := ns != "" ? " " ns : ""
-        ; 宏行默认 30px（无上下边、内边距 3+3，内容 24）。末行多 1px 底边 + 底内边距 5，高度 34，内容区 25，控件底边不被裁。
+        ; 宏行贴在页签内容框里，不再自绘左右/底边；高度 30（内边距 3+3，内容 24）。
         return '<Border' nsAttr ' BorderBrush="{DynamicResource OutlineStroke}" ClipToBounds="False"' this._BorderSnap() '>'
             . '<Border.Style><Style TargetType="Border">'
             . '<Setter Property="CornerRadius" Value="0"/>'
-            . '<Setter Property="BorderThickness" Value="1.5,0,1.5,0"/>'
+            . '<Setter Property="BorderThickness" Value="0"/>'
             . '<Setter Property="Margin" Value="0"/>'
             . '<Setter Property="Padding" Value="4,3,6,3"/>'
             . '<Setter Property="Background" Value="{DynamicResource ControlBg}"/>'
@@ -1027,16 +1029,8 @@ class MainWin {
             . '<Setter Property="MaxHeight" Value="30"/>'
             . '<Style.Triggers>'
             . '<DataTrigger Binding="{Binding IsAltRow}" Value="True"><Setter Property="Background" Value="{DynamicResource ListRowAltBg}"/></DataTrigger>'
-            . '<DataTrigger Binding="{Binding IsLastModule}" Value="True">'
-            . '<Setter Property="CornerRadius" Value="0,0,4,4"/>'
-            . '<Setter Property="BorderThickness" Value="1.5,0,1.5,1.5"/>'
-            . '<Setter Property="Height" Value="34"/>'
-            . '<Setter Property="MinHeight" Value="34"/>'
-            . '<Setter Property="MaxHeight" Value="34"/>'
-            . '<Setter Property="Padding" Value="4,3,6,5"/>'
-            . '</DataTrigger>'
             . '</Style.Triggers></Style></Border.Style>'
-            . '<Grid Height="24" VerticalAlignment="Top">'
+            . '<Grid Height="24" VerticalAlignment="Center">'
             . '<Grid.ColumnDefinitions><ColumnDefinition Width="' this._ItemDragColW() '"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>'
             . '<Grid Grid.Column="0" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="12,0,2,0">' this._BuildDragHandleXaml() '</Grid>'
             . '<Grid Grid.Column="1" Height="24">'
@@ -1047,56 +1041,18 @@ class MainWin {
     }
 
     _BuildFoldCardBorderOpen() {
-        ; 模块连成一块外框：中间头只画顶边当分割线，末模块才收底。
-        return '<Border BorderBrush="{DynamicResource OutlineStroke}" Background="{DynamicResource FoldHeaderBg}" ClipToBounds="False"' this._BorderSnap() '>'
+        ; 背景只写在 Style 里：本地 Background 会压过 DataTrigger，斑马不生效。
+        return '<Border BorderBrush="{DynamicResource OutlineStroke}" ClipToBounds="False"' this._BorderSnap() '>'
             . '<Border.Style><Style TargetType="Border">'
+            . '<Setter Property="Background" Value="{DynamicResource FoldHeaderBg}"/>'
             . '<Setter Property="CornerRadius" Value="0"/>'
-            . '<Setter Property="BorderThickness" Value="1.5,1.5,1.5,0"/>'
+            . '<Setter Property="BorderThickness" Value="0"/>'
             . '<Setter Property="Margin" Value="0"/>'
             . '<Setter Property="Padding" Value="6,4,6,4"/>'
             . '<Style.Triggers>'
-            . '<DataTrigger Binding="{Binding IsFirstFold}" Value="True">'
-            . '<Setter Property="CornerRadius" Value="4,4,0,0"/>'
-            . '<Setter Property="Margin" Value="0,4,0,0"/>'
+            . '<DataTrigger Binding="{Binding IsAltFold}" Value="True">'
+            . '<Setter Property="Background" Value="{DynamicResource FoldAltBg}"/>'
             . '</DataTrigger>'
-            . '<MultiDataTrigger>'
-            . '<MultiDataTrigger.Conditions>'
-            . '<Condition Binding="{Binding IsLastFold}" Value="True"/>'
-            . '<Condition Binding="{Binding Folded}" Value="True"/>'
-            . '</MultiDataTrigger.Conditions>'
-            . '<Setter Property="BorderThickness" Value="1.5"/>'
-            . '<Setter Property="CornerRadius" Value="0,0,4,4"/>'
-            . '<Setter Property="Margin" Value="0,0,0,4"/>'
-            . '</MultiDataTrigger>'
-            . '<MultiDataTrigger>'
-            . '<MultiDataTrigger.Conditions>'
-            . '<Condition Binding="{Binding IsLastFold}" Value="True"/>'
-            . '<Condition Binding="{Binding HasBody}" Value="False"/>'
-            . '</MultiDataTrigger.Conditions>'
-            . '<Setter Property="BorderThickness" Value="1.5"/>'
-            . '<Setter Property="CornerRadius" Value="0,0,4,4"/>'
-            . '<Setter Property="Margin" Value="0,0,0,4"/>'
-            . '</MultiDataTrigger>'
-            . '<MultiDataTrigger>'
-            . '<MultiDataTrigger.Conditions>'
-            . '<Condition Binding="{Binding IsFirstFold}" Value="True"/>'
-            . '<Condition Binding="{Binding IsLastFold}" Value="True"/>'
-            . '<Condition Binding="{Binding Folded}" Value="True"/>'
-            . '</MultiDataTrigger.Conditions>'
-            . '<Setter Property="CornerRadius" Value="4"/>'
-            . '<Setter Property="BorderThickness" Value="1.5"/>'
-            . '<Setter Property="Margin" Value="0,4,0,4"/>'
-            . '</MultiDataTrigger>'
-            . '<MultiDataTrigger>'
-            . '<MultiDataTrigger.Conditions>'
-            . '<Condition Binding="{Binding IsFirstFold}" Value="True"/>'
-            . '<Condition Binding="{Binding IsLastFold}" Value="True"/>'
-            . '<Condition Binding="{Binding HasBody}" Value="False"/>'
-            . '</MultiDataTrigger.Conditions>'
-            . '<Setter Property="CornerRadius" Value="4"/>'
-            . '<Setter Property="BorderThickness" Value="1.5"/>'
-            . '<Setter Property="Margin" Value="0,4,0,4"/>'
-            . '</MultiDataTrigger>'
             . '</Style.Triggers></Style></Border.Style>'
     }
 
