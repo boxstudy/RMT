@@ -1,0 +1,39 @@
+---
+description: 用户说「同步知识库」时，按本规则把 Web/Knowledge 与当前代码对齐
+alwaysApply: true
+---
+
+# 同步知识库
+
+用户说「同步知识库」「更新知识库」「sync knowledge」时，完整重同步 `Web/Knowledge/`，不要只改一两句。
+
+## 原则
+
+- 以**当前代码**为准，不要沿用旧 Knowledge 里过时的枚举/默认值。
+- 面向 Astrbot：讲清字段、取值、落盘键、怎么读用户配置。
+- 不复制 `Web/指令手册.md` 等已有手册的界面说明；本目录只补原理与配置分析。
+- 代码注释与执行不一致时，写执行代码，并注明注释过时。
+- 不写违法/作弊协助。
+
+## 文件与源
+
+| 文件 | 源 |
+|------|-----|
+| `00-知识库索引.md` | 本表 + 回答原则 |
+| `01-DataClass数据结构.md` | `Main/DataClass.Ahk` 全部类；`InitData` 的 DataFileMap/DataClassMap |
+| `02-软件运行流程.md` | `RMT.ahk`、`BindUtil.ahk`、`TriggerKeyData.ahk`、`MacroUtil.ahk`、`WorkPool.ahk`、`TimingUtil.ahk` |
+| `03-触发类型区别.md` | `TriggerKeyData.ahk` 1~6 型 + ContinuousTrigger/松修饰键 |
+| `04-软件设置选项.md` | `AddSettingUI`、各 `*SettingGui.ahk`、`LoadMainSetting`、帮助 MsgBox |
+| `05-指令执行原理.md` | `ExecuteMacroCmdOnce` 的 Actions 与各 `On*` |
+| `06-杂项补充.md` | 分隔符、前台、编辑器、提示音、配置管理、免责 |
+| `07-配置文件格式.md` | `InitFilePath`、`ReadTableItemInfo`、`GetMacroCMDData` |
+| `08-变量与表达式.md` | `VariableUtil.ahk`、`GetSystemVarArr` |
+| `09-页签与宏类型.md` | `TabNameArr`/`TabSymbolArr` 与各页绑定 |
+| `10-插件驱动依赖.md` | `Plugins/`、`常见问题.md`、罗技/AHI/ViGEm |
+| `11-配置分析指南.md` | 读配置步骤与高频结论 |
+
+新增了指令类型、设置项、TableItem 字段或 ini 键时：同步改 01/04/05/07，必要时加新 md 并更新 00。
+
+## 做完后
+
+列出改了哪些文件、相对上次的要点（新字段、改名的枚举）。不要提交 git，除非用户明确要求。
