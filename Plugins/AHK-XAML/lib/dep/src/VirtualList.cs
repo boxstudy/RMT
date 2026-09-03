@@ -11,7 +11,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Xml;
 using System.Reflection;
-using System.Windows.Documents;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Markup;
 using Color = System.Windows.Media.Color;
@@ -56,6 +56,12 @@ public class VirtualListHost
     // §11 VL 拖拽：按下起点 + 是否已武装（交互控件上不启动）
     private Point _dragStartPoint;
     private bool _dragArmed;
+    private Popup _ghostPopup;
+    private TextBlock _ghostText;
+    private Popup _insertPopup;
+    private Border _insertBar;
+    private ListBoxItem _insertTarget;
+    private bool _insertBefore;
     // 表类型 enabled 标志（VL_INIT 首行 T<t>_0 注入，per host 恒定）；默认 true 兼容不带标志的调用
     private bool _tkBtnEn = true;
     private bool _tkTypeEn = true;
@@ -103,6 +109,8 @@ public class VirtualListHost
             _lb.AddHandler(Selector.SelectionChangedEvent, new SelectionChangedEventHandler(OnSelectionChanged));
             _lb.AddHandler(System.Windows.UIElement.LostKeyboardFocusEvent, new System.Windows.Input.KeyboardFocusChangedEventHandler(OnLostFocus));
             _lb.AddHandler(System.Windows.UIElement.MouseRightButtonUpEvent, new System.Windows.Input.MouseButtonEventHandler(OnRightUp), true);
+            // 点击折叠按钮时 WPF 会 BringIntoView，把上面的模块顶走；展开/折叠禁止自动滚入视口
+            _lb.RequestBringIntoView += (s, e) => { e.Handled = true; };
             // §11 VL 拖拽排序：行/折叠头按住拖动 → VL_DROP 回传（srcId\x1FtgtId\x1F0前|1后）
             _lb.AllowDrop = true;
             _dragArmed = false;
@@ -111,12 +119,25 @@ public class VirtualListHost
                 _dragArmed = false;
                 FrameworkElement fe = e.OriginalSource as FrameworkElement;
                 DependencyObject d = fe;
-                // 交互控件（按钮/输入框/下拉/勾选/滚动条）上不启动拖拽
+                bool fromHandle = false;
                 while (d != null)
                 {
+                    FrameworkElement el = d as FrameworkElement;
+                    if (el != null && (el.Tag as string) == "DragHandle")
+                    {
+                        fromHandle = true;
+                        break;
+                    }
                     if (d is ButtonBase || d is TextBox || d is ComboBox || d is CheckBox || d is ScrollBar)
                         return;
                     d = System.Windows.Media.VisualTreeHelper.GetParent(d);
+                }
+                if (!fromHandle)
+                {
+                    ListBoxItem under = GetItemUnderMouse(_lb, e.GetPosition(_lb));
+                    VLItem underVi = under != null ? under.DataContext as VLItem : null;
+                    if (!(underVi is VListFold))
+                        return;
                 }
                 _dragStartPoint = e.GetPosition(null);
                 _dragArmed = true;
@@ -133,24 +154,92 @@ public class VirtualListHost
                 ListBoxItem item = GetItemUnderMouse(_lb, e.GetPosition(_lb));
                 if (item == null) return;
                 VLItem vi = item.DataContext as VLItem;
-                if (vi == null) return;
+                if (vi == null || vi is VListAddFold) return;
+                EnsureDragUi();
+                _ghostText.Text = GhostLabel(vi);
                 try
                 {
                     DataObject dobj = new DataObject("VLRowId", vi.Id);
                     DragDrop.DoDragDrop(_lb, dobj, DragDropEffects.Move);
                 }
                 catch { }
+                HideDragUi();
+            };
+            _lb.GiveFeedback += (s, e) =>
+            {
+                e.UseDefaultCursors = false;
+                try { Mouse.SetCursor(Cursors.Arrow); } catch { }
+                EnsureDragUi();
+                Point dip = CursorDip(_lb);
+                if (_ghostPopup.IsOpen
+                    && Math.Abs(dip.X + 18 - _ghostPopup.HorizontalOffset) < 2
+                    && Math.Abs(dip.Y + 14 - _ghostPopup.VerticalOffset) < 2)
+                {
+                    e.Handled = true;
+                    return;
+                }
+                _ghostPopup.HorizontalOffset = dip.X + 18;
+                _ghostPopup.VerticalOffset = dip.Y + 14;
+                _ghostPopup.IsOpen = true;
+                e.Handled = true;
+            };
+            _lb.DragOver += (s, e) =>
+            {
+                if (!e.Data.GetDataPresent("VLRowId")) return;
+                e.Effects = DragDropEffects.Move;
+                ListBoxItem target = GetItemUnderMouse(_lb, e.GetPosition(_lb));
+                if (target == null || target.DataContext is VListAddFold)
+                {
+                    e.Handled = true;
+                    return;
+                }
+                ShowInsertMarker(target, InsertBefore(target, e.GetPosition(target).Y));
+                e.Handled = true;
+            };
+            _lb.DragLeave += (s, e) =>
+            {
+                Point p = e.GetPosition(_lb);
+                if (p.X < 0 || p.Y < 0 || p.X >= _lb.ActualWidth || p.Y >= _lb.ActualHeight)
+                    HideInsertMarker();
             };
             _lb.Drop += (s, e) =>
             {
-                if (!e.Data.GetDataPresent("VLRowId")) return;
+                if (!e.Data.GetDataPresent("VLRowId"))
+                {
+                    HideDragUi();
+                    return;
+                }
                 string srcId = (string)e.Data.GetData("VLRowId");
                 ListBoxItem target = GetItemUnderMouse(_lb, e.GetPosition(_lb));
+                ListBoxItem markerTarget = _insertTarget;
+                bool markerBefore = _insertBefore;
+                bool before = ReferenceEquals(target, markerTarget)
+                    ? markerBefore
+                    : (target != null && InsertBefore(target, e.GetPosition(target).Y));
+                HideDragUi();
+                if (target == null && markerTarget != null)
+                {
+                    target = markerTarget;
+                    before = markerBefore;
+                }
                 if (target == null) return;
                 VLItem tvi = target.DataContext as VLItem;
-                if (tvi == null || tvi.Id == srcId) return;
-                // 插入位置：拖点相对目标行上/下半
-                bool before = e.GetPosition(target).Y < target.ActualHeight / 2;
+                if (tvi == null) return;
+                if (tvi.Id == srcId)
+                {
+                    object srcObj;
+                    if (!_byId.TryGetValue(srcId, out srcObj)) return;
+                    int si = _items.IndexOf(srcObj);
+                    if (si < 0) return;
+                    int ni = before ? si - 1 : si + 1;
+                    if (ni < 0 || ni >= _items.Count) return;
+                    VLItem nb = _items[ni] as VLItem;
+                    if (nb == null || nb is VListAddFold) return;
+                    tvi = nb;
+                    before = !before;
+                }
+                if (tvi is VListAddFold)
+                    before = false;
                 SendDrop(srcId, tvi.Id, before);
                 e.Handled = true;
             };
@@ -158,8 +247,15 @@ public class VirtualListHost
             // 容器模板剥成裸 ContentPresenter：SelectionMode=Single 仅为合法值，实际无选中高亮/键盘焦点
             var lbiStyle = new System.Windows.Style(typeof(System.Windows.Controls.ListBoxItem));
             lbiStyle.Setters.Add(new System.Windows.Setter(System.Windows.Controls.ListBoxItem.FocusableProperty, false));
+            lbiStyle.Setters.Add(new System.Windows.Setter(System.Windows.Controls.ListBoxItem.MarginProperty, new Thickness(0)));
+            lbiStyle.Setters.Add(new System.Windows.Setter(System.Windows.Controls.ListBoxItem.PaddingProperty, new Thickness(0)));
+            lbiStyle.Setters.Add(new System.Windows.Setter(System.Windows.UIElement.ClipToBoundsProperty, false));
+            lbiStyle.Setters.Add(new System.Windows.Setter(System.Windows.FrameworkElement.UseLayoutRoundingProperty, false));
+            lbiStyle.Setters.Add(new System.Windows.Setter(System.Windows.Controls.ListBoxItem.HorizontalContentAlignmentProperty, HorizontalAlignment.Stretch));
+            var lbiFactory = new System.Windows.FrameworkElementFactory(typeof(System.Windows.Controls.ContentPresenter));
+            lbiFactory.SetValue(System.Windows.Controls.ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Stretch);
             var lbiTemplate = new System.Windows.Controls.ControlTemplate(typeof(System.Windows.Controls.ListBoxItem))
-            { VisualTree = new System.Windows.FrameworkElementFactory(typeof(System.Windows.Controls.ContentPresenter)) };
+            { VisualTree = lbiFactory };
             lbiStyle.Setters.Add(new System.Windows.Setter(System.Windows.Controls.ListBoxItem.TemplateProperty, lbiTemplate));
             _lb.ItemContainerStyle = lbiStyle;
             // 吸顶折叠头 overlay（VLSticky_<t>）：惰性查找 + 复用 RmtFoldHeader 模板 + 同一套事件回传
@@ -195,6 +291,7 @@ public class VirtualListHost
 
     private void Rebuild(string val)
     {
+        double keepOff = CaptureScroll();
         _anchorId = FirstVisibleId();
         _byId.Clear();
         _items.Clear();
@@ -212,6 +309,14 @@ public class VirtualListHost
                 _tkTypeEn = f.Length > 2 && f[2] == "1";
                 _loopEn = f.Length > 3 && f[3] == "1";
                 _foldTKTypeEn = f.Length > 4 && f[4] == "1";
+                continue;
+            }
+            if (f[0][0] == 'A')
+            {
+                VListAddFold add = new VListAddFold();
+                add.Id = f[0];
+                _byId[add.Id] = add;
+                _items.Add(add);
                 continue;
             }
             if (f[0][0] == 'F')
@@ -245,16 +350,20 @@ public class VirtualListHost
                 _items.Add(r);
             }
         }
+        MarkFoldRowFlags(_items);
         if (_lb != null)
         {
             // 结构重建布局期压制容器回收产生的伪 SelectionChanged/LostFocus（同 SetFold）
             _suppressChange = true;
             _lb.ItemsSource = _items;
-            _lb.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, new System.Action(() => _suppressChange = false));
-            RestoreAnchor();
+            RestoreScroll(keepOff);
+            _lb.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, new System.Action(() =>
+            {
+                _suppressChange = false;
+                RestoreScroll(keepOff);
+                UpdateSticky();
+            }));
             _stickyFold = null;
-            // 布局落定后再算吸顶（offset 此时才有效）
-            _lb.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, new System.Action(UpdateSticky));
         }
     }
 
@@ -327,20 +436,20 @@ public class VirtualListHost
         {
             return; // 已是目标态
         }
+        MarkFoldRowFlags(newItems);
+        double keepOff = CaptureScroll();
         _items.ResetTo(newItems); // 一次 Reset 通知，避免逐条 RemoveAt/Insert 的容器回收抖动
         // 压制结构变更后的布局期容器回收伪事件（SelectionChanged/LostFocus），布局落定后恢复
         if (_lb != null)
         {
             _suppressChange = true;
-            _lb.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded,
-                new System.Action(() => _suppressChange = false));
-            RestoreAnchor();
-            // 布局落定后再算吸顶
-            _lb.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, new System.Action(UpdateSticky));
-        }
-        else
-        {
-            RestoreAnchor();
+            RestoreScroll(keepOff);
+            _lb.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, new System.Action(() =>
+            {
+                _suppressChange = false;
+                RestoreScroll(keepOff);
+                UpdateSticky();
+            }));
         }
     }
 
@@ -383,7 +492,7 @@ public class VirtualListHost
             ra.SeqNo = rb.SeqNo;
             rb.SeqNo = tmpSeq;
         }
-        RestoreAnchor();
+        MarkFoldRowFlags(_items);
     }
 
     // ---- 容器级事件路由 ----
@@ -550,6 +659,21 @@ public class VirtualListHost
         sv.ScrollToVerticalOffset(idx);
     }
 
+    private double CaptureScroll()
+    {
+        if (_lb == null) return 0;
+        System.Windows.Controls.ScrollViewer sv = BridgeUtil.FindVisualChild<System.Windows.Controls.ScrollViewer>(_lb);
+        return sv != null ? sv.VerticalOffset : 0;
+    }
+
+    private void RestoreScroll(double off)
+    {
+        if (_lb == null) return;
+        System.Windows.Controls.ScrollViewer sv = BridgeUtil.FindVisualChild<System.Windows.Controls.ScrollViewer>(_lb);
+        if (sv != null)
+            sv.ScrollToVerticalOffset(off);
+    }
+
     // ---- 吸顶折叠头（sticky fold header） ----
     // 模块头随滚动滑出视口时，overlay 把它钉在列表顶部；模块头仍完整可见时取消钉。
     private void UpdateSticky()
@@ -611,7 +735,7 @@ public class VirtualListHost
         return null;
     }
 
-    // §11 拖拽目标行命中：光标下最近的 ListBoxItem
+    // §11 拖拽目标行命中：光标下最近的 ListBoxItem；行间隙未命中时取最近项，避免插入线闪烁
     private ListBoxItem GetItemUnderMouse(ListBox lb, Point p)
     {
         System.Windows.Media.HitTestResult hit = System.Windows.Media.VisualTreeHelper.HitTest(lb, p);
@@ -620,10 +744,190 @@ public class VirtualListHost
             DependencyObject depObj = hit.VisualHit;
             while (depObj != null && !(depObj is ListBoxItem))
                 depObj = System.Windows.Media.VisualTreeHelper.GetParent(depObj);
-            return depObj as ListBoxItem;
+            ListBoxItem direct = depObj as ListBoxItem;
+            if (direct != null) return direct;
         }
-        return null;
+        var gen = lb.ItemContainerGenerator;
+        ListBoxItem best = null;
+        double bestDist = double.MaxValue;
+        int n = _items != null ? _items.Count : 0;
+        for (int i = 0; i < n; i++)
+        {
+            ListBoxItem c = gen.ContainerFromIndex(i) as ListBoxItem;
+            if (c == null || !c.IsVisible) continue;
+            Point tl = c.TranslatePoint(new Point(0, 0), lb);
+            double top = tl.Y, bottom = tl.Y + c.ActualHeight;
+            if (p.Y >= top && p.Y <= bottom)
+                return c;
+            double dist = p.Y < top ? top - p.Y : p.Y - bottom;
+            if (dist < bestDist)
+            {
+                bestDist = dist;
+                best = c;
+            }
+        }
+        return bestDist < 16 ? best : null;
     }
+
+    private bool InsertBefore(ListBoxItem target, double y)
+    {
+        double h = Math.Max(1, target.ActualHeight);
+        if (ReferenceEquals(target, _insertTarget) && _insertPopup != null && _insertPopup.IsOpen)
+        {
+            if (y < h * 0.35) return true;
+            if (y > h * 0.65) return false;
+            return _insertBefore;
+        }
+        return y < h * 0.5;
+    }
+
+    private void MarkFoldRowFlags(System.Collections.Generic.IEnumerable<object> items)
+    {
+        VListFold fold = null;
+        VListRow lastRow = null;
+        int i = 0;
+        foreach (object it in items)
+        {
+            VListFold nextFold = it as VListFold;
+            if (nextFold != null)
+            {
+                CloseFoldFlags(fold, lastRow);
+                fold = nextFold;
+                lastRow = null;
+                i = 0;
+                continue;
+            }
+            VListRow row = it as VListRow;
+            if (row != null)
+            {
+                row.IsAltRow = (i % 2) == 0;
+                row.IsLastInFold = false;
+                lastRow = row;
+                i++;
+                continue;
+            }
+            CloseFoldFlags(fold, lastRow);
+            fold = null;
+            lastRow = null;
+            i = 0;
+        }
+        CloseFoldFlags(fold, lastRow);
+    }
+
+    private static void CloseFoldFlags(VListFold fold, VListRow lastRow)
+    {
+        if (fold != null)
+            fold.HasBody = lastRow != null;
+        if (lastRow != null)
+            lastRow.IsLastInFold = true;
+    }
+
+    private void EnsureDragUi()
+    {
+        if (_ghostPopup != null) return;
+        _ghostText = new TextBlock
+        {
+            FontSize = 12,
+            Padding = new Thickness(10, 5, 10, 5),
+            MaxWidth = 280,
+            TextTrimming = TextTrimming.CharacterEllipsis
+        };
+        _ghostText.SetResourceReference(TextBlock.ForegroundProperty, "TextMain");
+        Border ghostBd = new Border
+        {
+            CornerRadius = new CornerRadius(3),
+            BorderThickness = new Thickness(1),
+            Child = _ghostText,
+            Opacity = 0.94
+        };
+        ghostBd.SetResourceReference(Border.BackgroundProperty, "ControlBg");
+        ghostBd.SetResourceReference(Border.BorderBrushProperty, "Accent");
+        _ghostPopup = new Popup
+        {
+            AllowsTransparency = true,
+            IsHitTestVisible = false,
+            Placement = PlacementMode.Absolute,
+            Child = ghostBd
+        };
+        _insertBar = new Border
+        {
+            Height = 4,
+            MinWidth = 160,
+            CornerRadius = new CornerRadius(2),
+            IsHitTestVisible = false
+        };
+        _insertBar.SetResourceReference(Border.BackgroundProperty, "Accent");
+        _insertPopup = new Popup
+        {
+            AllowsTransparency = true,
+            IsHitTestVisible = false,
+            Placement = PlacementMode.Absolute,
+            Child = _insertBar
+        };
+    }
+
+    private static string GhostLabel(VLItem vi)
+    {
+        VListRow row = vi as VListRow;
+        if (row != null)
+        {
+            string tk = string.IsNullOrEmpty(row.TKStr) ? "" : "  " + row.TKStr;
+            return (row.SeqNo ?? "") + " " + (row.Remark ?? "") + tk;
+        }
+        VListFold fold = vi as VListFold;
+        if (fold != null)
+            return fold.FoldRemark ?? "";
+        return "";
+    }
+
+    private void ShowInsertMarker(ListBoxItem target, bool before)
+    {
+        EnsureDragUi();
+        if (ReferenceEquals(_insertTarget, target) && _insertBefore == before && _insertPopup.IsOpen)
+            return;
+        _insertTarget = target;
+        _insertBefore = before;
+        Point screen = target.PointToScreen(new Point(0, before ? -2 : target.ActualHeight - 2));
+        Point dip = DeviceToDip(target, screen);
+        _insertBar.Width = Math.Max(160, target.ActualWidth);
+        _insertPopup.HorizontalOffset = dip.X;
+        _insertPopup.VerticalOffset = dip.Y;
+        _insertPopup.IsOpen = true;
+    }
+
+    private void HideInsertMarker()
+    {
+        _insertTarget = null;
+        if (_insertPopup != null)
+            _insertPopup.IsOpen = false;
+    }
+
+    private void HideDragUi()
+    {
+        HideInsertMarker();
+        if (_ghostPopup != null)
+            _ghostPopup.IsOpen = false;
+    }
+
+    private static Point CursorDip(Visual v)
+    {
+        POINT pt;
+        GetCursorPos(out pt);
+        return DeviceToDip(v, new Point(pt.X, pt.Y));
+    }
+
+    private static Point DeviceToDip(Visual v, Point device)
+    {
+        PresentationSource src = PresentationSource.FromVisual(v);
+        if (src != null && src.CompositionTarget != null)
+            return src.CompositionTarget.TransformFromDevice.Transform(device);
+        return device;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct POINT { public int X; public int Y; }
+    [DllImport("user32.dll")]
+    private static extern bool GetCursorPos(out POINT lpPoint);
 
     // ---- 解析工具 ----
 
@@ -661,6 +965,11 @@ public class VLTemplateSelector : System.Windows.Controls.DataTemplateSelector
             object r = _win.FindResource("RmtFoldHeader");
             if (r is System.Windows.DataTemplate) return (System.Windows.DataTemplate)r;
         }
+        else if (item is VListAddFold)
+        {
+            object r = _win.FindResource("RmtAddFold");
+            if (r is System.Windows.DataTemplate) return (System.Windows.DataTemplate)r;
+        }
         else if (item is VListRow)
         {
             object r = _win.FindResource("RmtMacroRow");
@@ -682,6 +991,8 @@ public abstract class VLItem : System.ComponentModel.INotifyPropertyChanged
     }
 }
 
+public class VListAddFold : VLItem { }
+
 public class VListRow : VLItem
 {
     public string Remark { get { return _Remark; } set { Set(ref _Remark, value, "Remark"); } } private string _Remark;
@@ -694,6 +1005,8 @@ public class VListRow : VLItem
     public bool TKBtnEnabled { get; set; }
     public bool TKTypeEnabled { get; set; }
     public bool LoopEnabled { get; set; }
+    public bool IsAltRow { get { return _IsAltRow; } set { Set(ref _IsAltRow, value, "IsAltRow"); } } private bool _IsAltRow;
+    public bool IsLastInFold { get { return _IsLastInFold; } set { Set(ref _IsLastInFold, value, "IsLastInFold"); } } private bool _IsLastInFold;
 }
 
 public class VListFold : VLItem
@@ -704,6 +1017,7 @@ public class VListFold : VLItem
     public int FoldTKType { get { return _FoldTKType; } set { Set(ref _FoldTKType, value, "FoldTKType"); } } private int _FoldTKType;
     public string FoldTK { get { return _FoldTK; } set { Set(ref _FoldTK, value, "FoldTK"); } } private string _FoldTK;
     public bool Folded { get { return _Folded; } set { Set(ref _Folded, value, "Folded"); } } private bool _Folded;
+    public bool HasBody { get { return _HasBody; } set { Set(ref _HasBody, value, "HasBody"); } } private bool _HasBody;
     public bool ShowTKRow { get; set; }
     public bool FoldTKTypeEnabled { get; set; }
     public string ShowTKRowVisibility { get { return ShowTKRow ? "Visible" : "Collapsed"; } }

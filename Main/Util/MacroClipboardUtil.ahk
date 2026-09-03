@@ -494,9 +494,17 @@ ReplaceSerialInCmdList(cmdList, oldSerial, newSerial) {
 
 ; 复制宏指令集（完整复制所有指令及外部配置，用于跨设备迁移）
 OnItemCopyMacroBtnClick(tableItem, CopyIndex, *) {
+    try {
+        OnItemCopyMacroBtnClick_Impl(tableItem, CopyIndex)
+    } catch as e {
+        RmtDialog.Info(GetLang("复制到剪贴板失败，请重试"), GetLang("提示"))
+    }
+}
+
+OnItemCopyMacroBtnClick_Impl(tableItem, CopyIndex) {
     macroText := tableItem.Items[CopyIndex].Macro
     if (macroText == "") {
-        MsgBox(GetLang("当前宏没有指令内容，无法复制"), GetLang("提示"))
+        RmtDialog.Info(GetLang("当前宏没有指令内容，无法复制"), GetLang("提示"))
         return
     }
 
@@ -563,11 +571,15 @@ OnItemCopyMacroBtnClick(tableItem, CopyIndex, *) {
         )
     }
 
-    A_Clipboard := jsonString
-    if (A_Clipboard == jsonString) {
-        MsgBox(GetLang("已复制宏"))
+    ok := false
+    try {
+        A_Clipboard := jsonString
+        ok := (A_Clipboard == jsonString)
+    }
+    if (ok) {
+        Toast.Success(GetLang("已复制宏"))
     } else {
-        MsgBox(GetLang("复制到剪贴板失败，请重试"), GetLang("错误"))
+        RmtDialog.Info(GetLang("复制到剪贴板失败，请重试"), GetLang("提示"))
     }
 }
 

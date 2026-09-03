@@ -14,6 +14,7 @@
 #Include ..\Plugins\AHK-XAML\lib\XAML_Dialog.ahk
 #Include ..\Plugins\AHK-XAML\lib\AXML.ahk
 #Include Util\ToastUtil.ahk
+#Include Util\RmtDialog.ahk
 #Include RMTUtil.ahk
 #Include WorkPool.ahk
 #Include MainWindowXaml.ahk

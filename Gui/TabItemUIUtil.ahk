@@ -64,8 +64,7 @@ OnItemAddMacroBtnClick(tableItem, foldIndex, *) {
 
 ;删除宏配置
 OnItemDelMacroBtnClick(tableItem, DelIndex, *) {
-    result := MsgBox(GetLang("是否删除当前宏"), GetLang("提示"), 1)
-    if (result == "Cancel")
+    if (!RmtDialog.Confirm(GetLang("是否删除当前宏"), GetLang("提示")))
         return
 
     MyMainWin.ReadTabValues(tableItem)
@@ -302,6 +301,19 @@ OnItemEditReplaceKey(tableItem, index, *) {
 
     MyReplaceKeyGui.SureBtnAction := SureAction
     MyReplaceKeyGui.ShowGui(replaceKey)
+}
+
+OnItemForbidToggle(tableItem, index, *) {
+    item := tableItem.Items[index]
+    if (!item)
+        return
+    MyMainWin.ReadTabValues(tableItem)
+    item.Forbid := !item.Forbid
+    if (MyMainWin._useVirtual.Has(tableItem.Index))
+        MyMainWin._vl.RefreshRow(tableItem.Index, index)
+    else
+        MyMainWin.RefreshItemRow(tableItem.Index, index)
+    HotReloadPublish(tableItem.Index, 0)
 }
 
 OnItemMoveUp(tableItem, index, *) {

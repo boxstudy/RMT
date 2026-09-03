@@ -136,25 +136,9 @@ OnSaveSetting(*) {
         IniWrite(value, IniFile, IniSection, key)
     }
 
-    ; §17 保存后弹窗确认：不再无条件重启。选择「暂不重启」→ 热重载（配置修改运行时立即生效）
-    msg := GetLang("配置已保存。是否立即重启软件使全部设置生效？") "`n"
-        . GetLang("选择「否」将不重启，宏配置修改会通过热重载在运行时立即生效。")
-    result := MsgBox(msg, GetLang("提示"), "YesNo Icon?")
-    if (result == "No") {
-        ; §18 热重载兜底广播：全局设置变更需热重载生效；宏表已即时落盘，tableIndex==0 不重复写盘
-        HotReloadPublish(0, 0)
-        return
-    }
-
-    ; 立即重启：先取窗口位置再隐藏（用户感知窗口立即关闭），终止宏并清线程池
-    SaveCurWinPos()
-    MainSoftData.MyGui.Hide()
-    OnKillAllMacro()
-    if (MyWorkPool != "") {
-        MyWorkPool.Clear()
-        MyWorkPool := ""
-    }
-    SafeReload()
+    ; §17 保存后不再弹窗/重启：宏表已即时落盘，全局设置走热重载；需要整进程重启用侧栏「重启」
+    HotReloadPublish(0, 0)
+    Toast.Success(GetLang("配置已保存"))
 }
 
 CheckValueSettingValid(Name, Value) {

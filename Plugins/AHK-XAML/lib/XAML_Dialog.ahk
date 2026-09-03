@@ -13,6 +13,8 @@ class XDialog {
         msg := options.HasProp("Message") ? options.Message : ""
         iconChar := options.HasProp("Icon") ? options.Icon : ""
         iconColor := options.HasProp("IconColor") ? options.IconColor : "{DynamicResource TextMain}"
+        iconFontSize := options.HasProp("IconFontSize") ? options.IconFontSize : 18
+        iconColW := options.HasProp("IconColWidth") ? options.IconColWidth : 40
         detail := options.HasProp("DetailText") ? options.DetailText : ""
         detailRows := options.HasProp("DetailRows") ? options.DetailRows : 4
         inputText := options.HasProp("InputText") ? options.InputText : ""
@@ -48,6 +50,10 @@ class XDialog {
             dialogResources .= "`n" options.Resources
         }
         main.Rows("40", "*", "Auto")
+        if (options.HasProp("ContentFontSize"))
+            main.TextElement_FontSize(options.ContentFontSize)
+        else
+            main.TextElement_FontSize(XAMLHost.GetDesignFontSize())
 
         ; Titlebar (draggable)
         tb := main.Add("Grid").Grid_Row(0).Background("Transparent")
@@ -55,7 +61,7 @@ class XDialog {
             tb.Name("DragArea")
         }
         
-        titleTb := tb.Add("TextBlock").Text(title).FontSize(XAMLHost.GetThemeFontSize() + 2).FontWeight("Bold").VerticalAlignment("Center").Margin("15,0,0,0")
+        titleTb := tb.Add("TextBlock").Text(title).FontSize(options.HasProp("TitleFontSize") ? options.TitleFontSize : 12).FontWeight("Bold").VerticalAlignment("Center").Margin("15,0,0,0")
         titleTb.Foreground(options.HasProp("TitleForeground") ? options.TitleForeground : "{DynamicResource TextMain}")
         if (options.HasProp("TitleFontFamily")) {
             titleTb.FontFamily(options.TitleFontFamily)
@@ -71,33 +77,42 @@ class XDialog {
         }
 
         if (showCloseBtn) {
-            closeBtn := tb.Add("Button").Name("BtnClose").WindowChrome_IsHitTestVisibleInChrome("True").HorizontalAlignment("Right").Background("Transparent").BorderThickness(0)
-            if (options.HasProp("CloseBtnTemplate")) {
-                if (options.HasProp("CloseBtnWidth")) closeBtn._Props["Width"] := options.CloseBtnWidth
-                if (options.HasProp("CloseBtnHeight")) closeBtn._Props["Height"] := options.CloseBtnHeight
-                if (options.HasProp("CloseBtnMargin")) closeBtn._Props["Margin"] := options.CloseBtnMargin
-                if (options.HasProp("CloseBtnVerticalAlignment")) closeBtn._Props["VerticalAlignment"] := options.CloseBtnVerticalAlignment
-                closeBtn.InjectResources(options.CloseBtnTemplate)
-            } else {
-                closeBtn.Style("{StaticResource TitleBarCloseButton}").Width(46).Height(36).MinHeight(36).Padding("0").Foreground("{DynamicResource TextMain}")
-                closeBtn.Add("TextBlock").Text(Chr(0xE8BB)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
-            }
+            closeBtnName := options.HasProp("CloseBtnName") ? options.CloseBtnName : "BtnClose"
+            closeBtn := tb.Add("Button").Name(closeBtnName).WindowChrome_IsHitTestVisibleInChrome("True").HorizontalAlignment("Right").Background("Transparent").BorderThickness(0).Width(46).Height(36).MinHeight(36).Padding("0").Cursor("Hand").Foreground("{DynamicResource TextMain}")
+            if (options.HasProp("CloseBtnWidth")) closeBtn._Props["Width"] := options.CloseBtnWidth
+            if (options.HasProp("CloseBtnHeight")) closeBtn._Props["Height"] := options.CloseBtnHeight
+            if (options.HasProp("CloseBtnMargin")) closeBtn._Props["Margin"] := options.CloseBtnMargin
+            if (options.HasProp("CloseBtnVerticalAlignment")) closeBtn._Props["VerticalAlignment"] := options.CloseBtnVerticalAlignment
+            if (options.HasProp("CloseBtnStyle"))
+                closeBtn.Style(options.CloseBtnStyle)
+            else
+                closeBtn.Style("{StaticResource TitleBarCloseButton}")
+            closeBtn.Add("TextBlock").Text(Chr(0xE8BB)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
         }
 
         ; Content Body
         body := main.Add("StackPanel").Grid_Row(1).Margin("20,10,20,20")
 
         ; Message & Icon row
+        shortMsg := (detail == "" && inputText == "" && !hasProgress && StrLen(msg) <= 40 && !InStr(msg, "`n"))
+        msgAlign := shortMsg ? "Center" : "Top"
         msgRow := body.Add("Grid").Margin("0,0,0,15")
-        msgTb := msgRow.Add("TextBlock").Text(msg).TextWrapping("Wrap").VerticalAlignment("Top")
+        msgTb := msgRow.Add("TextBlock").Text(msg).TextWrapping("Wrap").VerticalAlignment(msgAlign)
         if (iconChar != "") {
-            msgRow.Cols("40", "*")
-            msgRow.Add("TextBlock").Text(iconChar).Foreground(iconColor).FontSize(18).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").VerticalAlignment("Top").Margin("0,2,0,0").Grid_Column(0)
-            msgTb.Grid_Column(1)
+            msgRow.Cols(String(iconColW), "*")
+            msgRow.Add("TextBlock").Text(iconChar).Foreground(iconColor).FontSize(iconFontSize).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").VerticalAlignment(msgAlign).HorizontalAlignment("Center").Margin(shortMsg ? "0" : "0,2,0,0").Grid_Column(0)
+            msgTb.Grid_Column(1).VerticalAlignment(msgAlign)
         }
         msgTb.Foreground(options.HasProp("MessageForeground") ? options.MessageForeground : "{DynamicResource TextMain}")
         if (options.HasProp("MessageFontFamily")) {
             msgTb.FontFamily(options.MessageFontFamily)
+        } else if (options.HasProp("FontFamily")) {
+            msgTb.FontFamily(options.FontFamily)
+        }
+        if (options.HasProp("TitleFontFamily")) {
+            titleTb.FontFamily(options.TitleFontFamily)
+        } else if (options.HasProp("FontFamily")) {
+            titleTb.FontFamily(options.FontFamily)
         }
         if (options.HasProp("MessageFontSize")) {
             msgTb.FontSize(options.MessageFontSize)
@@ -135,14 +150,26 @@ class XDialog {
         }
 
         for index, btnText in buttons {
-            isPrimary := (btnText == "OK" || btnText == "Confirm" || btnText == "Allow Execution" || btnText == "Yes" || btnText == "Save" || btnText == "Awesome")
-            isCancel := (btnText == "Cancel" || btnText == "Close" || btnText == "Abort")
+            isPrimary := (btnText == "OK" || btnText == "Confirm" || btnText == "Allow Execution" || btnText == "Yes" || btnText == "Save" || btnText == "Awesome" || btnText == "确定" || btnText == "是" || btnText == "确认")
+            isCancel := (btnText == "Cancel" || btnText == "Close" || btnText == "Abort" || btnText == "取消" || btnText == "关闭")
 
-            btnEl := btnSp.Add("Button").Name("Btn" index).Content(btnText).Width(120).Margin("5,0").Cursor("Hand")
+            btnEl := btnSp.Add("Button").Name("Btn" index).Content(btnText).Width(options.HasProp("ButtonWidth") ? options.ButtonWidth : 100).Margin("6,0").Cursor("Hand")
+            if (options.HasProp("ButtonHeight")) {
+                btnEl.Height(options.ButtonHeight).MinHeight(options.ButtonHeight)
+            } else {
+                btnEl.Height(26).MinHeight(26)
+            }
 
-            if (isPrimary) {
-                btnEl.Style("{StaticResource DialogPrimaryBtn}")
-                btnEl.IsDefault("True")
+            uniformBtns := options.HasProp("UniformButtons") && options.UniformButtons
+            if (uniformBtns || isPrimary) {
+                if (uniformBtns)
+                    btnEl.Style("{StaticResource DialogBtn}")
+                else
+                    btnEl.Style("{StaticResource DialogPrimaryBtn}")
+                if (isPrimary)
+                    btnEl.IsDefault("True")
+                if (isCancel)
+                    btnEl.IsCancel("True")
             } else {
                 btnEl.Style("{StaticResource DialogBtn}")
                 if (isCancel) {
@@ -195,12 +222,16 @@ class XDialog {
                         ShowInTaskbar="False"
                         WindowStartupLocation="%startupLoc%"
                         TextElement.Foreground="{DynamicResource TextMain}">
-                    
+                    <Window.Resources>
+                        <CornerRadius x:Key="WindowRadius">12</CornerRadius>
+                        <CornerRadius x:Key="CloseBtnRadius">0,8,0,0</CornerRadius>
+                        %dialogRes%
+                    </Window.Resources>
                     <WindowChrome.WindowChrome>
                         <WindowChrome GlassFrameThickness="0" ResizeBorderThickness="6" CaptionHeight="%captionH%" CornerRadius="{DynamicResource WindowRadius}" />
                     </WindowChrome.WindowChrome>
                 
-                    <Border Margin="15" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" CornerRadius="{DynamicResource WindowRadius}" Background="{DynamicResource %bgRes%}">
+                    <Border Margin="15" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" CornerRadius="{DynamicResource WindowRadius}" Background="{DynamicResource %bgRes%}" SnapsToDevicePixels="True" UseLayoutRounding="False" RenderOptions.EdgeMode="Aliased">
                         <Border.Effect>
                             <DropShadowEffect BlurRadius="15" Direction="270" RenderingBias="Performance" ShadowDepth="2" Opacity="0.3" Color="Black" />
                         </Border.Effect>
@@ -211,6 +242,7 @@ class XDialog {
             dialogTemplate := StrReplace(dialogTemplate, "%startupLoc%", startupLoc)
             dialogTemplate := StrReplace(dialogTemplate, "%captionH%", captionH)
             dialogTemplate := StrReplace(dialogTemplate, "%bgRes%", bgRes)
+            dialogTemplate := StrReplace(dialogTemplate, "%dialogRes%", dialogResources)
             ui := XAMLHost(StrReplace(dialogTemplate, "%app%", main.ToString()), exePath, actualOwner)
         }
 
@@ -231,6 +263,9 @@ class XDialog {
         try hIcon := LoadPicture("shell32.dll", "Icon26", &ImageType := 1)
 
         ui.xaml := StrReplace(ui.xaml, 'Width="940" Height="700"', 'Title="' safeTitle '" Width="' (width + 30) '" ' heightAttr ' ' resizeAttr ' ' focusAttr (alwaysOnTop ? ' Topmost="True"' : ''))
+        if (options.HasProp("FontFamily") && options.FontFamily != "") {
+            ui.xaml := StrReplace(ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' options.FontFamily '"')
+        }
 
         resultObj := { Button: "", Input: "", Instance: ui }
 
@@ -246,6 +281,9 @@ class XDialog {
         for index, btnText in buttons {
             ui.OnEvent("Btn" index, "Click", ObjBindMethod(XDialog, "OnButtonClick", ui, resultObj, btnText, owner, modal), 255)
         }
+        if (showCloseBtn && options.HasProp("CloseBtnName") && options.CloseBtnName != "BtnClose") {
+            ui.OnEvent(options.CloseBtnName, "Click", (state, ctrl, event) => ui.Update("Window", "Close", ""), 255)
+        }
 
         if (inputText != "") {
             ui.Track("DialogInput")
@@ -254,15 +292,18 @@ class XDialog {
         ui.Show()
 
         if (waitForResponse) {
-            ; Wait for dialog to close
+            ; Wait for dialog to close. hwnd 一直为 0 说明引擎建窗失败，勿死等。
+            waitStart := A_TickCount
             while (resultObj.Button == "" && (ui.wpfHwnd == 0 || WinExist("ahk_id " ui.wpfHwnd))) {
+                if (ui.wpfHwnd == 0 && A_TickCount - waitStart > 3000)
+                    throw Error("Dialog window failed to open")
                 Sleep(50)
             }
             if (resultObj.Button == "") {
                 resultObj.Button := "Closed"
             }
             if (modal && owner) {
-                WinSetEnabled(1, "ahk_id " owner)
+                try WinSetEnabled(1, "ahk_id " owner)
             }
             return resultObj
         } else {
@@ -296,6 +337,7 @@ class XDialog {
             ui.Update("Window", "Icon", "HICON:" hIcon)
         }
         XDialog.ApplyTheme(ui, themeName, iniPath)
+        try ApplyXamlTheme(ui, themeName)
     }
 
     static OnDialogClose(ui, resultObj, owner, modal, overlayGui, state := "", ctrl := "", event := "") {

@@ -112,6 +112,7 @@ class VirtualListHost {
                     . RS
             }
         }
+        records .= "A" t "_0" . RS
         return records
     }
 
@@ -124,6 +125,8 @@ class VirtualListHost {
             return tkStr == "" ? GetLang("编辑") : tkStr
         }
         tkStr := isTiming ? GetLang("定时") : FormatHotkeyDisplay(MySoftData.FormatJoyTriggerKey(item.TK))
+        if (tkStr == "" && CheckIsNormalTable(t))
+            return ""
         return tkStr == "" ? GetLang("编辑") : tkStr
     }
 
@@ -157,6 +160,10 @@ class VirtualListHost {
             return
         id := p[1], action := p[2]
         tableItem := MySoftData.TableInfo[t]
+        if (SubStr(id, 1, 1) == "A") {
+            OnItemAddFoldBtnClick(tableItem, tableItem.Folds.Length, event)
+            return
+        }
         idx := Integer(SubStr(id, InStr(id, "_", , 2) + 1))
         if (SubStr(id, 1, 1) == "R") {
             switch action {
@@ -165,8 +172,7 @@ class VirtualListHost {
                 case "Setting": OnItemEditMacroSetting(tableItem, idx, event)
                 case "Edit":
                     (CheckIsMacroTable(t) ? OnItemEditMacro : OnItemEditReplaceKey)(tableItem, idx, event)
-                case "Pre": OnItemMoveUp(tableItem, idx, event)
-                case "Next": OnItemMoveDown(tableItem, idx, event)
+                case "Forbid": OnItemForbidToggle(tableItem, idx, event)
                 case "Copy": OnItemCopyMacroBtnClick(tableItem, idx, event)
                 case "Del": OnItemDelMacroBtnClick(tableItem, idx, event)
             }
@@ -235,10 +241,16 @@ class VirtualListHost {
         tableItem := MySoftData.TableInfo[t]
         srcIsFold := SubStr(srcId, 1, 1) == "F"
         tgtIsFold := SubStr(tgtId, 1, 1) == "F"
+        tgtIsAdd := SubStr(tgtId, 1, 1) == "A"
         srcIdx := Integer(SubStr(srcId, InStr(srcId, "_", , 2) + 1))
-        tgtIdx := Integer(SubStr(tgtId, InStr(tgtId, "_", , 2) + 1))
+        tgtIdx := tgtIsAdd ? tableItem.Folds.Length : Integer(SubStr(tgtId, InStr(tgtId, "_", , 2) + 1))
         try {
-            if (srcIsFold && tgtIsFold) {
+            if (tgtIsAdd) {
+                if (srcIsFold)
+                    this.MoveFoldInTable(tableItem, srcIdx, tableItem.Folds.Length, false)
+                else if (tableItem.Folds.Length >= 1)
+                    this.MoveItemToFold(tableItem, srcIdx, tableItem.Folds[tableItem.Folds.Length].ID, "tail")
+            } else if (srcIsFold && tgtIsFold) {
                 ; 模块间迁移
                 this.MoveFoldInTable(tableItem, srcIdx, tgtIdx, before)
             } else if (srcIsFold && !tgtIsFold) {
@@ -276,11 +288,18 @@ class VirtualListHost {
 
     ; 宏移动：Items[fromIdx] 移到 Items[tgtIdx] 前/后（目标宏的模块；跨模块时改 FoldID）
     MoveItemTo(tableItem, fromIdx, tgtIdx, before) {
+        if (fromIdx == tgtIdx)
+            return
+        dest := before ? tgtIdx : (tgtIdx + 1)
+        adjDest := dest
+        if (fromIdx < dest)
+            adjDest--
+        if (adjDest == fromIdx)
+            before := !before
         item := tableItem.Items[fromIdx]
         tgtItem := tableItem.Items[tgtIdx]
         targetFoldID := tgtItem.FoldID
         tableItem.Items.RemoveAt(fromIdx)
-        ; 移除后目标下标偏移
         if (tgtIdx > fromIdx)
             tgtIdx--
         item.FoldID := targetFoldID

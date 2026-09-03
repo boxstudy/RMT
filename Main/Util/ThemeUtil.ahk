@@ -525,9 +525,11 @@ class AppThemeUtil {
                 {ControlName: "Resource", PropertyName: "BtnPressBg", Value: btnPressBg},
                 {ControlName: "Resource", PropertyName: "ActionPressBg", Value: actionPressBg},
                 ; 下拉弹出层与输入框同色，避免浅色底 + 深色主题文字导致看不清
-                {ControlName: "Resource", PropertyName: "DropdownBg", Value: inputBg},
+                {ControlName: "Resource", PropertyName: "DropdownBg", Value: windowBg},
                 ; 列表斑马纹：取标题色 RGB，降低透明度，随主题变化
                 {ControlName: "Resource", PropertyName: "ListAltBg", Value: AppThemeUtil.MakeListAltBg(titleBg)},
+                {ControlName: "Resource", PropertyName: "ListRowAltBg", Value: AppThemeUtil.MakeListRowAltBg(windowBg, actionBg)},
+                {ControlName: "Resource", PropertyName: "FoldHeaderBg", Value: AppThemeUtil.MakeFoldHeaderBg(windowBg, titleBg)},
                 {ControlName: "DragArea", PropertyName: "Background", Value: titleBg},
                 {ControlName: "Window", PropertyName: "Background", Value: windowBg}
             ]
@@ -564,9 +566,11 @@ class AppThemeUtil {
             try ui.Update("Resource", "BtnPressBg", btnPressBg)
             try ui.Update("Resource", "ActionPressBg", actionPressBg)
             ; 下拉弹出层与输入框同色，避免浅色底 + 深色主题文字导致看不清
-            try ui.Update("Resource", "DropdownBg", inputBg)
+            try ui.Update("Resource", "DropdownBg", windowBg)
             ; 列表斑马纹：取标题色 RGB，降低透明度，随主题变化
             try ui.Update("Resource", "ListAltBg", AppThemeUtil.MakeListAltBg(titleBg))
+            try ui.Update("Resource", "ListRowAltBg", AppThemeUtil.MakeListRowAltBg(windowBg, actionBg))
+            try ui.Update("Resource", "FoldHeaderBg", AppThemeUtil.MakeFoldHeaderBg(windowBg, titleBg))
             try ui.Update("DragArea", "Background", titleBg)
             try ui.Update("Window", "Background", windowBg)
         }
@@ -576,6 +580,38 @@ class AppThemeUtil {
     static MakeListAltBg(baseColor) {
         c := AppThemeUtil.NormalizeArgb(baseColor)  ; #AARRGGBB
         return "#40" SubStr(c, 4)                   ; ~25% 不透明度
+    }
+
+    ; 把 overlay 按 amt(0~1) 混进底色，得到不透明色（斑马纹/模块头跟主题色走）
+    static BlendRgb(baseColor, overlayColor, amt) {
+        amt := Max(0.0, Min(1.0, Float(amt)))
+        b := AppThemeUtil.NormalizeArgb(baseColor)
+        o := AppThemeUtil.NormalizeArgb(overlayColor)
+        br := Integer("0x" SubStr(b, 4, 2)), bg := Integer("0x" SubStr(b, 6, 2)), bb := Integer("0x" SubStr(b, 8, 2))
+        or_ := Integer("0x" SubStr(o, 4, 2)), og := Integer("0x" SubStr(o, 6, 2)), ob := Integer("0x" SubStr(o, 8, 2))
+        r := Min(255, Max(0, Round(br * (1 - amt) + or_ * amt)))
+        g := Min(255, Max(0, Round(bg * (1 - amt) + og * amt)))
+        b2 := Min(255, Max(0, Round(bb * (1 - amt) + ob * amt)))
+        return Format("#FF{:02X}{:02X}{:02X}", r, g, b2)
+    }
+
+    ; 宏配置斑马纹（第一、三…行）：窗口底混入少量操作色；比第二行深、比旧 12% 混色浅
+    static MakeListRowAltBg(windowBg, actionBg) {
+        c := AppThemeUtil.BlendRgb(windowBg, actionBg, 0.08)
+        if (AppThemeUtil.RgbLuma(c) >= AppThemeUtil.RgbLuma(windowBg) - 1)
+            c := AppThemeUtil.AdjustRgbBrightness(windowBg, 0.93)
+        return c
+    }
+
+    static RgbLuma(color) {
+        c := AppThemeUtil.NormalizeArgb(color)
+        r := Integer("0x" SubStr(c, 4, 2)), g := Integer("0x" SubStr(c, 6, 2)), b := Integer("0x" SubStr(c, 8, 2))
+        return Round(0.299 * r + 0.587 * g + 0.114 * b)
+    }
+
+    ; 模块头：标题色混入更多，与第一条宏行（窗口底）拉开对比
+    static MakeFoldHeaderBg(windowBg, titleBg) {
+        return AppThemeUtil.BlendRgb(windowBg, titleBg, 0.42)
     }
 
     ; 按 factor 缩放 RGB（factor<1 略加深，用于按钮按下背景）
