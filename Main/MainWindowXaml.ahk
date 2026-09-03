@@ -324,12 +324,15 @@ class MainWin {
                 ; Epic5 虚拟列表：ListBox + DataTemplate + VirtualizingStackPanel(Recycling)，
                 ; 行模板注入 Window.Resources，由 _vl.Init 一次 VL_INIT 填充
                 vg := bd.Add("Grid")
+                ; UseLayoutRounding=False：整棵列表关闭布局取整，改由各卡片 SnapsToDevicePixels 画边。
+                ; 取整会让行 Margin(2)/24px 控件在 125% DPI 下按累计偏移不同而 ±1px（展开/折叠/拖拽后
+                ; 行距忽大忽小、侧边框断点、备注底边被吞）。关闭后位置为稳定小数，边框仍清晰。
                 vg.Add("ListBox").Name("FoldList_" idx).SelectionMode("Single").BorderThickness("0").Background("Transparent")
-                    .Margin("4,2,4,2")
+                    .Margin("4,2,4,2").UseLayoutRounding("False").SnapsToDevicePixels("True")
                     .VirtualizingPanel_IsVirtualizing("True").VirtualizingPanel_VirtualizationMode("Recycling")
                     .VirtualizingPanel_CacheLength("2,2").VirtualizingPanel_CacheLengthUnit("Page")
                 ; 吸顶折叠头 overlay（sticky header）：滚动时当前模块头钉在列表顶部
-                vg.Add("ContentControl").Name("VLSticky_" idx).VerticalAlignment("Top").HorizontalAlignment("Stretch").Visibility("Collapsed").Margin("4,2,4,2")
+                vg.Add("ContentControl").Name("VLSticky_" idx).VerticalAlignment("Top").HorizontalAlignment("Stretch").Visibility("Collapsed").Margin("4,2,4,2").UseLayoutRounding("False").SnapsToDevicePixels("True")
             } else {
                 ; 工具/设置/帮助/赞助/感谢：ScrollViewer 包在统一内容边框内
                 sv := bd.Add("ScrollViewer").VerticalScrollBarVisibility("Auto").HorizontalScrollBarVisibility("Disabled")
@@ -991,11 +994,13 @@ class MainWin {
 
     _BuildItemCardOpen(ns := "") {
         nsAttr := ns != "" ? " " ns : ""
+        ; 同一模块内各宏行「贴合」（行间无 Margin 缝隙），左右边框才连续无断点；
+        ; 行距靠内边距(上下各2)+斑马纹区分。UseLayoutRounding 已在列表级关闭，内边距不再因取整忽大忽小。
         return '<Border' nsAttr ' BorderBrush="{DynamicResource InputStroke}" ClipToBounds="False" MinHeight="28"' this._BorderSnap() '>'
             . '<Border.Style><Style TargetType="Border">'
             . '<Setter Property="CornerRadius" Value="0"/>'
             . '<Setter Property="BorderThickness" Value="1,0,1,0"/>'
-            . '<Setter Property="Margin" Value="0,0,0,2"/>'
+            . '<Setter Property="Margin" Value="0"/>'
             . '<Setter Property="Padding" Value="4,2,6,2"/>'
             . '<Setter Property="Background" Value="{DynamicResource ControlBg}"/>'
             . '<Style.Triggers>'
@@ -1003,6 +1008,7 @@ class MainWin {
             . '<DataTrigger Binding="{Binding IsLastInFold}" Value="True">'
             . '<Setter Property="CornerRadius" Value="0,0,4,4"/>'
             . '<Setter Property="BorderThickness" Value="1,0,1,1"/>'
+            . '<Setter Property="Padding" Value="4,2,6,6"/>'
             . '<Setter Property="Margin" Value="0,0,0,4"/>'
             . '</DataTrigger>'
             . '</Style.Triggers></Style></Border.Style>'
@@ -1147,7 +1153,7 @@ class MainWin {
             . '<Border Grid.Column="0" Name="Color_' t '_' i '" Width="12" Height="12" CornerRadius="6" Background="' colorHex '" VerticalAlignment="Center" HorizontalAlignment="Center"/>'
             . '<TextBlock Grid.Column="1" Text="' i '." VerticalAlignment="Center" HorizontalAlignment="Left" Margin="-15,0,0,0" Foreground="{DynamicResource TextSub}"/>'
             . this._BuildItemRemarkFieldXaml(t, i, item.Remark, false)
-            . '<Button Grid.Column="3" Name="TKBtn_' t '_' i '" Style="{StaticResource RmtItemFieldBtn}" Margin="0,0,9,0" ToolTip="' GetLang("触发键") '" IsEnabled="' (isSubMacro ? "False" : "True") '">' this._BuildTKBtnInnerXaml(tkStr, false) '</Button>'
+            . '<Button Grid.Column="3" Name="TKBtn_' t '_' i '" Style="{StaticResource RmtItemFieldBtn}" Margin="5,0,4,0" ToolTip="' GetLang("触发键") '" IsEnabled="' (isSubMacro ? "False" : "True") '">' this._BuildTKBtnInnerXaml(tkStr, false) '</Button>'
             . '<ComboBox Grid.Column="4" Name="TKType_' t '_' i '" Style="{StaticResource RmtItemCombo}" Margin="0,0,4,0" SelectedIndex="' tkTypeIdx '" IsEnabled="' (isNormal ? "True" : "False") '" ToolTip="' GetLang("触发类型") '">'
             . '<ComboBoxItem Content="' GetLang("按下") '"/><ComboBoxItem Content="' GetLang("松开") '"/><ComboBoxItem Content="' GetLang("松止") '"/><ComboBoxItem Content="' GetLang("开关") '"/><ComboBoxItem Content="' GetLang("长按") '"/><ComboBoxItem Content="' GetLang("双击") '"/>'
             . '</ComboBox>'
@@ -1318,7 +1324,7 @@ class MainWin {
             . '<Border Grid.Column="0" Width="12" Height="12" CornerRadius="6" Background="{Binding ColorHex}" VerticalAlignment="Center" HorizontalAlignment="Center"/>'
             . '<TextBlock Grid.Column="1" Text="{Binding SeqNo}" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="-15,0,0,0" Foreground="{DynamicResource TextSub}"/>'
             . this._BuildItemRemarkFieldXaml(0, 0, "", true)
-            . '<Button Grid.Column="3" Tag="TKBtn" IsEnabled="{Binding TKBtnEnabled}" Style="{StaticResource RmtItemFieldBtn}" Margin="0,0,9,0" ToolTip="' GetLang("触发键") '">' this._BuildTKBtnInnerXaml("", true) '</Button>'
+            . '<Button Grid.Column="3" Tag="TKBtn" IsEnabled="{Binding TKBtnEnabled}" Style="{StaticResource RmtItemFieldBtn}" Margin="5,0,4,0" ToolTip="' GetLang("触发键") '">' this._BuildTKBtnInnerXaml("", true) '</Button>'
             . '<ComboBox Grid.Column="4" Tag="TKType" SelectedIndex="{Binding TKType}" IsEnabled="{Binding TKTypeEnabled}" Style="{StaticResource RmtItemCombo}" Margin="0,0,4,0" ToolTip="' GetLang("触发类型") '">'
             . '<ComboBoxItem Content="' GetLang("按下") '"/><ComboBoxItem Content="' GetLang("松开") '"/><ComboBoxItem Content="' GetLang("松止") '"/><ComboBoxItem Content="' GetLang("开关") '"/><ComboBoxItem Content="' GetLang("长按") '"/><ComboBoxItem Content="' GetLang("双击") '"/>'
             . '</ComboBox>'

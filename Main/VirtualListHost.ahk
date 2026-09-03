@@ -173,8 +173,10 @@ class VirtualListHost {
                 case "Edit":
                     (CheckIsMacroTable(t) ? OnItemEditMacro : OnItemEditReplaceKey)(tableItem, idx, event)
                 case "Forbid": OnItemForbidToggle(tableItem, idx, event)
-                case "Copy": OnItemCopyMacroBtnClick(tableItem, idx, event)
-                case "Del": OnItemDelMacroBtnClick(tableItem, idx, event)
+                ; 复制/删除会弹通用 XAML 弹窗；必须延迟到本 WM_COPYDATA(VL_CLICK) 回调返回后再执行，
+                ; 否则守护进程分发线程仍被阻塞，弹窗的 CREATE_WINDOW 无法处理 → 死锁 → 回退成 AHK 弹窗、无提示。
+                case "Copy": SetTimer(() => OnItemCopyMacroBtnClick(tableItem, idx), -1)
+                case "Del": SetTimer(() => OnItemDelMacroBtnClick(tableItem, idx), -1)
             }
         }
         else {

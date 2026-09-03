@@ -295,7 +295,7 @@ class XDialog {
             ; Wait for dialog to close. hwnd 一直为 0 说明引擎建窗失败，勿死等。
             waitStart := A_TickCount
             while (resultObj.Button == "" && (ui.wpfHwnd == 0 || WinExist("ahk_id " ui.wpfHwnd))) {
-                if (ui.wpfHwnd == 0 && A_TickCount - waitStart > 3000)
+                if (ui.wpfHwnd == 0 && A_TickCount - waitStart > 5000)
                     throw Error("Dialog window failed to open")
                 Sleep(50)
             }
