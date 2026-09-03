@@ -534,6 +534,7 @@ class AppThemeUtil {
                 {ControlName: "Resource", PropertyName: "ListRowAltBg", Value: AppThemeUtil.MakeListRowAltBg(windowBg, actionBg)},
                 {ControlName: "Resource", PropertyName: "FoldHeaderBg", Value: AppThemeUtil.MakeFoldHeaderBg(windowBg, titleBg)},
                 {ControlName: "Resource", PropertyName: "FoldAltBg", Value: AppThemeUtil.MakeFoldAltBg(windowBg, actionBg)},
+                {ControlName: "Resource", PropertyName: "FoldDivider", Value: AppThemeUtil.WithAlpha(groupStroke, "55")},
                 {ControlName: "DragArea", PropertyName: "Background", Value: titleBg},
                 {ControlName: "Window", PropertyName: "Background", Value: windowBg}
             ]
@@ -577,6 +578,7 @@ class AppThemeUtil {
             try ui.Update("Resource", "ListRowAltBg", AppThemeUtil.MakeListRowAltBg(windowBg, actionBg))
             try ui.Update("Resource", "FoldHeaderBg", AppThemeUtil.MakeFoldHeaderBg(windowBg, titleBg))
             try ui.Update("Resource", "FoldAltBg", AppThemeUtil.MakeFoldAltBg(windowBg, actionBg))
+            try ui.Update("Resource", "FoldDivider", AppThemeUtil.WithAlpha(groupStroke, "55"))
             try ui.Update("DragArea", "Background", titleBg)
             try ui.Update("Window", "Background", windowBg)
         }

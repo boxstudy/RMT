@@ -473,6 +473,7 @@ class MainWin {
             . '<SolidColorBrush x:Key="ListRowAltBg" Color="#FF2A2A2A"/>'
             . '<SolidColorBrush x:Key="FoldHeaderBg" Color="#FF333333"/>'
             . '<SolidColorBrush x:Key="FoldAltBg" Color="#FF3A3A3A"/>'
+            . '<SolidColorBrush x:Key="FoldDivider" Color="#66999999"/>'
             ; 主界面主要轮廓描边（按钮/页签/模块）：比 InputStroke 更深，随主题由 ApplyWinThemeToXaml 覆盖
             . '<SolidColorBrush x:Key="OutlineStroke" Color="#FF999999"/>'
         this._foldFieldW := 198
@@ -759,7 +760,7 @@ class MainWin {
         for f, fold in tableItem.Folds {
             vis := fold.FoldState ? ' Visibility="Collapsed"' : ""
             xaml := '<StackPanel ' ns '>'
-                . this._BuildFoldTitleRow(t, f, Mod(f, 2) == 0)
+                . this._BuildFoldTitleRow(t, f, f == 1)
                 . '<StackPanel Name="FoldItems_' t '_' f '"' vis '>'
             for i, item in tableItem.Items {
                 if (item.FoldID != fold.ID)
@@ -785,14 +786,14 @@ class MainWin {
         this._BindFoldRows(t)
     }
 
-    _BuildFoldTitleRow(t, f, isAlt := false) {
+    _BuildFoldTitleRow(t, f, isFirst := false) {
         fold := MySoftData.TableInfo[t].Folds[f]
         isMenu := CheckIsMenuMacroTable(t)
         isUI := GetTableSymbol(t) == "UI"
         ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
-        foldBg := isAlt ? "{DynamicResource FoldAltBg}" : "{DynamicResource FoldHeaderBg}"
-        xaml := '<Border ' ns ' CornerRadius="0" BorderThickness="0" BorderBrush="{DynamicResource OutlineStroke}" Background="' foldBg '" Margin="0" Padding="6,4,6,4"' this._BorderSnap() '>'
+        xaml := '<Border ' ns ' CornerRadius="0" BorderThickness="0" BorderBrush="{DynamicResource OutlineStroke}" Background="{DynamicResource FoldHeaderBg}" Margin="0" Padding="8,6,8,6"' this._BorderSnap() '>'
             . '<StackPanel VerticalAlignment="Center" TextElement.FontSize="' XAMLHost.FormatFontSize(XAMLHost.ScaleFontSize(11)) '">'
+            . this._BuildFoldDividerXaml(false, isFirst)
             . this._BuildFoldHeaderRowXaml(t, f, fold, false)
         if (isMenu || isUI) {
             xaml .= '<StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,4,0,0">'
@@ -1040,20 +1041,31 @@ class MainWin {
         return '</Grid></Grid></Border>'
     }
 
+    _BuildFoldDividerXaml(vlMode, isFirst := false) {
+        ; 左右缩进的浅色细线，避开输入框上下边，避免三条线叠在一起。
+        rect := '<Rectangle Height="1" Margin="10,2,10,8" Fill="{DynamicResource FoldDivider}" SnapsToDevicePixels="True"'
+        if (vlMode) {
+            return rect . '>'
+                . '<Rectangle.Style><Style TargetType="Rectangle">'
+                . '<Setter Property="Visibility" Value="Visible"/>'
+                . '<Style.Triggers>'
+                . '<DataTrigger Binding="{Binding IsFirstFold}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger>'
+                . '</Style.Triggers></Style></Rectangle.Style></Rectangle>'
+        }
+        if (isFirst)
+            return ""
+        return rect . '/>'
+    }
+
     _BuildFoldCardBorderOpen() {
-        ; 背景只写在 Style 里：本地 Background 会压过 DataTrigger，斑马不生效。
         return '<Border BorderBrush="{DynamicResource OutlineStroke}" ClipToBounds="False"' this._BorderSnap() '>'
             . '<Border.Style><Style TargetType="Border">'
             . '<Setter Property="Background" Value="{DynamicResource FoldHeaderBg}"/>'
             . '<Setter Property="CornerRadius" Value="0"/>'
             . '<Setter Property="BorderThickness" Value="0"/>'
             . '<Setter Property="Margin" Value="0"/>'
-            . '<Setter Property="Padding" Value="6,4,6,4"/>'
-            . '<Style.Triggers>'
-            . '<DataTrigger Binding="{Binding IsAltFold}" Value="True">'
-            . '<Setter Property="Background" Value="{DynamicResource FoldAltBg}"/>'
-            . '</DataTrigger>'
-            . '</Style.Triggers></Style></Border.Style>'
+            . '<Setter Property="Padding" Value="8,6,8,6"/>'
+            . '</Style></Border.Style>'
     }
 
     _BuildTKBtnInnerXaml(tkStr, vlMode) {
@@ -1361,6 +1373,7 @@ class MainWin {
         fold := '<DataTemplate x:Key="RmtFoldHeader">'
             . this._BuildFoldCardBorderOpen()
             . '<StackPanel VerticalAlignment="Center" TextElement.FontSize="' foldFs '">'
+            . this._BuildFoldDividerXaml(true)
             . this._BuildFoldHeaderRowXaml(0, 0, "", true)
             . '<StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,4,0,0" Visibility="{Binding ShowTKRowVisibility}">'
             . '<TextBlock Text="' GetLang("菜单触发键：") '" VerticalAlignment="Center" Foreground="{DynamicResource TextMain}"/>'
