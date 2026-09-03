@@ -1136,16 +1136,17 @@ class MainWin {
 
     _BuildFoldFrontCenterXaml(t, f, frontInfo, vlMode) {
         fw := this._foldFrontW
-        foldFs := XAMLHost.FormatFontSize(XAMLHost.ScaleFontSize(11))
         box := this._FoldFieldBoxAttrs(' IsReadOnly="True" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled"')
+        iconFont := ' FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"'
+        frontIcon := '<TextBlock Text="&#xE7F4;" VerticalAlignment="Center" Foreground="{DynamicResource TextMain}"' iconFont ' Margin="0,0,4,0" ToolTip="' GetLang("前台") '"/>'
         if (vlMode) {
-            return '<TextBlock Text="' GetLang("前台:") '" VerticalAlignment="Center" Foreground="{DynamicResource TextMain}" FontSize="' foldFs '" Margin="0,0,4,0"/>'
+            return frontIcon
                 . '<TextBox Tag="FoldFront" Text="{Binding FoldFront}" Width="' fw '"' box '/>'
-                . '<Button Tag="FoldFrontBtn" Content="' GetLang("编辑") '" Height="24" MinHeight="24" Padding="6,0" Margin="4,0,0,0"/>'
+                . '<Button Tag="FoldFrontBtn" Style="{StaticResource RmtFoldToolBtn}" Content="&#xE70F;" ToolTip="' GetLang("编辑") '"' iconFont ' Margin="4,0,0,0"/>'
         }
-        return '<TextBlock Text="' GetLang("前台:") '" VerticalAlignment="Center" Foreground="{DynamicResource TextMain}" FontSize="' foldFs '" Margin="0,0,4,0"/>'
+        return frontIcon
             . '<TextBox Name="FoldFront_' t '_' f '" Text="' this._XmlEsc(frontInfo) '" Width="' fw '"' box '/>'
-            . '<Button Name="FoldFrontBtn_' t '_' f '" Content="' GetLang("编辑") '" Height="24" MinHeight="24" Padding="6,0" Margin="4,0,0,0"/>'
+            . '<Button Name="FoldFrontBtn_' t '_' f '" Style="{StaticResource RmtFoldToolBtn}" Content="&#xE70F;" ToolTip="' GetLang("编辑") '"' iconFont ' Margin="4,0,0,0"/>'
     }
 
     _BuildItemRow(t, i) {
