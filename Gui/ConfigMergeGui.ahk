@@ -63,15 +63,15 @@ class ConfigMergeGui {
         titleHeight := "36"
         this._btnStyle := '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="bd" Property="Background" Value="{DynamicResource EditHoverBg}"/><Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource EditHoverStroke}"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
 
-        main := XAML_Generator("Grid").Background("{DynamicResource BgColor}")
+        main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize(XAMLHost.GetDesignFontSize())
         main.Rows(titleHeight, "*")
 
         tb := main.Add("Border").Grid_Row(0).Background("{DynamicResource TitleBarColor}").Name("DragArea")
         tbInner := tb.Add("Grid")
-        tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold").VerticalAlignment("Center").Margin("15,0,0,0")
+        tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TitleBarForeground}").FontSize(XAMLHost.GetThemeFontSize() + 2).FontWeight("Bold").VerticalAlignment("Center").Margin("15,0,0,0")
 
         BtnGroup := tbInner.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Right")
-        CloseBtnTemplate := '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CloseBtnRadius}"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="border" Property="Background" Value="#E0FF3333"/><Setter Property="Foreground" Value="White"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
+        CloseBtnTemplate := '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CloseBtnRadius}"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="border" Property="Background" Value="{DynamicResource ControlBorder}"/></Trigger><Trigger Property="IsPressed" Value="True"><Setter TargetName="border" Property="Background" Value="{DynamicResource BtnPressBg}"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
         closeBtn := BtnGroup.Add("Button").Name("BtnClosePanel").WindowChrome_IsHitTestVisibleInChrome("True").Width(40).Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
         closeBtn.InjectResources(CloseBtnTemplate)
         closeBtn.Add("TextBlock").Text(Chr(0xE8BB)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
@@ -124,13 +124,13 @@ class ConfigMergeGui {
         headerLeft := header.Add("StackPanel").Orientation("Horizontal").Grid_Column(0)
             .VerticalAlignment("Center").Margin("8,0,0,0")
         headerLeft.Add("TextBlock").Text(GetLang("选择"))
-            .Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold")
+            .Foreground("{DynamicResource TitleBarForeground}").FontSize(XAMLHost.GetThemeFontSize() + 2).FontWeight("Bold")
             .VerticalAlignment("Center").Width("40")
         headerLeft.Add("TextBlock").Text(GetLang("宏名称"))
-            .Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold")
+            .Foreground("{DynamicResource TitleBarForeground}").FontSize(XAMLHost.GetThemeFontSize() + 2).FontWeight("Bold")
             .VerticalAlignment("Center").Margin("8,0,0,0")
         header.Add("TextBlock").Text(GetLang("触发键/类型")).Grid_Column(1)
-            .Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold")
+            .Foreground("{DynamicResource TitleBarForeground}").FontSize(XAMLHost.GetThemeFontSize() + 2).FontWeight("Bold")
             .HorizontalAlignment("Center").VerticalAlignment("Center")
 
         scroll := listGrid.Add("ScrollViewer").Grid_Row(1)

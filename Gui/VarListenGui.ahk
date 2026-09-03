@@ -96,15 +96,15 @@ class VarListenGui {
         if (winH < minH)
             winH := minH
 
-        main := XAML_Generator("Grid").Background("{DynamicResource BgColor}")
+        main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize(XAMLHost.GetDesignFontSize())
         main.Rows(titleHeight, "Auto", "*")
 
         ; 标题栏
         tb := main.Add("Border").Grid_Row(0).Background("{DynamicResource TitleBarColor}").Name("DragArea")
         tbInner := tb.Add("Grid")
-        tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold").VerticalAlignment("Center").Margin("15,0,0,0")
+        tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TitleBarForeground}").FontSize(XAMLHost.GetThemeFontSize() + 2).FontWeight("Bold").VerticalAlignment("Center").Margin("15,0,0,0")
         BtnGroup := tbInner.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Right")
-        CloseBtnTemplate := '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CloseBtnRadius}"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="border" Property="Background" Value="#E0FF3333"/><Setter Property="Foreground" Value="White"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
+        CloseBtnTemplate := '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CloseBtnRadius}"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="border" Property="Background" Value="{DynamicResource ControlBorder}"/></Trigger><Trigger Property="IsPressed" Value="True"><Setter TargetName="border" Property="Background" Value="{DynamicResource BtnPressBg}"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
         closeBtn := BtnGroup.Add("Button").Name("BtnClosePanel").WindowChrome_IsHitTestVisibleInChrome("True").Width(40).Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
         closeBtn.InjectResources(CloseBtnTemplate)
         closeBtn.Add("TextBlock").Text(Chr(0xE8BB)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
@@ -131,21 +131,21 @@ class VarListenGui {
         hColDefs.Add("ColumnDefinition").Width("7")
         hColDefs.Add("ColumnDefinition").Name("VarHeaderCol2").Width("*")
         header.Add("TextBlock").Text(GetLang("变量名")).Grid_Column(0)
-            .Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold")
+            .Foreground("{DynamicResource TitleBarForeground}").FontSize(XAMLHost.GetThemeFontSize() + 2).FontWeight("Bold")
             .VerticalAlignment("Center").Margin("8,0,0,0")
         header.Add("Border").Grid_Column(1).Width(1).HorizontalAlignment("Center")
             .Background("{DynamicResource ControlBorder}").IsHitTestVisible("False")
         header.Add("GridSplitter").Grid_Column(1).Width(7).HorizontalAlignment("Center").VerticalAlignment("Stretch")
             .Background("Transparent").Cursor("SizeWE").ResizeBehavior("PreviousAndNext")
         header.Add("TextBlock").Text(GetLang("类型")).Grid_Column(2)
-            .Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold")
+            .Foreground("{DynamicResource TitleBarForeground}").FontSize(XAMLHost.GetThemeFontSize() + 2).FontWeight("Bold")
             .VerticalAlignment("Center").HorizontalAlignment("Center")
         header.Add("Border").Grid_Column(3).Width(1).HorizontalAlignment("Center")
             .Background("{DynamicResource ControlBorder}").IsHitTestVisible("False")
         header.Add("GridSplitter").Grid_Column(3).Width(7).HorizontalAlignment("Center").VerticalAlignment("Stretch")
             .Background("Transparent").Cursor("SizeWE").ResizeBehavior("PreviousAndNext")
         header.Add("TextBlock").Text(GetLang("值")).Grid_Column(4)
-            .Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold")
+            .Foreground("{DynamicResource TitleBarForeground}").FontSize(XAMLHost.GetThemeFontSize() + 2).FontWeight("Bold")
             .VerticalAlignment("Center").Margin("8,0,0,0")
 
         ; 隐藏代理网格：把表头显式列宽桥接进 SharedSizeGroup，让行宽跟随表头拖拽（修复 GridSplitter 无法带动共享列宽的问题）

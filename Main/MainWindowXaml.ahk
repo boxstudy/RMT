@@ -317,8 +317,8 @@ class MainWin {
             else if (pos == this._tabOrder.Length)
                 tabItem.Tag("last")
             ; 页签内容区统一外层边框；上边距 -1 与页签条下边框重叠，避免双线且与页签条等粗
-            bd := tabItem.Add("Border").BorderThickness("1").BorderBrush("{DynamicResource InputStroke}").CornerRadius("4").Margin("4,-1,4,4").Padding("2,2")
-            bd.Apply({SnapsToDevicePixels: "True", UseLayoutRounding: "False", RenderOptions_EdgeMode: "Aliased"})
+            bd := tabItem.Add("Border").BorderThickness("1.5").BorderBrush("{DynamicResource OutlineStroke}").CornerRadius("4").Margin("4,-1,4,4").Padding("2,2")
+            bd.Apply({SnapsToDevicePixels: "True", UseLayoutRounding: "False"})
             if (this._useVirtual.Has(idx)) {
                 ; 宏/模块显示区：自适应剩余空间
                 ; Epic5 虚拟列表：ListBox + DataTemplate + VirtualizingStackPanel(Recycling)，
@@ -348,7 +348,7 @@ class MainWin {
             . '<Setter Property="Padding" Value="0"/>'
             . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TabControl"><Grid>'
             . '<Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>'
-            . '<Border Grid.Row="0" Margin="4,0,4,0" CornerRadius="4" BorderThickness="1" BorderBrush="{DynamicResource InputStroke}" Padding="0,0" SnapsToDevicePixels="True" RenderOptions.EdgeMode="Aliased"><WrapPanel IsItemsHost="True"/></Border>'
+            . '<Border Grid.Row="0" Margin="4,0,4,0" CornerRadius="4" BorderThickness="1.5" BorderBrush="{DynamicResource OutlineStroke}" Padding="0,0" SnapsToDevicePixels="True"><WrapPanel IsItemsHost="True"/></Border>'
             . '<Border Grid.Row="1" Background="Transparent"><ContentPresenter ContentSource="SelectedContent"/></Border>'
             . '</Grid></ControlTemplate></Setter.Value></Setter>'
             . '</Style>'
@@ -358,7 +358,7 @@ class MainWin {
             . '<Setter Property="Foreground" Value="{DynamicResource ActionText}"/>'
             . '<Setter Property="Background" Value="{DynamicResource ActionBg}"/>'
             . '<Setter Property="BorderBrush" Value="{DynamicResource ActionStroke}"/>'
-            . '<Setter Property="BorderThickness" Value="1"/>'
+            . '<Setter Property="BorderThickness" Value="1.5"/>'
             . '<Setter Property="Padding" Value="10,0"/>'
             . '<Setter Property="HorizontalContentAlignment" Value="Center"/>'
             . '<Setter Property="VerticalContentAlignment" Value="Center"/>'
@@ -383,8 +383,8 @@ class MainWin {
         defaultBtnStyle := '<Style TargetType="Button">'
             . '<Setter Property="Foreground" Value="{DynamicResource TextMain}"/>'
             . '<Setter Property="Background" Value="{DynamicResource ControlBg}"/>'
-            . '<Setter Property="BorderBrush" Value="{DynamicResource ControlBorder}"/>'
-            . '<Setter Property="BorderThickness" Value="1"/>'
+            . '<Setter Property="BorderBrush" Value="{DynamicResource OutlineStroke}"/>'
+            . '<Setter Property="BorderThickness" Value="1.5"/>'
             . '<Setter Property="Padding" Value="10,0"/>'
             . '<Setter Property="HorizontalContentAlignment" Value="Center"/>'
             . '<Setter Property="VerticalContentAlignment" Value="Center"/>'
@@ -470,6 +470,8 @@ class MainWin {
             . '<SolidColorBrush x:Key="ListAltBg" Color="#40000000"/>'
             . '<SolidColorBrush x:Key="ListRowAltBg" Color="#FF2A2A2A"/>'
             . '<SolidColorBrush x:Key="FoldHeaderBg" Color="#FF333333"/>'
+            ; 主界面主要轮廓描边（按钮/页签/模块）：比 InputStroke 更深，随主题由 ApplyWinThemeToXaml 覆盖
+            . '<SolidColorBrush x:Key="OutlineStroke" Color="#FF999999"/>'
         this._foldFieldW := 198
         this._foldFrontW := this._foldFieldW + 80
         ; 备注右缘对齐「菜单宏」右分割线(3×80)；前台左缘对齐「定时宏」左分割线(5×80)
@@ -782,7 +784,7 @@ class MainWin {
         isMenu := CheckIsMenuMacroTable(t)
         isUI := GetTableSymbol(t) == "UI"
         ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
-        xaml := '<Border ' ns ' CornerRadius="4" BorderThickness="1" BorderBrush="{DynamicResource InputStroke}" Background="{DynamicResource FoldHeaderBg}" Margin="0,2,0,4" Padding="6,4,6,6"' this._BorderSnap() '>'
+        xaml := '<Border ' ns ' CornerRadius="4" BorderThickness="1.5" BorderBrush="{DynamicResource OutlineStroke}" Background="{DynamicResource FoldHeaderBg}" Margin="0,2,0,4" Padding="6,4,6,6"' this._BorderSnap() '>'
             . '<StackPanel TextElement.FontSize="' XAMLHost.FormatFontSize(XAMLHost.ScaleFontSize(11)) '">'
             . this._BuildFoldHeaderRowXaml(t, f, fold, false)
         if (isMenu || isUI) {
@@ -842,7 +844,7 @@ class MainWin {
             . '<Setter Property="Foreground" Value="{DynamicResource InputText}"/>'
             . '<Setter Property="Background" Value="{DynamicResource ControlBg}"/>'
             . '<Setter Property="BorderBrush" Value="{DynamicResource InputStroke}"/>'
-            . '<Setter Property="BorderThickness" Value="1"/>'
+            . '<Setter Property="BorderThickness" Value="1.25"/>'
             . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TextBox">'
             . '<Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3"' this._BorderSnap() '>'
             . '<ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" HorizontalScrollBarVisibility="{TemplateBinding HorizontalScrollBarVisibility}" VerticalScrollBarVisibility="{TemplateBinding VerticalScrollBarVisibility}"/>'
@@ -857,7 +859,7 @@ class MainWin {
             . '<Setter Property="Cursor" Value="Hand"/>'
             . '<Setter Property="Background" Value="{DynamicResource ControlBg}"/>'
             . '<Setter Property="BorderBrush" Value="{DynamicResource ControlBorder}"/>'
-            . '<Setter Property="BorderThickness" Value="1"/>'
+            . '<Setter Property="BorderThickness" Value="1.25"/>'
             . '<Setter Property="Foreground" Value="{DynamicResource TextMain}"/>'
             . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">'
             . '<Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3"' this._BorderSnap() '>'
@@ -873,7 +875,7 @@ class MainWin {
             . '<Setter Property="Cursor" Value="Hand"/>'
             . '<Setter Property="Background" Value="{DynamicResource ControlBg}"/>'
             . '<Setter Property="BorderBrush" Value="{DynamicResource ControlBorder}"/>'
-            . '<Setter Property="BorderThickness" Value="1"/>'
+            . '<Setter Property="BorderThickness" Value="1.25"/>'
             . '<Setter Property="Foreground" Value="{DynamicResource TextMain}"/>'
             . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">'
             . '<Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3"' this._BorderSnap() '>'
@@ -926,10 +928,10 @@ class MainWin {
             . '<Setter Property="Foreground" Value="{DynamicResource TextMain}"/>'
             . '<Setter Property="Background" Value="{DynamicResource ControlBg}"/>'
             . '<Setter Property="BorderBrush" Value="{DynamicResource InputStroke}"/>'
-            . '<Setter Property="BorderThickness" Value="1"/>'
+            . '<Setter Property="BorderThickness" Value="1.25"/>'
             . '<Setter Property="SnapsToDevicePixels" Value="True"/>'
             . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">'
-            . '<Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="3" Padding="{TemplateBinding Padding}"' this._BorderSnap() '>'
+            . '<Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3" Padding="{TemplateBinding Padding}"' this._BorderSnap() '>'
             . '<ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>'
             . '</Border>'
             . '<ControlTemplate.Triggers>' this._RmtBtnInteractionTriggers("Bd") '</ControlTemplate.Triggers>'
@@ -946,14 +948,14 @@ class MainWin {
             . '<Setter Property="Foreground" Value="{DynamicResource InputText}"/>'
             . '<Setter Property="Background" Value="{DynamicResource ControlBg}"/>'
             . '<Setter Property="BorderBrush" Value="{DynamicResource InputStroke}"/>'
-            . '<Setter Property="BorderThickness" Value="1"/>'
+            . '<Setter Property="BorderThickness" Value="1.25"/>'
             . '<Setter Property="MinHeight" Value="24"/><Setter Property="Height" Value="24"/>'
             . '<Setter Property="VerticalContentAlignment" Value="Center"/>'
             . '<Setter Property="Padding" Value="4,0,20,0"/>'
             . '<Setter Property="SnapsToDevicePixels" Value="True"/>'
             . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ComboBox">'
             . '<Grid' this._BorderSnap() '>'
-            . '<Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="3"' this._BorderSnap() '/>'
+            . '<Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3"' this._BorderSnap() '/>'
             . '<ToggleButton Background="Transparent" BorderThickness="0" Focusable="False" ClickMode="Press" IsChecked="{Binding Path=IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">'
             . '<ToggleButton.Template><ControlTemplate TargetType="ToggleButton"><Border Background="Transparent">'
             . '<Path Fill="{DynamicResource TextMain}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0" Data="M 0 0 L 4 4 L 8 0 Z"/>'
@@ -993,9 +995,9 @@ class MainWin {
         return 24
     }
 
-    ; 描边本身禁止 UseLayoutRounding（与窗口取整叠加会吞底边），只按设备像素画 1px
+    ; 描边禁止 UseLayoutRounding（与窗口取整叠加会吞底边）。不用 Aliased：125% DPI 下会把 1DIP 收成 1 物理像素，边框发丝细。
     _BorderSnap() {
-        return ' SnapsToDevicePixels="True" UseLayoutRounding="False" RenderOptions.EdgeMode="Aliased"'
+        return ' SnapsToDevicePixels="True" UseLayoutRounding="False"'
     }
 
     _ItemInnerColDefs() {
@@ -1007,26 +1009,32 @@ class MainWin {
 
     _BuildItemCardOpen(ns := "") {
         nsAttr := ns != "" ? " " ns : ""
-        ; 宏行固定 30px；末行只加 2px 底边距，与下一模块隔开。Padding 不随末行变化，避免回收后行高粘住。
-        return '<Border' nsAttr ' BorderBrush="{DynamicResource InputStroke}" ClipToBounds="False" Height="30" MinHeight="30" MaxHeight="30"' this._BorderSnap() '>'
+        ; 宏行默认 30px（无上下边、内边距 3+3，内容 24）。末行多 1px 底边 + 底内边距 5，高度 34，内容区 25，控件底边不被裁。
+        return '<Border' nsAttr ' BorderBrush="{DynamicResource OutlineStroke}" ClipToBounds="False"' this._BorderSnap() '>'
             . '<Border.Style><Style TargetType="Border">'
             . '<Setter Property="CornerRadius" Value="0"/>'
-            . '<Setter Property="BorderThickness" Value="1,0,1,0"/>'
+            . '<Setter Property="BorderThickness" Value="1.5,0,1.5,0"/>'
             . '<Setter Property="Margin" Value="0"/>'
             . '<Setter Property="Padding" Value="4,3,6,3"/>'
             . '<Setter Property="Background" Value="{DynamicResource ControlBg}"/>'
+            . '<Setter Property="Height" Value="30"/>'
+            . '<Setter Property="MinHeight" Value="30"/>'
+            . '<Setter Property="MaxHeight" Value="30"/>'
             . '<Style.Triggers>'
             . '<DataTrigger Binding="{Binding IsAltRow}" Value="True"><Setter Property="Background" Value="{DynamicResource ListRowAltBg}"/></DataTrigger>'
             . '<DataTrigger Binding="{Binding IsLastInFold}" Value="True">'
             . '<Setter Property="CornerRadius" Value="0,0,4,4"/>'
-            . '<Setter Property="BorderThickness" Value="1,0,1,1"/>'
-            . '<Setter Property="Margin" Value="0,0,0,2"/>'
+            . '<Setter Property="BorderThickness" Value="1.5,0,1.5,1.5"/>'
+            . '<Setter Property="Height" Value="34"/>'
+            . '<Setter Property="MinHeight" Value="34"/>'
+            . '<Setter Property="MaxHeight" Value="34"/>'
+            . '<Setter Property="Padding" Value="4,3,6,5"/>'
             . '</DataTrigger>'
             . '</Style.Triggers></Style></Border.Style>'
-            . '<Grid>'
+            . '<Grid Height="24" VerticalAlignment="Top">'
             . '<Grid.ColumnDefinitions><ColumnDefinition Width="' this._ItemDragColW() '"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>'
             . '<Grid Grid.Column="0" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="12,0,2,0">' this._BuildDragHandleXaml() '</Grid>'
-            . '<Grid Grid.Column="1" MinHeight="24">'
+            . '<Grid Grid.Column="1" Height="24">'
     }
 
     _ItemCardClose() {
@@ -1034,22 +1042,22 @@ class MainWin {
     }
 
     _BuildFoldCardBorderOpen() {
-        return '<Border BorderBrush="{DynamicResource InputStroke}" Background="{DynamicResource FoldHeaderBg}" ClipToBounds="False"' this._BorderSnap() '>'
+        return '<Border BorderBrush="{DynamicResource OutlineStroke}" Background="{DynamicResource FoldHeaderBg}" ClipToBounds="False"' this._BorderSnap() '>'
             . '<Border.Style><Style TargetType="Border">'
             . '<Setter Property="CornerRadius" Value="4,4,0,0"/>'
-            . '<Setter Property="BorderThickness" Value="1,1,1,1"/>'
+            . '<Setter Property="BorderThickness" Value="1.5,1.5,1.5,0"/>'
             . '<Setter Property="Margin" Value="0,4,0,0"/>'
-            . '<Setter Property="Padding" Value="6,4,6,10"/>'
+            . '<Setter Property="Padding" Value="6,4,6,6"/>'
             . '<Style.Triggers>'
             . '<DataTrigger Binding="{Binding Folded}" Value="True">'
             . '<Setter Property="CornerRadius" Value="4"/>'
-            . '<Setter Property="BorderThickness" Value="1"/>'
+            . '<Setter Property="BorderThickness" Value="1.5"/>'
             . '<Setter Property="Margin" Value="0,4,0,4"/>'
             . '<Setter Property="Padding" Value="6,4,6,6"/>'
             . '</DataTrigger>'
             . '<DataTrigger Binding="{Binding HasBody}" Value="False">'
             . '<Setter Property="CornerRadius" Value="4"/>'
-            . '<Setter Property="BorderThickness" Value="1"/>'
+            . '<Setter Property="BorderThickness" Value="1.5"/>'
             . '<Setter Property="Margin" Value="0,4,0,4"/>'
             . '<Setter Property="Padding" Value="6,4,6,6"/>'
             . '</DataTrigger>'
@@ -1085,11 +1093,12 @@ class MainWin {
         fw := this._foldFieldW
         box := this._FoldFieldBoxAttrs()
         if (vlMode) {
+            ; 占位符绑 TextBox.Text（模板内局部名），按键即隐；不绑 FoldRemark（LostFocus 才回写）
             return '<Grid Width="' fw '" Height="24" MinHeight="24" Margin="0,0,8,0">'
-                . '<TextBox Tag="FoldRemark" Text="{Binding FoldRemark}"' box '/>'
+                . '<TextBox Name="FoldRemarkBox" Tag="FoldRemark" Text="{Binding FoldRemark}"' box '/>'
                 . '<TextBlock Text="' ph '" IsHitTestVisible="False" VerticalAlignment="Center" Margin="1,0,1,0" HorizontalAlignment="Left" Foreground="{DynamicResource TextSub}" Opacity="0.55" FontSize="' foldFs '">'
                 . '<TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/>'
-                . '<Style.Triggers><DataTrigger Binding="{Binding FoldRemark}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>'
+                . '<Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=FoldRemarkBox}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>'
                 . '</Style></TextBlock.Style></TextBlock></Grid>'
         }
         return '<Grid Width="' fw '" Height="24" MinHeight="24" Margin="0,0,8,0">'
@@ -1105,11 +1114,12 @@ class MainWin {
         ph := this._XmlEsc(GetLang("请输入备注信息"))
         box := this._FoldFieldBoxAttrs(' ToolTip="' GetLang("备注") '"')
         if (vlMode) {
+            ; 占位符绑 TextBox.Text（模板内局部名），按键即隐；不绑 Remark（LostFocus 才回写）
             return '<Grid Grid.Column="2" Height="24" MinHeight="24" Margin="-5,0,0,0">'
-                . '<TextBox Tag="Remark" Text="{Binding Remark}"' box '/>'
+                . '<TextBox Name="RemarkBox" Tag="Remark" Text="{Binding Remark}"' box '/>'
                 . '<TextBlock Text="' ph '" IsHitTestVisible="False" VerticalAlignment="Center" Margin="1,0,1,0" HorizontalAlignment="Left" Foreground="{DynamicResource TextSub}" Opacity="0.55" FontSize="' foldFs '">'
                 . '<TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/>'
-                . '<Style.Triggers><DataTrigger Binding="{Binding Remark}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>'
+                . '<Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=RemarkBox}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>'
                 . '</Style></TextBlock.Style></TextBlock></Grid>'
         }
         return '<Grid Grid.Column="2" Height="24" MinHeight="24" Margin="-5,0,0,0">'

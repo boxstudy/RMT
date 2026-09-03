@@ -471,7 +471,7 @@ class MacroEditGui {
         ; === 标题栏 ===
         tb := main.Add("Border").Grid_Row(0).Background("{DynamicResource TitleBarColor}").Name("DragArea")
         tbInner := tb.Add("Grid")
-        tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold").VerticalAlignment("Center").Margin("12,0,0,0")
+        tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TitleBarForeground}").FontSize(XAMLHost.GetThemeFontSize() + 2).FontWeight("Bold").VerticalAlignment("Center").Margin("12,0,0,0")
         BtnGroup := tbInner.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Right")
         ; §8 帮助/视频按钮（占位）：帮助打开指令手册，视频提示制作中（文档/视频完成后按指令跳转）
         helpBtn := BtnGroup.Add("Button").Name("BtnCmdHelp").WindowChrome_IsHitTestVisibleInChrome("True").Width(34).Height(30).MinHeight(30).Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0).ToolTip(GetLang("指令手册"))

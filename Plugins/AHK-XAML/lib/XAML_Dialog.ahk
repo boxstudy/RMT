@@ -94,7 +94,7 @@ class XDialog {
 
         if (showCloseBtn) {
             closeBtnName := XDialog.Opt(options, "CloseBtnName", "BtnClose")
-            closeBtn := tb.Add("Button").Name(closeBtnName).WindowChrome_IsHitTestVisibleInChrome("True").HorizontalAlignment("Right").Background("Transparent").BorderThickness(0).Width(46).Height(36).MinHeight(36).Padding("0").Cursor("Hand").Foreground("{DynamicResource TextMain}")
+            closeBtn := tb.Add("Button").Name(closeBtnName).WindowChrome_IsHitTestVisibleInChrome("True").HorizontalAlignment("Right").Background("Transparent").BorderThickness(0).Width(46).Height(36).MinHeight(36).Padding("0").Cursor("Hand").Foreground("{DynamicResource TitleBarForeground}")
             try closeBtn._Props["Width"] := options.CloseBtnWidth
             try closeBtn._Props["Height"] := options.CloseBtnHeight
             try closeBtn._Props["Margin"] := options.CloseBtnMargin
@@ -102,6 +102,8 @@ class XDialog {
             closeStyle := XDialog.Opt(options, "CloseBtnStyle", "")
             if (closeStyle != "")
                 closeBtn.Style(closeStyle)
+            else if (closeBtnName == "BtnDlgClose")
+                closeBtn.Style("{StaticResource DlgCloseBtn}")
             else
                 closeBtn.Style("{StaticResource TitleBarCloseButton}")
             closeBtn.Add("TextBlock").Text(Chr(0xE8BB)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
@@ -114,11 +116,15 @@ class XDialog {
         shortMsg := (detail == "" && inputText == "" && !hasProgress && StrLen(msg) <= 40 && !InStr(msg, "`n"))
         msgAlign := shortMsg ? "Center" : "Top"
         msgRow := body.Add("Grid").Margin("0,0,0,15")
-        msgTb := msgRow.Add("TextBlock").Text(msg).TextWrapping("Wrap").VerticalAlignment(msgAlign)
+        msgTb := msgRow.Add("TextBlock").Text(msg).TextWrapping("Wrap").VerticalAlignment(msgAlign).TextAlignment(shortMsg ? "Center" : "Left")
         if (iconChar != "") {
             msgRow.Cols(String(iconColW), "*")
             msgRow.Add("TextBlock").Text(iconChar).Foreground(iconColor).FontSize(iconFontSize).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").VerticalAlignment(msgAlign).HorizontalAlignment("Center").Margin(shortMsg ? "0" : "0,2,0,0").Grid_Column(0)
             msgTb.Grid_Column(1).VerticalAlignment(msgAlign)
+            if (shortMsg)
+                msgTb.HorizontalAlignment("Center")
+        } else if (shortMsg) {
+            msgTb.HorizontalAlignment("Center")
         }
         msgTb.Foreground(XDialog.Opt(options, "MessageForeground", "{DynamicResource TextMain}"))
         msgFont := XDialog.Opt(options, "MessageFontFamily", "")
@@ -210,7 +216,7 @@ class XDialog {
 
         if (exePath != "" && FileExist(exePath)) {
             ui := XAMLHost("", exePath, actualOwner)
-            ui.skipFontScale := true
+            ui.skipFontScale := XDialog.Opt(options, "SkipFontScale", false)
         } else {
             ; Use a lightweight template without the 75KB component library for speed
             captionH := movable ? "45" : "0"
@@ -246,7 +252,7 @@ class XDialog {
             dialogTemplate := StrReplace(dialogTemplate, "%bgRes%", bgRes)
             dialogTemplate := StrReplace(dialogTemplate, "%dialogRes%", dialogResources)
             ui := XAMLHost(StrReplace(dialogTemplate, "%app%", main.ToString()), exePath, actualOwner)
-            ui.skipFontScale := true
+            ui.skipFontScale := XDialog.Opt(options, "SkipFontScale", false)
         }
 
         ; Replace some default xaml.ahk window stuff to match the dialog needs

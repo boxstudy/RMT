@@ -490,6 +490,8 @@ class AppThemeUtil {
         tabSelBg := AppThemeUtil.WithAlpha(progress, "40")
         btnPressBg := AppThemeUtil.AdjustRgbBrightness(groupStroke, 0.90)
         actionPressBg := AppThemeUtil.AdjustRgbBrightness(actionHoverBg, 0.92)
+        ; 主界面主要轮廓描边：与「配置管理」按钮 hover 背景同色（ControlBorder / GroupStroke）
+        outlineStroke := groupStroke
 
         ; 合并为一次 BatchUpdate：~28 条资源逐条 Update 是 28 次同步 IPC 往返（拖慢开窗）
         if (ui.HasMethod("BatchUpdate")) {
@@ -524,6 +526,7 @@ class AppThemeUtil {
                 {ControlName: "Resource", PropertyName: "TabSelBg", Value: tabSelBg},
                 {ControlName: "Resource", PropertyName: "BtnPressBg", Value: btnPressBg},
                 {ControlName: "Resource", PropertyName: "ActionPressBg", Value: actionPressBg},
+                {ControlName: "Resource", PropertyName: "OutlineStroke", Value: outlineStroke},
                 ; 下拉弹出层与输入框同色，避免浅色底 + 深色主题文字导致看不清
                 {ControlName: "Resource", PropertyName: "DropdownBg", Value: windowBg},
                 ; 列表斑马纹：取标题色 RGB，降低透明度，随主题变化
@@ -565,6 +568,7 @@ class AppThemeUtil {
             try ui.Update("Resource", "TabSelBg", tabSelBg)
             try ui.Update("Resource", "BtnPressBg", btnPressBg)
             try ui.Update("Resource", "ActionPressBg", actionPressBg)
+            try ui.Update("Resource", "OutlineStroke", outlineStroke)
             ; 下拉弹出层与输入框同色，避免浅色底 + 深色主题文字导致看不清
             try ui.Update("Resource", "DropdownBg", windowBg)
             ; 列表斑马纹：取标题色 RGB，降低透明度，随主题变化
@@ -683,5 +687,10 @@ class AppThemeUtil {
                 && !MyVarListenGui.ModifyGui.closed && IsObject(MyVarListenGui.ModifyGui.ui))
                 AppThemeUtil.ApplyWinThemeToXaml(MyVarListenGui.ModifyGui.ui)
         }
+    }
+
+    ; 各编辑窗关闭钮：与主界面标题栏按钮相同，hover=ControlBorder，按下=BtnPressBg（不用系统红底）
+    static TitleCloseBtnStyle() {
+        return '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CloseBtnRadius}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="border" Property="Background" Value="{DynamicResource ControlBorder}"/></Trigger><Trigger Property="IsPressed" Value="True"><Setter TargetName="border" Property="Background" Value="{DynamicResource BtnPressBg}"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
     }
 }
