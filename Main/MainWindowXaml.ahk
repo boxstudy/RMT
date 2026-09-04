@@ -471,6 +471,7 @@ class MainWin {
             . '<SolidColorBrush x:Key="ActionPressBg" Color="#FF106EBE"/>'
             . '<SolidColorBrush x:Key="ListAltBg" Color="#40000000"/>'
             . '<SolidColorBrush x:Key="ListRowAltBg" Color="#FF2A2A2A"/>'
+            . '<SolidColorBrush x:Key="ListRowForbidBg" Color="#FF4A4034"/>'
             . '<SolidColorBrush x:Key="FoldHeaderBg" Color="#FF333333"/>'
             . '<SolidColorBrush x:Key="FoldAltBg" Color="#FF3A3A3A"/>'
             . '<SolidColorBrush x:Key="FoldDivider" Color="#66999999"/>'
@@ -792,7 +793,8 @@ class MainWin {
         isMenu := CheckIsMenuMacroTable(t)
         isUI := GetTableSymbol(t) == "UI"
         ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
-        xaml := '<Border ' ns ' CornerRadius="0" BorderThickness="0" BorderBrush="{DynamicResource OutlineStroke}" Background="{DynamicResource FoldHeaderBg}" Margin="0" Padding="8,6,8,6"' this._BorderSnap() '>'
+        foldBg := fold.ForbidState ? "{DynamicResource ListRowForbidBg}" : "{DynamicResource FoldHeaderBg}"
+        xaml := '<Border ' ns ' Name="FoldCard_' t '_' f '" CornerRadius="0" BorderThickness="0" BorderBrush="{DynamicResource OutlineStroke}" Background="' foldBg '" Margin="0" Padding="8,6,8,6"' this._BorderSnap() '>'
             . '<StackPanel VerticalAlignment="Center" TextElement.FontSize="' XAMLHost.FormatFontSize(XAMLHost.ScaleFontSize(11)) '">'
             . this._BuildFoldDividerXaml(false, isFirst)
             . this._BuildFoldHeaderRowXaml(t, f, fold, false)
@@ -1052,21 +1054,25 @@ class MainWin {
             . '<ColumnDefinition Width="' L["spacerCopy"] '"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/>'
     }
 
-    _BuildItemCardOpen(ns := "") {
+    _BuildItemCardOpen(ns := "", t := 0, i := 0, forbid := false) {
         nsAttr := ns != "" ? " " ns : ""
+        nameAttr := t > 0 ? ' Name="ItemCard_' t '_' i '"' : ""
+        defBg := (t > 0 && forbid) ? "{DynamicResource ListRowForbidBg}" : "{DynamicResource ControlBg}"
         ; 宏行贴在页签内容框里，不再自绘左右/底边；高度 30（内边距 3+3，内容 24）。
-        return '<Border' nsAttr ' BorderBrush="{DynamicResource OutlineStroke}" ClipToBounds="False"' this._BorderSnap() '>'
+        return '<Border' nsAttr nameAttr ' BorderBrush="{DynamicResource OutlineStroke}" ClipToBounds="False"' this._BorderSnap() '>'
             . '<Border.Style><Style TargetType="Border">'
             . '<Setter Property="CornerRadius" Value="0"/>'
             . '<Setter Property="BorderThickness" Value="0"/>'
             . '<Setter Property="Margin" Value="0"/>'
             . '<Setter Property="Padding" Value="4,3,6,3"/>'
-            . '<Setter Property="Background" Value="{DynamicResource ControlBg}"/>'
+            . '<Setter Property="Background" Value="' defBg '"/>'
             . '<Setter Property="Height" Value="30"/>'
             . '<Setter Property="MinHeight" Value="30"/>'
             . '<Setter Property="MaxHeight" Value="30"/>'
             . '<Style.Triggers>'
             . '<DataTrigger Binding="{Binding IsAltRow}" Value="True"><Setter Property="Background" Value="{DynamicResource ListRowAltBg}"/></DataTrigger>'
+            . '<DataTrigger Binding="{Binding Forbid}" Value="True"><Setter Property="Background" Value="{DynamicResource ListRowForbidBg}"/></DataTrigger>'
+            . '<DataTrigger Binding="{Binding FoldForbid}" Value="True"><Setter Property="Background" Value="{DynamicResource ListRowForbidBg}"/></DataTrigger>'
             . '</Style.Triggers></Style></Border.Style>'
             . '<Grid Height="24" VerticalAlignment="Center">'
             . '<Grid.ColumnDefinitions><ColumnDefinition Width="' this._ItemDragColW() '"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>'
@@ -1102,7 +1108,9 @@ class MainWin {
             . '<Setter Property="BorderThickness" Value="0"/>'
             . '<Setter Property="Margin" Value="0"/>'
             . '<Setter Property="Padding" Value="8,6,8,6"/>'
-            . '</Style></Border.Style>'
+            . '<Style.Triggers>'
+            . '<DataTrigger Binding="{Binding FoldForbid}" Value="True"><Setter Property="Background" Value="{DynamicResource ListRowForbidBg}"/></DataTrigger>'
+            . '</Style.Triggers></Style></Border.Style>'
     }
 
     _BuildTKBtnInnerXaml(tkStr, vlMode) {
@@ -1214,7 +1222,7 @@ class MainWin {
         if (isNormal && tkStr == GetLang("编辑"))
             tkStr := ""
         ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
-        xaml := this._BuildItemCardOpen(ns)
+        xaml := this._BuildItemCardOpen(ns, t, i, item.Forbid || GetItemFoldForbidState(tableItem, i))
             . '<Grid.ColumnDefinitions>' this._ItemInnerColDefs() '</Grid.ColumnDefinitions>'
             . '<Border Grid.Column="0" Name="Color_' t '_' i '" Width="12" Height="12" CornerRadius="6" Background="' colorHex '" VerticalAlignment="Center" HorizontalAlignment="Center"/>'
             . '<TextBlock Grid.Column="1" Text="' i '." VerticalAlignment="Center" HorizontalAlignment="Left" Margin="-15,0,0,0" Foreground="{DynamicResource TextSub}"/>'
@@ -1408,6 +1416,7 @@ class MainWin {
         this.ui.Update("TKType_" t "_" i, "SelectedIndex", String(tkTypeIdx))
         this.ui.Update("Loop_" t "_" i, "Text", loopStr)
         this.SyncItemForbidBtnUI(t, i, item.Forbid)
+        this.ui.Update("ItemCard_" t "_" i, "Background", (item.Forbid || GetItemFoldForbidState(tableItem, i)) ? "{DynamicResource ListRowForbidBg}" : "{DynamicResource ControlBg}")
         this.UpdateItemColor(t, i)
         this._RefreshItemEditGlyph(t, i, item.Macro)
     }
@@ -1563,6 +1572,15 @@ class MainWin {
             this.ui.Update("FoldForbidBtn_" t "_" f, "BorderBrush", "{DynamicResource ControlBorder}")
             this.ui.Update("FoldForbidBtn_" t "_" f, "Foreground", "{DynamicResource TextMain}")
             this.ui.Update("FoldForbidDot_" t "_" f, "Visibility", "Collapsed")
+        }
+        this.ui.Update("FoldCard_" t "_" f, "Background", forbidState ? "{DynamicResource ListRowForbidBg}" : "{DynamicResource FoldHeaderBg}")
+        tableItem := MySoftData.TableInfo[t]
+        fold := tableItem.Folds[f]
+        if (!fold)
+            return
+        for i, item in tableItem.Items {
+            if (item.FoldID == fold.ID)
+                this.RefreshItemRow(t, i)
         }
     }
 

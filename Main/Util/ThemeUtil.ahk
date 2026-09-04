@@ -532,6 +532,7 @@ class AppThemeUtil {
                 ; 列表斑马纹：取标题色 RGB，降低透明度，随主题变化
                 {ControlName: "Resource", PropertyName: "ListAltBg", Value: AppThemeUtil.MakeListAltBg(titleBg)},
                 {ControlName: "Resource", PropertyName: "ListRowAltBg", Value: AppThemeUtil.MakeListRowAltBg(windowBg, actionBg)},
+                {ControlName: "Resource", PropertyName: "ListRowForbidBg", Value: AppThemeUtil.MakeListRowForbidBg(windowBg, actionBg)},
                 {ControlName: "Resource", PropertyName: "FoldHeaderBg", Value: AppThemeUtil.MakeFoldHeaderBg(windowBg, titleBg)},
                 {ControlName: "Resource", PropertyName: "FoldAltBg", Value: AppThemeUtil.MakeFoldAltBg(windowBg, actionBg)},
                 {ControlName: "Resource", PropertyName: "FoldDivider", Value: AppThemeUtil.WithAlpha(groupStroke, "55")},
@@ -576,6 +577,7 @@ class AppThemeUtil {
             ; 列表斑马纹：取标题色 RGB，降低透明度，随主题变化
             try ui.Update("Resource", "ListAltBg", AppThemeUtil.MakeListAltBg(titleBg))
             try ui.Update("Resource", "ListRowAltBg", AppThemeUtil.MakeListRowAltBg(windowBg, actionBg))
+            try ui.Update("Resource", "ListRowForbidBg", AppThemeUtil.MakeListRowForbidBg(windowBg, actionBg))
             try ui.Update("Resource", "FoldHeaderBg", AppThemeUtil.MakeFoldHeaderBg(windowBg, titleBg))
             try ui.Update("Resource", "FoldAltBg", AppThemeUtil.MakeFoldAltBg(windowBg, actionBg))
             try ui.Update("Resource", "FoldDivider", AppThemeUtil.WithAlpha(groupStroke, "55"))
@@ -601,6 +603,13 @@ class AppThemeUtil {
         g := Min(255, Max(0, Round(bg * (1 - amt) + og * amt)))
         b2 := Min(255, Max(0, Round(bb * (1 - amt) + ob * amt)))
         return Format("#FF{:02X}{:02X}{:02X}", r, g, b2)
+    }
+
+    ; 宏行禁用：灰柑橘（不跟操作色走），按窗口深浅调节混入量
+    static MakeListRowForbidBg(windowBg, actionBg) {
+        citrus := "#FFC4A070"
+        amt := (AppThemeUtil.RgbLuma(windowBg) >= 140) ? 0.34 : 0.30
+        return AppThemeUtil.BlendRgb(windowBg, citrus, amt)
     }
 
     ; 宏行斑马：浅粉（比窗口白粉略深），混入少量操作色

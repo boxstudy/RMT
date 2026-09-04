@@ -452,6 +452,7 @@ public class VirtualListHost
             dr.IsLastInFold = sr.IsLastInFold;
             dr.IsLastModule = sr.IsLastModule;
             dr.EditKind = sr.EditKind;
+            dr.FoldForbid = sr.FoldForbid;
             return;
         }
         VListFold df = dst as VListFold, sf = src as VListFold;
@@ -563,6 +564,29 @@ public class VirtualListHost
         VListFold fo = o as VListFold;
         if (fo == null) return;
         fo.FoldForbid = f[1] == "1";
+        ApplyFoldForbidToRows(fo);
+    }
+
+    private void ApplyFoldForbidToRows(VListFold fo)
+    {
+        bool on = fo.FoldForbid;
+        foreach (VListRow r in fo.ChildRows)
+            r.FoldForbid = on;
+        bool after = false;
+        foreach (object it in _items)
+        {
+            if (ReferenceEquals(it, fo))
+            {
+                after = true;
+                continue;
+            }
+            if (!after)
+                continue;
+            VListRow r = it as VListRow;
+            if (r == null)
+                break;
+            r.FoldForbid = on;
+        }
     }
 
     private void Move(string val)
@@ -909,6 +933,7 @@ public class VirtualListHost
             {
                 row.IsAltRow = (i % 2) == 0;
                 row.IsAltFold = fold != null && fold.IsAltFold;
+                row.FoldForbid = fold != null && fold.FoldForbid;
                 row.IsLastInFold = false;
                 row.IsLastModule = false;
                 lastRow = row;
@@ -926,7 +951,11 @@ public class VirtualListHost
     private static void CloseFoldFlags(VListFold fold, VListRow lastRow)
     {
         if (fold != null)
+        {
             fold.HasBody = lastRow != null;
+            foreach (VListRow r in fold.ChildRows)
+                r.FoldForbid = fold.FoldForbid;
+        }
         if (lastRow != null)
         {
             lastRow.IsLastInFold = true;
@@ -1123,6 +1152,7 @@ public class VListRow : VLItem
     public bool IsLastInFold { get { return _IsLastInFold; } set { Set(ref _IsLastInFold, value, "IsLastInFold"); } } private bool _IsLastInFold;
     public bool IsLastModule { get { return _IsLastModule; } set { Set(ref _IsLastModule, value, "IsLastModule"); } } private bool _IsLastModule;
     public string EditKind { get { return _EditKind; } set { Set(ref _EditKind, value, "EditKind"); } } private string _EditKind;
+    public bool FoldForbid { get { return _FoldForbid; } set { Set(ref _FoldForbid, value, "FoldForbid"); } } private bool _FoldForbid;
 }
 
 public class VListFold : VLItem
