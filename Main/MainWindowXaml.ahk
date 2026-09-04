@@ -876,6 +876,10 @@ class MainWin {
             . '</Border>'
             . '<ControlTemplate.Triggers>' this._RmtBtnInteractionTriggers("Bd") '</ControlTemplate.Triggers>'
             . '</ControlTemplate></Setter.Value></Setter></Style>'
+        primaryBtn := StrReplace(toolBtn, 'x:Key="RmtFoldToolBtn"', 'x:Key="RmtItemPrimaryBtn"')
+        primaryBtn := StrReplace(primaryBtn, 'Width" Value="24"', 'Width" Value="48"')
+        editBtn := StrReplace(toolBtn, 'x:Key="RmtFoldToolBtn"', 'x:Key="RmtItemEditBtn"')
+        editBtn := StrReplace(editBtn, 'Width" Value="24"', 'Width" Value="64"')
         forbidBtn := '<Style x:Key="RmtFoldForbidBtn" TargetType="Button">'
             . '<Setter Property="Width" Value="24"/><Setter Property="Height" Value="24"/><Setter Property="MinHeight" Value="24"/>'
             . '<Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0,0,4,0"/>'
@@ -978,7 +982,7 @@ class MainWin {
             . '<ControlTemplate.Triggers>'
             . '<Trigger Property="IsEditable" Value="True"><Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible"/><Setter TargetName="ContentSite" Property="Visibility" Value="Hidden"/></Trigger>'
             . '</ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
-        return fieldBox . toolBtn . forbidBtn . itemForbid . itemFieldBtn . itemCombo
+        return fieldBox . toolBtn . primaryBtn . editBtn . forbidBtn . itemForbid . itemFieldBtn . itemCombo
     }
 
     ; 模块头输入框：RmtFoldFieldBox 覆盖全局 TextBox Padding=12，保证与占位符左对齐
@@ -1191,8 +1195,8 @@ class MainWin {
             . '<ComboBoxItem Content="' GetLang("无限") '"/>'
             . '</ComboBox>'
             . '<StackPanel Grid.Column="6" Orientation="Horizontal" VerticalAlignment="Center">'
-            . '<Button Name="Edit_' t '_' i '" Style="{StaticResource RmtFoldToolBtn}" Content="&#xE70F;" ToolTip="' GetLang("编辑") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"/>'
-            . '<Button Name="Setting_' t '_' i '" Style="{StaticResource RmtFoldToolBtn}" Content="&#xE713;" ToolTip="' GetLang("设置") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"/>'
+            . this._BuildItemEditBtnXaml(t, i, item, false)
+            . '<Button Name="Setting_' t '_' i '" Style="{StaticResource RmtItemPrimaryBtn}" Content="&#xE713;" ToolTip="' GetLang("设置") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14"/>'
             . '<Button Name="Copy_' t '_' i '" Style="{StaticResource RmtFoldToolBtn}" Content="&#xE8C8;" ToolTip="' GetLang("复制") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"/>'
             . this._BuildItemForbidBtnXaml(t, i, item.Forbid, false)
             . '<Button Name="Del_' t '_' i '" Style="{StaticResource RmtFoldToolBtn}" Content="&#xE74D;" ToolTip="' GetLang("删除") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" Margin="0"/>'
@@ -1201,10 +1205,49 @@ class MainWin {
         return xaml
     }
 
+    _BuildItemEditBtnInnerXaml(vlMode, t := 0, i := 0, kind := 0) {
+        iconAttr := ' FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center" Foreground="{DynamicResource TextMain}"'
+        x := '<StackPanel Orientation="Horizontal" VerticalAlignment="Center">'
+            . '<TextBlock Text="&#xE945;"' iconAttr '/>'
+            . '<TextBlock Text="&#xE72C;" Margin="1,0,0,0"' iconAttr '/>'
+        if (vlMode) {
+            x .= '<TextBlock' iconAttr '>'
+                . '<TextBlock.Style><Style TargetType="TextBlock">'
+                . '<Setter Property="Visibility" Value="Collapsed"/>'
+                . '<Setter Property="Margin" Value="2,0,0,0"/>'
+                . '<Style.Triggers>'
+                . '<DataTrigger Binding="{Binding EditKind}" Value="1">'
+                . '<Setter Property="Visibility" Value="Visible"/>'
+                . '<Setter Property="Text" Value="&#xE71D;"/>'
+                . '<Setter Property="Margin" Value="2,0,0,0"/>'
+                . '</DataTrigger>'
+                . '<DataTrigger Binding="{Binding EditKind}" Value="2">'
+                . '<Setter Property="Visibility" Value="Visible"/>'
+                . '<Setter Property="Text" Value="&#xE8F1;"/>'
+                . '<Setter Property="Margin" Value="3,0,0,0"/>'
+                . '</DataTrigger>'
+                . '</Style.Triggers></Style></TextBlock.Style></TextBlock>'
+        } else {
+            vis := kind = 0 ? "Collapsed" : "Visible"
+            glyph := kind = 2 ? "&#xE8F1;" : "&#xE71D;"
+            gap := kind = 2 ? "3,0,0,0" : "2,0,0,0"
+            x .= '<TextBlock Name="EditGlyph3_' t '_' i '" Text="' glyph '" Visibility="' vis '" Margin="' gap '"' iconAttr '/>'
+        }
+        return x . '</StackPanel>'
+    }
+
+    _BuildItemEditBtnXaml(t, i, item, vlMode) {
+        tip := GetLang("编辑")
+        if (vlMode)
+            return '<Button Tag="Edit" Style="{StaticResource RmtItemEditBtn}" ToolTip="' tip '">' this._BuildItemEditBtnInnerXaml(true) '</Button>'
+        kind := GetMacroEditKind(item.Macro)
+        return '<Button Name="Edit_' t '_' i '" Style="{StaticResource RmtItemEditBtn}" ToolTip="' tip '">' this._BuildItemEditBtnInnerXaml(false, t, i, kind) '</Button>'
+    }
+
     _BuildItemForbidBtnXaml(t, i, forbidState, vlMode) {
         if (vlMode) {
             return '<Grid VerticalAlignment="Center" ClipToBounds="False">'
-                . '<Button Tag="Forbid" Content="&#xE7BA;" ToolTip="' GetLang("禁用") '" Style="{StaticResource RmtItemForbidBtn}"/>'
+                . '<Button Tag="Forbid" Content="&#xE25B;" ToolTip="' GetLang("禁用") '" Style="{StaticResource RmtItemForbidBtn}"/>'
                 . '<Ellipse Width="6" Height="6" Fill="{DynamicResource Accent}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,2,6,0" IsHitTestVisible="False">'
                 . '<Ellipse.Style><Style TargetType="Ellipse"><Setter Property="Visibility" Value="Collapsed"/>'
                 . '<Style.Triggers><DataTrigger Binding="{Binding Forbid}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>'
@@ -1215,7 +1258,7 @@ class MainWin {
         actFg := forbidState ? "{DynamicResource ActionText}" : "{DynamicResource TextMain}"
         dotVis := forbidState ? "Visible" : "Collapsed"
         return '<Grid VerticalAlignment="Center" ClipToBounds="False">'
-            . '<Button Name="Forbid_' t '_' i '" Tag="Forbid" Content="&#xE7BA;" ToolTip="' GetLang("禁用") '" Style="{StaticResource RmtFoldToolBtn}"'
+            . '<Button Name="Forbid_' t '_' i '" Tag="Forbid" Content="&#xE25B;" ToolTip="' GetLang("禁用") '" Style="{StaticResource RmtFoldToolBtn}"'
             . ' FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"'
             . ' Background="' actBg '" BorderBrush="' actBr '" Foreground="' actFg '"/>'
             . '<Grid Name="ForbidDot_' t '_' i '" Visibility="' dotVis '"><Ellipse Width="6" Height="6" Fill="{DynamicResource Accent}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,2,2,0" IsHitTestVisible="False"/></Grid>'
@@ -1333,6 +1376,18 @@ class MainWin {
         this.ui.Update("Loop_" t "_" i, "Text", loopStr)
         this.SyncItemForbidBtnUI(t, i, item.Forbid)
         this.UpdateItemColor(t, i)
+        this._RefreshItemEditGlyph(t, i, item.Macro)
+    }
+
+    _RefreshItemEditGlyph(t, i, macroStr) {
+        kind := GetMacroEditKind(macroStr)
+        if (kind = 0) {
+            this.ui.Update("EditGlyph3_" t "_" i, "Visibility", "Collapsed")
+            return
+        }
+        this.ui.Update("EditGlyph3_" t "_" i, "Visibility", "Visible")
+        this.ui.Update("EditGlyph3_" t "_" i, "Text", kind = 2 ? Chr(0xE8F1) : Chr(0xE71D))
+        this.ui.Update("EditGlyph3_" t "_" i, "Margin", kind = 2 ? "3,0,0,0" : "2,0,0,0")
     }
 
     _XmlEsc(s) {
@@ -1364,8 +1419,8 @@ class MainWin {
             . '<ComboBoxItem Content="' GetLang("无限") '"/>'
             . '</ComboBox>'
             . '<StackPanel Grid.Column="6" Orientation="Horizontal" VerticalAlignment="Center">'
-            . '<Button Tag="Edit" Style="{StaticResource RmtFoldToolBtn}" Content="&#xE70F;" ToolTip="' GetLang("编辑") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"/>'
-            . '<Button Tag="Setting" Style="{StaticResource RmtFoldToolBtn}" Content="&#xE713;" ToolTip="' GetLang("设置") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"/>'
+            . this._BuildItemEditBtnXaml(0, 0, "", true)
+            . '<Button Tag="Setting" Style="{StaticResource RmtItemPrimaryBtn}" Content="&#xE713;" ToolTip="' GetLang("设置") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14"/>'
             . '<Button Tag="Copy" Style="{StaticResource RmtFoldToolBtn}" Content="&#xE8C8;" ToolTip="' GetLang("复制") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"/>'
             . this._BuildItemForbidBtnXaml(0, 0, false, true)
             . '<Button Tag="Del" Style="{StaticResource RmtFoldToolBtn}" Content="&#xE74D;" ToolTip="' GetLang("删除") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" Margin="0"/>'
@@ -1423,7 +1478,7 @@ class MainWin {
 
     ; 禁用：RmtFoldForbidBtn 悬停走主题 ActionHover；非 VL 由 SyncFoldForbidBtnUI 同步激活态
     _BuildFoldForbidBtnXaml(t, f, forbidState, vlMode) {
-        icon := "&#xE7BA;"
+        icon := "&#xE25B;"
         tip := GetLang("禁用")
         dot := '<Ellipse Width="6" Height="6" Fill="{DynamicResource Accent}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,2,2,0" IsHitTestVisible="False"/>'
         if (vlMode) {

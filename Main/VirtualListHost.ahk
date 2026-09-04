@@ -72,6 +72,7 @@ class VirtualListHost {
             . US . this._Esc(this._Loop(tableItem, i))
             . US . (item.Forbid ? "1" : "0")
             . US . this._Color(tableItem, i)
+            . US . String(GetMacroEditKind(item.Macro))
         this._ui.Update("FoldList_" t, "VL_ROW", val)
     }
 
@@ -128,6 +129,7 @@ class VirtualListHost {
                     . US . (item.Forbid ? "1" : "0")
                     . US . this._Color(tableItem, i)
                     . US . (i ".")
+                    . US . String(GetMacroEditKind(item.Macro))
                     . RS
             }
         }

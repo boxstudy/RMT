@@ -276,6 +276,7 @@ OnItemEditMacro(tableItem, index, *) {
         item.Macro := sureMacro
         ; §18 宏内容即时持久化 + Worker 热重载：确定即写盘 + 广播 → CF → Worker 重载，不必等保存选「否」
         HotReloadPublish(tableItem.Index, 0)
+        MyMainWin.RefreshItemRow(tableItem.Index, index)
     }
 
     useGraph := false
@@ -298,6 +299,7 @@ OnItemEditReplaceKey(tableItem, index, *) {
         item.Macro := sureMacro
         ; §18 替换宏内容即时持久化 + Worker 热重载
         HotReloadPublish(tableItem.Index, 0)
+        MyMainWin.RefreshItemRow(tableItem.Index, index)
     }
 
     MyReplaceKeyGui.SureBtnAction := SureAction

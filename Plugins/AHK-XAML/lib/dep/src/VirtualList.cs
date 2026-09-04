@@ -451,6 +451,7 @@ public class VirtualListHost
             dr.IsAltFold = sr.IsAltFold;
             dr.IsLastInFold = sr.IsLastInFold;
             dr.IsLastModule = sr.IsLastModule;
+            dr.EditKind = sr.EditKind;
             return;
         }
         VListFold df = dst as VListFold, sf = src as VListFold;
@@ -491,6 +492,7 @@ public class VirtualListHost
         if (f.Length > 4) r.LoopText = f[4];
         if (f.Length > 5) r.Forbid = f[5] == "1";
         if (f.Length > 6) r.ColorHex = f[6];
+        if (f.Length > 7) r.EditKind = f[7];
     }
 
     private void SetFold(string val)
@@ -1052,6 +1054,7 @@ public class VirtualListHost
         r.Forbid = f.Length > 5 && f[5] == "1";
         r.ColorHex = f.Length > 6 ? f[6] : "";
         r.SeqNo = f.Length > 7 ? f[7] : "";
+        r.EditKind = f.Length > 8 ? f[8] : "0";
         return r;
     }
 
@@ -1119,6 +1122,7 @@ public class VListRow : VLItem
     public bool IsAltFold { get { return _IsAltFold; } set { Set(ref _IsAltFold, value, "IsAltFold"); } } private bool _IsAltFold;
     public bool IsLastInFold { get { return _IsLastInFold; } set { Set(ref _IsLastInFold, value, "IsLastInFold"); } } private bool _IsLastInFold;
     public bool IsLastModule { get { return _IsLastModule; } set { Set(ref _IsLastModule, value, "IsLastModule"); } } private bool _IsLastModule;
+    public string EditKind { get { return _EditKind; } set { Set(ref _EditKind, value, "EditKind"); } } private string _EditKind;
 }
 
 public class VListFold : VLItem

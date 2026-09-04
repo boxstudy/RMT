@@ -200,6 +200,15 @@ IsMacroFirstCmdGraphStart(macroStr) {
     return IsGraphStartSerial(cmdArr[1])
 }
 
+; 主窗口宏行「编辑」按钮图标：0 未编辑（闪电+刷新）/ 1 逻辑树 / 2 图形节点
+GetMacroEditKind(macroStr) {
+    if (IsEmptyMacroStr(macroStr))
+        return 0
+    if (IsMacroFirstCmdGraphStart(macroStr))
+        return 2
+    return 1
+}
+
 ; 顶层图是否存在「多后继」分叉（NodeArr / NextNodeArr 长度>1，或存在 EmptyNode）。
 ; 搜索/如果的真假分支存在 TrueMacro/FalseMacro 中，不计入此处。
 HasGraphMultiBranch(startSerial) {
