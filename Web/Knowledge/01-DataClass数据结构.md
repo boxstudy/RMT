@@ -291,10 +291,12 @@
 | `ScreenShotType` | `1` 屏幕 `2` 窗口 |
 | `WinInfo` | 窗口抓图用 |
 | `StartPosX/Y` `EndPosX/Y` | 区域 |
-| `NameType` | `0` 指令名+序号 `1` 固定名 |
-| `FixedName` | 固定名（无扩展名时补 `.png`） |
-| `SavePath` | 空则 `Temp_ScreenShot` |
-| `ResultToggle` / `ResultSaveName` | 把图片路径写入变量 |
+| `NameType` | `0` 动态名 `序列号-时间戳.png` `1` 固定名 |
+| `FixedName` | 固定名（执行时补 `.png`） |
+| `SavePath` | 类里有此字段，**执行不读**。实际目录固定为 `Setting/<方案>/Images/TempShot`，没写权限则 `A_Temp\RMT_TempShot\<方案>` |
+| `ResultToggle` / `ResultSaveName` | 把图片完整路径写入变量 |
+
+抓图走 OpenCV，与设置 `ScreenShotType`（微软/RMT/SC）无关。
 
 ### 6.3 CompareData（如果）
 
@@ -329,14 +331,15 @@
 
 | 字段 | 含义 |
 |------|------|
-| `PosVarX` / `PosVarY` | 坐标，可为变量 |
+| `PosVarX` / `PosVarY` | 坐标，可为变量；取不到则不移动 |
 | `ActionType` | `1` 移动 `2` 移动点 1 次 `3` 移动点 2 次 |
 | `MouseMoveMode` | `0` 绝对 `1` 相对 `2` 游戏视角 |
 | `Speed` | 速度；游戏视角强制 100 |
-| `Count` / `Interval` | 多次移动（相对位移才有意义） |
-| `ConfigArr` | 多分辨率 |
+| `Count` / `Interval` | **仅游戏视角（方式=2）会循环**；其它方式执行时把 `Count` 改成 1。间隔套 `PreIntervalFloat` |
+| `ConfigArr` | 多分辨率 / 屏幕规格 |
+| `IsHumanMouse` | 拟真轨迹。类默认没有此字段，旧 JSON 可能缺，按 0。游戏视角下强制关 |
 
-游戏视角：强制「移动 + 相对 + 速度 100」，用来转镜头。
+游戏视角：强制「移动 + 相对 + 速度 100」，用来转镜头，与拟真轨迹互斥。
 
 ### 6.6 RunData（运行）
 
@@ -432,11 +435,11 @@ Excel 未打开时写入会很慢。
 
 ### 6.14 BGMouseData / BGKeyData
 
-后台鼠标：`TargetTitle`、`OperateType`（点击/双击/按下/松开）、`MouseType`（左/中/右）、`PosVarX/Y`、`ScrollV/H`、`ClickTime`。
+后台鼠标：`TargetTitle`（`标题⎖类名⎖进程名`）、`OperateType`（1 点击 2 双击 3 按下 4 松开）、`MouseType`（1 左 2 中 3 右 **4 滚轮**）、`PosVarX/Y`、`ScrollV`（垂直）/`ScrollH`（水平）、`ClickTime`（默认 50，仅点击/双击）。滚轮时垂直非 0 只滚垂直。命中多个 hwnd 各发一次。
 
-后台按键：`FrontStr` 窗口信息、`KeyArr`、`Type`（1 按下 2 松开 3 点击）、`ClickTime` `ClickCount` `ClickInterval`。
+后台按键：`FrontStr` 窗口信息、`KeyArr`、`Type`（1 按下 2 松开 3 点击）、`ClickTime`（默认 100，套 `HoldFloat`）`ClickCount` `ClickInterval`（默认 100，套 `PreIntervalFloat`）。组合键松开按相反顺序。
 
-部分窗口无效，常需管理员权限。不移动真实光标。
+部分窗口无效，常需管理员。不走 `ModeArr`，不移动真实光标。
 
 ### 6.15 TimingData（定时宏）
 
@@ -465,15 +468,23 @@ Excel 未打开时写入会很慢。
 
 ### 6.17 RMTCMDData
 
-类里仍有 `OperateType` 数字枚举，**执行已改为字符串**：宏里写 `RMT指令_类别_指令`。  
-类别/指令包括：截图、截图提取文本、自由贴、开/关指令显示、显示/关闭菜单、启用/禁用键鼠、休眠、暂停/恢复/终止所有宏、重载、关闭软件。  
-禁用键鼠需要管理员。
+类里仍有 `OperateType` 数字枚举，**执行已改为字符串**：宏里写 `RMT指令_类别_指令`。显示菜单为 `RMT指令_宏控制_显示菜单_序号`。
+
+| 类别 | 指令 |
+|------|------|
+| 图文 | 截图、截图提取文本、自由贴 |
+| 输入控制 | 启用/禁用 鼠标、键盘、键鼠、鼠标加速 |
+| 宏控制 | 显示菜单、关闭菜单、暂停/恢复/终止所有宏 |
+| 调试 | 开启/关闭变量监视、开启/关闭指令显示 |
+| 软件自身 | 休眠、重载、关闭软件 |
+
+输入控制需管理员。图文里的「截图」走设置 `ScreenShotType`，和「抓图」指令不是一条路。
 
 ### 6.18 TextOpsData（文本处理）
 
 | 字段 | 含义 |
 |------|------|
-| `Type` | `文本分割` `文本提取` `文本替换` `去除空格` `大小写转换` `文本统计` 等 |
+| `Type` | `文本分割` `文本提取` `文本替换` `去除空格` `大小写转换` `文本统计` `文本拼接` |
 | `Name` | 源变量 |
 | `ArgsType` / `ArgsName` | 分割符、定长、大小写类型等 |
 | `Search` / `Replace` | 查找替换 |
@@ -494,8 +505,8 @@ Excel 未打开时写入会很慢。
 ### 6.20 WindowManageData
 
 `ActionType`：激活/最大化/最小化/还原/关闭/移动/调整大小/置顶/取消置顶/修改标题/修改透明度/开/关鼠标穿透。  
-`SearchValue`：`标题⎖类名⎖进程名`。  
-移动用 `PosX/Y`，改大小用 `Width/Height`，改标题用 `NewTitle`，透明度如 `80%`。
+`SearchValue`：`标题⎖类名⎖进程名`，可 `{变量}`；空或找不到可见窗口则本条无效（会解析成可见句柄，避免点到隐藏窗）。  
+移动用 `PosX/Y`，改大小用 `Width/Height`，改标题用 `NewTitle`，透明度如 `80%`，均可填变量。关闭窗口 ≠ 杀进程。
 
 ### 6.21 KeyCheckData
 
@@ -562,6 +573,6 @@ Excel 未打开时写入会很慢。
 
 1. 打开 `MacroFile.ini`，按页签前缀找 `TKArr`、`TriggerTypeArr`、`ForbidArr`、`MacroArrN`。
 2. 把 `MacroArr` 按逗号/换行/`⫶` 拆成指令。
-3. `间隔_*` `按键_*` `移动_*` `RMT指令_*` 直接读参数。
+3. `间隔_*` `按键_*` `移动_*` `RMT指令_*` 直接读参数。移动第四段是方式：`0` 绝对 `1` 相对 `2` 游戏视角。
 4. 其它指令第一段是序列号，去对应 `*File.ini` 用序列号取 JSON，再对照本章字段。
 5. 模块前台、模块禁用看 `FoldInfo` JSON。
