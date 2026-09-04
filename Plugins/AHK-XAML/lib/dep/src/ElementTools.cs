@@ -490,14 +490,24 @@ public partial class AhkWpfEngine
         };
     }
 
+    private static readonly System.Collections.Generic.HashSet<ListBox> _listBoxDragDropEnabled =
+        new System.Collections.Generic.HashSet<ListBox>();
+
     private void EnableListBoxDragDrop(ListBox listBox, string ctrlName)
     {
+        if (!_listBoxDragDropEnabled.Add(listBox))
+            return;
         listBox.AllowDrop = true;
         Point dragStart = new Point();
         bool isDragging = false;
 
         listBox.PreviewMouseLeftButtonDown += (s, e) =>
         {
+            if (e.ClickCount >= 2)
+            {
+                isDragging = false;
+                return;
+            }
             dragStart = e.GetPosition(null);
             isDragging = true;
         };
@@ -514,6 +524,7 @@ public partial class AhkWpfEngine
                     var item = GetListBoxItemUnderMouse(listBox, e.GetPosition(listBox));
                     if (item != null)
                     {
+                        int srcIdx = listBox.ItemContainerGenerator.IndexFromContainer(item);
                         string content = "";
                         if (item.Content is string)
                         {
@@ -530,6 +541,7 @@ public partial class AhkWpfEngine
 
                         DataObject dragData = new DataObject("KanbanItem", content);
                         dragData.SetData("SourceBox", ctrlName);
+                        dragData.SetData("SourceIndex", srcIdx.ToString());
 
                         DragDrop.DoDragDrop(listBox, dragData, DragDropEffects.Move);
                     }
@@ -540,17 +552,38 @@ public partial class AhkWpfEngine
 
         listBox.Drop += (s, e) =>
         {
-            if (e.Data.GetDataPresent("KanbanItem"))
+            if (!e.Data.GetDataPresent("KanbanItem"))
+                return;
+            string content = (string)e.Data.GetData("KanbanItem");
+            string sourceBox = e.Data.GetData("SourceBox") as string ?? "";
+            if (sourceBox != ctrlName)
             {
-                string content = (string)e.Data.GetData("KanbanItem");
-                string sourceBox = (string)e.Data.GetData("SourceBox");
-
-                if (sourceBox != ctrlName)
-                {
-                    SendToAhk("EVENT|" + winId + "|" + ctrlName + "|ItemDropped|" +
-                        BridgeUtil.LengthPrefix(sourceBox + "|" + content) + "\n");
-                }
+                SendToAhk("EVENT|" + winId + "|" + ctrlName + "|ItemDropped|" +
+                    BridgeUtil.LengthPrefix(sourceBox + "|" + content) + "\n");
+                return;
             }
+            int srcIdx = -1;
+            int.TryParse(e.Data.GetData("SourceIndex") as string, out srcIdx);
+            if (srcIdx < 0)
+                return;
+            var target = GetListBoxItemUnderMouse(listBox, e.GetPosition(listBox));
+            int insert;
+            if (target == null)
+            {
+                insert = listBox.Items.Count;
+            }
+            else
+            {
+                int tgt = listBox.ItemContainerGenerator.IndexFromContainer(target);
+                if (tgt < 0)
+                    tgt = listBox.Items.Count - 1;
+                Point p = e.GetPosition(target);
+                insert = (p.Y >= target.ActualHeight / 2.0) ? tgt + 1 : tgt;
+            }
+            if (insert == srcIdx || insert == srcIdx + 1)
+                return;
+            SendToAhk("EVENT|" + winId + "|" + ctrlName + "|ItemReordered|" +
+                BridgeUtil.LengthPrefix(srcIdx.ToString() + "|" + insert.ToString()) + "\n");
         };
     }
 

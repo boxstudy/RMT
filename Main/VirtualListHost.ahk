@@ -47,11 +47,17 @@ class VirtualListHost {
             this._vlFonts[t] := true
             try MyMainWin.RefreshVLFonts()
         }
+        try MyMainWin.RefreshSideTree(t)
     }
 
     Relayout(t) {
         this.EnsureEvents(t)
         this._ui.Update("FoldList_" t, "VL_RELAYOUT", "")
+    }
+
+    SetRowSel(t, i) {
+        this.EnsureEvents(t)
+        this._ui.Update("FoldList_" t, "VL_SEL", (i >= 1) ? ("R" t "_" i) : "")
     }
 
     ; 仅刷新模块禁用态，避免 VL_INIT 全量重建导致字号回落
@@ -78,6 +84,11 @@ class VirtualListHost {
 
     UpdateColor(t, i) {
         this.RefreshRow(t, i)   ; 全行刷新（1 IPC），含颜色点；旧版仅刷色点，虚拟化下合并更省
+    }
+
+    SetCompact(t, compact) {
+        this.EnsureEvents(t)
+        this._ui.Update("FoldList_" t, "VL_COMPACT", compact ? "1" : "0")
     }
 
     FoldToggle(t, f, folded) {
@@ -188,6 +199,8 @@ class VirtualListHost {
         }
         idx := Integer(SubStr(id, InStr(id, "_", , 2) + 1))
         if (SubStr(id, 1, 1) == "R") {
+            if (IsObject(MyMainWin))
+                MyMainWin.SelectSideTreeItem(t, idx)
             switch action {
                 case "TKBtn": this._EditTK(tableItem, idx, event)
                 case "TKBtnR": OnItemCustomEditTriggerStr(tableItem, idx, event)

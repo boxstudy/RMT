@@ -50,9 +50,11 @@ public class VirtualListHost
     private System.Collections.Generic.Dictionary<string, object> _byId =
         new System.Collections.Generic.Dictionary<string, object>();
     private bool _hooked;
+    private bool _compact;
     private string _anchorId;
     private bool _suppressCommit;
     private bool _suppressChange; // 结构操作布局期：压制容器回收产生的伪 SelectionChanged/LostFocus
+    private string _rowSelId = "";
     // §11 VL 拖拽：按下起点 + 是否已武装（交互控件上不启动）
     private Point _dragStartPoint;
     private bool _dragArmed;
@@ -91,6 +93,8 @@ public class VirtualListHost
             case "VL_MOVE": host.Move(val); break;
             case "VL_RELAYOUT": host.Relayout(); break;
             case "VL_COMMIT_ALL": host.CommitAll(); break;
+            case "VL_COMPACT": host.SetCompact(val); break;
+            case "VL_SEL": host.SetRowSel(val); break;
         }
     }
 
@@ -121,6 +125,7 @@ public class VirtualListHost
                 FrameworkElement fe = e.OriginalSource as FrameworkElement;
                 DependencyObject d = fe;
                 bool fromHandle = false;
+                bool interactive = false;
                 while (d != null)
                 {
                     FrameworkElement el = d as FrameworkElement;
@@ -130,16 +135,20 @@ public class VirtualListHost
                         break;
                     }
                     if (d is ButtonBase || d is TextBox || d is ComboBox || d is CheckBox || d is ScrollBar)
-                        return;
+                    {
+                        interactive = true;
+                        break;
+                    }
                     d = System.Windows.Media.VisualTreeHelper.GetParent(d);
                 }
-                if (!fromHandle)
-                {
-                    ListBoxItem under = GetItemUnderMouse(_lb, e.GetPosition(_lb));
-                    VLItem underVi = under != null ? under.DataContext as VLItem : null;
-                    if (!(underVi is VListFold))
-                        return;
-                }
+                ListBoxItem under = GetItemUnderMouse(_lb, e.GetPosition(_lb));
+                VLItem underVi = under != null ? under.DataContext as VLItem : null;
+                if (underVi is VListRow && (!interactive || d is TextBox))
+                    SendClick(underVi.Id, "Select");
+                if (interactive && !fromHandle)
+                    return;
+                if (!fromHandle && !(underVi is VListFold))
+                    return;
                 _dragStartPoint = e.GetPosition(null);
                 _dragArmed = true;
             };
@@ -244,7 +253,7 @@ public class VirtualListHost
                 SendDrop(srcId, tvi.Id, before);
                 e.Handled = true;
             };
-            _lb.ItemTemplateSelector = new VLTemplateSelector(_win);
+            _lb.ItemTemplateSelector = new VLTemplateSelector(_win, this);
             // 容器模板剥成裸 ContentPresenter：SelectionMode=Single 仅为合法值，实际无选中高亮/键盘焦点
             var lbiStyle = new System.Windows.Style(typeof(System.Windows.Controls.ListBoxItem));
             lbiStyle.Setters.Add(new System.Windows.Setter(System.Windows.Controls.ListBoxItem.FocusableProperty, false));
@@ -280,12 +289,33 @@ public class VirtualListHost
         }
         if (_sticky != null)
         {
-            _sticky.ContentTemplate = _win.FindResource("RmtFoldHeader") as System.Windows.DataTemplate;
+            _sticky.ContentTemplate = FoldHeaderTemplate();
             _sticky.AddHandler(ButtonBase.ClickEvent, new RoutedEventHandler(OnClick));
             _sticky.AddHandler(System.Windows.UIElement.LostKeyboardFocusEvent, new System.Windows.Input.KeyboardFocusChangedEventHandler(OnLostFocus));
             _sticky.AddHandler(System.Windows.UIElement.MouseRightButtonUpEvent, new System.Windows.Input.MouseButtonEventHandler(OnRightUp), true);
             _sticky.AddHandler(Selector.SelectionChangedEvent, new SelectionChangedEventHandler(OnSelectionChanged));
         }
+    }
+
+    private System.Windows.DataTemplate FoldHeaderTemplate()
+    {
+        string key = _compact ? "RmtFoldHeaderC" : "RmtFoldHeader";
+        object r = _win.FindResource(key);
+        return r as System.Windows.DataTemplate;
+    }
+
+    public bool IsCompact { get { return _compact; } }
+
+    private void SetCompact(string val)
+    {
+        bool on = val == "1";
+        if (_compact == on)
+            return;
+        _compact = on;
+        if (_sticky != null)
+            _sticky.ContentTemplate = FoldHeaderTemplate();
+        if (_lb != null && _items.Count > 0)
+            Relayout();
     }
 
     // ---- 结构命令 ----
@@ -358,9 +388,11 @@ public class VirtualListHost
         if (_items.Count > 0 && SameShape(_items, newItems))
         {
             AdoptItems(_items, newItems);
+            ApplyRowSel();
             return;
         }
         ApplyReset(newItems, keepOff);
+        ApplyRowSel();
         _stickyFold = null;
         // 视口已落定则不再二次 Reset（ContextIdle 会在首帧之后重排，切页签时偶发抖动）
         if (_lb.ActualHeight < 8)
@@ -453,6 +485,7 @@ public class VirtualListHost
             dr.IsLastModule = sr.IsLastModule;
             dr.EditKind = sr.EditKind;
             dr.FoldForbid = sr.FoldForbid;
+            FillSelMark(dr);
             return;
         }
         VListFold df = dst as VListFold, sf = src as VListFold;
@@ -552,6 +585,30 @@ public class VirtualListHost
         MarkFoldRowFlags(newItems);
         double keepOff = CaptureScroll();
         ApplyReset(newItems, keepOff);
+        ApplyRowSel();
+    }
+
+    private void SetRowSel(string id)
+    {
+        _rowSelId = id ?? "";
+        ApplyRowSel();
+    }
+
+    private void ApplyRowSel()
+    {
+        string id = _rowSelId ?? "";
+        foreach (var kv in _byId)
+        {
+            VListRow r = kv.Value as VListRow;
+            if (r != null)
+                r.RowSel = (id.Length > 0 && r.Id == id);
+            VListFold fo = kv.Value as VListFold;
+            if (fo != null)
+            {
+                foreach (VListRow cr in fo.ChildRows)
+                    cr.RowSel = (id.Length > 0 && cr.Id == id);
+            }
+        }
     }
 
     // 模块禁用态增量刷新（避免 VL_INIT 全量重建导致虚拟行字号未再经 ApplyFonts 缩小）
@@ -617,6 +674,7 @@ public class VirtualListHost
             rb.SeqNo = tmpSeq;
         }
         MarkFoldRowFlags(_items);
+        ApplyRowSel();
     }
 
     // ---- 容器级事件路由 ----
@@ -1084,7 +1142,15 @@ public class VirtualListHost
         r.ColorHex = f.Length > 6 ? f[6] : "";
         r.SeqNo = f.Length > 7 ? f[7] : "";
         r.EditKind = f.Length > 8 ? f[8] : "0";
+        FillSelMark(r);
         return r;
+    }
+
+    private static void FillSelMark(VListRow r)
+    {
+        r.SelMark = ((char)0xE72A).ToString();
+        r.SelMarkNo = "";
+        r.SelMarkTip = "";
     }
 
     private static int ParseInt(string s)
@@ -1099,12 +1165,14 @@ public class VirtualListHost
 public class VLTemplateSelector : System.Windows.Controls.DataTemplateSelector
 {
     private System.Windows.Window _win;
-    public VLTemplateSelector(System.Windows.Window win) { _win = win; }
+    private VirtualListHost _host;
+    public VLTemplateSelector(System.Windows.Window win, VirtualListHost host) { _win = win; _host = host; }
     public override System.Windows.DataTemplate SelectTemplate(object item, DependencyObject container)
     {
+        string suf = (_host != null && _host.IsCompact) ? "C" : "";
         if (item is VListFold)
         {
-            object r = _win.FindResource("RmtFoldHeader");
+            object r = _win.FindResource("RmtFoldHeader" + suf);
             if (r is System.Windows.DataTemplate) return (System.Windows.DataTemplate)r;
         }
         else if (item is VListAddFold)
@@ -1114,7 +1182,7 @@ public class VLTemplateSelector : System.Windows.Controls.DataTemplateSelector
         }
         else if (item is VListRow)
         {
-            object r = _win.FindResource("RmtMacroRow");
+            object r = _win.FindResource("RmtMacroRow" + suf);
             if (r is System.Windows.DataTemplate) return (System.Windows.DataTemplate)r;
         }
         return null;
@@ -1153,6 +1221,10 @@ public class VListRow : VLItem
     public bool IsLastModule { get { return _IsLastModule; } set { Set(ref _IsLastModule, value, "IsLastModule"); } } private bool _IsLastModule;
     public string EditKind { get { return _EditKind; } set { Set(ref _EditKind, value, "EditKind"); } } private string _EditKind;
     public bool FoldForbid { get { return _FoldForbid; } set { Set(ref _FoldForbid, value, "FoldForbid"); } } private bool _FoldForbid;
+    public bool RowSel { get { return _RowSel; } set { Set(ref _RowSel, value, "RowSel"); } } private bool _RowSel;
+    public string SelMark { get { return _SelMark; } set { Set(ref _SelMark, value, "SelMark"); } } private string _SelMark;
+    public string SelMarkNo { get { return _SelMarkNo; } set { Set(ref _SelMarkNo, value, "SelMarkNo"); } } private string _SelMarkNo;
+    public string SelMarkTip { get { return _SelMarkTip; } set { Set(ref _SelMarkTip, value, "SelMarkTip"); } } private string _SelMarkTip;
 }
 
 public class VListFold : VLItem

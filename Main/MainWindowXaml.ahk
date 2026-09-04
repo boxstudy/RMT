@@ -182,6 +182,86 @@ class MainWin {
         ; _useVirtual 由 BuildAndShow 调用 _InitUseVirtual() 惰性构建
         this._useVirtual := Map()
         this._useVirtualBuilt := false
+        this.aiAssistOpen := false
+        this.sidePanelMode := 1
+        this.aiPanelW := this._AiPanelDefaultW()
+        this._aiDrag := false
+        this._aiDragStartW := 0
+        this._aiDragStartX := ""
+        this.aiSplitWatch := ObjBindMethod(this, "_PollAiSplit")
+        this._aiAnim := false
+        this._aiAnimFrom := 0
+        this._aiAnimTo := 0
+        this._aiAnimT0 := 0
+        this._aiAnimW := 0
+        this.aiAnimTick := ObjBindMethod(this, "_TickAiPanelAnim")
+        this._aiFitTab := 0
+        this.aiFitTick := ObjBindMethod(this, "_FitAiInputCur")
+        this.aiInnerCur := this.aiPanelW
+        this.aiInnerFrom := 0
+        this.aiInnerTo := 0
+        this.aiInnerT0 := 0
+        this.aiInnerOn := false
+        this.aiInnerTick := ObjBindMethod(this, "_TickAiInnerW")
+        this.aiSeeded := false
+        this._sideTreeSel := Map()
+        this._sideTreeCmds := Map()
+        this._sideTreeBound := Map()
+        this._rowSelIdx := Map()
+    }
+
+    ; ---- 扩展面板尺寸（可手动改）----
+    ; 默认宽度：首次展开 / 未拖过时的宽度
+    _AiPanelDefaultW() {
+        return 280
+    }
+    ; 最小宽度：再小选项和指令行会挤变形
+    _AiPanelMinW() {
+        return 260
+    }
+    ; 最大宽度：再大会过度挤压左侧宏列表
+    _AiPanelMaxW() {
+        return 490
+    }
+    ; 左边框拖拽热区宽度
+    _AiPanelSplitW() {
+        return 6
+    }
+    ; 扩展钮默认宽度（窄）；hover 展开到 _AiRailHoverW
+    _AiRailW() {
+        return 8
+    }
+    ; 扩展钮 hover 宽度
+    _AiRailHoverW() {
+        return 18
+    }
+    ; 逻辑树 / AI助手 选项宽度（与顶部页签一致）
+    _AiTabW() {
+        return 80
+    }
+    ; 左侧宏行/模块头组间距下限（面板拉最宽、左侧最窄时）
+    _AiPanelGapMin() {
+        return 4
+    }
+    ; 拖拽时左侧列表至少保留的宽度
+    _AiListMinW() {
+        return 420
+    }
+    ; 展开/收起动画时长（毫秒）
+    _AiPanelAnimMs() {
+        return 220
+    }
+    ; 对话输入框单行高度（34：发送钮 24 + 边距后边框不被裁切）
+    _AiInputLineH() {
+        return 34
+    }
+    ; 拖拽调宽时对话框宽度跟随的过渡时长
+    _AiInnerAnimMs() {
+        return 160
+    }
+    ; 对话输入框最多显示行数，超出出滚动条
+    _AiInputMaxLines() {
+        return 10
     }
 
     ; 惰性构建虚拟表集合（须在 LoadCurMacroSetting 之后调用）
@@ -285,7 +365,7 @@ class MainWin {
         leftBottom.Add("Button").Name("BtnSave").Content(GetLang("应用并保存")).Height(35).MinHeight(35).Margin("0,2,0,2").FontWeight("Bold")
 
         ; ---- 右侧 TabControl ----
-        right := main.Add("Grid").Grid_Row(1).Grid_Column(1).Margin("0,2,8,4")
+        right := main.Add("Grid").Grid_Row(1).Grid_Column(1).Margin("0,2,2,4")
         ; §10 显示页签：先按可见性过滤生成 _tabOrder（TableInfo 下标数组），页签位置 ↔ 表下标经 TabAdapter/OnTabChanged 映射
         this._tabOrder := []
         loop MySoftData.TableInfo.Length {
@@ -316,22 +396,33 @@ class MainWin {
             else if (pos == this._tabOrder.Length)
                 tabItem.Tag("last")
             ; 页签内容区统一外层边框；上边距 -1 与页签条下边框重叠，避免双线且与页签条等粗
-            bd := tabItem.Add("Border").BorderThickness("1.5").BorderBrush("{DynamicResource OutlineStroke}").CornerRadius("4").Margin("4,-1,4,4").Padding("2,2")
-            bd.Apply({SnapsToDevicePixels: "True", UseLayoutRounding: "False"})
+            bd := tabItem.Add("Border").BorderThickness("1.5").BorderBrush("{DynamicResource OutlineStroke}").CornerRadius("4").Margin("4,-1,2,4").Padding("2,2,0,2")
+            bd.Apply({SnapsToDevicePixels: "True", UseLayoutRounding: "False", ClipToBounds: "False"})
             if (this._useVirtual.Has(idx)) {
                 ; 宏/模块显示区：自适应剩余空间
                 ; Epic5 虚拟列表：ListBox + DataTemplate + VirtualizingStackPanel(Recycling)，
                 ; 行模板注入 Window.Resources，由 _vl.Init 一次 VL_INIT 填充
                 vg := bd.Add("Grid")
+                vg.Cols("*", "Auto")
                 ; UseLayoutRounding=False：整棵列表关闭布局取整，改由各卡片 SnapsToDevicePixels 画边。
                 ; 取整会让行 Margin(2)/24px 控件在 125% DPI 下按累计偏移不同而 ±1px（展开/折叠/拖拽后
                 ; 行距忽大忽小、侧边框断点、备注底边被吞）。关闭后位置为稳定小数，边框仍清晰。
-                vg.Add("ListBox").Name("FoldList_" idx).SelectionMode("Single").BorderThickness("0").Background("Transparent")
-                    .Margin("0").UseLayoutRounding("False").SnapsToDevicePixels("True")
+                vg.Add("ListBox").Name("FoldList_" idx).Grid_Column(0).SelectionMode("Single").BorderThickness("0").Background("Transparent")
+                    .Margin("0,0,-2,0").UseLayoutRounding("False").SnapsToDevicePixels("True").Panel_ZIndex(1)
                     .VirtualizingPanel_IsVirtualizing("True").VirtualizingPanel_VirtualizationMode("Standard")
                     .VirtualizingPanel_CacheLength("2,2").VirtualizingPanel_CacheLengthUnit("Page")
                 ; 吸顶折叠头 overlay（sticky header）：滚动时当前模块头钉在列表顶部
-                vg.Add("ContentControl").Name("VLSticky_" idx).VerticalAlignment("Top").HorizontalAlignment("Stretch").Visibility("Collapsed").Margin("0").UseLayoutRounding("False").SnapsToDevicePixels("True")
+                vg.Add("ContentControl").Name("VLSticky_" idx).Grid_Column(0).VerticalAlignment("Top").HorizontalAlignment("Stretch").Visibility("Collapsed").Margin("0").UseLayoutRounding("False").SnapsToDevicePixels("True").Panel_ZIndex(1)
+                this._BuildAiAssistPanel(vg, idx)
+                vg.Add("Border").Name("AiDragShield_" idx).Grid_Column(0).Grid_ColumnSpan(2)
+                    .Background("Transparent").Cursor("SizeWE").Visibility("Collapsed").Panel_ZIndex(20)
+                ; 扩展钮叠在滚动条和扩展内容之上（表现 + 点击同一层）
+                vg.Add("Button").Name("BtnAiPanel_" idx).Grid_Column(0).Grid_ColumnSpan(2)
+                    .HorizontalAlignment("Right").VerticalAlignment("Center")
+                    .Panel_ZIndex(10)
+                    .Style("{StaticResource RmtAiRailBtn}").Margin(this._AiRailMargin())
+                    .Content(Chr(0xE76B)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(12)
+                    .ToolTip(GetLang("AI 助手"))
             } else {
                 ; 工具/设置/帮助/赞助/感谢：ScrollViewer 包在统一内容边框内
                 sv := bd.Add("ScrollViewer").VerticalScrollBarVisibility("Auto").HorizontalScrollBarVisibility("Disabled")
@@ -347,7 +438,7 @@ class MainWin {
             . '<Setter Property="Padding" Value="0"/>'
             . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TabControl"><Grid>'
             . '<Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>'
-            . '<Border Grid.Row="0" Margin="4,0,4,0" CornerRadius="4" BorderThickness="1.5" BorderBrush="{DynamicResource OutlineStroke}" Padding="0,0" SnapsToDevicePixels="True"><WrapPanel IsItemsHost="True"/></Border>'
+            . '<Border Grid.Row="0" Margin="4,0,2,0" CornerRadius="4" BorderThickness="1.5" BorderBrush="{DynamicResource OutlineStroke}" Padding="0,0" SnapsToDevicePixels="True"><WrapPanel IsItemsHost="True"/></Border>'
             . '<Border Grid.Row="1" Background="Transparent"><ContentPresenter ContentSource="SelectedContent"/></Border>'
             . '</Grid></ControlTemplate></Setter.Value></Setter>'
             . '</Style>'
@@ -517,6 +608,8 @@ class MainWin {
         this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
         this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
         this.ui.OnEvent("Window", "Revealed", ObjBindMethod(this, "OnWindowRevealed"))
+        this.ui.OnEvent("Window", "PreviewMouseMove", ObjBindMethod(this, "OnAiSplitMove"))
+        this.ui.OnEvent("Window", "PreviewMouseLeftButtonUp", ObjBindMethod(this, "OnAiSplitEnd"))
         this.ui.OnEvent("BtnWinClose", "Click", ObjBindMethod(this, "OnCloseClick"))
         this.ui.OnEvent("BtnMinimize", "Click", ObjBindMethod(this, "OnMinimizeClick"))
         this.ui.OnEvent("BtnMaximize", "Click", ObjBindMethod(this, "OnMaximizeClick"))
@@ -527,6 +620,17 @@ class MainWin {
         this.ui.OnEvent("BtnPause", "Click", OnPauseHotKey)
         this.ui.OnEvent("BtnPauseActive", "Click", OnPauseHotKey)
         this.ui.OnEvent("BtnToggleHotkeyHint", "Click", ObjBindMethod(this, "OnToggleHotkeyHint"))
+        for t in this._useVirtual {
+            this.ui.OnEvent("BtnAiPanel_" t, "Click", ObjBindMethod(this, "OnToggleAiPanel"))
+            this.ui.OnEvent("AiSplit_" t, "PreviewMouseLeftButtonDown", ObjBindMethod(this, "OnAiSplitStart"))
+            this.ui.OnEvent("AiDragShield_" t, "PreviewMouseLeftButtonUp", ObjBindMethod(this, "OnAiSplitEnd"))
+            this.ui.OnEvent("BtnSideModeTree_" t, "Click", ObjBindMethod(this, "OnSidePanelMode", 1))
+            this.ui.OnEvent("BtnSideModeAi_" t, "Click", ObjBindMethod(this, "OnSidePanelMode", 2))
+            this.ui.OnEvent("AiInput_" t, "TextChanged", ObjBindMethod(this, "OnAiInputChanged", t))
+            this.ui.OnEvent("AiInput_" t, "PreviewKeyDown:Return", ObjBindMethod(this, "OnAiInputEnter", t))
+            this.ui.OnEvent("AiSend_" t, "Click", ObjBindMethod(this, "OnAiSendClick", t))
+            this._BindSideTree(t)
+        }
         this.ui.OnEvent("BtnKill", "Click", OnKillAllMacro)
         this.ui.OnEvent("BtnReload", "Click", MenuReload)
         this.ui.OnEvent("BtnHelp", "Click", (*) => Run(A_WorkingDir "\index.html"))
@@ -565,6 +669,8 @@ class MainWin {
         cur := MainSoftData.TableIndex
         this._renderedTabs[cur] := true
         this.RenderTab(MySoftData.TableInfo[cur])
+        this._SelectFirstSideTreeItem(cur)
+        this._SeedAiMsgs()
     }
 
     ; VL_INIT 重建虚拟行后补刷主题字号（否则新行仍用样式声明 11，比已缩放行偏小）
@@ -665,6 +771,8 @@ class MainWin {
             this._renderedTabs[idx] := true
             this.RenderTab(MySoftData.TableInfo[idx])
         }
+        this._SelectFirstSideTreeItem(idx)
+        this.RefreshSideTree(idx)
     }
 
     LoadLeftBarValues() {
@@ -686,6 +794,1009 @@ class MainWin {
         this.ui.Update("TxtPauseKey", "Visibility", vis)
         this.ui.Update("TxtKillKey", "Visibility", vis)
         this.ui.Update("BtnToggleHotkeyHint", "Content", this._showHotkeyHint ? Chr(0xE70D) : Chr(0xE76C))
+    }
+
+    OnToggleAiPanel(state, ctrl, event) {
+        this.aiAssistOpen := !this.aiAssistOpen
+        this._ApplyAiPanelUi()
+    }
+
+    _ApplyAiPanelGlyph() {
+        glyph := this.aiAssistOpen ? Chr(0xE76C) : Chr(0xE76B)
+        for t in this._useVirtual {
+            try this.ui.Update("BtnAiPanel_" t, "Content", glyph)
+            try this.ui.Update("BtnAiPanel_" t, "Margin", this._AiRailMargin())
+        }
+    }
+
+    _AiRailMargin() {
+        return "0,0,-2,0"
+    }
+
+    _ListScrollMargin(open) {
+        return open ? "0" : "0,0,-2,0"
+    }
+
+    _ApplyListScrollMargin(open) {
+        m := this._ListScrollMargin(open)
+        for t in this._useVirtual
+            try this.ui.Update("FoldList_" t, "Margin", m)
+    }
+
+    _ApplyAiPanelUi() {
+        this._ApplyAiPanelGlyph()
+        if (this.aiAssistOpen) {
+            this._ApplyListScrollMargin(true)
+            for t in this._useVirtual {
+                if (IsObject(this._vl))
+                    this._vl.SetCompact(t, true)
+            }
+            t0 := MainSoftData.TableIndex
+            if (this.sidePanelMode == 1 && !this._sideTreeCmds.Has(t0))
+                this.RefreshSideTree(t0)
+        } else {
+            this._ApplyListScrollMargin(false)
+        }
+        from := this._aiAnim ? this._aiAnimW : (this.aiAssistOpen ? 0 : this.aiPanelW)
+        to := this.aiAssistOpen ? this.aiPanelW : 0
+        this._StartAiPanelAnim(from, to)
+    }
+
+    _StartAiPanelAnim(from, to) {
+        this._StopAiInnerW()
+        innerW := to > 0 ? to : this.aiPanelW
+        this.aiInnerCur := innerW
+        this._aiAnim := true
+        this._aiAnimFrom := from
+        this._aiAnimTo := to
+        this._aiAnimT0 := A_TickCount
+        this._aiAnimW := from
+        for t in this._useVirtual {
+            try this.ui.Update("AiWrap_" t, "MinWidth", "0")
+            try this.ui.Update("AiWrap_" t, "Width", String(from))
+            try this.ui.Update("AiWrap_" t, "Visibility", "Visible")
+            try this.ui.Update("AiInner_" t, "MinWidth", "0")
+            try this.ui.Update("AiInner_" t, "Width", String(innerW))
+            try this.ui.Update("AiInner_" t, "HorizontalAlignment", "Right")
+        }
+        SetTimer(this.aiAnimTick, 16)
+    }
+
+    _TickAiPanelAnim() {
+        if (!this._aiAnim)
+            return
+        ms := this._AiPanelAnimMs()
+        if (ms < 1)
+            ms := 1
+        p := (A_TickCount - this._aiAnimT0) / ms
+        if (p >= 1)
+            p := 1
+        ease := 1 - (1 - p) ** 3
+        w := this._aiAnimFrom + (this._aiAnimTo - this._aiAnimFrom) * ease
+        this._aiAnimW := w
+        for t in this._useVirtual {
+            try this.ui.Update("AiWrap_" t, "Width", String(Round(w)))
+        }
+        if (p < 1)
+            return
+        SetTimer(this.aiAnimTick, 0)
+        this._aiAnim := false
+        if (this._aiAnimTo <= 0) {
+            for t in this._useVirtual {
+                try this.ui.Update("AiWrap_" t, "Visibility", "Collapsed")
+                try this.ui.Update("AiWrap_" t, "Width", String(this.aiPanelW))
+                try this.ui.Update("AiWrap_" t, "MinWidth", String(this._AiPanelMinW()))
+            }
+            return
+        }
+        for t in this._useVirtual {
+            try this.ui.Update("AiWrap_" t, "Width", String(this.aiPanelW))
+            try this.ui.Update("AiWrap_" t, "MinWidth", String(this._AiPanelMinW()))
+            try this.ui.Update("AiInner_" t, "Width", String(this.aiPanelW))
+            try this.ui.Update("AiInner_" t, "MinWidth", String(this._AiPanelMinW()))
+        }
+    }
+
+    OnAiSplitStart(state, ctrl, event) {
+        if (!this.aiAssistOpen)
+            return
+        this._aiDrag := true
+        this._aiDragStartW := this.aiPanelW
+        this._aiDragStartX := ""
+        this._ShowAiDragShield(true)
+        try this.ui.Update("Window", "Cursor", "SizeWE")
+        SetTimer(this.aiSplitWatch, 50)
+    }
+
+    OnAiSplitMove(state, ctrl, event) {
+        if (!this._aiDrag)
+            return
+        if (!GetKeyState("LButton", "P")) {
+            this.OnAiSplitEnd(state, ctrl, event)
+            return
+        }
+        x := this._AiDragX(state)
+        if (x == "")
+            return
+        if (this._aiDragStartX == "") {
+            this._aiDragStartX := x
+            return
+        }
+        this._SetAiPanelWidth(this._aiDragStartW + (this._aiDragStartX - x))
+    }
+
+    OnAiSplitEnd(state := "", ctrl := "", event := "") {
+        if (!this._aiDrag)
+            return
+        this._aiDrag := false
+        this._aiDragStartX := ""
+        SetTimer(this.aiSplitWatch, 0)
+        this._ShowAiDragShield(false)
+        try this.ui.Update("Window", "Cursor", "Arrow")
+    }
+
+    _PollAiSplit() {
+        if (!this._aiDrag)
+            return
+        if (!GetKeyState("LButton", "P"))
+            this.OnAiSplitEnd()
+    }
+
+    _ShowAiDragShield(on) {
+        vis := on ? "Visible" : "Collapsed"
+        for t in this._useVirtual
+            try this.ui.Update("AiDragShield_" t, "Visibility", vis)
+    }
+
+    _AiDragX(state) {
+        coord := ""
+        if (IsObject(state) && state.Has("DragCoords"))
+            coord := state["DragCoords"]
+        if (coord == "")
+            return ""
+        parts := StrSplit(coord, ",")
+        if (parts.Length < 1)
+            return ""
+        try
+            return Integer(parts[1])
+        return ""
+    }
+
+    _ClampAiPanelW(w) {
+        w := Integer(w)
+        minW := this._AiPanelMinW()
+        maxW := this._AiPanelMaxW()
+        try {
+            t := 0
+            for idx in this._useVirtual {
+                t := idx
+                break
+            }
+            if (t) {
+                listW := Integer(this.ui.Query("FoldList_" t ">ActualWidth"))
+                avail := listW + this.aiPanelW - this._AiListMinW()
+                if (avail < maxW)
+                    maxW := avail
+            }
+        }
+        if (maxW < minW)
+            maxW := minW
+        if (w < minW)
+            w := minW
+        if (w > maxW)
+            w := maxW
+        return w
+    }
+
+    _SetAiPanelWidth(w) {
+        w := this._ClampAiPanelW(w)
+        if (w == this.aiPanelW)
+            return
+        this.aiPanelW := w
+        for t in this._useVirtual {
+            try this.ui.Update("AiWrap_" t, "Width", String(w))
+        }
+        this._StartAiInnerW(this.aiInnerCur, w)
+    }
+
+    _StopAiInnerW() {
+        if (this.aiInnerOn)
+            SetTimer(this.aiInnerTick, 0)
+        this.aiInnerOn := false
+    }
+
+    _StartAiInnerW(from, to) {
+        from := Integer(from)
+        to := Integer(to)
+        if (from == to) {
+            this._StopAiInnerW()
+            this.aiInnerCur := to
+            this._ApplyAiInnerW(to)
+            return
+        }
+        this.aiInnerOn := true
+        this.aiInnerFrom := from
+        this.aiInnerTo := to
+        this.aiInnerT0 := A_TickCount
+        this.aiInnerCur := from
+        this._ApplyAiInnerW(from)
+        SetTimer(this.aiInnerTick, 16)
+    }
+
+    _TickAiInnerW() {
+        if (!this.aiInnerOn)
+            return
+        ms := this._AiInnerAnimMs()
+        if (ms < 1)
+            ms := 1
+        p := (A_TickCount - this.aiInnerT0) / ms
+        if (p >= 1)
+            p := 1
+        ease := 1 - (1 - p) ** 3
+        w := this.aiInnerFrom + (this.aiInnerTo - this.aiInnerFrom) * ease
+        this.aiInnerCur := w
+        this._ApplyAiInnerW(Round(w))
+        if (p < 1)
+            return
+        this._StopAiInnerW()
+        this.aiInnerCur := this.aiInnerTo
+        this._ApplyAiInnerW(this.aiInnerTo)
+    }
+
+    _ApplyAiInnerW(w) {
+        for t in this._useVirtual {
+            try this.ui.Update("AiInner_" t, "Width", String(w))
+            try this.ui.Update("AiInner_" t, "HorizontalAlignment", "Right")
+        }
+    }
+
+    OnSidePanelMode(mode, state, ctrl, event) {
+        this.sidePanelMode := Integer(mode)
+        this._ApplySidePanelMode()
+        t := MainSoftData.TableIndex
+        if (this.sidePanelMode == 1 && !this._sideTreeCmds.Has(t))
+            this.RefreshSideTree(t)
+    }
+
+    _ApplySidePanelMode() {
+        isTree := this.sidePanelMode == 1
+        treeVis := isTree ? "Visible" : "Collapsed"
+        aiVis := isTree ? "Collapsed" : "Visible"
+        for t in this._useVirtual {
+            try this.ui.Update("SideTreePane_" t, "Visibility", treeVis)
+            try this.ui.Update("SideAiPane_" t, "Visibility", aiVis)
+            try this.ui.Update("SideAiFoot_" t, "Visibility", aiVis)
+            this._SyncSideModeBtn(t, isTree)
+        }
+    }
+
+    _SyncSideModeBtn(t, isTree) {
+        this._PaintSideModeBtn("BtnSideModeTree_" t, isTree, "first")
+        this._PaintSideModeBtn("BtnSideModeAi_" t, !isTree, "last")
+    }
+
+    _PaintSideModeBtn(name, on, which) {
+        tag := (which == "last") ? (on ? "sel-last" : "last") : (on ? "sel-first" : "first")
+        try this.ui.Update(name, "Tag", tag)
+    }
+
+    _BindSideTree(t) {
+        if (this._sideTreeBound.Has(t))
+            return
+        this._sideTreeBound[t] := true
+        listName := "SideTreeList_" t
+        this.ui.OnEvent(listName, "MouseDoubleClick", ObjBindMethod(this, "_OnSideTreeDblClick", t))
+        this.ui.OnEvent(listName, "ItemReordered", ObjBindMethod(this, "_OnSideTreeReorder", t))
+    }
+
+    _FirstSideTreeItem(tableItem) {
+        if (!IsObject(tableItem))
+            return ""
+        if (tableItem.Folds.Length >= 1) {
+            fold := tableItem.Folds[1]
+            for item in tableItem.Items {
+                if (item.FoldID == fold.ID)
+                    return item
+            }
+        }
+        return tableItem.Items.Length >= 1 ? tableItem.Items[1] : ""
+    }
+
+    _SelectFirstSideTreeItem(t) {
+        if (t < 1 || t > MySoftData.TableInfo.Length)
+            return
+        item := this._FirstSideTreeItem(MySoftData.TableInfo[t])
+        if (!item)
+            return
+        this._sideTreeSel[t] := item.ID
+        this._ApplyRowSel(t, GetItemIndexInTable(MySoftData.TableInfo[t], item.ID))
+    }
+
+    _ResolveSideTreeItem(t) {
+        if (t < 1 || t > MySoftData.TableInfo.Length)
+            return ""
+        tableItem := MySoftData.TableInfo[t]
+        id := this._sideTreeSel.Has(t) ? this._sideTreeSel[t] : ""
+        item := (id != "") ? tableItem.GetItem(id) : ""
+        if (!item)
+            item := this._FirstSideTreeItem(tableItem)
+        if (item)
+            this._sideTreeSel[t] := item.ID
+        return item
+    }
+
+    SelectSideTreeItem(t, index, *) {
+        if (t < 1 || t > MySoftData.TableInfo.Length)
+            return
+        tableItem := MySoftData.TableInfo[t]
+        if (index < 1 || index > tableItem.Items.Length)
+            return
+        item := tableItem.Items[index]
+        if (!item)
+            return
+        if (this._sideTreeSel.Has(t) && this._sideTreeSel[t] == item.ID) {
+            this._ApplyRowSel(t, index)
+            return
+        }
+        this._sideTreeSel[t] := item.ID
+        this._ApplyRowSel(t, index)
+        this.RefreshSideTree(t)
+    }
+
+    _ApplyRowSel(t, index) {
+        if (t < 1)
+            return
+        if (this._useVirtual.Has(t) && IsObject(this._vl)) {
+            this._vl.SetRowSel(t, index)
+            return
+        }
+        if (this._rowSelIdx.Has(t)) {
+            old := this._rowSelIdx[t]
+            if (old != index && old >= 1)
+                this._SetItemRowSelChrome(t, old, false)
+        }
+        if (index >= 1) {
+            this._SetItemRowSelChrome(t, index, true)
+            this._rowSelIdx[t] := index
+        }
+    }
+
+    _SetItemRowSelChrome(t, i, on) {
+        if (!this._IsRendered(t, i))
+            return
+        tableItem := MySoftData.TableInfo[t]
+        item := (i >= 1 && i <= tableItem.Items.Length) ? tableItem.Items[i] : ""
+        if (on) {
+            this.ui.Update("ItemCard_" t "_" i, "Background", "{DynamicResource TabSelBg}")
+            this.ui.Update("RowSelDot_" t "_" i, "Visibility", "Visible")
+            this.ui.Update("RowSelMark_" t "_" i, "Visibility", "Visible")
+        } else {
+            bg := (item && (item.Forbid || GetItemFoldForbidState(tableItem, i))) ? "{DynamicResource ListRowForbidBg}" : "{DynamicResource ControlBg}"
+            this.ui.Update("ItemCard_" t "_" i, "Background", bg)
+            this.ui.Update("RowSelDot_" t "_" i, "Visibility", "Collapsed")
+            this.ui.Update("RowSelMark_" t "_" i, "Visibility", "Collapsed")
+        }
+    }
+
+    RefreshSideTree(t) {
+        if (!IsObject(this.ui) || !this._useVirtual.Has(t))
+            return
+        listName := "SideTreeList_" t
+        emptyName := "SideTreeEmpty_" t
+        item := this._ResolveSideTreeItem(t)
+        selIdx := item ? GetItemIndexInTable(MySoftData.TableInfo[t], item.ID) : 0
+        this._ApplyRowSel(t, selIdx)
+        cmds := []
+        if (item && CheckIsMacroTable(t) && Trim(item.Macro) != "")
+            cmds := SplitMacro(GetLangMacro(item.Macro, 1))
+        this._sideTreeCmds[t] := cmds
+        try this.ui.Update(listName, "ClearItems", "")
+        if (cmds.Length == 0) {
+            try this.ui.Update(emptyName, "Visibility", "Visible")
+            return
+        }
+        try this.ui.Update(emptyName, "Visibility", "Collapsed")
+        for cmdStr in cmds {
+            displayStr := MySoftData.FormatCmdJoyDisplay(cmdStr)
+            try this.ui.Update(listName, "AddItem", displayStr)
+        }
+        try this.ui.Update(listName, "EnableListBoxDragDrop", "")
+    }
+
+    _OnSideTreeDblClick(t, state, ctrl, event) {
+        idxStr := ""
+        try idxStr := this.ui.Query("SideTreeList_" t ">SelectedIndex")
+        if (idxStr == "" || !IsNumber(idxStr))
+            return
+        cmdIndex := Integer(idxStr) + 1
+        if (!this._sideTreeCmds.Has(t) || cmdIndex < 1 || cmdIndex > this._sideTreeCmds[t].Length)
+            return
+        this._sideEditFn := ObjBindMethod(this, "_EditSideTreeCmd", t, cmdIndex)
+        SetTimer(this._sideEditFn, -50)
+    }
+
+    _OnSideTreeReorder(t, state, ctrl, event) {
+        payload := ""
+        if (IsObject(state) && state.Has("ItemReordered"))
+            payload := state["ItemReordered"]
+        if (payload == "")
+            return
+        p := StrSplit(payload, "|")
+        if (p.Length < 2 || !IsNumber(p[1]) || !IsNumber(p[2]))
+            return
+        if (!this._sideTreeCmds.Has(t))
+            return
+        cmds := this._sideTreeCmds[t]
+        from := Integer(p[1]) + 1
+        insertAt := Integer(p[2]) + 1
+        if (from < 1 || from > cmds.Length)
+            return
+        if (insertAt < 1)
+            insertAt := 1
+        if (insertAt > cmds.Length + 1)
+            insertAt := cmds.Length + 1
+        if (insertAt == from || insertAt == from + 1)
+            return
+        cmd := cmds[from]
+        cmds.RemoveAt(from)
+        if (insertAt > from)
+            insertAt -= 1
+        cmds.InsertAt(insertAt, cmd)
+        this._WriteSideTreeMacro(t, cmds)
+    }
+
+    _WriteSideTreeMacro(t, cmds) {
+        item := this._ResolveSideTreeItem(t)
+        if (!item)
+            return
+        item.Macro := GetLangMacro(GetMacroStrByCmdArr(cmds), 2)
+        this._sideTreeCmds[t] := cmds
+        HotReloadPublish(t, 0)
+        idx := GetItemIndexInTable(MySoftData.TableInfo[t], item.ID)
+        if (idx >= 1)
+            this.RefreshItemRow(t, idx)
+        else
+            this.RefreshSideTree(t)
+    }
+
+    _EditSideTreeCmd(t, cmdIndex) {
+        if (!this._sideTreeCmds.Has(t) || cmdIndex < 1 || cmdIndex > this._sideTreeCmds[t].Length)
+            return
+        cmdStr := this._sideTreeCmds[t][cmdIndex]
+        itemText := StrReplace(cmdStr, "→", "")
+        itemText := MySoftData.ParseCmdJoyDisplay(itemText)
+        itemText := MySoftData.CmdJoyNToJoyFriendly(itemText)
+        paramsArr := StrSplit(itemText, "_")
+        if (paramsArr.Length < 1)
+            return
+        cmd := GetCmdOnlyText(paramsArr[1])
+        fullCmd := GetCmdStr(itemText)
+        sureFn := (newCmd) => this._OnSideTreeCmdEdited(t, cmdIndex, newCmd)
+        if (IsGraphStartSerial(GetCmdStr(paramsArr[1])) || cmd == GetLang("图形开始节点")) {
+            MyMacroGraphGui.OwnerHwnd := (MainSoftData.IsModalSubGui && IsObject(this.ui)) ? this.ui.wpfHwnd : ""
+            MyMacroGraphGui.SureBtnAction := sureFn
+            MyMacroGraphGui.ShowGui(GetLangMacro(fullCmd, 2))
+            return
+        }
+        if (!IsObject(MyMacroGui) || !MyMacroGui.SubGuiMap.Has(cmd))
+            return
+        subGui := MyMacroGui.SubGuiMap[cmd]
+        subGui.OwnerHwnd := (MainSoftData.IsModalSubGui && IsObject(this.ui)) ? this.ui.wpfHwnd : ""
+        if (ObjHasOwnProp(subGui, "ParentTile"))
+            subGui.ParentTile := ""
+        subGui.SureBtnAction := sureFn
+        subGui.ShowGui(fullCmd)
+    }
+
+    _OnSideTreeCmdEdited(t, cmdIndex, newCmd) {
+        if (!this._sideTreeCmds.Has(t) || cmdIndex < 1 || cmdIndex > this._sideTreeCmds[t].Length)
+            return
+        cmds := this._sideTreeCmds[t]
+        cmds[cmdIndex] := GetLangMacro(newCmd, 1)
+        this._WriteSideTreeMacro(t, cmds)
+    }
+
+    _BuildAiAssistPanel(vg, idx) {
+        wrap := vg.Add("Grid").Name("AiWrap_" idx).Grid_Column(1)
+            .Width(this.aiPanelW).MinWidth(this._AiPanelMinW()).MaxWidth(this._AiPanelMaxW())
+            .Visibility("Collapsed").Margin("0").Panel_ZIndex(1).ClipToBounds("True")
+        panel := wrap.Add("Border").Name("AiInner_" idx).Margin("0").Padding("0")
+            .Width(this.aiPanelW).HorizontalAlignment("Right")
+            .Background("{DynamicResource ControlBg}")
+        wrap.Add("Border").Name("AiSplit_" idx)
+            .HorizontalAlignment("Left").Width(this._AiPanelSplitW())
+            .Background("Transparent").Cursor("SizeWE")
+            .BorderThickness("1.5,0,0,0").BorderBrush("{DynamicResource OutlineStroke}")
+            .ToolTip(GetLang("拖拽调整宽度"))
+        g := panel.Add("Grid")
+        g.Rows("Auto", "*", "Auto")
+        head := g.Add("Grid").Grid_Row(0)
+        head.Rows("28", "1.5")
+        tabW := this._AiTabW()
+        opt := head.Add("Grid").Grid_Row(0).Height(28).MinHeight(28)
+        opt.Cols(tabW, "Auto", tabW, "*")
+        opt.Add("Button").Name("BtnSideModeTree_" idx).Grid_Column(0).Content(GetLang("逻辑树"))
+            .Style("{StaticResource RmtSideModeTab}").Width(tabW).Tag("sel-first")
+        opt.Add("Rectangle").Grid_Column(1).Width(2).Fill("{DynamicResource ControlBorder}")
+            .VerticalAlignment("Stretch").Margin("0,3,0,3").IsHitTestVisible("False")
+            .SnapsToDevicePixels("True")
+        opt.Add("Button").Name("BtnSideModeAi_" idx).Grid_Column(2).Content(GetLang("AI助手"))
+            .Style("{StaticResource RmtSideModeTab}").Width(tabW).Tag("last")
+        head.Add("Rectangle").Grid_Row(1).Height(1.5).Fill("{DynamicResource OutlineStroke}")
+            .HorizontalAlignment("Stretch").IsHitTestVisible("False")
+            .SnapsToDevicePixels("True")
+
+        body := g.Add("Grid").Grid_Row(1)
+        treeHost := body.Add("Grid").Name("SideTreePane_" idx).Visibility("Visible")
+        treeLb := treeHost.Add("ListBox").Name("SideTreeList_" idx)
+            .BorderThickness("0").Background("Transparent")
+            .HorizontalContentAlignment("Stretch")
+            .ScrollViewer_HorizontalScrollBarVisibility("Disabled")
+            .ScrollViewer_VerticalScrollBarVisibility("Auto")
+            .AlternationCount("2")
+            .AllowDrop("True")
+            .ItemContainerStyle("{StaticResource RmtSideTreeItem}")
+        treeHost.Add("TextBlock").Name("SideTreeEmpty_" idx).Text(GetLang("暂无指令"))
+            .Foreground("{DynamicResource TextSub}").FontSize(12)
+            .HorizontalAlignment("Center").VerticalAlignment("Center")
+            .IsHitTestVisible("False")
+
+        aiSv := body.Add("ScrollViewer").Name("SideAiPane_" idx).Visibility("Collapsed")
+            .VerticalScrollBarVisibility("Auto").HorizontalScrollBarVisibility("Disabled")
+        msgs := aiSv.Add("StackPanel").Name("SideAiMsgs_" idx).Margin("8,10,8,10")
+        lineH := this._AiInputLineH()
+        maxH := lineH * this._AiInputMaxLines()
+        sendW := this._AiInputSendW()
+        foot := g.Add("Border").Name("SideAiFoot_" idx).Grid_Row(2).Padding("7,8,5,8").BorderThickness("0")
+            .Visibility("Collapsed")
+        chrome := foot.Add("Border").Name("AiInputHost_" idx).Height(lineH).MinHeight(lineH).MaxHeight(maxH)
+            .Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}")
+            .BorderThickness("1.25").CornerRadius("3")
+        chrome.Apply({SnapsToDevicePixels: "True", UseLayoutRounding: "False"})
+        inner := chrome.Add("Grid")
+        inner.Cols("*", "Auto")
+        inner.Add("TextBox").Name("AiInput_" idx).Grid_Column(0).Style("{StaticResource RmtAiChatBox}")
+            .Height(lineH).MinHeight(lineH).MaxHeight(maxH)
+            .AcceptsReturn("False").TextWrapping("Wrap")
+            .VerticalScrollBarVisibility("Hidden").HorizontalScrollBarVisibility("Disabled")
+            .VerticalContentAlignment("Center").Padding(this._AiInputPad(1))
+            .Foreground("{DynamicResource InputText}")
+            .Background("Transparent").BorderThickness("0")
+        ph := inner.Add("TextBlock").Name("AiInputPh_" idx).Grid_Column(0).Text(GetLang("输入消息…")).IsHitTestVisible("False")
+            .VerticalAlignment("Center").HorizontalAlignment("Left").Margin(this._AiInputPhMargin(1))
+            .Foreground("{DynamicResource TextSub}").Opacity("0.55")
+            .FontSize(XAMLHost.FormatFontSize(XAMLHost.ScaleFontSize(11)))
+        st := ph.Add("TextBlock.Style").Add("Style").TargetType("TextBlock")
+        st.Add("Setter").Property("Visibility").Value("Collapsed")
+        trig := st.Add("Style.Triggers").Add("DataTrigger").Value("")
+        trig.SetMarkup("Binding", "{Binding Text, ElementName=AiInput_" idx "}")
+        trig.Add("Setter").Property("Visibility").Value("Visible")
+        inner.Add("Button").Name("AiSend_" idx).Grid_Column(1).Width(sendW).Height(sendW).MinHeight(sendW)
+            .VerticalAlignment("Center")
+            .Style("{StaticResource RmtFoldToolBtn}").Margin("2")
+            .Content(Chr(0xE724)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(12)
+            .ToolTip(GetLang("发送"))
+    }
+
+    _AiInputSendW() {
+        return 24
+    }
+
+    _AiInputPad(lines) {
+        return lines <= 1 ? "2,0,2,0" : "2,2,2,2"
+    }
+
+    _AiInputPhMargin(lines) {
+        return lines <= 1 ? "2,0,2,0" : "2,2,2,2"
+    }
+
+    _SeedAiMsgs() {
+        if (this.aiSeeded)
+            return
+        this.aiSeeded := true
+        fence := Chr(96) Chr(96) Chr(96)
+        tick := Chr(96)
+        d1 := "你好，我是 RMT 助手。对话按主流 AI 聊天来表现，支持标题、列表、**加粗**、*斜体*、" tick "行内代码" tick " 和表格。`n`n"
+            . "## 建议`n- 触发键改成 " tick "F1" tick "`n- 循环次数设为 **3**`n`n"
+            . "| 项 | 当前 | 建议 |`n| --- | --- | --- |`n| 触发 | 空 | F1 |`n| 循环 | 1 | 3 |`n`n"
+            . "> 改完后记得保存配置。"
+        d2 := "帮我看看这条宏怎么改。"
+        d3 := "可以按下面改搜索：`n`n" fence "ini`n[Search]`nPic=目标.png`n" fence "`n`n"
+            . "1. 打开编辑`n2. 粘贴图片路径`n3. 保存配置"
+        for t in this._useVirtual {
+            try this.ui.Update("SideAiMsgs_" t, "AddXamlItem", this._AiMsgXaml(false, d1))
+            try this.ui.Update("SideAiMsgs_" t, "AddXamlItem", this._AiMsgXaml(true, d2))
+            try this.ui.Update("SideAiMsgs_" t, "AddXamlItem", this._AiMsgXaml(false, d3))
+        }
+    }
+
+    _AiMsgXaml(isUser, text) {
+        ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
+        fg := isUser ? "{DynamicResource ActionText}" : "{DynamicResource TextMain}"
+        margin := isUser ? "32,0,0,10" : "0,0,8,10"
+        ha := isUser ? "Right" : "Stretch"
+        bg := isUser ? "ActionBg" : "FoldHeaderBg"
+        bd := isUser ? "ActionStroke" : "ControlBorder"
+        return '<Border ' ns ' Margin="' margin '" Padding="8,6" CornerRadius="6"'
+            . ' HorizontalAlignment="' ha '"'
+            . ' Background="{DynamicResource ' bg '}"'
+            . ' BorderThickness="1" BorderBrush="{DynamicResource ' bd '}">'
+            . '<StackPanel>' this._AiMdBodyXaml(text, fg) '</StackPanel>'
+            . '</Border>'
+    }
+
+    _AiMdBodyXaml(text, fg) {
+        out := ""
+        for blk in this._AiParseMd(text)
+            out .= this._AiMdBlockXaml(blk, fg)
+        if (out == "")
+            out := this._AiMdTextBlock(text, fg, 12, "")
+        return out
+    }
+
+    _AiParseMd(text) {
+        blocks := []
+        raw := StrReplace(StrReplace(text, "`r`n", "`n"), "`r", "`n")
+        lines := StrSplit(raw, "`n")
+        fence := Chr(96) Chr(96) Chr(96)
+        i := 1
+        n := lines.Length
+        while (i <= n) {
+            line := lines[i]
+            if (Trim(line) == "") {
+                i++
+                continue
+            }
+            tline := Trim(line)
+            if (SubStr(tline, 1, 3) == fence) {
+                lang := Trim(SubStr(tline, 4))
+                body := ""
+                i++
+                while (i <= n && SubStr(Trim(lines[i]), 1, 3) != fence) {
+                    body .= (body == "" ? "" : "`n") lines[i]
+                    i++
+                }
+                blocks.Push(Map("type", "code", "lang", lang, "text", body))
+                i++
+                continue
+            }
+            if (this._AiLooksTable(line) && i < n && this._AiLooksTableSep(lines[i + 1])) {
+                rows := []
+                while (i <= n && this._AiLooksTable(lines[i])) {
+                    if (!this._AiLooksTableSep(lines[i]))
+                        rows.Push(this._AiTableCells(lines[i]))
+                    i++
+                }
+                blocks.Push(Map("type", "table", "rows", rows))
+                continue
+            }
+            if (RegExMatch(line, "^(#{1,3})\s+(.+)$", &mh)) {
+                blocks.Push(Map("type", "h", "level", StrLen(mh[1]), "text", mh[2]))
+                i++
+                continue
+            }
+            if (RegExMatch(tline, "^([-*_])\1{2,}$")) {
+                blocks.Push(Map("type", "hr"))
+                i++
+                continue
+            }
+            if (RegExMatch(line, "^>\s?(.*)$", &mq)) {
+                q := mq[1]
+                i++
+                while (i <= n && RegExMatch(lines[i], "^>\s?(.*)$", &mq2)) {
+                    q .= "`n" mq2[1]
+                    i++
+                }
+                blocks.Push(Map("type", "quote", "text", q))
+                continue
+            }
+            if (RegExMatch(line, "^[-*+]\s+(.+)$", &mu)) {
+                items := [mu[1]]
+                i++
+                while (i <= n && RegExMatch(lines[i], "^[-*+]\s+(.+)$", &mu2)) {
+                    items.Push(mu2[1])
+                    i++
+                }
+                blocks.Push(Map("type", "ul", "items", items))
+                continue
+            }
+            if (RegExMatch(line, "^\d+[.)]\s+(.+)$", &mo)) {
+                items := [mo[1]]
+                i++
+                while (i <= n && RegExMatch(lines[i], "^\d+[.)]\s+(.+)$", &mo2)) {
+                    items.Push(mo2[1])
+                    i++
+                }
+                blocks.Push(Map("type", "ol", "items", items))
+                continue
+            }
+            para := line
+            i++
+            while (i <= n && !this._AiMdBreak(lines[i])) {
+                para .= " " Trim(lines[i])
+                i++
+            }
+            blocks.Push(Map("type", "p", "text", para))
+        }
+        return blocks
+    }
+
+    _AiMdBreak(line) {
+        if (Trim(line) == "")
+            return true
+        tline := Trim(line)
+        fence := Chr(96) Chr(96) Chr(96)
+        if (SubStr(tline, 1, 3) == fence)
+            return true
+        if (RegExMatch(line, "^(#{1,3})\s+"))
+            return true
+        if (RegExMatch(line, "^[-*+]\s+"))
+            return true
+        if (RegExMatch(line, "^\d+[.)]\s+"))
+            return true
+        if (RegExMatch(line, "^>\s?"))
+            return true
+        if (this._AiLooksTable(line))
+            return true
+        if (RegExMatch(tline, "^([-*_])\1{2,}$"))
+            return true
+        return false
+    }
+
+    _AiLooksTable(line) {
+        return SubStr(Trim(line), 1, 1) == "|"
+    }
+
+    _AiLooksTableSep(line) {
+        return RegExMatch(Trim(line), "^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$")
+    }
+
+    _AiTableCells(line) {
+        s := Trim(line)
+        if (SubStr(s, 1, 1) == "|")
+            s := SubStr(s, 2)
+        if (s != "" && SubStr(s, -1) == "|")
+            s := SubStr(s, 1, StrLen(s) - 1)
+        cells := []
+        for part in StrSplit(s, "|")
+            cells.Push(Trim(part))
+        return cells
+    }
+
+    _AiMdBlockXaml(blk, fg) {
+        tp := blk["type"]
+        if (tp == "h") {
+            fs := blk["level"] == 1 ? 16 : (blk["level"] == 2 ? 14 : 13)
+            return this._AiMdTextBlock(blk["text"], fg, fs, ' FontWeight="SemiBold" Margin="0,2,0,6"')
+        }
+        if (tp == "p")
+            return this._AiMdTextBlock(blk["text"], fg, 12, ' Margin="0,0,0,6"')
+        if (tp == "hr")
+            return '<Rectangle Height="1" Fill="{DynamicResource ControlBorder}" Margin="0,8" HorizontalAlignment="Stretch"/>'
+        if (tp == "quote")
+            return '<Border BorderThickness="2,0,0,0" BorderBrush="{DynamicResource Accent}" Padding="8,2,0,2" Margin="0,2,0,8">'
+                . this._AiMdTextBlock(blk["text"], fg, 12, ' Opacity="0.9"')
+                . '</Border>'
+        if (tp == "code") {
+            head := blk["lang"] != "" ? '<TextBlock Text="' this._XmlEsc(blk["lang"]) '" FontSize="10" Margin="0,0,0,4" Foreground="{DynamicResource TextSub}"/>' : ""
+            return '<Border Background="{DynamicResource ListAltBg}" CornerRadius="4" Padding="8,6" Margin="0,2,0,8">'
+                . '<StackPanel>' head
+                . '<TextBlock Text="' this._XmlEsc(blk["text"]) '" FontFamily="Consolas, Cascadia Mono, Courier New" FontSize="11"'
+                . ' TextWrapping="Wrap" Foreground="{DynamicResource TextMain}" xml:space="preserve"/>'
+                . '</StackPanel></Border>'
+        }
+        if (tp == "ul" || tp == "ol") {
+            out := '<StackPanel Margin="0,0,0,6">'
+            idx := 1
+            for it in blk["items"] {
+                mark := tp == "ol" ? (idx ". ") : "• "
+                out .= '<Grid Margin="0,1,0,1"><Grid.ColumnDefinitions><ColumnDefinition Width="18"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>'
+                    . '<TextBlock Grid.Column="0" Text="' this._XmlEsc(mark) '" FontSize="12" Foreground="' fg '"/>'
+                    . '<TextBlock Grid.Column="1" TextWrapping="Wrap" FontSize="12">' this._AiInlineXaml(it, fg) '</TextBlock>'
+                    . '</Grid>'
+                idx++
+            }
+            return out "</StackPanel>"
+        }
+        if (tp == "table")
+            return this._AiMdTableXaml(blk["rows"], fg)
+        return this._AiMdTextBlock(blk.Has("text") ? blk["text"] : "", fg, 12, "")
+    }
+
+    _AiMdTableXaml(rows, fg) {
+        if (rows.Length < 1)
+            return ""
+        cols := 1
+        for row in rows {
+            if (row.Length > cols)
+                cols := row.Length
+        }
+        colDef := ""
+        loop cols
+            colDef .= '<ColumnDefinition Width="Auto"/>'
+        rowDef := ""
+        loop rows.Length
+            rowDef .= '<RowDefinition Height="Auto"/>'
+        cells := ""
+        r := 0
+        for row in rows {
+            c := 0
+            bg := r == 0 ? "{DynamicResource ControlBg}" : "Transparent"
+            wt := r == 0 ? ' FontWeight="SemiBold"' : ""
+            while (c < cols) {
+                val := c < row.Length ? row[c + 1] : ""
+                cells .= '<Border Grid.Row="' r '" Grid.Column="' c '" Background="' bg '"'
+                    . ' BorderBrush="{DynamicResource ControlBorder}" BorderThickness="0,0,1,1" Padding="6,4">'
+                    . '<TextBlock TextWrapping="Wrap" FontSize="11"' wt '>' this._AiInlineXaml(val, fg) '</TextBlock>'
+                    . '</Border>'
+                c++
+            }
+            r++
+        }
+        return '<Border BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1,1,0,0" CornerRadius="3" Margin="0,4,0,8">'
+            . '<ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">'
+            . '<Grid>'
+            . '<Grid.ColumnDefinitions>' colDef '</Grid.ColumnDefinitions>'
+            . '<Grid.RowDefinitions>' rowDef '</Grid.RowDefinitions>'
+            . cells
+            . '</Grid></ScrollViewer></Border>'
+    }
+
+    _AiMdTextBlock(text, fg, fs, extra) {
+        return '<TextBlock TextWrapping="Wrap" FontSize="' fs '" Foreground="' fg '"' extra '>'
+            . this._AiInlineXaml(text, fg) '</TextBlock>'
+    }
+
+    _AiInlineXaml(s, fg) {
+        if (s == "")
+            return this._AiMdRun("", ' Foreground="' fg '"')
+        out := ""
+        i := 1
+        len := StrLen(s)
+        tick := Chr(96)
+        while (i <= len) {
+            ch := SubStr(s, i, 1)
+            two := SubStr(s, i, 2)
+            if (two == "**") {
+                close := InStr(s, "**", false, i + 2)
+                if (close) {
+                    out .= this._AiMdRun(SubStr(s, i + 2, close - i - 2), ' FontWeight="SemiBold" Foreground="' fg '"')
+                    i := close + 2
+                    continue
+                }
+            }
+            if (two == "~~") {
+                close := InStr(s, "~~", false, i + 2)
+                if (close) {
+                    out .= this._AiMdRun(SubStr(s, i + 2, close - i - 2), ' TextDecorations="Strikethrough" Foreground="' fg '"')
+                    i := close + 2
+                    continue
+                }
+            }
+            if (ch == tick) {
+                close := InStr(s, tick, false, i + 1)
+                if (close) {
+                    out .= this._AiMdRun(SubStr(s, i + 1, close - i - 1), ' FontFamily="Consolas, Cascadia Mono, Courier New" Background="{DynamicResource ListAltBg}" Foreground="' fg '"')
+                    i := close + 1
+                    continue
+                }
+            }
+            if (ch == "*" || ch == "_") {
+                close := InStr(s, ch, false, i + 1)
+                if (close) {
+                    out .= this._AiMdRun(SubStr(s, i + 1, close - i - 1), ' FontStyle="Italic" Foreground="' fg '"')
+                    i := close + 1
+                    continue
+                }
+            }
+            if (ch == "[") {
+                rest := SubStr(s, i)
+                if (RegExMatch(rest, "^\[([^\]]+)\]\(([^)]+)\)", &ml)) {
+                    out .= this._AiMdRun(ml[1], ' TextDecorations="Underline" Foreground="{DynamicResource Accent}"')
+                    i += StrLen(ml[0])
+                    continue
+                }
+            }
+            j := i + 1
+            while (j <= len) {
+                c := SubStr(s, j, 1)
+                t2 := SubStr(s, j, 2)
+                if (t2 == "**" || t2 == "~~" || c == tick || c == "*" || c == "_" || c == "[")
+                    break
+                j++
+            }
+            out .= this._AiMdRun(SubStr(s, i, j - i), ' Foreground="' fg '"')
+            i := j
+        }
+        return out
+    }
+
+    _AiMdRun(text, extra) {
+        return '<Run' extra ' Text="' this._XmlEsc(text) '"/>'
+    }
+
+    OnAiInputChanged(t, state, ctrl, event) {
+        this._aiFitTab := t
+        SetTimer(this.aiFitTick, -30)
+    }
+
+    OnAiInputEnter(t, state, ctrl, event) {
+        mods := ""
+        if (IsObject(state) && state.Has("KeyModifiers"))
+            mods := state["KeyModifiers"]
+        if (InStr(mods, "Shift") || InStr(mods, "Alt")) {
+            this._AiInsertNewline(t)
+            return
+        }
+        this._AiSendFrom(t)
+    }
+
+    OnAiSendClick(t, state, ctrl, event) {
+        this._AiSendFrom(t)
+    }
+
+    _AiInsertNewline(t) {
+        text := ""
+        try text := this.ui.Query("AiInput_" t)
+        caret := StrLen(text)
+        try {
+            v := this.ui.Query("AiInput_" t ">CaretIndex")
+            if (v != "")
+                caret := Integer(v)
+        }
+        if (caret < 0)
+            caret := 0
+        if (caret > StrLen(text))
+            caret := StrLen(text)
+        newText := SubStr(text, 1, caret) "`n" SubStr(text, caret + 1)
+        try this.ui.Update("AiInput_" t, "Text", newText)
+        try this.ui.Update("AiInput_" t, "CaretIndex", String(caret + 1))
+        this._aiFitTab := t
+        SetTimer(this.aiFitTick, -30)
+    }
+
+    _FitAiInputCur() {
+        this._FitAiInput(this._aiFitTab)
+    }
+
+    _FitAiInput(t) {
+        if (t < 1)
+            return
+        lineH := this._AiInputLineH()
+        maxLines := this._AiInputMaxLines()
+        lines := 1
+        try {
+            v := this.ui.Query("AiInput_" t ">LineCount")
+            if (v != "")
+                lines := Integer(v)
+        }
+        if (lines < 1)
+            lines := 1
+        if (lines > maxLines)
+            lines := maxLines
+        h := lines * lineH
+        pad := this._AiInputPad(lines)
+        vca := lines <= 1 ? "Center" : "Top"
+        sb := lines <= 1 ? "Hidden" : "Auto"
+        try this.ui.Update("AiInput_" t, "Height", String(h))
+        try this.ui.Update("AiInput_" t, "Padding", pad)
+        try this.ui.Update("AiInput_" t, "VerticalContentAlignment", vca)
+        try this.ui.Update("AiInput_" t, "VerticalScrollBarVisibility", sb)
+        try this.ui.Update("AiInputHost_" t, "Height", String(h))
+        try this.ui.Update("AiInputPh_" t, "VerticalAlignment", vca)
+        try this.ui.Update("AiInputPh_" t, "Margin", this._AiInputPhMargin(lines))
+        try this.ui.Update("AiSend_" t, "VerticalAlignment", lines <= 1 ? "Center" : "Bottom")
+    }
+
+    _AiSendFrom(t) {
+        text := ""
+        try text := this.ui.Query("AiInput_" t)
+        text := Trim(StrReplace(text, "`r", ""), "`n")
+        if (text == "")
+            return
+        try this.ui.Update("AiInput_" t, "Text", "")
+        this._FitAiInput(t)
+        try this.ui.Update("SideAiMsgs_" t, "AddXamlItem", this._AiMsgXaml(true, text))
     }
 
     ; ============ 宏列表渲染 ============
@@ -750,6 +1861,8 @@ class MainWin {
         if (this._useVirtual.Has(t)) {
             ; Epic5：1 次 VL_INIT 填充虚拟列表（模型已由 VL_CHANGE 保持，视图全量重建成本 O(1) IPC）
             this._vl.Init(t, tableItem)
+            if (this._IsAiPanelOpen())
+                this._vl.SetCompact(t, true)
             return
         }
         this.RenderedItems[t] := Map()
@@ -819,12 +1932,20 @@ class MainWin {
         remark := vlMode ? "" : fold.Remark
         frontInfo := vlMode ? "" : fold.FrontInfo
         forbidState := vlMode ? false : fold.ForbidState
-        gap := 8 + this._foldFrontShift
+        gap := this._FoldGroupGap()
+        if (this._IsAiPanelOpen()) {
+            wideGap := 8 + this._foldFrontShift
+            gapCol := '<ColumnDefinition Width="100*" MinWidth="' this._AiPanelGapMin() '" MaxWidth="' wideGap '"/>'
+            lastCol := '<ColumnDefinition Width="*"/>'
+        } else {
+            gapCol := '<ColumnDefinition Width="' gap '"/>'
+            lastCol := '<ColumnDefinition Width="*"/>'
+        }
         return '<Grid ' ns ' VerticalAlignment="Center">'
             . '<Grid.ColumnDefinitions>'
-            . '<ColumnDefinition Width="Auto"/><ColumnDefinition Width="' gap '"/>'
-            . '<ColumnDefinition Width="Auto"/><ColumnDefinition Width="' gap '"/>'
-            . '<ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/>'
+            . '<ColumnDefinition Width="Auto"/>' gapCol
+            . '<ColumnDefinition Width="Auto"/>' gapCol
+            . '<ColumnDefinition Width="Auto"/>' lastCol
             . '</Grid.ColumnDefinitions>'
             . '<StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">' this._BuildFoldCollapseBtnXaml(t, f, folded, vlMode) this._BuildFoldRemarkFieldXaml(t, f, remark, vlMode) '</StackPanel>'
             . '<StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">' this._BuildFoldFrontCenterXaml(t, f, frontInfo, vlMode) '</StackPanel>'
@@ -869,6 +1990,24 @@ class MainWin {
             . '<Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="1"/><Setter Property="FontSize" Value="' foldFs '"/></Trigger>'
             . '<Trigger Property="IsReadOnly" Value="True"><Setter Property="FontSize" Value="' foldFs '"/></Trigger>'
             . '</Style.Triggers></Style>'
+        chatBox := '<Style x:Key="RmtAiChatBox" TargetType="TextBox">'
+            . '<Setter Property="FontSize" Value="' foldFs '"/>'
+            . '<Setter Property="MinHeight" Value="' this._AiInputLineH() '"/>'
+            . '<Setter Property="Padding" Value="' this._AiInputPad(1) '"/>'
+            . '<Setter Property="TextWrapping" Value="Wrap"/>'
+            . '<Setter Property="AcceptsReturn" Value="False"/>'
+            . '<Setter Property="VerticalContentAlignment" Value="Center"/>'
+            . '<Setter Property="TextAlignment" Value="Left"/>'
+            . '<Setter Property="Foreground" Value="{DynamicResource InputText}"/>'
+            . '<Setter Property="Background" Value="{DynamicResource ControlBg}"/>'
+            . '<Setter Property="BorderBrush" Value="{DynamicResource InputStroke}"/>'
+            . '<Setter Property="BorderThickness" Value="1.25"/>'
+            . '<Setter Property="VerticalScrollBarVisibility" Value="Hidden"/>'
+            . '<Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>'
+            . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TextBox">'
+            . '<Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3"' this._BorderSnap() '>'
+            . '<ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" HorizontalScrollBarVisibility="{TemplateBinding HorizontalScrollBarVisibility}" VerticalScrollBarVisibility="{TemplateBinding VerticalScrollBarVisibility}"/>'
+            . '</Border></ControlTemplate></Setter.Value></Setter></Style>'
         toolBtn := '<Style x:Key="RmtFoldToolBtn" TargetType="Button">'
             . '<Setter Property="Width" Value="24"/><Setter Property="Height" Value="24"/><Setter Property="MinHeight" Value="24"/>'
             . '<Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0,0,4,0"/>'
@@ -989,7 +2128,92 @@ class MainWin {
             . '<ControlTemplate.Triggers>'
             . '<Trigger Property="IsEditable" Value="True"><Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible"/><Setter TargetName="ContentSite" Property="Visibility" Value="Hidden"/></Trigger>'
             . '</ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
-        return fieldBox . toolBtn . primaryBtn . editBtn . forbidBtn . itemForbid . itemFieldBtn . itemCombo
+        railW := this._AiRailW()
+        railHoverW := this._AiRailHoverW()
+        tabW := this._AiTabW()
+        aiRail := '<Style x:Key="RmtAiRailBtn" TargetType="Button">'
+            . '<Setter Property="Width" Value="' railW '"/><Setter Property="MinWidth" Value="' railW '"/>'
+            . '<Setter Property="MaxWidth" Value="' railHoverW '"/>'
+            . '<Setter Property="Height" Value="200"/>'
+            . '<Setter Property="MinHeight" Value="200"/><Setter Property="MaxHeight" Value="200"/>'
+            . '<Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0"/>'
+            . '<Setter Property="Cursor" Value="Hand"/>'
+            . '<Setter Property="Foreground" Value="{DynamicResource TextMain}"/>'
+            . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">'
+            . '<Grid>'
+            . '<Path x:Name="Bd" Data="M 18,0 L 18,200 L 0,176 L 0,24 Z" Stretch="Fill"'
+            . ' Fill="{DynamicResource ControlBg}" Stroke="{DynamicResource OutlineStroke}" StrokeThickness="1.25"'
+            . ' StrokeLineJoin="Round" SnapsToDevicePixels="True"/>'
+            . '<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="-3,0,0,0"/>'
+            . '</Grid>'
+            . '<ControlTemplate.Triggers>'
+            . '<Trigger Property="IsMouseOver" Value="True">'
+            . '<Setter Property="Width" Value="' railHoverW '"/>'
+            . '<Setter TargetName="Bd" Property="Fill" Value="{DynamicResource ControlBorder}"/>'
+            . '<Setter TargetName="Bd" Property="Stroke" Value="{DynamicResource Accent}"/>'
+            . '</Trigger>'
+            . '<Trigger Property="IsPressed" Value="True"><Setter TargetName="Bd" Property="Fill" Value="{DynamicResource BtnPressBg}"/><Setter TargetName="Bd" Property="Stroke" Value="{DynamicResource Accent}"/></Trigger>'
+            . '</ControlTemplate.Triggers>'
+            . '</ControlTemplate></Setter.Value></Setter></Style>'
+        sideModeTab := '<Style x:Key="RmtSideModeTab" TargetType="Button">'
+            . '<Setter Property="Foreground" Value="{DynamicResource TextMain}"/>'
+            . '<Setter Property="Background" Value="Transparent"/>'
+            . '<Setter Property="BorderThickness" Value="0"/>'
+            . '<Setter Property="Padding" Value="5,4"/>'
+            . '<Setter Property="Width" Value="' tabW '"/>'
+            . '<Setter Property="MinWidth" Value="' tabW '"/>'
+            . '<Setter Property="MaxWidth" Value="' tabW '"/>'
+            . '<Setter Property="Height" Value="28"/>'
+            . '<Setter Property="MinHeight" Value="28"/>'
+            . '<Setter Property="MaxHeight" Value="28"/>'
+            . '<Setter Property="Cursor" Value="Hand"/>'
+            . '<Setter Property="HorizontalContentAlignment" Value="Center"/>'
+            . '<Setter Property="VerticalContentAlignment" Value="Center"/>'
+            . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">'
+            . '<Grid Height="28" ClipToBounds="True">'
+            . '<Border x:Name="Bd" Background="Transparent" BorderThickness="0" Padding="{TemplateBinding Padding}" Cursor="Hand" CornerRadius="0">'
+            . '<Grid>'
+            . '<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" TextElement.Foreground="{DynamicResource TextMain}" TextElement.FontSize="14" TextElement.FontWeight="SemiBold"/>'
+            . '<Ellipse x:Name="SelDot" Width="6" Height="6" Fill="{DynamicResource Accent}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-3,-1,-3" Visibility="Collapsed" IsHitTestVisible="False"/>'
+            . '</Grid></Border></Grid>'
+            . '<ControlTemplate.Triggers>'
+            . '<Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource ControlBorder}"/></Trigger>'
+            . '<Trigger Property="Tag" Value="first"><Setter TargetName="Bd" Property="CornerRadius" Value="4,0,0,4"/></Trigger>'
+            . '<Trigger Property="Tag" Value="last"><Setter TargetName="Bd" Property="CornerRadius" Value="0,4,4,0"/></Trigger>'
+            . '<Trigger Property="Tag" Value="sel-first"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource TabSelBg}"/><Setter TargetName="Bd" Property="CornerRadius" Value="4,0,0,4"/><Setter TargetName="SelDot" Property="Visibility" Value="Visible"/></Trigger>'
+            . '<Trigger Property="Tag" Value="sel-last"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource TabSelBg}"/><Setter TargetName="Bd" Property="CornerRadius" Value="0,4,4,0"/><Setter TargetName="SelDot" Property="Visibility" Value="Visible"/></Trigger>'
+            . '<MultiTrigger><MultiTrigger.Conditions>'
+            . '<Condition Property="IsMouseOver" Value="True"/><Condition Property="Tag" Value="sel-first"/>'
+            . '</MultiTrigger.Conditions>'
+            . '<Setter TargetName="Bd" Property="Background" Value="{DynamicResource TabSelBg}"/>'
+            . '<Setter TargetName="Bd" Property="CornerRadius" Value="4,0,0,4"/>'
+            . '</MultiTrigger>'
+            . '<MultiTrigger><MultiTrigger.Conditions>'
+            . '<Condition Property="IsMouseOver" Value="True"/><Condition Property="Tag" Value="sel-last"/>'
+            . '</MultiTrigger.Conditions>'
+            . '<Setter TargetName="Bd" Property="Background" Value="{DynamicResource TabSelBg}"/>'
+            . '<Setter TargetName="Bd" Property="CornerRadius" Value="0,4,4,0"/>'
+            . '</MultiTrigger>'
+            . '</ControlTemplate.Triggers>'
+            . '</ControlTemplate></Setter.Value></Setter></Style>'
+        sideTreeItem := '<Style x:Key="RmtSideTreeItem" TargetType="ListBoxItem">'
+            . '<Setter Property="Height" Value="28"/><Setter Property="MinHeight" Value="28"/>'
+            . '<Setter Property="Padding" Value="8,0"/>'
+            . '<Setter Property="Margin" Value="0"/>'
+            . '<Setter Property="HorizontalContentAlignment" Value="Stretch"/>'
+            . '<Setter Property="Foreground" Value="{DynamicResource TextMain}"/>'
+            . '<Setter Property="Background" Value="{DynamicResource ControlBg}"/>'
+            . '<Setter Property="Cursor" Value="Hand"/>'
+            . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem">'
+            . '<Border x:Name="Bd" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}" Height="28">'
+            . '<TextBlock Text="{Binding}" VerticalAlignment="Center" FontSize="12" TextTrimming="CharacterEllipsis" Foreground="{TemplateBinding Foreground}"/>'
+            . '</Border>'
+            . '<ControlTemplate.Triggers>'
+            . '<Trigger Property="ItemsControl.AlternationIndex" Value="1"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource ListRowAltBg}"/></Trigger>'
+            . '<Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource ControlBorder}"/></Trigger>'
+            . '<Trigger Property="IsSelected" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource TabSelBg}"/></Trigger>'
+            . '</ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
+        return fieldBox . chatBox . toolBtn . primaryBtn . editBtn . forbidBtn . itemForbid . itemFieldBtn . itemCombo . aiRail . sideModeTab . sideTreeItem
     }
 
     ; 模块头输入框：RmtFoldFieldBox 覆盖全局 TextBox Padding=12，保证与占位符左对齐
@@ -1020,8 +2244,16 @@ class MainWin {
         return ' SnapsToDevicePixels="True" UseLayoutRounding="False"'
     }
 
+    _IsAiPanelOpen() {
+        return this.HasOwnProp("aiAssistOpen") && this.aiAssistOpen
+    }
+
+    _FoldGroupGap() {
+        return this._IsAiPanelOpen() ? this._AiPanelGapMin() : (8 + this._foldFrontShift)
+    }
+
     ; 宏行列宽：备注右缘对齐模块备注；触发键对齐「语音宏」左分割线；组间距统一用备注→触发键间距
-    _ItemLayout() {
+    _ItemLayoutWide() {
         tabW := 80
         toTab := 2
         inner0 := 4 + this._ItemDragColW()
@@ -1038,26 +2270,44 @@ class MainWin {
         if (spacerTK < 0)
             spacerTK := 0
         spacerTK += 35
-        spacerEdit := spacerTK
-        spacerCopy := spacerTK
         return Map("color", colorW, "seq", seqW, "remark", remarkW
             , "spacerTK", spacerTK, "tk", tkW, "type", typeW
-            , "spacerEdit", spacerEdit, "edit", editCol, "loop", loopCol, "setting", settingCol
-            , "spacerCopy", spacerCopy)
+            , "spacerEdit", spacerTK, "edit", editCol, "loop", loopCol, "setting", settingCol
+            , "spacerCopy", spacerTK)
+    }
+
+    _ItemLayout() {
+        L := this._ItemLayoutWide()
+        if (this._IsAiPanelOpen()) {
+            g := this._AiPanelGapMin()
+            L["spacerTK"] := g
+            L["spacerEdit"] := g
+            L["spacerCopy"] := g
+        }
+        return L
     }
 
     _ItemInnerColDefs() {
-        L := this._ItemLayout()
+        L := this._ItemLayoutWide()
+        if (this._IsAiPanelOpen()) {
+            minG := this._AiPanelGapMin()
+            maxG := L["spacerTK"]
+            sp := '<ColumnDefinition Width="100*" MinWidth="' minG '" MaxWidth="' maxG '"/>'
+            return '<ColumnDefinition Width="' L["color"] '"/><ColumnDefinition Width="' L["seq"] '"/><ColumnDefinition Width="' L["remark"] '"/>'
+                . sp . '<ColumnDefinition Width="' L["tk"] '"/><ColumnDefinition Width="' L["type"] '"/>'
+                . sp . '<ColumnDefinition Width="' L["edit"] '"/><ColumnDefinition Width="' L["loop"] '"/><ColumnDefinition Width="' L["setting"] '"/>'
+                . sp . '<ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/>'
+        }
         return '<ColumnDefinition Width="' L["color"] '"/><ColumnDefinition Width="' L["seq"] '"/><ColumnDefinition Width="' L["remark"] '"/>'
             . '<ColumnDefinition Width="' L["spacerTK"] '"/><ColumnDefinition Width="' L["tk"] '"/><ColumnDefinition Width="' L["type"] '"/>'
             . '<ColumnDefinition Width="' L["spacerEdit"] '"/><ColumnDefinition Width="' L["edit"] '"/><ColumnDefinition Width="' L["loop"] '"/><ColumnDefinition Width="' L["setting"] '"/>'
             . '<ColumnDefinition Width="' L["spacerCopy"] '"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/>'
     }
 
-    _BuildItemCardOpen(ns := "", t := 0, i := 0, forbid := false) {
+    _BuildItemCardOpen(ns := "", t := 0, i := 0, forbid := false, rowSel := false) {
         nsAttr := ns != "" ? " " ns : ""
         nameAttr := t > 0 ? ' Name="ItemCard_' t '_' i '"' : ""
-        defBg := (t > 0 && forbid) ? "{DynamicResource ListRowForbidBg}" : "{DynamicResource ControlBg}"
+        defBg := rowSel ? "{DynamicResource TabSelBg}" : ((t > 0 && forbid) ? "{DynamicResource ListRowForbidBg}" : "{DynamicResource ControlBg}")
         ; 宏行贴在页签内容框里，不再自绘左右/底边；高度 30（内边距 3+3，内容 24）。
         return '<Border' nsAttr nameAttr ' BorderBrush="{DynamicResource OutlineStroke}" ClipToBounds="False"' this._BorderSnap() '>'
             . '<Border.Style><Style TargetType="Border">'
@@ -1073,15 +2323,64 @@ class MainWin {
             . '<DataTrigger Binding="{Binding IsAltRow}" Value="True"><Setter Property="Background" Value="{DynamicResource ListRowAltBg}"/></DataTrigger>'
             . '<DataTrigger Binding="{Binding Forbid}" Value="True"><Setter Property="Background" Value="{DynamicResource ListRowForbidBg}"/></DataTrigger>'
             . '<DataTrigger Binding="{Binding FoldForbid}" Value="True"><Setter Property="Background" Value="{DynamicResource ListRowForbidBg}"/></DataTrigger>'
+            . '<DataTrigger Binding="{Binding RowSel}" Value="True"><Setter Property="Background" Value="{DynamicResource TabSelBg}"/></DataTrigger>'
             . '</Style.Triggers></Style></Border.Style>'
             . '<Grid Height="24" VerticalAlignment="Center">'
             . '<Grid.ColumnDefinitions><ColumnDefinition Width="' this._ItemDragColW() '"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>'
-            . '<Grid Grid.Column="0" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="12,0,2,0">' this._BuildDragHandleXaml() '</Grid>'
+            . '<Grid Grid.Column="0" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" ClipToBounds="False">'
+            . this._BuildRowSelDotXaml(t == 0, t, i, rowSel)
+            . this._BuildRowSelIconXaml(t == 0, t, i, rowSel)
+            . '<Grid VerticalAlignment="Center" HorizontalAlignment="Left" Margin="12,0,2,0">' this._BuildDragHandleXaml() '</Grid>'
+            . '</Grid>'
             . '<Grid Grid.Column="1" Height="24">'
     }
 
     _ItemCardClose() {
         return '</Grid></Grid></Border>'
+    }
+
+    _RowSelGlyph(*) {
+        return Chr(0xE72A)
+    }
+
+    _BuildRowSelDotXaml(vlMode, t := 0, i := 0, rowSel := false) {
+        if (vlMode) {
+            return '<Ellipse Width="6" Height="6" Fill="{DynamicResource Accent}" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="-3,-3,0,0" IsHitTestVisible="False">'
+                . '<Ellipse.Style><Style TargetType="Ellipse"><Setter Property="Visibility" Value="Collapsed"/>'
+                . '<Style.Triggers><DataTrigger Binding="{Binding RowSel}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>'
+                . '</Style></Ellipse.Style></Ellipse>'
+        }
+        vis := rowSel ? "Visible" : "Collapsed"
+        return '<Grid Name="RowSelDot_' t '_' i '" Visibility="' vis '" HorizontalAlignment="Left" VerticalAlignment="Top" IsHitTestVisible="False">'
+            . '<Ellipse Width="6" Height="6" Fill="{DynamicResource Accent}" Margin="-3,-3,0,0"/>'
+            . '</Grid>'
+    }
+
+    _BuildRowSelIconXaml(vlMode, t := 0, i := 0, rowSel := false) {
+        glyph := this._RowSelGlyph()
+        body := '<TextBlock Text="' glyph '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"'
+            . ' Foreground="{DynamicResource Accent}" VerticalAlignment="Center" HorizontalAlignment="Left"'
+            . ' Margin="0,0,0,0" IsHitTestVisible="False"/>'
+        if (vlMode) {
+            return '<Grid HorizontalAlignment="Left" VerticalAlignment="Center">'
+                . '<Grid.Style><Style TargetType="Grid"><Setter Property="Visibility" Value="Collapsed"/>'
+                . '<Style.Triggers><DataTrigger Binding="{Binding RowSel}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>'
+                . '</Style></Grid.Style>' body '</Grid>'
+        }
+        vis := rowSel ? "Visible" : "Collapsed"
+        return '<Grid Name="RowSelMark_' t '_' i '" Visibility="' vis '" HorizontalAlignment="Left" VerticalAlignment="Center">' body '</Grid>'
+    }
+
+    _BuildSeqNoXaml(vlMode, t := 0, i := 0, rowSel := false) {
+        seqText := vlMode ? "{Binding SeqNo}" : (i ".")
+        nameBtn := vlMode ? ' Tag="Seq"' : ' Name="SeqBtn_' t '_' i '" Tag="Seq"'
+        btn := '<Button' nameBtn ' Cursor="Hand" Focusable="False" HorizontalAlignment="Left" VerticalAlignment="Center" Background="Transparent" BorderThickness="0" Padding="0">'
+            . '<Button.Template><ControlTemplate TargetType="Button"><Border Background="Transparent" Padding="2,0,4,0"><ContentPresenter VerticalAlignment="Center"/></Border></ControlTemplate></Button.Template>'
+            . '<TextBlock Text="' seqText '" VerticalAlignment="Center" Foreground="{DynamicResource TextSub}"/>'
+            . '</Button>'
+        return '<Grid Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="-15,0,0,0">'
+            . btn
+            . '</Grid>'
     }
 
     _BuildFoldDividerXaml(vlMode, isFirst := false) {
@@ -1222,10 +2521,11 @@ class MainWin {
         if (isNormal && tkStr == GetLang("编辑"))
             tkStr := ""
         ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
-        xaml := this._BuildItemCardOpen(ns, t, i, item.Forbid || GetItemFoldForbidState(tableItem, i))
+        rowSel := this._sideTreeSel.Has(t) && this._sideTreeSel[t] == item.ID
+        xaml := this._BuildItemCardOpen(ns, t, i, item.Forbid || GetItemFoldForbidState(tableItem, i), rowSel)
             . '<Grid.ColumnDefinitions>' this._ItemInnerColDefs() '</Grid.ColumnDefinitions>'
             . '<Border Grid.Column="0" Name="Color_' t '_' i '" Width="12" Height="12" CornerRadius="6" Background="' colorHex '" VerticalAlignment="Center" HorizontalAlignment="Center"/>'
-            . '<TextBlock Grid.Column="1" Text="' i '." VerticalAlignment="Center" HorizontalAlignment="Left" Margin="-15,0,0,0" Foreground="{DynamicResource TextSub}"/>'
+            . this._BuildSeqNoXaml(false, t, i, rowSel)
             . this._BuildItemRemarkFieldXaml(t, i, item.Remark, false)
             . '<Button Grid.Column="4" Name="TKBtn_' t '_' i '" Style="{StaticResource RmtItemFieldBtn}" Margin="0,0,4,0" ToolTip="' GetLang("触发键") '" IsEnabled="' (isSubMacro ? "False" : "True") '">' this._BuildTKBtnInnerXaml(tkStr, false) '</Button>'
             . '<ComboBox Grid.Column="5" Name="TKType_' t '_' i '" Style="{StaticResource RmtItemCombo}" Margin="0" SelectedIndex="' tkTypeIdx '" IsEnabled="' (isNormal ? "True" : "False") '" ToolTip="' GetLang("触发类型") '">'
@@ -1326,6 +2626,7 @@ class MainWin {
         loopStr := tableItem.Items[i].LoopCount == "-1" ? GetLang("无限") : tableItem.Items[i].LoopCount
         this.ui.Update("Loop_" t "_" i, "Text", loopStr)
 
+        this._Bind("SeqBtn_" t "_" i, "Click", ObjBindMethod(this, "SelectSideTreeItem", t, i))
         this._Bind("TKBtn_" t "_" i, "Click", editTK.Bind(tableItem, i))
         this._Bind("TKBtn_" t "_" i, "MouseRightButtonUp", OnItemCustomEditTriggerStr.Bind(tableItem, i))
         this._Bind("Setting_" t "_" i, "Click", OnItemEditMacroSetting.Bind(tableItem, i))
@@ -1381,6 +2682,7 @@ class MainWin {
     RefreshItemRow(t, i) {
         if (this._useVirtual.Has(t)) {
             this._vl.RefreshRow(t, i)
+            this._RefreshSideTreeIfItem(t, i)
             return
         }
         if (!this._IsRendered(t, i))
@@ -1416,9 +2718,25 @@ class MainWin {
         this.ui.Update("TKType_" t "_" i, "SelectedIndex", String(tkTypeIdx))
         this.ui.Update("Loop_" t "_" i, "Text", loopStr)
         this.SyncItemForbidBtnUI(t, i, item.Forbid)
-        this.ui.Update("ItemCard_" t "_" i, "Background", (item.Forbid || GetItemFoldForbidState(tableItem, i)) ? "{DynamicResource ListRowForbidBg}" : "{DynamicResource ControlBg}")
+        rowSel := this._sideTreeSel.Has(t) && this._sideTreeSel[t] == item.ID
+        cardBg := rowSel ? "{DynamicResource TabSelBg}" : ((item.Forbid || GetItemFoldForbidState(tableItem, i)) ? "{DynamicResource ListRowForbidBg}" : "{DynamicResource ControlBg}")
+        this.ui.Update("ItemCard_" t "_" i, "Background", cardBg)
+        this.ui.Update("RowSelDot_" t "_" i, "Visibility", rowSel ? "Visible" : "Collapsed")
+        this.ui.Update("RowSelMark_" t "_" i, "Visibility", rowSel ? "Visible" : "Collapsed")
         this.UpdateItemColor(t, i)
         this._RefreshItemEditGlyph(t, i, item.Macro)
+        this._RefreshSideTreeIfItem(t, i)
+    }
+
+    _RefreshSideTreeIfItem(t, i) {
+        if (!this._sideTreeSel.Has(t))
+            return
+        tableItem := MySoftData.TableInfo[t]
+        if (i < 1 || i > tableItem.Items.Length)
+            return
+        item := tableItem.Items[i]
+        if (item && item.ID == this._sideTreeSel[t])
+            this.RefreshSideTree(t)
     }
 
     _RefreshItemEditGlyph(t, i, macroStr) {
@@ -1447,11 +2765,21 @@ class MainWin {
     ; 复刻 _BuildItemRow / _BuildFoldTitleRow 列结构，字面值换 {Binding}，控件加 Tag 供容器级事件路由。
     ; 折叠头 TK 行文案固定「菜单触发键：」（模板共享，UI 表同文案，阶段C 如需区分再拆模板）。
     _BuildVListTemplates() {
-        row := '<DataTemplate x:Key="RmtMacroRow">'
+        keep := this._IsAiPanelOpen()
+        this.aiAssistOpen := false
+        normal := this._BuildVListTemplateSet("")
+        this.aiAssistOpen := true
+        compact := this._BuildVListTemplateSet("C")
+        this.aiAssistOpen := keep
+        return normal . compact
+    }
+
+    _BuildVListTemplateSet(suf) {
+        row := '<DataTemplate x:Key="RmtMacroRow' suf '">'
             . this._BuildItemCardOpen()
             . '<Grid.ColumnDefinitions>' this._ItemInnerColDefs() '</Grid.ColumnDefinitions>'
             . '<Border Grid.Column="0" Width="12" Height="12" CornerRadius="6" Background="{Binding ColorHex}" VerticalAlignment="Center" HorizontalAlignment="Center"/>'
-            . '<TextBlock Grid.Column="1" Text="{Binding SeqNo}" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="-15,0,0,0" Foreground="{DynamicResource TextSub}"/>'
+            . this._BuildSeqNoXaml(true)
             . this._BuildItemRemarkFieldXaml(0, 0, "", true)
             . '<Button Grid.Column="4" Tag="TKBtn" IsEnabled="{Binding TKBtnEnabled}" Style="{StaticResource RmtItemFieldBtn}" Margin="0,0,4,0" ToolTip="' GetLang("触发键") '">' this._BuildTKBtnInnerXaml("", true) '</Button>'
             . '<ComboBox Grid.Column="5" Tag="TKType" SelectedIndex="{Binding TKType}" IsEnabled="{Binding TKTypeEnabled}" Style="{StaticResource RmtItemCombo}" Margin="0" ToolTip="' GetLang("触发类型") '">'
@@ -1469,7 +2797,7 @@ class MainWin {
             . '</StackPanel>'
             . this._ItemCardClose() '</DataTemplate>'
         foldFs := XAMLHost.FormatFontSize(XAMLHost.ScaleFontSize(11))
-        fold := '<DataTemplate x:Key="RmtFoldHeader">'
+        fold := '<DataTemplate x:Key="RmtFoldHeader' suf '">'
             . this._BuildFoldCardBorderOpen()
             . '<StackPanel VerticalAlignment="Center" TextElement.FontSize="' foldFs '">'
             . this._BuildFoldDividerXaml(true)
@@ -1485,7 +2813,7 @@ class MainWin {
             . '</StackPanel></Border></DataTemplate>'
         addFold := '<DataTemplate x:Key="RmtAddFold">'
             . '<Grid Height="72" HorizontalAlignment="Stretch">'
-            . '<Button Tag="AddFold" Width="56" Height="56" HorizontalAlignment="Center" VerticalAlignment="Center" Cursor="Hand" ToolTip="' GetLang("新增模块") '">'
+            . '<Button Tag="AddFold" Width="56" Height="56" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="-10,0,10,0" Cursor="Hand" ToolTip="' GetLang("新增模块") '">'
             . '<Button.Template><ControlTemplate TargetType="Button"><Grid>'
             . '<Ellipse x:Name="Bd" Stroke="{DynamicResource ControlBorder}" StrokeThickness="2" Fill="{DynamicResource ControlBg}"/>'
             . '<Grid Width="24" Height="24" IsHitTestVisible="False">'
@@ -1496,7 +2824,7 @@ class MainWin {
             . '<Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Fill" Value="{DynamicResource ControlBorder}"/><Setter TargetName="Bd" Property="Stroke" Value="{DynamicResource Accent}"/></Trigger>'
             . '<Trigger Property="IsPressed" Value="True"><Setter TargetName="Bd" Property="Fill" Value="{DynamicResource BtnPressBg}"/><Setter TargetName="Bd" Property="Stroke" Value="{DynamicResource Accent}"/></Trigger>'
             . '</ControlTemplate.Triggers></ControlTemplate></Button.Template></Button></Grid></DataTemplate>'
-        return row . fold . addFold
+        return row . fold . (suf == "" ? addFold : "")
     }
 
     _BuildFoldIconBtn(tag, name, t, f, content, tip, vlMode, isIcon := true, last := false) {
