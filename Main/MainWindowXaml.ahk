@@ -481,8 +481,8 @@ class MainWin {
         ; 备注右缘对齐「菜单宏」右分割线(3×80)；前台左缘对齐「定时宏」左分割线(5×80)
         ; 间隙 160，扣掉备注右侧 Margin 8 → 前台左移 152；触发类型列 +5 → 157
         ; 宏行工具列收窄 10、TK 列 +5，Del 右缘左移 5 → 工具栏右移量 155
+        ; 备注右缘到前台左缘：备注右侧 Margin 8 + 此前台左移 157
         this._foldFrontShift := 157
-        this._foldToolbarShift := 155
         this._itemToolbarShift := 200
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
         tmp := StrReplace(tmp, "%resources%", tabStyle . tabItemStyle . tabSelBgRes . stateBtnStyle . defaultBtnStyle . sidebarBtnStyle . iconBtnStyle . foldRowStyles . this._BuildVListTemplates())
@@ -810,18 +810,23 @@ class MainWin {
         return xaml
     }
 
-    ; 模块头主行：左备注 | 前台(左移) | 右工具按钮(左移)
+    ; 模块头主行：备注 | 间距 | 前台 | 同距 | 操作按钮 | 剩余
     _BuildFoldHeaderRowXaml(t, f, fold, vlMode) {
         ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
         folded := vlMode ? false : fold.FoldState
         remark := vlMode ? "" : fold.Remark
         frontInfo := vlMode ? "" : fold.FrontInfo
         forbidState := vlMode ? false : fold.ForbidState
+        gap := 8 + this._foldFrontShift
         return '<Grid ' ns ' VerticalAlignment="Center">'
-            . '<Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>'
+            . '<Grid.ColumnDefinitions>'
+            . '<ColumnDefinition Width="Auto"/><ColumnDefinition Width="' gap '"/>'
+            . '<ColumnDefinition Width="Auto"/><ColumnDefinition Width="' gap '"/>'
+            . '<ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/>'
+            . '</Grid.ColumnDefinitions>'
             . '<StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">' this._BuildFoldCollapseBtnXaml(t, f, folded, vlMode) this._BuildFoldRemarkFieldXaml(t, f, remark, vlMode) '</StackPanel>'
-            . '<StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="' this._foldFrontShift ',0,0,0">' this._BuildFoldFrontCenterXaml(t, f, frontInfo, vlMode) '</StackPanel>'
-            . '<StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,' this._foldToolbarShift ',0">' this._BuildFoldToolbarXaml(t, f, forbidState, vlMode) '</StackPanel>'
+            . '<StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">' this._BuildFoldFrontCenterXaml(t, f, frontInfo, vlMode) '</StackPanel>'
+            . '<StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">' this._BuildFoldToolbarXaml(t, f, forbidState, vlMode) '</StackPanel>'
             . '</Grid>'
     }
 
@@ -1013,11 +1018,38 @@ class MainWin {
         return ' SnapsToDevicePixels="True" UseLayoutRounding="False"'
     }
 
+    ; 宏行列宽：备注右缘对齐模块备注；触发键对齐「语音宏」左分割线；组间距统一用备注→触发键间距
+    _ItemLayout() {
+        tabW := 80
+        toTab := 2
+        inner0 := 4 + this._ItemDragColW()
+        colorW := 20
+        seqW := 22
+        remarkW := (8 + 24 + 6 + this._foldFieldW) - inner0 - colorW - seqW
+        tkW := 125
+        typeW := 82
+        editCol := 68
+        loopCol := 86
+        settingCol := 48
+        tkLeft := tabW * 4 - toTab - inner0
+        spacerTK := tkLeft - (colorW + seqW + remarkW)
+        if (spacerTK < 0)
+            spacerTK := 0
+        spacerTK += 35
+        spacerEdit := spacerTK
+        spacerCopy := spacerTK
+        return Map("color", colorW, "seq", seqW, "remark", remarkW
+            , "spacerTK", spacerTK, "tk", tkW, "type", typeW
+            , "spacerEdit", spacerEdit, "edit", editCol, "loop", loopCol, "setting", settingCol
+            , "spacerCopy", spacerCopy)
+    }
+
     _ItemInnerColDefs() {
-        ; 备注/触发键/类型/循环/操作与模块头工具按钮同为 4px 间距
-        return '<ColumnDefinition Width="20"/><ColumnDefinition Width="22"/><ColumnDefinition Width="150"/>'
-            . '<ColumnDefinition Width="125"/><ColumnDefinition Width="82"/><ColumnDefinition Width="82"/>'
-            . '<ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/>'
+        L := this._ItemLayout()
+        return '<ColumnDefinition Width="' L["color"] '"/><ColumnDefinition Width="' L["seq"] '"/><ColumnDefinition Width="' L["remark"] '"/>'
+            . '<ColumnDefinition Width="' L["spacerTK"] '"/><ColumnDefinition Width="' L["tk"] '"/><ColumnDefinition Width="' L["type"] '"/>'
+            . '<ColumnDefinition Width="' L["spacerEdit"] '"/><ColumnDefinition Width="' L["edit"] '"/><ColumnDefinition Width="' L["loop"] '"/><ColumnDefinition Width="' L["setting"] '"/>'
+            . '<ColumnDefinition Width="' L["spacerCopy"] '"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/>'
     }
 
     _BuildItemCardOpen(ns := "") {
@@ -1103,14 +1135,14 @@ class MainWin {
         box := this._FoldFieldBoxAttrs()
         if (vlMode) {
             ; 占位符绑 TextBox.Text（模板内局部名），按键即隐；不绑 FoldRemark（LostFocus 才回写）
-            return '<Grid Width="' fw '" Height="24" MinHeight="24" Margin="0,0,8,0">'
+            return '<Grid Width="' fw '" Height="24" MinHeight="24">'
                 . '<TextBox Name="FoldRemarkBox" Tag="FoldRemark" Text="{Binding FoldRemark}"' box '/>'
                 . '<TextBlock Text="' ph '" IsHitTestVisible="False" VerticalAlignment="Center" Margin="1,0,1,0" HorizontalAlignment="Left" Foreground="{DynamicResource TextSub}" Opacity="0.55" FontSize="' foldFs '">'
                 . '<TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/>'
                 . '<Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=FoldRemarkBox}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>'
                 . '</Style></TextBlock.Style></TextBlock></Grid>'
         }
-        return '<Grid Width="' fw '" Height="24" MinHeight="24" Margin="0,0,8,0">'
+        return '<Grid Width="' fw '" Height="24" MinHeight="24">'
             . '<TextBox Name="FoldRemark_' t '_' f '" Text="' this._XmlEsc(remark) '"' box '/>'
             . '<TextBlock Text="' ph '" IsHitTestVisible="False" VerticalAlignment="Center" Margin="1,0,1,0" HorizontalAlignment="Left" Foreground="{DynamicResource TextSub}" Opacity="0.55" FontSize="' foldFs '">'
             . '<TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/>'
@@ -1124,14 +1156,14 @@ class MainWin {
         box := this._FoldFieldBoxAttrs(' ToolTip="' GetLang("备注") '"')
         if (vlMode) {
             ; 占位符绑 TextBox.Text（模板内局部名），按键即隐；不绑 Remark（LostFocus 才回写）
-            return '<Grid Grid.Column="2" Height="24" MinHeight="24" Margin="-5,0,4,0">'
+            return '<Grid Grid.Column="2" Height="24" MinHeight="24" Margin="-5,0,0,0">'
                 . '<TextBox Name="RemarkBox" Tag="Remark" Text="{Binding Remark}"' box '/>'
                 . '<TextBlock Text="' ph '" IsHitTestVisible="False" VerticalAlignment="Center" Margin="1,0,1,0" HorizontalAlignment="Left" Foreground="{DynamicResource TextSub}" Opacity="0.55" FontSize="' foldFs '">'
                 . '<TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/>'
                 . '<Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=RemarkBox}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>'
                 . '</Style></TextBlock.Style></TextBlock></Grid>'
         }
-        return '<Grid Grid.Column="2" Height="24" MinHeight="24" Margin="-5,0,4,0">'
+        return '<Grid Grid.Column="2" Height="24" MinHeight="24" Margin="-5,0,0,0">'
             . '<TextBox Name="Remark_' t '_' i '" Text="' this._XmlEsc(remark) '"' box '/>'
             . '<TextBlock Text="' ph '" IsHitTestVisible="False" VerticalAlignment="Center" Margin="1,0,1,0" HorizontalAlignment="Left" Foreground="{DynamicResource TextSub}" Opacity="0.55" FontSize="' foldFs '">'
             . '<TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/>'
@@ -1187,16 +1219,16 @@ class MainWin {
             . '<Border Grid.Column="0" Name="Color_' t '_' i '" Width="12" Height="12" CornerRadius="6" Background="' colorHex '" VerticalAlignment="Center" HorizontalAlignment="Center"/>'
             . '<TextBlock Grid.Column="1" Text="' i '." VerticalAlignment="Center" HorizontalAlignment="Left" Margin="-15,0,0,0" Foreground="{DynamicResource TextSub}"/>'
             . this._BuildItemRemarkFieldXaml(t, i, item.Remark, false)
-            . '<Button Grid.Column="3" Name="TKBtn_' t '_' i '" Style="{StaticResource RmtItemFieldBtn}" Margin="0,0,4,0" ToolTip="' GetLang("触发键") '" IsEnabled="' (isSubMacro ? "False" : "True") '">' this._BuildTKBtnInnerXaml(tkStr, false) '</Button>'
-            . '<ComboBox Grid.Column="4" Name="TKType_' t '_' i '" Style="{StaticResource RmtItemCombo}" Margin="0,0,4,0" SelectedIndex="' tkTypeIdx '" IsEnabled="' (isNormal ? "True" : "False") '" ToolTip="' GetLang("触发类型") '">'
+            . '<Button Grid.Column="4" Name="TKBtn_' t '_' i '" Style="{StaticResource RmtItemFieldBtn}" Margin="0,0,4,0" ToolTip="' GetLang("触发键") '" IsEnabled="' (isSubMacro ? "False" : "True") '">' this._BuildTKBtnInnerXaml(tkStr, false) '</Button>'
+            . '<ComboBox Grid.Column="5" Name="TKType_' t '_' i '" Style="{StaticResource RmtItemCombo}" Margin="0" SelectedIndex="' tkTypeIdx '" IsEnabled="' (isNormal ? "True" : "False") '" ToolTip="' GetLang("触发类型") '">'
             . '<ComboBoxItem Content="' GetLang("按下") '"/><ComboBoxItem Content="' GetLang("松开") '"/><ComboBoxItem Content="' GetLang("松止") '"/><ComboBoxItem Content="' GetLang("开关") '"/><ComboBoxItem Content="' GetLang("长按") '"/><ComboBoxItem Content="' GetLang("双击") '"/>'
             . '</ComboBox>'
-            . '<ComboBox Grid.Column="5" Name="Loop_' t '_' i '" Style="{StaticResource RmtItemCombo}" Margin="0,0,4,0" IsEditable="True" IsEnabled="' (isMacro ? "True" : "False") '" ToolTip="' GetLang("循环次数") '">'
+            . this._BuildItemEditBtnXaml(t, i, item, false)
+            . '<ComboBox Grid.Column="8" Name="Loop_' t '_' i '" Style="{StaticResource RmtItemCombo}" Margin="0,0,4,0" IsEditable="True" IsEnabled="' (isMacro ? "True" : "False") '" ToolTip="' GetLang("循环次数") '">'
             . '<ComboBoxItem Content="' GetLang("无限") '"/>'
             . '</ComboBox>'
-            . '<StackPanel Grid.Column="6" Orientation="Horizontal" VerticalAlignment="Center">'
-            . this._BuildItemEditBtnXaml(t, i, item, false)
-            . '<Button Name="Setting_' t '_' i '" Style="{StaticResource RmtItemPrimaryBtn}" Content="&#xE713;" ToolTip="' GetLang("设置") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14"/>'
+            . '<Button Grid.Column="9" Name="Setting_' t '_' i '" Style="{StaticResource RmtItemPrimaryBtn}" Margin="0" Content="&#xE713;" ToolTip="' GetLang("设置") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14"/>'
+            . '<StackPanel Grid.Column="11" Orientation="Horizontal" VerticalAlignment="Center">'
             . '<Button Name="Copy_' t '_' i '" Style="{StaticResource RmtFoldToolBtn}" Content="&#xE8C8;" ToolTip="' GetLang("复制") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"/>'
             . this._BuildItemForbidBtnXaml(t, i, item.Forbid, false)
             . '<Button Name="Del_' t '_' i '" Style="{StaticResource RmtFoldToolBtn}" Content="&#xE74D;" ToolTip="' GetLang("删除") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" Margin="0"/>'
@@ -1238,10 +1270,11 @@ class MainWin {
 
     _BuildItemEditBtnXaml(t, i, item, vlMode) {
         tip := GetLang("编辑")
+        col := ' Grid.Column="7"'
         if (vlMode)
-            return '<Button Tag="Edit" Style="{StaticResource RmtItemEditBtn}" ToolTip="' tip '">' this._BuildItemEditBtnInnerXaml(true) '</Button>'
+            return '<Button' col ' Tag="Edit" Style="{StaticResource RmtItemEditBtn}" ToolTip="' tip '">' this._BuildItemEditBtnInnerXaml(true) '</Button>'
         kind := GetMacroEditKind(item.Macro)
-        return '<Button Name="Edit_' t '_' i '" Style="{StaticResource RmtItemEditBtn}" ToolTip="' tip '">' this._BuildItemEditBtnInnerXaml(false, t, i, kind) '</Button>'
+        return '<Button' col ' Name="Edit_' t '_' i '" Style="{StaticResource RmtItemEditBtn}" ToolTip="' tip '">' this._BuildItemEditBtnInnerXaml(false, t, i, kind) '</Button>'
     }
 
     _BuildItemForbidBtnXaml(t, i, forbidState, vlMode) {
@@ -1411,16 +1444,16 @@ class MainWin {
             . '<Border Grid.Column="0" Width="12" Height="12" CornerRadius="6" Background="{Binding ColorHex}" VerticalAlignment="Center" HorizontalAlignment="Center"/>'
             . '<TextBlock Grid.Column="1" Text="{Binding SeqNo}" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="-15,0,0,0" Foreground="{DynamicResource TextSub}"/>'
             . this._BuildItemRemarkFieldXaml(0, 0, "", true)
-            . '<Button Grid.Column="3" Tag="TKBtn" IsEnabled="{Binding TKBtnEnabled}" Style="{StaticResource RmtItemFieldBtn}" Margin="0,0,4,0" ToolTip="' GetLang("触发键") '">' this._BuildTKBtnInnerXaml("", true) '</Button>'
-            . '<ComboBox Grid.Column="4" Tag="TKType" SelectedIndex="{Binding TKType}" IsEnabled="{Binding TKTypeEnabled}" Style="{StaticResource RmtItemCombo}" Margin="0,0,4,0" ToolTip="' GetLang("触发类型") '">'
+            . '<Button Grid.Column="4" Tag="TKBtn" IsEnabled="{Binding TKBtnEnabled}" Style="{StaticResource RmtItemFieldBtn}" Margin="0,0,4,0" ToolTip="' GetLang("触发键") '">' this._BuildTKBtnInnerXaml("", true) '</Button>'
+            . '<ComboBox Grid.Column="5" Tag="TKType" SelectedIndex="{Binding TKType}" IsEnabled="{Binding TKTypeEnabled}" Style="{StaticResource RmtItemCombo}" Margin="0" ToolTip="' GetLang("触发类型") '">'
             . '<ComboBoxItem Content="' GetLang("按下") '"/><ComboBoxItem Content="' GetLang("松开") '"/><ComboBoxItem Content="' GetLang("松止") '"/><ComboBoxItem Content="' GetLang("开关") '"/><ComboBoxItem Content="' GetLang("长按") '"/><ComboBoxItem Content="' GetLang("双击") '"/>'
             . '</ComboBox>'
-            . '<ComboBox Grid.Column="5" Tag="Loop" Text="{Binding LoopText}" IsEditable="True" IsEnabled="{Binding LoopEnabled}" Style="{StaticResource RmtItemCombo}" Margin="0,0,4,0" ToolTip="' GetLang("循环次数") '">'
+            . this._BuildItemEditBtnXaml(0, 0, "", true)
+            . '<ComboBox Grid.Column="8" Tag="Loop" Text="{Binding LoopText}" IsEditable="True" IsEnabled="{Binding LoopEnabled}" Style="{StaticResource RmtItemCombo}" Margin="0,0,4,0" ToolTip="' GetLang("循环次数") '">'
             . '<ComboBoxItem Content="' GetLang("无限") '"/>'
             . '</ComboBox>'
-            . '<StackPanel Grid.Column="6" Orientation="Horizontal" VerticalAlignment="Center">'
-            . this._BuildItemEditBtnXaml(0, 0, "", true)
-            . '<Button Tag="Setting" Style="{StaticResource RmtItemPrimaryBtn}" Content="&#xE713;" ToolTip="' GetLang("设置") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14"/>'
+            . '<Button Grid.Column="9" Tag="Setting" Style="{StaticResource RmtItemPrimaryBtn}" Margin="0" Content="&#xE713;" ToolTip="' GetLang("设置") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14"/>'
+            . '<StackPanel Grid.Column="11" Orientation="Horizontal" VerticalAlignment="Center">'
             . '<Button Tag="Copy" Style="{StaticResource RmtFoldToolBtn}" Content="&#xE8C8;" ToolTip="' GetLang("复制") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"/>'
             . this._BuildItemForbidBtnXaml(0, 0, false, true)
             . '<Button Tag="Del" Style="{StaticResource RmtFoldToolBtn}" Content="&#xE74D;" ToolTip="' GetLang("删除") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" Margin="0"/>'
