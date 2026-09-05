@@ -785,12 +785,6 @@ MsgBoxContent(content) {
     MyMsgboxGui.ShowGui(content)
 }
 
-MacroCount(content) {
-    if (content == "Add") {
-        MySoftData.MacroTotalCount += 1
-    }
-}
-
 ViGJoySetState(JoyType, Key, Value) {
     JoyDebugLog(Format("ViGJoySetState enter type={} key={} value={} IsSet(ViGJoy)={}"
         , JoyType, Key, Value, IsSet(ViGJoy)), "vigem")

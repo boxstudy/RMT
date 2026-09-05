@@ -1,6 +1,5 @@
 ;按键宏命令
 OnTriggerMacroKeyAndInit(tableItem, macro, index) {
-    MyMacroCount("Add")
     item := tableItem.Items[index]
     if (!item)
         return

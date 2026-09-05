@@ -183,7 +183,6 @@
             "RMT指令", "RC",
             "MsgBox", "MB",
             "ToolTip", "TT",
-            "MacroCount", "MC",
             "Error", "ER",          ; Worker 错误上报主进程（统一日志 C 项）
             "Joy", "JY"
         )
@@ -702,10 +701,6 @@ ReloadWorkerConfig() {
 
     WorkToolTipContent(content) {
         MsgSendHandler("ToolTip", content)
-    }
-
-    WorkMacroCount(content) {
-        MsgSendHandler("MacroCount", content)
     }
 
     WorkViGJoySetState(JoyType, Key, Value) {
