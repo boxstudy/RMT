@@ -513,6 +513,8 @@ class WorkPool {
         GraphPoolLog("Dispatch分配", Format("Worker#{1} tab={2} item={3} graph={4} 闲置={5} 队列={6}"
             , wd.idx, task.tableID, task.itemID, task.isGraphBranch ? 1 : 0
             , this.freePool.Count, this.taskQueue.Size()))
+        if (!task.isGraphBranch)
+            MySoftData.MacroTotalCount += 1
         return true
     }
 
@@ -1132,8 +1134,6 @@ class WorkPool {
                     case "IB":
                         ; Worker 请求输入按钮条：创建独立实例，结果回传对应 Worker
                         SetTimer((*) => this._ShowInputDialog(wd, true, args.Length >= 1 ? args[1] : "1"), -10)
-                    case "MC":
-                        MacroCount(args[1])
                     case "JY":
                         JoyDebugLog(Format("WorkPool recv JY args=[{}, {}, {}] from worker#{}"
                             , args.Length >= 1 ? args[1] : "", args.Length >= 2 ? args[2] : ""

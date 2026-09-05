@@ -39,7 +39,6 @@ global MySetTableItemState := WorkSetTableItemState
 global MySetItemPauseState := WorkSetItemPauseState
 global MyMsgBoxContent := WorkMsgBoxContent
 global MyToolTipContent := WorkToolTipContent
-global MyMacroCount := WorkMacroCount
 global MyViGJoySetState := WorkViGJoySetState
 ;数组相关
 global MySetGlobalArray := WorkSetGlobalArray

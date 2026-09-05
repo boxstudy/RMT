@@ -984,6 +984,7 @@ TriggerMacroHandler(tableItem, itemIndex, *) {
         item.IsWorkIndex := true
         return
     }
+    MySoftData.MacroTotalCount += 1
     OnTriggerMacroKeyAndInit(tableItem, macro, itemIndex)
 }
 
