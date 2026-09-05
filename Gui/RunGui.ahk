@@ -20,8 +20,7 @@ class RunGui {
         this.ActiveEdit := ""
 
         this.StdInEditGui := ""
-        this.StdInEditCon := ""
-        this.StdInEditVariCon := ""
+        this._stdInClosed := true
     }
 
     ShowGui(cmd) {
@@ -212,8 +211,10 @@ class RunGui {
 
     OnWindowClosing(state, ctrl, event) {
         this.ToggleFunc(false)
-        if (this.StdInEditGui != "") {
-            try this.StdInEditGui.Hide()
+        if (IsObject(this.StdInEditGui) && !this._stdInClosed) {
+            try this.StdInEditGui.Update("Window", "Close", "")
+            this.StdInEditGui := ""
+            this._stdInClosed := true
         }
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
@@ -228,8 +229,10 @@ class RunGui {
 
     _CloseWindow() {
         this.ToggleFunc(false)
-        if (this.StdInEditGui != "") {
-            try this.StdInEditGui.Hide()
+        if (IsObject(this.StdInEditGui) && !this._stdInClosed) {
+            try this.StdInEditGui.Update("Window", "Close", "")
+            this.StdInEditGui := ""
+            this._stdInClosed := true
         }
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
@@ -333,77 +336,147 @@ class RunGui {
     }
 
     OpenStdInEditor(state := "", ctrl := "", event := "") {
-        if (this.StdInEditGui == "") {
+        if (!IsObject(this.StdInEditGui) || this._stdInClosed) {
             this.AddStdInEditorGui()
         }
-        if (this.OwnerHwnd != "") {
-            this.StdInEditGui.Opt("+Owner" this.OwnerHwnd)
+        vars := GetGuiVarArr(1)
+        this.StdInEditGui.Update("StdInEditVariCombo", "ClearItems", "")
+        for v in vars {
+            if (v != "")
+                this.StdInEditGui.Update("StdInEditVariCombo", "AddItem", v)
         }
-        this.StdInEditVariCon.Delete()
-        this.StdInEditVariCon.Add(GetGuiVarArr(1))
-        this.StdInEditVariCon.Value := 1
-        this.StdInEditCon.Value := this.ui.Query("StdInCon")
+        if (vars.Length > 0)
+            this.StdInEditGui.Update("StdInEditVariCombo", "SelectedIndex", "0")
+
+        curText := IsObject(this.ui) ? this.ui.Query("StdInCon") : ""
+        this.StdInEditGui.Update("StdInEditCon", "Text", curText)
+
         this.StdInEditGui.Show()
-        try this.StdInEditGui.Activate()
+
+        gotHwnd := false
+        loop 40 {
+            if (this.StdInEditGui.HasProp("wpfHwnd") && this.StdInEditGui.wpfHwnd) {
+                gotHwnd := true
+                owner := (this.Hwnd() ? this.Hwnd() : this.OwnerHwnd)
+                if (owner != "")
+                    try this.StdInEditGui.Update("Window", "NativeOwner", String(owner))
+                try WinActivate("ahk_id " this.StdInEditGui.wpfHwnd)
+                try SetTimer((*) => this.StdInEditGui.Update("Window", "Opacity", "1"), -10)
+                break
+            }
+            Sleep(50)
+        }
+        if (!gotHwnd)
+            this._stdInClosed := true
     }
 
     AddStdInEditorGui() {
-        MyGui := Gui(, this.ParentTile GetLang("输入编辑器"))
-        this.StdInEditGui := MyGui
-        if (this.OwnerHwnd != "") {
-            MyGui.Opt("+Owner" this.OwnerHwnd)
+        global MySoftData
+        if (IsObject(this.StdInEditGui) && !this._stdInClosed) {
+            try this.StdInEditGui.Update("Window", "Close", "")
         }
-        MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
+        this._stdInClosed := false
+        title := this.ParentTile GetLang("输入编辑器")
+        titleHeight := "30"
 
-        PosX := 10
-        PosY := 10
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY + 2, 50), GetLang("变量："))
-        PosX += 40
-        this.StdInEditVariCon := MyGui.Add("DropDownList", Format("x{} y{} w{} R6", PosX, PosY - 1, 130), [])
-        this.StdInEditVariCon.Add(GetGuiVarArr(1))
-        this.StdInEditVariCon.Value := 1
+        main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize(XAMLHost.FontSize())
+        main.Rows(titleHeight, "*")
 
-        PosX += 140
-        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 1, 70, 25), GetLang("追加名"))
-        btnCon.OnEvent("Click", (*) => this.OnClickStdInEditorAddVarNameBtn())
-        PosX += 80
-        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 1, 70, 25), GetLang("追加值"))
-        btnCon.OnEvent("Click", (*) => this.OnClickStdInEditorAddVarValueBtn())
+        ; === 标题栏 ===
+        tb := main.Add("Border").Grid_Row(0).Background("{DynamicResource TitleBarColor}").Name("DragArea")
+        tbInner := tb.Add("Grid")
+        tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TitleBarForeground}").FontSize(XAMLHost.TitleFontSize()).FontWeight("Bold").VerticalAlignment("Center").Margin("12,0,0,0")
+        BtnGroup := tbInner.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Right")
+        closeBtn := BtnGroup.Add("Button").Name("BtnClosePanel").WindowChrome_IsHitTestVisibleInChrome("True").Width(40).Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
+        closeBtn.Add("TextBlock").Text(Chr(0xE8BB)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
 
-        PosX := 10
-        PosY += 35
-        this.StdInEditCon := MyGui.Add("Edit", Format("x{} y{} w{} h{} Multi VScroll WantReturn", PosX, PosY, 680, 300), this.ui.Query("StdInCon"))
-        this.StdInEditCon.OnEvent("Change", (*) => this.OnStdInEditChange())
+        ; === 内容 ===
+        body := main.Add("Grid").Grid_Row(1).Margin("10,8")
+        body.Rows("32", "*", "38")
 
-        btnOk := MyGui.Add("Button", "x330 y350 w90 h30", GetLang("确定"))
-        btnOk.OnEvent("Click", (*) => this.OnClickStdInEditorClose())
-        MyGui.OnEvent("Close", (*) => this.OnClickStdInEditorClose())
-        MyGui.Show("w700 h395")
+        ; 行0：变量 + 追加名 + 追加值
+        row0 := body.Add("StackPanel").Grid_Row(0).Orientation("Horizontal").VerticalAlignment("Center")
+        row0.Add("TextBlock").Text(GetLang("变量：")).VerticalAlignment("Center")
+        row0.Add("ComboBox").Name("StdInEditVariCombo").Width(140).Height(26).MinHeight(26).Margin("4,0,0,0").IsEditable("True")
+        row0.Add("Button").Name("BtnStdInAddName").Content(GetLang("追加名")).Height(26).MinHeight(26).Margin("8,0,0,0")
+        row0.Add("Button").Name("BtnStdInAddValue").Content(GetLang("追加值")).Height(26).MinHeight(26).Margin("4,0,0,0")
+
+        ; 行1：文本框
+        body.Add("TextBox").Grid_Row(1).Name("StdInEditCon").AcceptsReturn("True").TextWrapping("Wrap")
+            .VerticalContentAlignment("Top").Margin("0,6,0,6")
+            .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+            .ScrollViewer_VerticalScrollBarVisibility("Auto")
+
+        ; 行2：确定
+        btnRow := body.Add("StackPanel").Grid_Row(2).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
+        btnRow.Add("Button").Name("BtnStdInOk").Content(GetLang("确定")).Width(90).Height(30).MinHeight(30)
+
+        ; === 创建 XAMLHost ===
+        tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
+        owner := (this.Hwnd() ? this.Hwnd() : this.OwnerHwnd)
+        this.StdInEditGui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", owner)
+        this.StdInEditGui.xaml := StrReplace(this.StdInEditGui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="700" Height="420" Opacity="0"')
+        this.StdInEditGui.xaml := StrReplace(this.StdInEditGui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
+        this.StdInEditGui.xaml := StrReplace(this.StdInEditGui.xaml, '%resources%', '')
+
+        ; === 事件 ===
+        this.StdInEditGui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnStdInWindowClosing"))
+        this.StdInEditGui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnStdInWindowLoad"))
+        this.StdInEditGui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnClickStdInEditorClose"))
+        this.StdInEditGui.OnEvent("BtnStdInAddName", "Click", ObjBindMethod(this, "OnClickStdInEditorAddVarNameBtn"))
+        this.StdInEditGui.OnEvent("BtnStdInAddValue", "Click", ObjBindMethod(this, "OnClickStdInEditorAddVarValueBtn"))
+        this.StdInEditGui.OnEvent("StdInEditCon", "TextChanged", ObjBindMethod(this, "OnStdInEditChange"))
+        this.StdInEditGui.OnEvent("StdInEditCon", "GotKeyboardFocus", (*) => this.ActiveEdit := "StdInEditCon")
+        this.StdInEditGui.OnEvent("BtnStdInOk", "Click", ObjBindMethod(this, "OnClickStdInEditorClose"))
     }
 
-    OnStdInEditChange() {
-        if (this.StdInEditCon != "" && IsObject(this.ui))
-            this.ui.Update("StdInCon", "Text", this.StdInEditCon.Value)
+    OnStdInWindowLoad(state, ctrl, event) {
+        try {
+            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
+            ApplyXamlTheme(this.StdInEditGui, themeName)
+        } catch {
+        }
     }
 
-    OnClickStdInEditorAddVarNameBtn() {
-        if (this.StdInEditCon == "")
+    OnStdInWindowClosing(state, ctrl, event) {
+        this._stdInClosed := true
+        this.StdInEditGui := ""
+    }
+
+    OnStdInEditChange(state := "", ctrl := "", event := "") {
+        if (IsObject(this.StdInEditGui) && !this._stdInClosed && IsObject(this.ui)) {
+            val := this.StdInEditGui.Query("StdInEditCon")
+            this.ui.Update("StdInCon", "Text", val)
+        }
+    }
+
+    OnClickStdInEditorAddVarNameBtn(state := "", ctrl := "", event := "") {
+        if (!IsObject(this.StdInEditGui) || this._stdInClosed)
             return
-        this.InsertIntoEdit("StdInEditCon", this.StdInEditVariCon.Text)
-        this.OnStdInEditChange()
-    }
-
-    OnClickStdInEditorAddVarValueBtn() {
-        if (this.StdInEditCon == "")
-            return
-        if (this.StdInEditVariCon.Text != "") {
-            this.InsertIntoEdit("StdInEditCon", "{" this.StdInEditVariCon.Text "}")
+        varName := this.StdInEditGui.Query("StdInEditVariCombo")
+        if (varName != "") {
+            this.StdInEditGui.Update("StdInEditCon", "InsertText", varName)
             this.OnStdInEditChange()
         }
     }
 
-    OnClickStdInEditorClose() {
-        this.StdInEditGui.Hide()
+    OnClickStdInEditorAddVarValueBtn(state := "", ctrl := "", event := "") {
+        if (!IsObject(this.StdInEditGui) || this._stdInClosed)
+            return
+        varName := this.StdInEditGui.Query("StdInEditVariCombo")
+        if (varName != "") {
+            this.StdInEditGui.Update("StdInEditCon", "InsertText", "{" varName "}")
+            this.OnStdInEditChange()
+        }
+    }
+
+    OnClickStdInEditorClose(state := "", ctrl := "", event := "") {
+        if (IsObject(this.StdInEditGui) && !this._stdInClosed) {
+            try this.StdInEditGui.Update("Window", "Close", "")
+            this.StdInEditGui := ""
+            this._stdInClosed := true
+        }
     }
 
     OnClickSureBtn(state, ctrl, event) {
@@ -428,8 +501,10 @@ class RunGui {
         action := this.SureBtnAction
         action(this.GetCommandStr())
 
-        if (this.StdInEditGui != "") {
-            this.StdInEditGui.Hide()
+        if (IsObject(this.StdInEditGui) && !this._stdInClosed) {
+            try this.StdInEditGui.Update("Window", "Close", "")
+            this.StdInEditGui := ""
+            this._stdInClosed := true
         }
         this._CloseWindow()
     }
@@ -512,8 +587,10 @@ class RunGui {
 
     InsertIntoEdit(target, text) {
         if (target == "StdInEditCon") {
-            if (this.StdInEditCon != "")
-                SendMessage(0x00C2, true, StrPtr(text), this.StdInEditCon.Hwnd)
+            if (IsObject(this.StdInEditGui) && !this._stdInClosed) {
+                this.StdInEditGui.Update("StdInEditCon", "InsertText", text)
+                this.OnStdInEditChange()
+            }
             return
         }
         if (IsObject(this.ui))
