@@ -209,13 +209,17 @@ class RunGui {
         }
     }
 
-    OnWindowClosing(state, ctrl, event) {
-        this.ToggleFunc(false)
+    _CloseStdInEditor() {
         if (IsObject(this.StdInEditGui) && !this._stdInClosed) {
             try this.StdInEditGui.Update("Window", "Close", "")
             this.StdInEditGui := ""
             this._stdInClosed := true
         }
+    }
+
+    OnWindowClosing(state, ctrl, event) {
+        this.ToggleFunc(false)
+        this._CloseStdInEditor()
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
         }
@@ -229,11 +233,7 @@ class RunGui {
 
     _CloseWindow() {
         this.ToggleFunc(false)
-        if (IsObject(this.StdInEditGui) && !this._stdInClosed) {
-            try this.StdInEditGui.Update("Window", "Close", "")
-            this.StdInEditGui := ""
-            this._stdInClosed := true
-        }
+        this._CloseStdInEditor()
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
         }
@@ -372,9 +372,7 @@ class RunGui {
 
     AddStdInEditorGui() {
         global MySoftData
-        if (IsObject(this.StdInEditGui) && !this._stdInClosed) {
-            try this.StdInEditGui.Update("Window", "Close", "")
-        }
+        this._CloseStdInEditor()
         this._stdInClosed := false
         title := this.ParentTile GetLang("输入编辑器")
         titleHeight := "30"
@@ -472,11 +470,7 @@ class RunGui {
     }
 
     OnClickStdInEditorClose(state := "", ctrl := "", event := "") {
-        if (IsObject(this.StdInEditGui) && !this._stdInClosed) {
-            try this.StdInEditGui.Update("Window", "Close", "")
-            this.StdInEditGui := ""
-            this._stdInClosed := true
-        }
+        this._CloseStdInEditor()
     }
 
     OnClickSureBtn(state, ctrl, event) {
@@ -489,10 +483,6 @@ class RunGui {
                 }
             }
         }
-        if (this.ui.Query("PathTextCon") == "") {
-            MsgBox(GetLang("目标不能为空！"))
-            return
-        }
 
         if (!this.CheckIfValid())
             return
@@ -501,11 +491,6 @@ class RunGui {
         action := this.SureBtnAction
         action(this.GetCommandStr())
 
-        if (IsObject(this.StdInEditGui) && !this._stdInClosed) {
-            try this.StdInEditGui.Update("Window", "Close", "")
-            this.StdInEditGui := ""
-            this._stdInClosed := true
-        }
         this._CloseWindow()
     }
 
