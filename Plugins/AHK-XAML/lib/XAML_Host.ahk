@@ -365,6 +365,26 @@ class XAMLHost {
         return XAMLHost.FontSize(2)
     }
 
+    ; Popup/ContextMenu 脱离 Viewbox：字号 = 主题字号 × 主窗 Viewbox，视觉上才和界面正文一致
+    static PopupFontSize() {
+        theme := XAMLHost.GetThemeFontSize()
+        scale := XAMLHost.GetMainViewboxScale()
+        if (!IsNumber(scale) || scale <= 0)
+            scale := 1.0
+        return XAMLHost.FormatFontSize(theme * scale)
+    }
+
+    ; 写入 XAML 的声明字号：经 ApplyFontSizeDelta/ScaleFontSize 后等于 PopupFontSize()
+    static PopupFontSizeDeclared() {
+        theme := XAMLHost.GetThemeFontSize()
+        scale := XAMLHost.GetMainViewboxScale()
+        if (!IsNumber(scale) || scale <= 0)
+            scale := 1.0
+        base := XAMLHost.GetDesignFontSize()
+        delta := theme - base
+        return XAMLHost.FormatFontSize(theme * scale - delta)
+    }
+
     static GetThemeFontSize() {
         global XAML_FontSizeBase, XAML_FontSizeDelta
         XAMLHost.SyncThemeFontDelta()

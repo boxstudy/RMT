@@ -592,6 +592,20 @@ public class VirtualListHost
     {
         _rowSelId = id ?? "";
         ApplyRowSel();
+        if (string.IsNullOrEmpty(id) || _lb == null) return;
+        object o;
+        if (!_byId.TryGetValue(id, out o)) return;
+        int idx = _items.IndexOf(o);
+        if (idx < 0) return;
+        System.Windows.Controls.ScrollViewer sv = BridgeUtil.FindVisualChild<System.Windows.Controls.ScrollViewer>(_lb);
+        if (sv == null) return;
+        // 尽量把选中行滚入视口（折叠头 RequestBringIntoView 被拦，这里直接改偏移）
+        double view = sv.ViewportHeight;
+        double off = sv.VerticalOffset;
+        if (idx < off)
+            sv.ScrollToVerticalOffset(idx);
+        else if (idx >= off + view - 0.5)
+            sv.ScrollToVerticalOffset(Math.Max(0, idx - Math.Max(0, view - 1)));
     }
 
     private void ApplyRowSel()

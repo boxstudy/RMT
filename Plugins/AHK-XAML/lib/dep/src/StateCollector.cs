@@ -199,6 +199,47 @@ public partial class AhkWpfEngine
                 }
                 return val;
             }
+            // MouseLocal —— 当前光标相对该控件的本地坐标（穿透 Viewbox，供拖拽命中）
+            if (suffix == "MouseLocal")
+            {
+                var ie = c as System.Windows.IInputElement;
+                if (ie != null)
+                {
+                    try
+                    {
+                        var pos = System.Windows.Input.Mouse.GetPosition(ie);
+                        var inv = System.Globalization.CultureInfo.InvariantCulture;
+                        val = pos.X.ToString(inv) + ";" + pos.Y.ToString(inv);
+                    }
+                    catch { }
+                }
+                return val;
+            }
+            // CursorDip —— 屏幕光标的 WPF DIP（Popup Placement=Absolute 跟手，与 VL 一致）
+            if (suffix == "CursorDip")
+            {
+                var visual = c as System.Windows.Media.Visual;
+                if (visual == null && c is DependencyObject)
+                    visual = Window.GetWindow((DependencyObject)c) as System.Windows.Media.Visual;
+                if (visual != null)
+                {
+                    try
+                    {
+                        POINT cpt;
+                        if (GetCursorPos(out cpt))
+                        {
+                            var device = new System.Windows.Point(cpt.x, cpt.y);
+                            var src = System.Windows.PresentationSource.FromVisual(visual);
+                            if (src != null && src.CompositionTarget != null)
+                                device = src.CompositionTarget.TransformFromDevice.Transform(device);
+                            var inv = System.Globalization.CultureInfo.InvariantCulture;
+                            val = device.X.ToString(inv) + "," + device.Y.ToString(inv);
+                        }
+                    }
+                    catch { }
+                }
+                return val;
+            }
             // IsOverTree:x;y —— 命中测试点是否落在 TreeView 内（空白树区也算），用于拖放"出树即取消"
             if (suffix.StartsWith("IsOverTree:"))
             {

@@ -1084,8 +1084,11 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <ContentPresenter ContentSource="Icon" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <ContentPresenter Grid.Column="1" ContentSource="Header" RecognizesAccessKey="True" VerticalAlignment="Center"/>
-                            <TextBlock Grid.Column="2" Text="{TemplateBinding InputGestureText}" Foreground="{DynamicResource TextSub}" Margin="15,0,0,0" VerticalAlignment="Center"/>
+                            <ContentPresenter Grid.Column="1" ContentSource="Header" RecognizesAccessKey="True" VerticalAlignment="Center"
+                                TextElement.FontSize="{TemplateBinding FontSize}"
+                                TextElement.FontFamily="{TemplateBinding FontFamily}"/>
+                            <TextBlock Grid.Column="2" Text="{TemplateBinding InputGestureText}" Foreground="{DynamicResource TextSub}" Margin="15,0,0,0" VerticalAlignment="Center"
+                                FontSize="{TemplateBinding FontSize}" FontFamily="{TemplateBinding FontFamily}"/>
                         </Grid>
                     </Border>
                     <ControlTemplate.Triggers>

@@ -794,6 +794,9 @@ OnToolRecordMacro(isHotkey, *) {
     if (MainSoftData.MacroEditGui != "") {
         UIControls.RecordToggle.Value := state
     }
+    if (IsSet(MyMainWin) && IsObject(MyMainWin) && IsObject(MyMainWin._sideTree)) {
+        try MyMainWin._sideTree.SyncToolToggles(MainSoftData.TableIndex)
+    }
 
     if (state) {
         ShowRecordCountdown(DoStartRecord.Bind(isHotkey))

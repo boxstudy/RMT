@@ -43,6 +43,7 @@
 #Include ..\Gui\EditHotkeyGui.ahk
 #Include ..\Gui\FreePasteGui.ahk
 #Include ..\Gui\MacroEditGui.ahk
+#Include ..\Gui\SideLogicTree.ahk
 #Include ..\Gui\CharVarEditGui.ahk
 #Include ..\Gui\MenuWheelGlobalSettingGui.ahk
 #Include ..\Gui\MacroGraph\MacroGraphGui.ahk

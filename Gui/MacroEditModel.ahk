@@ -173,14 +173,15 @@ class MacroTreeAdapter {
         }
     }
 
-    ; 更新单个节点的勾选标记（不重渲染，两种图标同尺寸占位）
+    ; 更新单个节点的多选高亮（无勾选框，改卡片底色）
     _UpdateCheckMark(id) {
         if (!IsObject(this.ui) || !this.nodes.Has(id))
             return
         checked := this.nodes[id].checked
-        this.ui.Update("ChkMark_" id, "Background", checked ? "#2D6CDF" : "Transparent")
-        this.ui.Update("ChkMark_" id, "BorderBrush", checked ? "#2D6CDF" : "#999999")
-        this.ui.Update("ChkMark_" id "_Txt", "Text", checked ? Chr(0x2713) : "")
+        flatIdx := this._FlatIndexOf(id)
+        cardBg := checked ? "{DynamicResource TabSelBg}"
+            : ((flatIdx >= 0 && Mod(flatIdx, 2) == 0) ? "{DynamicResource DropdownBg}" : "{DynamicResource ListRowAltBg}")
+        this.ui.Update("CardBd_" id, "Background", cardBg)
     }
 
     _Select(id) {
@@ -348,32 +349,174 @@ class MacroTreeAdapter {
             this._AppendVisibleCards(child, depth + 1, &cards)
     }
 
+    _IsLastChild(node) {
+        if (!IsObject(node) || !IsObject(node.parent))
+            return true
+        kids := node.parent.children
+        return kids.Length > 0 && kids[kids.Length] == node
+    }
+
+    ; 清理节点显示前缀（调试/跳过等标记），便于识别真/假容器
+    _CleanNodeText(node) {
+        t := node.text
+        t := StrReplace(t, "→", "")
+        while (t != "") {
+            ch := SubStr(t, 1, 1)
+            if (ch == "⭐" || ch == "🚫" || ch == "⎖" || ch == " ")
+                t := SubStr(t, 2)
+            else
+                break
+        }
+        return t
+    }
+
+    ; 真 / 假 / 循环体 / 条件*：分支容器（自身不接上级连线）
+    _IsBranchContainer(node) {
+        if (!IsObject(node))
+            return false
+        t := this._CleanNodeText(node)
+        if (t == GetLang("真") || t == GetLang("假") || t == GetLang("循环体"))
+            return true
+        cond := GetLang("条件")
+        return (cond != "" && SubStr(t, 1, StrLen(cond)) == cond)
+    }
+
+    _FindBranchAncestor(node) {
+        p := node.parent
+        while (IsObject(p)) {
+            if (this._IsBranchContainer(p))
+                return p
+            p := p.parent
+        }
+        return ""
+    }
+
+    ; 该行「指令图标」左侧已占用宽度（用于对齐下级展开符/连线）
+    _WidthBeforeIcon(node) {
+        if (!IsObject(node))
+            return 0
+        d := this._Depth(node)
+        if (d == 0)
+            return 20
+        if (this._IsBranchContainer(node))
+            return this._WidthBeforeIcon(node.parent) + 20
+        branchAnc := this._FindBranchAncestor(node)
+        if (IsObject(branchAnc)) {
+            levels := this._Depth(node) - this._Depth(branchAnc)
+            if (levels < 1)
+                levels := 1
+            return this._WidthBeforeIcon(branchAnc) + 20 * levels
+        }
+        return 20 * (d + 1)
+    }
+
+    _PadSlotXml(w := 20) {
+        return '<Border Width="' w '" Height="20" Background="Transparent"/>'
+    }
+
+    ; 展开/收缩按钮（加大加粗）；overlay=true 时叠在引导列中心
+    _BuildArrowBtnXml(node, glyph, overlay := false) {
+        w := 20
+        align := overlay ? ' HorizontalAlignment="Center"' : ""
+        return '<Button Name="Arrow_' node.id '" Width="' w '" Height="' w '" Margin="0" Padding="0"'
+            . ' Cursor="Hand" Focusable="False" VerticalAlignment="Center"' align
+            . ' Background="Transparent" BorderThickness="0" Panel.ZIndex="1"'
+            . ' HorizontalContentAlignment="Center" VerticalContentAlignment="Center">'
+            . '<Button.Template><ControlTemplate TargetType="Button">'
+            . '<Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="3" Width="' w '" Height="' w '">'
+            . '<TextBlock Name="Arrow_' node.id '_Txt" Text="' glyph '"'
+            . ' FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="16" FontWeight="Bold"'
+            . ' Foreground="{DynamicResource TextMain}" HorizontalAlignment="Center" VerticalAlignment="Center"/>'
+            . '</Border>'
+            . '<ControlTemplate.Triggers>'
+            . '<Trigger Property="IsMouseOver" Value="True">'
+            . '<Setter TargetName="Bd" Property="Background" Value="{DynamicResource ControlBgHover}"/>'
+            . '</Trigger>'
+            . '</ControlTemplate.Triggers>'
+            . '</ControlTemplate></Button.Template></Button>'
+    }
+
+    ; 图标列引导：竖线在图标中心(8)；有子时展开符叠在该列
+    _BuildIconColGuideXml(node, hasMore, hasChild, glyph := "") {
+        colW := 20
+        lineX := 8
+        line := "{DynamicResource ControlBorder}"
+        if (hasChild) {
+            arrowXml := this._BuildArrowBtnXml(node, glyph, true)
+        } else {
+            arrowXml := '<Border Name="Arrow_' node.id '" Width="0" Height="0">'
+                . '<TextBlock Name="Arrow_' node.id '_Txt" Text=""/></Border>'
+        }
+        if (hasMore) {
+            return '<Grid Width="' colW '" VerticalAlignment="Stretch">'
+                . '<Rectangle Width="1" Margin="' lineX ',0,0,0" HorizontalAlignment="Left" VerticalAlignment="Stretch" Fill="' line '" SnapsToDevicePixels="True"/>'
+                . '<Rectangle Height="1" VerticalAlignment="Center" Margin="' lineX ',0,0,0" HorizontalAlignment="Stretch" Fill="' line '" SnapsToDevicePixels="True"/>'
+                . arrowXml
+                . '</Grid>'
+        }
+        arrowSpan := hasChild ? StrReplace(arrowXml, 'Name="Arrow_', 'Grid.RowSpan="2" Name="Arrow_', 1) : arrowXml
+        return '<Grid Width="' colW '" VerticalAlignment="Stretch">'
+            . '<Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="*"/></Grid.RowDefinitions>'
+            . '<Rectangle Grid.Row="0" Width="1" Margin="' lineX ',0,0,0" HorizontalAlignment="Left" VerticalAlignment="Stretch" Fill="' line '" SnapsToDevicePixels="True"/>'
+            . '<Rectangle Grid.Row="0" Grid.RowSpan="2" Height="1" VerticalAlignment="Center" Margin="' lineX ',0,0,0" HorizontalAlignment="Stretch" Fill="' line '" SnapsToDevicePixels="True"/>'
+            . arrowSpan
+            . '</Grid>'
+    }
+
     _BuildCardXml(node, depth, flatIdx := 0) {
         text := this._EscapeXml(node.text)
         hasChild := node.children.Length > 0
-        left := depth * 16
-        ; 展开箭头：恒占位（叶子空字），命名 Arrow_<id> 供命中测试；叶↔父转换只改文字，不重建
-        glyph := hasChild ? (node.expanded ? Chr(0x25BC) : Chr(0x25B6)) : ""
-        arrow := '<Border Name="Arrow_' node.id '" Width="14" Height="14" Margin="0,0,2,0" Background="Transparent">'
-            . '<TextBlock Name="Arrow_' node.id '_Txt" Text="' glyph '" FontSize="8" Foreground="{DynamicResource TextSub}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>'
-        ; 卡片：圆角 + 描边 + 底，左缩进=深度；缩进放内层 Border 的 Margin（ListBoxItem 不设 Margin，保证整行命中无死区）
-        ; §14.1 交替背景：按可见扁平索引奇偶在两色间交替，便于区分相邻节点（ListAltBg 为主题随动斑马纹）
-        ; AHK v2 无 mod 运算符（v1 才有），必须用 Mod() 函数；
-        ; 裸写 `flatIdx mod 2` 会被解析成拼接，mod 求值为 Mod 函数对象 → 报 "Expected a String but got a Func"
-        cardBg := (Mod(flatIdx, 2) == 0) ? "{DynamicResource DropdownBg}" : "{DynamicResource ListAltBg}"
+        isBranch := this._IsBranchContainer(node)
+        glyph := hasChild ? (node.expanded ? Chr(0xE70D) : Chr(0xE76C)) : ""
+        prefix := ""
+        if (depth == 0) {
+            ; 根：一律留展开槽，使按键/间隔等叶图标与搜索图标对齐
+            prefix := hasChild ? this._BuildArrowBtnXml(node, glyph, false) : this._PadSlotXml(20)
+        } else if (isBranch) {
+            ; 真/假等：无连线；展开符对齐上级指令图标
+            pad := this._WidthBeforeIcon(node.parent)
+            if (pad > 0)
+                prefix .= this._PadSlotXml(pad)
+            prefix .= hasChild ? this._BuildArrowBtnXml(node, glyph, false) : this._PadSlotXml(20)
+        } else {
+            branchAnc := this._FindBranchAncestor(node)
+            if (IsObject(branchAnc)) {
+                ; 垫到分支容器图标列，再从图标中心向下连线
+                pad := this._WidthBeforeIcon(branchAnc)
+                if (pad > 0)
+                    prefix .= this._PadSlotXml(pad)
+                gap := this._Depth(node) - this._Depth(branchAnc) - 1
+                line := "{DynamicResource ControlBorder}"
+                loop gap {
+                    xmlCol := '<Grid Width="20" VerticalAlignment="Stretch">'
+                        . '<Rectangle Width="1" Margin="8,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Stretch" Fill="' line '" SnapsToDevicePixels="True"/>'
+                        . '</Grid>'
+                    prefix .= xmlCol
+                }
+                hasMore := !this._IsLastChild(node)
+                prefix .= this._BuildIconColGuideXml(node, hasMore, hasChild, glyph)
+            } else {
+                pad := this._WidthBeforeIcon(node.parent)
+                if (pad > 0)
+                    prefix .= this._PadSlotXml(pad)
+                if (hasChild)
+                    prefix .= this._BuildArrowBtnXml(node, glyph, false)
+                else
+                    prefix .= '<Border Name="Arrow_' node.id '" Width="0" Height="0"><TextBlock Name="Arrow_' node.id '_Txt" Text=""/></Border>'
+            }
+        }
+        cardBg := node.checked ? "{DynamicResource TabSelBg}"
+            : ((Mod(flatIdx, 2) == 0) ? "{DynamicResource DropdownBg}" : "{DynamicResource ListRowAltBg}")
         xml := '<ListBoxItem xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
-            . ' Tag="' node.id '" Background="Transparent" BorderThickness="0" Padding="0" HorizontalContentAlignment="Stretch">'
-            . '<Border CornerRadius="6" BorderThickness="1" BorderBrush="{DynamicResource InputStroke}" Background="' cardBg '" Margin="' left ',3,8,3" Padding="6,5,8,5">'
-            . '<StackPanel Orientation="Horizontal" VerticalAlignment="Center">'
-        xml .= arrow
-        ; 勾选标记：选中=蓝底白✓，未选中=灰色空心框。两种图标同尺寸始终占位，避免行内容移位
-        xml .= '<Border Name="ChkMark_' node.id '" Width="14" Height="14" CornerRadius="2" Margin="0,0,4,0"'
-            . ' BorderBrush="' (node.checked ? "#2D6CDF" : "#999999") '" BorderThickness="1"'
-            . ' Background="' (node.checked ? "#2D6CDF" : "Transparent") '">'
-            . '<TextBlock Name="ChkMark_' node.id '_Txt" Text="' (node.checked ? Chr(0x2713) : "") '" Foreground="White" FontSize="9" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>'
+            . ' Tag="' node.id '" Background="Transparent" BorderThickness="0" Padding="0" Margin="0" HorizontalContentAlignment="Stretch">'
+            . '<Border Name="CardBd_' node.id '" CornerRadius="0" BorderThickness="0" Background="' cardBg '" Margin="0" Padding="2,0,6,0">'
+            . '<StackPanel Orientation="Horizontal" VerticalAlignment="Stretch" MinHeight="24">'
+        xml .= prefix
         if (node.icon != "")
-            xml .= '<Image Source="' this._EscapeXml(node.icon) '" Width="16" Height="16" Margin="0,0,4,0"/>'
-        xml .= '<TextBlock Name="Txt_' node.id '" Text="' text '" VerticalAlignment="Center"/>'
+            xml .= '<Image Source="' this._EscapeXml(node.icon) '" Width="16" Height="16" Margin="0,0,4,0" VerticalAlignment="Center"/>'
+        else
+            xml .= '<Border Width="16" Height="16" Margin="0,0,4,0"/>'
+        xml .= '<TextBlock Name="Txt_' node.id '" Text="' text '" VerticalAlignment="Center" Foreground="{DynamicResource TextMain}"/>'
         xml .= '</StackPanel>'
         xml .= '</Border>'
         xml .= '</ListBoxItem>'
@@ -462,7 +605,7 @@ class MacroTreeAdapter {
             return
         node := this.nodes[id]
         hasChild := node.children.Length > 0
-        glyph := hasChild ? (node.expanded ? Chr(0x25BC) : Chr(0x25B6)) : ""
+        glyph := hasChild ? (node.expanded ? Chr(0xE70D) : Chr(0xE76C)) : ""
         this.ui.Update("Arrow_" id "_Txt", "Text", glyph)
     }
 }
