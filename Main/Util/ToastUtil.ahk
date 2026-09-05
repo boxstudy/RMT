@@ -22,6 +22,15 @@ class Toast {
     static _inst := ""       ; 当前活动实例
 
     ; ── 分类快捷方法 ──────────────────────────────────────────
+    static Show(msg, typeOrHold := "", holdMs := 0) {
+        ; 兼容：Toast.Show(msg) / Toast.Show(msg, "success") / Toast.Show(msg, 2000) / Toast.Show(msg, "error", 2000)
+        if (IsNumber(typeOrHold)) {
+            Toast._ShowTyped(msg, "info", Integer(typeOrHold))
+            return
+        }
+        type := (typeOrHold == "") ? "info" : String(typeOrHold)
+        Toast._ShowTyped(msg, type, holdMs)
+    }
     static Success(msg, holdMs := 0) {
         Toast._ShowTyped(msg, "success", holdMs)
     }

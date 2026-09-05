@@ -290,8 +290,8 @@
         <Setter Property="Foreground" Value="{DynamicResource TextMain}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="BorderBrush" Value="{DynamicResource ControlBorder}"/>
-        <Setter Property="Padding" Value="12,0"/>
-        <Setter Property="MinHeight" Value="36"/>
+        <Setter Property="Padding" Value="6,0"/>
+        <Setter Property="MinHeight" Value="28"/>
         <Setter Property="VerticalContentAlignment" Value="Center"/>
         <Setter Property="Template">
             <Setter.Value>
@@ -310,8 +310,8 @@
         <Setter Property="Foreground" Value="{DynamicResource TextMain}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="BorderBrush" Value="{DynamicResource ControlBorder}"/>
-        <Setter Property="Padding" Value="12,0"/>
-        <Setter Property="MinHeight" Value="36"/>
+        <Setter Property="Padding" Value="6,0"/>
+        <Setter Property="MinHeight" Value="28"/>
         <Setter Property="VerticalContentAlignment" Value="Center"/>
         <Setter Property="Template">
             <Setter.Value>
@@ -356,8 +356,8 @@
         <Setter Property="MinHeight" Value="24"/>
         <Setter Property="Height" Value="24"/>
         <Setter Property="VerticalContentAlignment" Value="Center"/>
-        <!-- 显示区边距走 Padding，便于节点等紧凑场景与 TextBox 左对齐（默认保持原 12,0,30,0） -->
-        <Setter Property="Padding" Value="12,0,30,0"/>
+        <!-- 与 AI 设置一致：左 6，右侧给箭头留 18 -->
+        <Setter Property="Padding" Value="6,0,18,0"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ComboBox">
@@ -394,8 +394,8 @@
     <Style TargetType="ComboBoxItem">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Foreground" Value="{DynamicResource TextMain}"/>
-        <!-- 左内边距与 ComboBox 默认 Padding 左缘接近，避免展开后选项相对框体明显左偏 -->
-        <Setter Property="Padding" Value="8,4"/>
+        <!-- 左内边距与 ComboBox 默认 Padding 左缘对齐（6） -->
+        <Setter Property="Padding" Value="6,4"/>
         <Setter Property="MinHeight" Value="24"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="VerticalContentAlignment" Value="Center"/>

@@ -2,16 +2,110 @@
 using System.IO;
 using System.Net.Http;
 using System.Net.NetworkInformation;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace RMT
 {
     public class Http
     {
+        private static readonly HttpClient SharedClient;
+
+        private readonly object _statusLock = new object();
+        private int _statusState;      // 0=idle 1=running 2=ready
+        private string _statusResult = "";
+        private int _statusSeq;        // 防止过期回调覆盖新请求
+
+        static Http()
+        {
+            try
+            {
+                System.Net.ServicePointManager.SecurityProtocol |=
+                    (System.Net.SecurityProtocolType)3072; // Tls12
+            }
+            catch { }
+
+            SharedClient = new HttpClient();
+            SharedClient.Timeout = TimeSpan.FromSeconds(15);
+        }
+
         /// <summary>
-        /// 获取服务器状态原始 JSON 字符串，由 AHK 侧解析
+        /// 异步拉取服务器状态（不阻塞调用线程）。
+        /// AHK：BeginGetStatus → 定时器轮询 GetStatusState，为 2 时 TakeStatusResult。
         /// </summary>
-        /// <param name="version">当前版本号，如 1.2.1_x64</param>
+        public void BeginGetStatus(string version = "")
+        {
+            int seq;
+            lock (_statusLock)
+            {
+                if (_statusState == 1)
+                    return;
+                _statusState = 1;
+                _statusResult = "";
+                _statusSeq++;
+                seq = _statusSeq;
+            }
+
+            string ver = version ?? "";
+            Task.Run(async () =>
+            {
+                string result = "";
+                try
+                {
+                    result = await GetStatusCoreAsync(ver).ConfigureAwait(false);
+                }
+                catch
+                {
+                    result = "";
+                }
+
+                lock (_statusLock)
+                {
+                    if (seq != _statusSeq)
+                        return;
+                    _statusResult = result ?? "";
+                    _statusState = 2;
+                }
+            });
+        }
+
+        /// <summary>0=空闲 1=进行中 2=已完成可取结果</summary>
+        public int GetStatusState()
+        {
+            lock (_statusLock)
+                return _statusState;
+        }
+
+        /// <summary>取走异步结果并回到 idle；未完成时返回空串。</summary>
+        public string TakeStatusResult()
+        {
+            lock (_statusLock)
+            {
+                if (_statusState != 2)
+                    return "";
+                string r = _statusResult ?? "";
+                _statusResult = "";
+                _statusState = 0;
+                return r;
+            }
+        }
+
+        /// <summary>
+        /// 同步获取状态（兼容旧调用；会阻塞，优先用 BeginGetStatus）。
+        /// </summary>
         public string GetStatus(string version = "")
+        {
+            try
+            {
+                return GetStatusCoreAsync(version ?? "").ConfigureAwait(false).GetAwaiter().GetResult() ?? "";
+            }
+            catch
+            {
+                return "";
+            }
+        }
+
+        private static async Task<string> GetStatusCoreAsync(string version)
         {
             string deviceId = Device.GetDeviceId();
             if (deviceId == "")
@@ -20,29 +114,17 @@ namespace RMT
             if (!NetworkInterface.GetIsNetworkAvailable())
                 return "";
 
-            try
-            {
-                string Url = "http://39.108.96.160:3000/getstatus?id=" + Uri.EscapeDataString(deviceId)
-                    + "&version=" + Uri.EscapeDataString(version ?? "");
-                using (var httpClient = new HttpClient())
-                {
-                    var response = httpClient.GetAsync(Url).Result;
-                    response.EnsureSuccessStatusCode();
-                    return response.Content.ReadAsStringAsync().Result;
-                }
-            }
-            catch
-            {
-                return "";
-            }
+            string url = "http://39.108.96.160:3000/getstatus?id=" + Uri.EscapeDataString(deviceId)
+                + "&version=" + Uri.EscapeDataString(version ?? "");
+
+            HttpResponseMessage response = await SharedClient.GetAsync(url).ConfigureAwait(false);
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadAsStringAsync().ConfigureAwait(false) ?? "";
         }
 
         /// <summary>
         /// 同步上传文件到服务器
         /// </summary>
-        /// <param name="filePath">要上传的本地文件路径</param>
-        /// <param name="formDataName">表单字段名称，默认为"file"</param>
-        /// <returns>上传结果消息</returns>
         public string UploadFile(string filePath)
         {
             string uploadUrl = "http://39.108.96.160:3000/upload";
@@ -60,29 +142,17 @@ namespace RMT
 
             try
             {
-                using (var httpClient = new HttpClient())
                 using (var formData = new MultipartFormDataContent())
                 using (var fileStream = File.OpenRead(filePath))
                 {
-                    // 创建文件内容
                     var fileContent = new StreamContent(fileStream);
-
-                    // 获取文件名
                     string fileName = Path.GetFileName(filePath);
-
-                    // 添加文件到表单数据
                     formData.Add(fileContent, formDataName, fileName);
                     formData.Add(new StringContent(deviceId), "deviceId");
 
-                    // 发送POST请求
-                    var response = httpClient.PostAsync(uploadUrl, formData).Result;
-
-                    // 确保请求成功
+                    var response = SharedClient.PostAsync(uploadUrl, formData).ConfigureAwait(false).GetAwaiter().GetResult();
                     response.EnsureSuccessStatusCode();
-
-                    // 读取响应内容
-                    string result = response.Content.ReadAsStringAsync().Result;
-                    return result;
+                    return response.Content.ReadAsStringAsync().ConfigureAwait(false).GetAwaiter().GetResult();
                 }
             }
             catch (AggregateException ex)

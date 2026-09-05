@@ -25,22 +25,30 @@ public partial class AhkWpfEngine
     private void BindEvent(string ctrlName, string eventName, int fpsLimit = 0, bool queueLimited = false)
     {
         string eventKey = ctrlName + ":" + eventName;
-        if (!_boundEvents.Add(eventKey)) return;
+        object ctrl = ctrlName == "Window" ? (object)win : FindControlByPath(ctrlName);
+        if (ctrl == null)
+        {
+            _boundEvents.Remove(eventKey);
+            if (_boundEventCtrls != null)
+                _boundEventCtrls.Remove(eventKey);
+            try
+            {
+                System.IO.File.AppendAllText(
+                    GetLogPath("AhkWpfDebug.log"),
+                    string.Format("BindEvent info: Control '{0}' not found for event '{1}' (may be dynamic)\n", ctrlName, eventName)
+                );
+            } catch { }
+            return;
+        }
+        if (_boundEventCtrls == null)
+            _boundEventCtrls = new System.Collections.Generic.Dictionary<string, object>();
+        object oldCtrl;
+        if (_boundEventCtrls.TryGetValue(eventKey, out oldCtrl) && object.ReferenceEquals(oldCtrl, ctrl))
+            return;
+        _boundEventCtrls[eventKey] = ctrl;
+        _boundEvents.Add(eventKey);
         try
         {
-            object ctrl = ctrlName == "Window" ? (object)win : FindControlByPath(ctrlName);
-            if (ctrl == null)
-            {
-                _boundEvents.Remove(eventKey);
-                try {
-                    System.IO.File.AppendAllText(
-                        GetLogPath("AhkWpfDebug.log"),
-                        string.Format("BindEvent info: Control '{0}' not found for event '{1}' (may be dynamic)\n", ctrlName, eventName)
-                    );
-                } catch { }
-                return;
-            }
-
             // 可编辑 ComboBox：TextChanged 是内嵌 TextBox（PART_EditableTextBox）的 CLR 事件，
             // ComboBox 自身没有该事件，下方反射 GetEvent 会失败导致绑定静默丢失
             // （如 SearchProGui 坐标框 TextChanged→预览刷新不生效、TextOpsGui ArgsNameCon 同理）。
@@ -98,7 +106,12 @@ public partial class AhkWpfEngine
                         ue.PreviewKeyDown += (s, e) =>
                         {
                             if (e.Key.ToString() == keyFilter || (keyFilter == "Return" && e.Key == System.Windows.Input.Key.Enter))
+                            {
                                 DumpStateWithArgs(ctrlName, baseEvt, e);
+                                // Enter：交给 AHK（发送 / Shift+换行），阻止 TextBox 再插入换行
+                                if (keyFilter == "Return")
+                                    e.Handled = true;
+                            }
                         };
                     }
                     else
@@ -227,6 +240,8 @@ public partial class AhkWpfEngine
         catch (Exception ex)
         {
             _boundEvents.Remove(eventKey);
+            if (_boundEventCtrls != null)
+                _boundEventCtrls.Remove(eventKey);
             try {
                 System.IO.File.AppendAllText(
                     GetLogPath("AhkWpfDebug.log"),

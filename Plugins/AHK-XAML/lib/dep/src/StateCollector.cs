@@ -57,6 +57,23 @@ public partial class AhkWpfEngine
         }
     }
 
+    // tag|slot|expander|originY|height|originX|width|splitBtn
+    private string FormatListHit(FrameworkElement tagFe, FrameworkElement yFe, FrameworkElement xFe, double hy, bool expander, string splitBtn, Visual rootVisual)
+    {
+        if (tagFe == null || yFe == null)
+            return "";
+        if (xFe == null)
+            xFe = yFe;
+        var yOrigin = yFe.TransformToAncestor(rootVisual).Transform(new System.Windows.Point(0, 0));
+        var xOrigin = xFe.TransformToAncestor(rootVisual).Transform(new System.Windows.Point(0, 0));
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        string slot = (hy < yOrigin.Y + yFe.ActualHeight / 2.0) ? "top" : "bottom";
+        return tagFe.Tag.ToString() + "|" + slot + "|" + (expander ? "1" : "0")
+            + "|" + yOrigin.Y.ToString(inv) + "|" + yFe.ActualHeight.ToString(inv)
+            + "|" + xOrigin.X.ToString(inv) + "|" + xFe.ActualWidth.ToString(inv)
+            + "|" + (splitBtn ?? "");
+    }
+
     private string GetControlValue(string trackName)
     {
         string cName = trackName;
@@ -101,29 +118,53 @@ public partial class AhkWpfEngine
                         var hitRes = System.Windows.Media.VisualTreeHelper.HitTest(rootVisual, new System.Windows.Point(hx, hy));
                         DependencyObject dep = hitRes != null ? hitRes.VisualHit as DependencyObject : null;
                         // ListBox 卡片命中：找 ListBoxItem，isExpander=命中 Arrow_* 命名元素（展开箭头）
+                        // 返回 tag|slot|expander|originY|height|originX|width|splitBtn
                         if (c is System.Windows.Controls.ListBox)
                         {
                             bool isCardExpander = false;
-                            while (dep != null && !(dep is System.Windows.Controls.ListBoxItem) && !(dep is System.Windows.Controls.ListBox))
+                            string splitBtn = "";
+                            FrameworkElement nodeFe = null;
+                            FrameworkElement colFe = null;
+                            DependencyObject walk = dep;
+                            while (walk != null && !(walk is System.Windows.Controls.ListBoxItem) && !(walk is System.Windows.Controls.ListBox))
                             {
-                                var fe = dep as System.Windows.FrameworkElement;
-                                if (fe != null && fe.Name != null && fe.Name.StartsWith("Arrow_"))
-                                    isCardExpander = true;
-                                dep = System.Windows.Media.VisualTreeHelper.GetParent(dep);
+                                var fe = walk as System.Windows.FrameworkElement;
+                                if (fe != null)
+                                {
+                                    if (fe.Name != null)
+                                    {
+                                        if (fe.Name.StartsWith("Arrow_"))
+                                            isCardExpander = true;
+                                        else if (fe.Name.StartsWith("SplitViewT_"))
+                                            splitBtn = "T:" + fe.Name.Substring("SplitViewT_".Length);
+                                        else if (fe.Name.StartsWith("SplitViewF_"))
+                                            splitBtn = "F:" + fe.Name.Substring("SplitViewF_".Length);
+                                        else if (colFe == null && fe.Name.StartsWith("SplitCol_"))
+                                            colFe = fe;
+                                    }
+                                    if (nodeFe == null && fe.Tag != null)
+                                    {
+                                        string tg = fe.Tag.ToString();
+                                        if (tg.StartsWith("n") && tg.IndexOf('+') < 0)
+                                            nodeFe = fe;
+                                    }
+                                }
+                                walk = System.Windows.Media.VisualTreeHelper.GetParent(walk);
                             }
+                            dep = walk;
                             var lbi = dep as System.Windows.Controls.ListBoxItem;
-                            if (lbi != null && lbi.Tag != null)
+                            FrameworkElement tagFe = nodeFe != null ? nodeFe : (colFe != null ? colFe : lbi);
+                            FrameworkElement yFe = nodeFe != null ? nodeFe : (colFe != null ? colFe : lbi);
+                            FrameworkElement xFe = colFe != null ? colFe : lbi;
+                            if (tagFe != null && tagFe.Tag != null)
                             {
                                 try
                                 {
-                                    var origin = lbi.TransformToAncestor(rootVisual).Transform(new System.Windows.Point(0, 0));
-                                    var inv = System.Globalization.CultureInfo.InvariantCulture;
-                                    val = lbi.Tag.ToString() + "|" + (hy < origin.Y + lbi.ActualHeight / 2.0 ? "top" : "bottom") + "|" + (isCardExpander ? "1" : "0")
-                                        + "|" + origin.Y.ToString(inv) + "|" + lbi.ActualHeight.ToString(inv);
+                                    val = FormatListHit(tagFe, yFe, xFe, hy, isCardExpander, splitBtn, rootVisual);
                                 }
                                 catch
                                 {
-                                    val = lbi.Tag.ToString() + "|" + (isCardExpander ? "1" : "0") + "|0|0";
+                                    val = tagFe.Tag.ToString() + "|" + (isCardExpander ? "1" : "0") + "|0|0";
                                 }
                             }
                             else if (dep is System.Windows.Controls.ListBox)
@@ -138,9 +179,7 @@ public partial class AhkWpfEngine
                                         var itOrigin = it.TransformToAncestor(rootVisual).Transform(new System.Windows.Point(0, 0));
                                         if (hy >= itOrigin.Y && hy < itOrigin.Y + it.ActualHeight)
                                         {
-                                            var inv = System.Globalization.CultureInfo.InvariantCulture;
-                                            val = it.Tag.ToString() + "|" + (hy < itOrigin.Y + it.ActualHeight / 2.0 ? "top" : "bottom") + "|0"
-                                                + "|" + itOrigin.Y.ToString(inv) + "|" + it.ActualHeight.ToString(inv);
+                                            val = FormatListHit(it, it, it, hy, false, "", rootVisual);
                                             break;
                                         }
                                     }
@@ -432,6 +471,13 @@ public partial class AhkWpfEngine
                                 }
                             }
                         }
+                    }
+                    break;
+                case "ActualWidth":
+                    if (c is FrameworkElement)
+                    {
+                        var invW = System.Globalization.CultureInfo.InvariantCulture;
+                        val = ((FrameworkElement)c).ActualWidth.ToString(invW);
                     }
                     break;
                 case "Position":

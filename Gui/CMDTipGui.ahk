@@ -329,18 +329,11 @@ class CMDTipGui {
         this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
 
         this.Gui := CMDTipGuiFacade(this)
-        this.ui.Show()
-
-        loop 40 {
-            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
-                this._ApplyWinStyles()
-                this._ApplyContentColors()
-                try this.ui.Update("Window", "Opacity", "1")
-                this._ApplyClickThrough()  ; Opacity 后再设一次，避免被 WPF 冲掉
-                break
-            }
-            Sleep(50)
-        }
+        this._ApplyContentColors()
+        if (!XamlWin.Open(this.ui, "", "", false))
+            return
+        this._ApplyWinStyles()
+        this._ApplyClickThrough()
     }
 
     OnWindowLoad(state, ctrl, event) {

@@ -243,7 +243,10 @@ class XColorPicker {
         ui.Track("AInput")
         ui.Track("HexInput")
 
-        ui.Show()
+        if (IsSet(XamlWin))
+            XamlWin.Open(ui, "", owner)
+        else
+            ui.Show()
 
         while (resultObj.Status == "Cancel" && (ui.wpfHwnd == 0 || WinExist("ahk_id " ui.wpfHwnd))) {
             Sleep(50)
@@ -260,8 +263,12 @@ class XColorPicker {
             ui.Update("Window", "NativeOwner", owner)
         ; RMT：优先套用应用主题色；否则回退 AHK-XAML themes.ini
         appliedAppTheme := false
+        if (IsSet(XamlWin)) {
+            XamlWin.OnLoadTheme(ui)
+            appliedAppTheme := true
+        }
         try {
-            if (IsSet(MainSoftData) && IsObject(MainSoftData) && IsSet(ApplyXamlTheme)) {
+            if (!appliedAppTheme && IsSet(MainSoftData) && IsObject(MainSoftData) && IsSet(ApplyXamlTheme)) {
                 appTheme := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
                 ApplyXamlTheme(ui, appTheme)
                 appliedAppTheme := true

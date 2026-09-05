@@ -77,6 +77,16 @@ OnSaveSetting(*) {
     CheckAndAddDirty("SysLogMinLevel", MainSoftData.SysLogMinLevel)
     CheckAndAddDirty("LogWarnBubble", MainSoftData.LogWarnBubble)
     CheckAndAddDirty("LogErrorBadge", MainSoftData.LogErrorBadge)
+    CheckAndAddDirty("AiApiKey", MainSoftData.HasProp("AiApiKey") ? MainSoftData.AiApiKey : "")
+    CheckAndAddDirty("AiApiBaseUrl", MainSoftData.HasProp("AiApiBaseUrl") ? MainSoftData.AiApiBaseUrl : "https://api.openai.com/v1")
+    CheckAndAddDirty("AiProvider", MainSoftData.HasProp("AiProvider") ? MainSoftData.AiProvider : "openai")
+    CheckAndAddDirty("AiModel", MainSoftData.HasProp("AiModel") ? MainSoftData.AiModel : "")
+    CheckAndAddDirty("AiModelList", MainSoftData.HasProp("AiModelList") ? MainSoftData.AiModelList : "")
+    CheckAndAddDirty("AiAccessMode", MainSoftData.HasProp("AiAccessMode") ? MainSoftData.AiAccessMode : 2)
+    CheckAndAddDirty("AiApprovalMode", MainSoftData.HasProp("AiApprovalMode") ? MainSoftData.AiApprovalMode : 2)
+    aiPanelW := (IsSet(MyMainWin) && IsObject(MyMainWin) && MyMainWin.HasProp("aiPanelW")) ? MyMainWin.aiPanelW : (MainSoftData.HasProp("AiPanelWidth") ? MainSoftData.AiPanelWidth : 380)
+    CheckAndAddDirty("AiPanelWidth", aiPanelW)
+    CheckAndAddDirty("LogicTreeBranchSplit", (MainSoftData.HasProp("LogicTreeBranchSplit") && MainSoftData.LogicTreeBranchSplit) ? 1 : 0)
     CheckAndAddDirty("CheckForeground", MainSoftData.CheckForeground)
     CheckAndAddDirty("IsAdminStart", MainSoftData.IsAdminStart)
     CheckAndAddDirty("CMDTip", MySoftData.CMDTip)
@@ -286,22 +296,75 @@ InitNativePlugins() {
 
 InitRMTHttpPlugin() {
     global RMT_Http := ""
+    global RMT_Ai := ""
+    global RMT_ASM := ""
     global RMT_IsForbidUpdate := false
     global RMT_HasDotNet := HasDotNetFramework()
+    global RMT_StatusPollFn := ""
     if (!RMT_HasDotNet)
         return
 
     try {
-        RMTPath := A_ScriptDir "\Plugins\RMT\RMT.dll"
+        RMTPath := EnsureRmtDll()
         RMT_ASM := CLR_LoadLibrary(RMTPath)
         RMT_Http := RMT_ASM.CreateInstance("RMT.Http")
-        ApplyRMTServerStatus(RMT_Http.GetStatus(RMT_VERSION_DISPLAY))
+        try RMT_Ai := RMT_ASM.CreateInstance("RMT.AiAssist")
+        catch
+            RMT_Ai := ""
+        ; GetStatus 异步：不阻塞启动主线程
+        RMT_Http.BeginGetStatus(RMT_VERSION_DISPLAY)
+        RMT_StatusPollFn := PollRMTServerStatus
+        SetTimer(RMT_StatusPollFn, 200)
     } catch as e {
         RMT_Http := ""
+        RMT_Ai := ""
+        RMT_ASM := ""
         RMT_HasDotNet := false
-        ; 常见原因：打包时未带上 Plugins\RMT\RMT.dll（PackRMT.ps1 需执行 Copy-RMTDll）或 .NET 加载失败
-        JoyDebugLog(Format("RMT Http 插件初始化失败：{} | {} | {}", e.Message, e.What, RMTPath), "init")
+        JoyDebugLog(Format("RMT Http 插件初始化失败：{} | {} | {}", e.Message, e.What, A_ScriptDir "\Plugins\RMT\RMT.dll"), "init")
     }
+}
+
+; 轮询异步 GetStatus 结果
+PollRMTServerStatus(*) {
+    global RMT_Http, RMT_StatusPollFn
+    if (!IsObject(RMT_Http)) {
+        if (RMT_StatusPollFn != "")
+            SetTimer(RMT_StatusPollFn, 0)
+        return
+    }
+    try {
+        st := Integer(RMT_Http.GetStatusState())
+    } catch {
+        if (RMT_StatusPollFn != "")
+            SetTimer(RMT_StatusPollFn, 0)
+        return
+    }
+    if (st = 1)
+        return
+    if (RMT_StatusPollFn != "")
+        SetTimer(RMT_StatusPollFn, 0)
+    if (st = 2) {
+        try ApplyRMTServerStatus(RMT_Http.TakeStatusResult())
+        catch {
+        }
+    }
+}
+
+; 惰性取得 AI CLR 实例（初始化失败时可再试编译加载）
+GetRmtAi() {
+    global RMT_Ai, RMT_ASM, RMT_HasDotNet
+    if (IsObject(RMT_Ai))
+        return RMT_Ai
+    if (!HasDotNetFramework())
+        throw Error(GetLang("需要安装 .NET Framework 4 才能使用 AI 助手"))
+    RMTPath := EnsureRmtDll()
+    if (!IsObject(RMT_ASM))
+        RMT_ASM := CLR_LoadLibrary(RMTPath)
+    RMT_Ai := RMT_ASM.CreateInstance("RMT.AiAssist")
+    if (!IsObject(RMT_Ai))
+        throw Error(GetLang("无法创建 RMT.AiAssist，请重新编译 Plugins\RMT\RMT.dll"))
+    RMT_HasDotNet := true
+    return RMT_Ai
 }
 
 ApplyRMTServerStatus(statusStr) {

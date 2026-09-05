@@ -142,24 +142,7 @@ class HotkeySettingGui {
 
         this.LoadInitValues()
         this.ApplyValuesToUI()
-        XamlUiDiag("before ui.Show() hostId=" this.ui.id, "Hotkey")
-        tShow := A_TickCount
-        this.ui.Show()
-        XamlUiDiag("ui.Show() returned cost=" (A_TickCount - tShow) "ms", "Hotkey")
-
-        gotHwnd := false
-        loop 40 {
-            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
-                gotHwnd := true
-                hwnd := this.ui.wpfHwnd
-                try this.ui.Update("Window", "Opacity", "1")
-                try WinActivate("ahk_id " hwnd)
-                XamlUiDiagWindow(hwnd, "Hotkey.afterShow", true)
-                break
-            }
-            Sleep(50)
-        }
-        if (!gotHwnd) {
+        if (!XamlWin.Open(this.ui)) {
             XamlUiDiag("FAIL: no wpfHwnd after wait", "Hotkey")
             XamlUiDiagDaemon("Hotkey.noHwnd")
         }
@@ -285,8 +268,7 @@ class HotkeySettingGui {
         hwnd := (IsObject(this.ui) && this.ui.HasProp("wpfHwnd")) ? this.ui.wpfHwnd : 0
         XamlUiDiag("OnWindowLoad enter hwnd=" hwnd, "Hotkey")
         try {
-            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
-            ApplyXamlTheme(this.ui, themeName)
+            XamlWin.OnLoadTheme(this.ui)
             this.ApplyValuesToUI()
         } catch as e {
             XamlUiDiag("OnWindowLoad err: " e.Message, "Hotkey")

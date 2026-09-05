@@ -134,18 +134,7 @@ class LogCenterGui {
         this.ui.OnEvent("BtnClear", "Click", ObjBindMethod(this, "OnClear"))
         this.ui.OnEvent("BtnExport", "Click", ObjBindMethod(this, "OnExport"))
 
-        this.ui.Show()
-
-        gotHwnd := false
-        loop 40 {
-            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
-                gotHwnd := true
-                try WinActivate("ahk_id " this.ui.wpfHwnd)
-                break
-            }
-            Sleep(50)
-        }
-        if (!gotHwnd) {
+        if (!XamlWin.Open(this.ui, "", XamlWin.Owner(this))) {
             this.closed := true
             return
         }
@@ -172,11 +161,7 @@ class LogCenterGui {
     ; ============ 事件 ============
 
     OnWindowLoad(state, ctrl, event) {
-        try {
-            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
-            ApplyXamlTheme(this.ui, themeName)
-        } catch {
-        }
+        XamlWin.OnLoadTheme(this.ui)
     }
 
     OnWindowClosing(state, ctrl, event) {

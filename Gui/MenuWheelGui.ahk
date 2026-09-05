@@ -457,6 +457,7 @@ class MenuWheelGui {
 
         this.ui.OnEvent("CenterCircle", "PreviewMouseLeftButtonDown", (*) => this.DoCancel())
 
+        XamlWin.QueueTheme(this.ui)
         this.ui.Show()
 
         ; ── 異步等待 wpfHwnd，避免阻塞主執行緒 ────────────────────────
@@ -492,6 +493,7 @@ class MenuWheelGui {
                 ; 設置 WS_EX_NOACTIVATE (0x08000000) 防止 WPF 視窗搶走滑鼠和鍵盤焦點
                 WinSetExStyle("+0x08000000", "ahk_id " this.ui.wpfHwnd)
             }
+            XamlWin.Reveal(this.ui)
         }
 
         itemCount := this._buildItemCount

@@ -770,6 +770,16 @@ function Compress-ReleaseZip {
 function New-RMTAssets {
     param([string]$Arch, [string]$ReleaseDir)
 
+    # 打包前用 csc 重编 Plugins\RMT\RMT.dll（Http/Device/AiAssist）
+    $rmtBuild = Join-Path $PSScriptRoot "Plugins\RMT\buildDll.ps1"
+    if (Test-Path -LiteralPath $rmtBuild) {
+        Write-Log "编译 Plugins\RMT\RMT.dll ..." "Gray"
+        & powershell -NoProfile -ExecutionPolicy Bypass -File $rmtBuild -NoPause
+        if ($LASTEXITCODE -ne 0) {
+            throw "RMT.dll 编译失败，请检查 $env:TEMP\RMT-dll-build.log"
+        }
+    }
+
     $bitArch = if ($Arch -eq "x64") { "64bit" } else { "32bit" }
     $assetsDir = Join-Path $ReleaseDir "RMTAssets_$Arch"
     New-Item -ItemType Directory -Path $assetsDir -Force | Out-Null

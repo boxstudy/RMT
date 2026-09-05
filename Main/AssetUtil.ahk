@@ -581,6 +581,57 @@ LoadMainSetting() {
     global RMTLogSysMinLevel
     MainSoftData.SysLogMinLevel := IniRead(IniFile, IniSection, "SysLogMinLevel", "info")
     RMTLogSysMinLevel := MainSoftData.SysLogMinLevel
+    ; AI 助手（OpenAI 兼容）
+    MainSoftData.AiApiKey := IniRead(IniFile, IniSection, "AiApiKey", "")
+    MainSoftData.AiApiBaseUrl := IniRead(IniFile, IniSection, "AiApiBaseUrl", "https://api.openai.com/v1")
+    MainSoftData.AiProvider := IniRead(IniFile, IniSection, "AiProvider", "")
+    MainSoftData.AiModel := IniRead(IniFile, IniSection, "AiModel", "")
+    MainSoftData.AiModelList := IniRead(IniFile, IniSection, "AiModelList", "")
+    MainSoftData.AiAccessMode := Integer(IniRead(IniFile, IniSection, "AiAccessMode", 2))
+    MainSoftData.AiApprovalMode := Integer(IniRead(IniFile, IniSection, "AiApprovalMode", 2))
+    if (MainSoftData.AiAccessMode < 1 || MainSoftData.AiAccessMode > 3)
+        MainSoftData.AiAccessMode := 2
+    if (MainSoftData.AiApprovalMode < 1 || MainSoftData.AiApprovalMode > 3)
+        MainSoftData.AiApprovalMode := 2
+    if (Trim(MainSoftData.AiProvider) == "") {
+        ; 旧配置无供应商字段时，按 URL 反推
+        MainSoftData.AiProvider := "openai"
+        url := RTrim(Trim(MainSoftData.AiApiBaseUrl), "/\")
+        for pair in [
+            ["https://api.openai.com/v1", "openai"],
+            ["https://api.deepseek.com/v1", "deepseek"],
+            ["https://dashscope.aliyuncs.com/compatible-mode/v1", "dashscope"],
+            ["https://ark.cn-beijing.volces.com/api/v3", "volcengine"],
+            ["https://api.hunyuan.cloud.tencent.com/v1", "hunyuan"],
+            ["https://qianfan.baidubce.com/v2", "qianfan"],
+            ["https://api.moonshot.cn/v1", "moonshot"],
+            ["https://open.bigmodel.cn/api/paas/v4", "zhipu"],
+            ["https://api.baichuan-ai.com/v1", "baichuan"],
+            ["https://api.lingyiwanwu.com/v1", "yi"],
+            ["https://api.stepfun.com/v1", "stepfun"],
+            ["https://api.minimax.chat/v1", "minimax"],
+            ["https://api.siliconflow.cn/v1", "siliconflow"],
+            ["https://generativelanguage.googleapis.com/v1beta/openai", "gemini"],
+            ["https://api.x.ai/v1", "xai"],
+            ["https://api.mistral.ai/v1", "mistral"],
+            ["https://api.groq.com/openai/v1", "groq"],
+            ["https://api.together.xyz/v1", "together"],
+            ["https://api.fireworks.ai/inference/v1", "fireworks"],
+            ["https://openrouter.ai/api/v1", "openrouter"],
+            ["http://localhost:11434/v1", "ollama"],
+            ["http://localhost:1234/v1", "lmstudio"]
+        ] {
+            if (url = pair[1]) {
+                MainSoftData.AiProvider := pair[2]
+                break
+            }
+        }
+        if (url != "" && MainSoftData.AiProvider = "openai" && url != "https://api.openai.com/v1")
+            MainSoftData.AiProvider := "custom"
+    }
+    rawPanelW := IniRead(IniFile, IniSection, "AiPanelWidth", 380)
+    MainSoftData.AiPanelWidth := IsNumber(rawPanelW) ? Integer(rawPanelW) : 380
+    MainSoftData.LogicTreeBranchSplit := !!IniRead(IniFile, IniSection, "LogicTreeBranchSplit", false)
     MainSoftData.LogWarnBubble := IniRead(IniFile, IniSection, "LogWarnBubble", true)
     MainSoftData.LogErrorBadge := IniRead(IniFile, IniSection, "LogErrorBadge", true)
     MySoftData.CMDTip := IniRead(IniFile, IniSection, "CMDTip", false)
@@ -3497,18 +3548,43 @@ GetItemColorState(ColorValue) {
     return 0
 }
 
+; 调试起点标记：▶（旧配置兼容 ⭐）；界面用向右键帽 Path，不直接画 ▶
+CmdDebugMark() {
+    return Chr(0x25B6)
+}
+
+CmdIsDebug(cmd) {
+    return InStr(cmd, Chr(0x25B6)) || InStr(cmd, Chr(0x2B50))
+}
+
+CmdStripDebug(cmd) {
+    cmd := StrReplace(cmd, Chr(0x25B6), "")
+    return StrReplace(cmd, Chr(0x2B50), "")
+}
+
+; 向右键帽（删除末尾 E750 镜像，中间无 X）
+CmdKeyRightPathData() {
+    return "M 1.5,2 L 10.2,2 L 14.2,6 L 10.2,10 L 1.5,10 Z"
+}
+
+CmdKeyRightIconXaml(brush := "{DynamicResource Accent}", w := 13, h := 11, stroke := "1.8") {
+    return '<Path Width="' w '" Height="' h '" Stretch="Uniform" Stroke="' brush '" StrokeThickness="' stroke '"'
+        . ' Fill="Transparent" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"'
+        . ' Data="' CmdKeyRightPathData() '" VerticalAlignment="Center" HorizontalAlignment="Center" IsHitTestVisible="False"/>'
+}
+
 GetCmdStr(param) {
     param := StrReplace(param, "🚫", "")
-    param := StrReplace(param, "⭐", "")
+    param := CmdStripDebug(param)
     return param
 }
 
 GetCmdSymbol(cmd) {
     ; 优化：使用InStr替代RegExMatch（单字符匹配更快）
     IsSkip := InStr(cmd, "🚫")
-    IsDebug := InStr(cmd, "⭐")
+    IsDebug := CmdIsDebug(cmd)
     SkipStr := IsSkip ? "🚫" : ""
-    DebugStr := IsDebug ? "⭐" : ""
+    DebugStr := IsDebug ? CmdDebugMark() : ""
     Symbol := Format("{}{}", SkipStr, DebugStr)
     return Symbol
 }

@@ -36,6 +36,8 @@ class RunGui {
         finally {
             this._flushBatch()
         }
+        if (!XamlWin.Open(this.ui, "", XamlWin.Owner(this)))
+            this._closed := true
         this.ToggleFunc(true)
     }
 
@@ -182,31 +184,10 @@ class RunGui {
         this.ui.OnEvent("BtnStdInEdit", "Click", ObjBindMethod(this, "OpenStdInEditor"))
         this.ui.OnEvent("BtnOk", "Click", ObjBindMethod(this, "OnClickSureBtn"))
 
-        this.ui.Show()
-
-        gotHwnd := false
-        loop 40 {
-            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
-                gotHwnd := true
-                if (this.OwnerHwnd != "")
-                    try this.ui.Update("Window", "NativeOwner", String(this.OwnerHwnd))
-                try WinActivate("ahk_id " this.ui.wpfHwnd)
-                try SetTimer((*) => this.ui.Update("Window", "Opacity", "1"), -10)
-                break
-            }
-            Sleep(50)
-        }
-        if (!gotHwnd)
-            this._closed := true
     }
 
     OnWindowLoad(state, ctrl, event) {
-        try {
-            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
-            ApplyXamlTheme(this.ui, themeName)
-        } catch {
-        } finally {
-        }
+        XamlWin.OnLoadTheme(this.ui)
     }
 
     _CloseStdInEditor() {
@@ -351,22 +332,8 @@ class RunGui {
         curText := IsObject(this.ui) ? this.ui.Query("StdInCon") : ""
         this.StdInEditGui.Update("StdInEditCon", "Text", curText)
 
-        this.StdInEditGui.Show()
-
-        gotHwnd := false
-        loop 40 {
-            if (this.StdInEditGui.HasProp("wpfHwnd") && this.StdInEditGui.wpfHwnd) {
-                gotHwnd := true
-                owner := (this.Hwnd() ? this.Hwnd() : this.OwnerHwnd)
-                if (owner != "")
-                    try this.StdInEditGui.Update("Window", "NativeOwner", String(owner))
-                try WinActivate("ahk_id " this.StdInEditGui.wpfHwnd)
-                try SetTimer((*) => this.StdInEditGui.Update("Window", "Opacity", "1"), -10)
-                break
-            }
-            Sleep(50)
-        }
-        if (!gotHwnd)
+        owner := (this.Hwnd() ? this.Hwnd() : this.OwnerHwnd)
+        if (!XamlWin.Open(this.StdInEditGui, "", owner))
             this._stdInClosed := true
     }
 
@@ -430,11 +397,7 @@ class RunGui {
     }
 
     OnStdInWindowLoad(state, ctrl, event) {
-        try {
-            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
-            ApplyXamlTheme(this.StdInEditGui, themeName)
-        } catch {
-        }
+        XamlWin.OnLoadTheme(this.StdInEditGui)
     }
 
     OnStdInWindowClosing(state, ctrl, event) {

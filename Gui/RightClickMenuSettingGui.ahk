@@ -317,27 +317,13 @@ class RightClickMenuSettingGui {
         this.ui.OnEvent("BranchActiveList", "SelectionChanged", ObjBindMethod(this, "OnSelChanged", "BranchActiveList"))
         this.ui.OnEvent("BranchAvailList",  "SelectionChanged", ObjBindMethod(this, "OnSelChanged", "BranchAvailList"))
 
-
-        this.ui.Show()
-        loop 40 {
-            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
-                this._RefreshAllLists()
-                try this.ui.Update("Window", "Opacity", "1")
-                try WinActivate("ahk_id " this.ui.wpfHwnd)
-                break
-            }
-            Sleep(50)
-        }
+        this._RefreshAllLists()
+        if (!XamlWin.Open(this.ui, "", XamlWin.Owner(this)))
+            this.closed := true
     }
 
     OnWindowLoad(state, ctrl, event) {
-        try {
-            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
-            ApplyXamlTheme(this.ui, themeName)
-            this._RefreshAllLists()
-        } finally {
-            this.ui.Update("Window", "Opacity", "1")
-        }
+        XamlWin.OnLoadTheme(this.ui)
     }
 
     OnWindowClosing(state, ctrl, event) {
@@ -401,7 +387,6 @@ class RightClickMenuSettingGui {
                 this.ui.Update(listId, "AddItem", this._ItemLabel(item))
         }
     }
-
 
     _RefreshAllLists() {
         this._RefreshList("GenActiveList",    this._generalActive)
@@ -517,8 +502,6 @@ class RightClickMenuSettingGui {
         this._RefreshList(lists.activeId, (which == "general") ? this._generalActive : this._branchActive, newSel)
         this._RefreshList(lists.availId, (which == "general") ? this._generalAvail : this._branchAvail)
     }
-
-
 
     OnConfirmClick(state := unset, ctrl := unset, event := unset) {
         global IniFile, IniSection

@@ -487,7 +487,7 @@ class AppThemeUtil {
         actionHoverStroke := AppThemeUtil.ResolveColor(colors, "Win_ActionHoverStroke")
         progress := AppThemeUtil.ResolveColor(colors, "Win_ProgressBar")
         ; 页签选中背景：主题强调色低透明度（各主题自动适配，见主窗口 tabItemStyle 的 TabSelBg）
-        tabSelBg := AppThemeUtil.WithAlpha(progress, "40")
+        tabSelBg := AppThemeUtil.WithAlpha(progress, "80")
         btnPressBg := AppThemeUtil.AdjustRgbBrightness(groupStroke, 0.90)
         actionPressBg := AppThemeUtil.AdjustRgbBrightness(actionHoverBg, 0.92)
         ; 主界面主要轮廓描边：与「配置管理」按钮 hover 背景同色（ControlBorder / GroupStroke）
@@ -605,11 +605,10 @@ class AppThemeUtil {
         return Format("#FF{:02X}{:02X}{:02X}", r, g, b2)
     }
 
-    ; 宏行禁用：灰柑橘（不跟操作色走），按窗口深浅调节混入量
+    ; 禁用/跳过：同色轻微下沉，不铺灰块；内容变淡靠 Opacity
     static MakeListRowForbidBg(windowBg, actionBg) {
-        citrus := "#FFC4A070"
-        amt := (AppThemeUtil.RgbLuma(windowBg) >= 140) ? 0.34 : 0.30
-        return AppThemeUtil.BlendRgb(windowBg, citrus, amt)
+        factor := (AppThemeUtil.RgbLuma(windowBg) >= 140) ? 0.94 : 0.86
+        return AppThemeUtil.AdjustRgbBrightness(windowBg, factor)
     }
 
     ; 宏行斑马：浅粉（比窗口白粉略深），混入少量操作色

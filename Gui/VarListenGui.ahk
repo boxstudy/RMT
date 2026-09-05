@@ -186,35 +186,21 @@ class VarListenGui {
         this.ui.OnEvent("TopCon", "Unchecked", ObjBindMethod(this, "OnTogTop"))
 
         this.Gui := VarListenGuiFacade(this)
-        this.ui.Show()
-
-        loop 40 {
-            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
-                try this.ui.Update("Window", "Opacity", "1")
-                try WinActivate("ahk_id " this.ui.wpfHwnd)
-                break
-            }
-            Sleep(50)
-        }
+        this._applyingUI := true
+        try this.ui.Update("TopCon", "IsChecked", this._topOn ? "True" : "False")
+        finally this._applyingUI := false
+        if (!XamlWin.Open(this.ui, "", XamlWin.Owner(this)))
+            this.closed := true
     }
 
     OnWindowLoad(state, ctrl, event) {
         try {
-            ; 设置窗口图标（任务管理器里显示）
-            try {
-                hIcon := LoadPicture("Images\Soft\rabit.ico", "Icon1", &ImageType := 1)
-                if (hIcon)
-                    this.ui.Update("Window", "Icon", "HICON:" hIcon)
-            }
-            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
-            ApplyXamlTheme(this.ui, themeName)
-            this._applyingUI := true
-            try this.ui.Update("TopCon", "IsChecked", this._topOn ? "True" : "False")
-            finally this._applyingUI := false
-            this._ApplyTopMost()
-        } finally {
-            this.ui.Update("Window", "Opacity", "1")
+            hIcon := LoadPicture("Images\Soft\rabit.ico", "Icon1", &ImageType := 1)
+            if (hIcon)
+                this.ui.Update("Window", "Icon", "HICON:" hIcon)
         }
+        XamlWin.OnLoadTheme(this.ui)
+        this._ApplyTopMost()
     }
 
     OnWindowClosing(state, ctrl, event) {

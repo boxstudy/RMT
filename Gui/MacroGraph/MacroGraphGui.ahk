@@ -305,7 +305,8 @@ class MacroGraphGui {
         ; 为所有内联编辑 TextBox 绑定回车事件（输入完成后刷新节点数据）
         this._BindTextBoxEnterEvents()
 
-        this.ui.Show()
+        if (!XamlWin.Open(this.ui))
+            return
         MacroGraphGui.openInstances[this._sessionId] := this
         this._ApplyTheme()
         this._oldUi := oldUi

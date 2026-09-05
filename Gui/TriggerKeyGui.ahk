@@ -351,6 +351,8 @@ class TriggerKeyGui {
         this.IsToolEdit := IsToolEdit
         this.Init(triggerKey)
         this.Refresh()
+        if (!XamlWin.Open(this.ui, "", XamlWin.Owner(this)))
+            this._closed := true
     }
 
     _BuildAndShow() {
@@ -447,20 +449,6 @@ class TriggerKeyGui {
         this.ui.OnEvent("BtnOk", "Click", ObjBindMethod(this, "OnSureBtnClick"))
         this.ui.OnEvent("SaveBtn", "Click", ObjBindMethod(this, "OnSaveBtnClick"))
 
-        this.ui.Show()
-
-        gotHwnd := false
-        loop 40 {
-            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
-                gotHwnd := true
-                try WinActivate("ahk_id " this.ui.wpfHwnd)
-                try SetTimer((*) => this.ui.Update("Window", "Opacity", "1"), -10)
-                break
-            }
-            Sleep(50)
-        }
-        if (!gotHwnd)
-            this._closed := true
     }
 
     ; ---------------- 按键网格 ----------------
@@ -634,11 +622,7 @@ class TriggerKeyGui {
     }
 
     OnWindowLoad(state, ctrl, event) {
-        try {
-            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
-            ApplyXamlTheme(this.ui, themeName)
-        } catch {
-        }
+        XamlWin.OnLoadTheme(this.ui)
     }
 
     OnWindowClosing(state, ctrl, event) {

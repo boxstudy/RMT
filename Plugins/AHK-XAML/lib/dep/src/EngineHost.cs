@@ -24,6 +24,7 @@ public partial class AhkWpfEngine
 {
     string winId; IntPtr ahkHwnd; string[] tracked; Window win;
     System.Collections.Generic.HashSet<string> _boundEvents = new System.Collections.Generic.HashSet<string>();
+    System.Collections.Generic.Dictionary<string, object> _boundEventCtrls = new System.Collections.Generic.Dictionary<string, object>();
     System.Collections.Generic.Dictionary<string, object> _controlCache = new System.Collections.Generic.Dictionary<string, object>();
     bool LightweightEvents = false; // When true, events only send the triggering control's value (use ui.Query() for others)
     System.Collections.Generic.Dictionary<string, string> canvasModes = new System.Collections.Generic.Dictionary<string, string>();

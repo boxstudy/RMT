@@ -58,6 +58,8 @@ class TriggerStrGui {
         showSaveBtn := !IsToolEdit
         this.Init(triggerKey, showSaveBtn)
         this.Refresh()
+        if (!XamlWin.Open(this.ui, "", XamlWin.Owner(this)))
+            this._closed := true
     }
 
     _BuildAndShow() {
@@ -131,21 +133,6 @@ class TriggerStrGui {
         this.ui.OnEvent("BtnClear", "Click", (*) => this.ClearStr())
         this.ui.OnEvent("BtnSure", "Click", ObjBindMethod(this, "OnSureBtnClick"))
         this.ui.OnEvent("SaveBtnCtrl", "Click", ObjBindMethod(this, "OnSaveBtnClick"))
-
-        this.ui.Show()
-
-        gotHwnd := false
-        loop 40 {
-            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
-                gotHwnd := true
-                try WinActivate("ahk_id " this.ui.wpfHwnd)
-                try SetTimer((*) => localUi.Update("Window", "Opacity", "1"), -10)
-                break
-            }
-            Sleep(50)
-        }
-        if (!gotHwnd)
-            this._closed := true
     }
 
     _BuildCharGrid() {
@@ -321,11 +308,7 @@ class TriggerStrGui {
     }
 
     OnWindowLoad(state, ctrl, event) {
-        try {
-            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
-            ApplyXamlTheme(this.ui, themeName)
-        } catch {
-        }
+        XamlWin.OnLoadTheme(this.ui)
     }
 
     OnWindowClosing(ui, state, ctrl, event) {

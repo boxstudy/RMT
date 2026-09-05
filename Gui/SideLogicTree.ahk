@@ -114,4 +114,11 @@ class SideLogicTree {
         this.mainWin.SyncSideToolToggle(t, "Top", this._topOn)
         this.mainWin._SyncSideExpandBtn(t)
     }
+
+    RefreshBranchLayout() {
+        for tab, ed in this.editors {
+            if (IsObject(ed) && IsObject(ed.MacroTreeViewCon))
+                ed.MacroTreeViewCon.Render()
+        }
+    }
 }

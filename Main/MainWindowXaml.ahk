@@ -196,6 +196,7 @@ class MainWin {
         this._aiAnimW := 0
         this.aiAnimTick := ObjBindMethod(this, "_TickAiPanelAnim")
         this._aiFitTab := 0
+        this._aiPendingCaret := Map()
         this.aiFitTick := ObjBindMethod(this, "_FitAiInputCur")
         this.aiInnerCur := this.aiPanelW
         this.aiInnerFrom := 0
@@ -205,6 +206,22 @@ class MainWin {
         this.aiInnerTick := ObjBindMethod(this, "_TickAiInnerW")
         this.aiSeeded := false
         this._aiSeededTabs := Map()
+        this._aiHist := Map()       ; 页签 → [{role, content}, ...]
+        this._aiSessionId := Map()  ; 页签 → 当前会话 id
+        this._aiBusy := Map()       ; 页签 → 正在请求
+        this._aiToolRound := Map()
+        this._aiThinkPhase := Map()
+        this._aiThinkMode := Map()  ; 页签 → think | edit
+        this._aiThinkDetail := Map()
+        this._aiToolNotes := Map()
+        this._aiChatTab := 0
+        this.aiChatTick := ObjBindMethod(this, "_AiPollChat")
+        this.aiStartTick := ObjBindMethod(this, "_AiStartChat")
+        this._aiAttach := Map()      ; 页签 → [{id, kind, path, name}]
+        this._aiAttachSeq := 0
+        this._aiRec := Map()         ; 页签 → 录音中
+        this._aiSttTab := 0
+        this.aiSttTick := ObjBindMethod(this, "_AiPollStt")
         this._sideTreeSel := Map()
         this._sideTreeCmds := Map()
         this._sideTreeBound := Map()
@@ -216,6 +233,10 @@ class MainWin {
         this._suppressSideTreeRefresh := false
         this._aiLinkSeq := 0
         this._aiPendingLinks := []
+        this._aiPendingFileActs := []
+        this._aiPendingCopyAll := []
+        this._aiCopyAllText := Map()
+        this._aiMsgFilePaths := []
         this._aiStickBottom := Map()
         this.aiScrollTick := ObjBindMethod(this, "_AiScrollPending")
         this._aiScrollTab := 0
@@ -264,9 +285,27 @@ class MainWin {
     _AiPanelAnimMs() {
         return 220
     }
-    ; 对话输入框单行高度（34：发送钮 24 + 边距后边框不被裁切）
+    ; 对话输入框外框高度：与 AI 设置 CtrlH 一致
     _AiInputLineH() {
-        return 34
+        return AiSettingGui.CtrlH
+    }
+    _AiInputRadius() {
+        return 3
+    }
+    ; 对话区字号走 DynamicResource，避开 ScaleFontSize/ApplyFonts 的主题下限（声明 12 会被抬成 15）
+    _AiChatBodyFontSize() {
+        return "{DynamicResource AiChatFontSize}"
+    }
+    _AiChatSmallFontSize() {
+        return "{DynamicResource AiChatFontSizeSmall}"
+    }
+    _AiChatFontFamily() {
+        return (IsSet(MainSoftData) && MainSoftData.HasProp("FontType") && MainSoftData.FontType != "")
+            ? MainSoftData.FontType : "微软雅黑"
+    }
+    ; 多行时每增一行的行距（含行距与字脚，过小会裁切 q/g/y）
+    _AiInputExtraLineH() {
+        return 22
     }
     ; 拖拽调宽时对话框宽度跟随的过渡时长
     _AiInnerAnimMs() {
@@ -303,6 +342,12 @@ class MainWin {
 
     BuildAndShow() {
         this._InitUseVirtual()
+        if (IsSet(MainSoftData) && MainSoftData.HasProp("AiPanelWidth")) {
+            savedW := Integer(MainSoftData.AiPanelWidth)
+            if (savedW > 0)
+                this.aiPanelW := this._ClampAiPanelW(savedW)
+            this.aiInnerCur := this.aiPanelW
+        }
         ; 动态表集合：配置持久化的 TableIndex 可能越界（表已删/表数变化），钳制到有效范围
         if (MainSoftData.TableIndex < 1 || MainSoftData.TableIndex > MySoftData.TableInfo.Length)
             MainSoftData.TableIndex := 1
@@ -570,17 +615,19 @@ class MainWin {
             . '</ControlTemplate></Setter.Value></Setter>'
             . '</Style>'
         ; 页签选中背景默认占位（主题应用时由 ApplyWinThemeToXaml 用 Accent 低透明度覆盖）
-        tabSelBgRes := '<SolidColorBrush x:Key="TabSelBg" Color="#33FFFFFF"/>'
+        tabSelBgRes := '<SolidColorBrush x:Key="TabSelBg" Color="#80FFFFFF"/>'
             . '<SolidColorBrush x:Key="BtnPressBg" Color="#E0CCCCCC"/>'
             . '<SolidColorBrush x:Key="ActionPressBg" Color="#FF106EBE"/>'
             . '<SolidColorBrush x:Key="ListAltBg" Color="#40000000"/>'
             . '<SolidColorBrush x:Key="ListRowAltBg" Color="#FF2A2A2A"/>'
-            . '<SolidColorBrush x:Key="ListRowForbidBg" Color="#FF4A4034"/>'
+            . '<SolidColorBrush x:Key="ListRowForbidBg" Color="#FFF0E6DC"/>'
             . '<SolidColorBrush x:Key="FoldHeaderBg" Color="#FF333333"/>'
             . '<SolidColorBrush x:Key="FoldAltBg" Color="#FF3A3A3A"/>'
             . '<SolidColorBrush x:Key="FoldDivider" Color="#66999999"/>'
             ; 主界面主要轮廓描边（按钮/页签/模块）：比 InputStroke 更深，随主题由 ApplyWinThemeToXaml 覆盖
             . '<SolidColorBrush x:Key="OutlineStroke" Color="#FF999999"/>'
+            . '<sys:Double x:Key="AiChatFontSize">' XAMLHost.ChatBodyFontSize() '</sys:Double>'
+            . '<sys:Double x:Key="AiChatFontSizeSmall">' XAMLHost.ChatSmallFontSize() '</sys:Double>'
         this._foldFieldW := 198
         this._foldFrontW := this._foldFieldW + 80
         ; 备注右缘对齐「菜单宏」右分割线(3×80)；前台左缘对齐「定时宏」左分割线(5×80)
@@ -642,7 +689,13 @@ class MainWin {
             this.ui.OnEvent("BtnSideToolsToggle_" t, "Click", ObjBindMethod(this, "OnSideToolsToggle"))
             this.ui.OnEvent("AiInput_" t, "TextChanged", ObjBindMethod(this, "OnAiInputChanged", t))
             this.ui.OnEvent("AiInput_" t, "PreviewKeyDown:Return", ObjBindMethod(this, "OnAiInputEnter", t))
+            this.ui.OnEvent("AiInput_" t, "PreviewKeyDown:V", ObjBindMethod(this, "OnAiInputPasteKey", t))
+            this.ui.OnEvent("AiInput_" t, "FileDrop", ObjBindMethod(this, "OnAiInputFileDrop", t))
+            this.ui.OnEvent("AiInput_" t, "Drop", ObjBindMethod(this, "OnAiInputFileDrop", t))
+            this.ui.OnEvent("AiInputHost_" t, "FileDrop", ObjBindMethod(this, "OnAiInputFileDrop", t))
+            this.ui.OnEvent("AiInputHost_" t, "Drop", ObjBindMethod(this, "OnAiInputFileDrop", t))
             this.ui.OnEvent("AiSend_" t, "Click", ObjBindMethod(this, "OnAiSendClick", t))
+            this.ui.OnEvent("AiMic_" t, "Click", ObjBindMethod(this, "OnAiMicClick", t))
             this.ui.OnEvent("SideAiToolHistory_" t, "Click", ObjBindMethod(this, "OnSideAiToolHistory", t))
             this.ui.OnEvent("SideAiToolSettings_" t, "Click", ObjBindMethod(this, "OnSideAiToolSettings", t))
             this.ui.OnEvent("SideAiToolTop_" t, "Click", ObjBindMethod(this, "OnSideToolTop", t))
@@ -669,9 +722,20 @@ class MainWin {
             if (this.ui.wpfHwnd) {
                 gotHwnd := true
                 XamlUiDiag("MainWin hwnd=" this.ui.wpfHwnd, "MainWin")
+                this._EnableAiInputFileDrop()
                 break
             }
             Sleep(50)
+        }
+    }
+
+    ; AI 输入框：启用文件拖放（EnableDropTarget 含 DragOver，OnEvent Drop  alone 不够）
+    _EnableAiInputFileDrop() {
+        if (!IsObject(this.ui))
+            return
+        for t in this._useVirtual {
+            try this.ui.Update("AiInput_" t, "EnableDropTarget", "RmtAiFile")
+            try this.ui.Update("AiInputHost_" t, "EnableDropTarget", "RmtAiFile")
         }
     }
 
@@ -697,6 +761,7 @@ class MainWin {
         try {
             fs := XAMLHost.GetThemeFontSize()
             this.ui.Update("Window", "ApplyFonts", XAMLHost.BuildApplyFontsPayload(0, fs))
+            XAMLHost.SyncChatFontResources(this.ui)
         } catch {
         }
     }
@@ -739,6 +804,7 @@ class MainWin {
     }
 
     OnWindowClosing(state, ctrl, event) {
+        this._AiPersistAllTabs()
         this.closed := true
         OnGuiClose()
         this.ui := ""
@@ -746,6 +812,7 @@ class MainWin {
 
     OnCloseClick(state, ctrl, event) {
         ; 主窗口关闭 = 隐藏（应用继续托盘运行），不真正销毁窗口，托盘可恢复
+        this._AiPersistAllTabs()
         OnGuiClose()
         try WinHide(this.ui.wpfHwnd)
     }
@@ -965,6 +1032,8 @@ class MainWin {
         SetTimer(this.aiSplitWatch, 0)
         this._ShowAiDragShield(false)
         try this.ui.Update("Window", "Cursor", "Arrow")
+        if (IsSet(MainSoftData))
+            MainSoftData.AiPanelWidth := this.aiPanelW
     }
 
     _PollAiSplit() {
@@ -1088,8 +1157,10 @@ class MainWin {
         t := MainSoftData.TableIndex
         if (this.sidePanelMode == 1)
             this.RefreshSideTree(t)
-        else if (this.aiAssistOpen)
+        else if (this.aiAssistOpen) {
             this._EnsureAiSeeded(t)
+            this._EnableAiInputFileDrop()
+        }
     }
 
     _AddSideToolBtn(toolBar, idx, key, glyph, tip, isToggle, prefix := "SideTool") {
@@ -1109,6 +1180,13 @@ class MainWin {
                 .FontSize(9).HorizontalAlignment("Center").Foreground("{DynamicResource TextMain}")
             sp.Add("Ellipse").Width(3).Height(3).Fill("{DynamicResource TextMain}")
                 .HorizontalAlignment("Center").Margin("0,1,0,0")
+        } else if (key == "CmdTip") {
+            ; 左侧竖条 + 三条等长横线（指令日志）
+            g := btn.Add("Grid").Width(14).Height(12).HorizontalAlignment("Center").VerticalAlignment("Center")
+            g.Add("Rectangle").Width(1.6).Height(12).Fill("{DynamicResource TextMain}").HorizontalAlignment("Left").RadiusX(0.6).RadiusY(0.6)
+            lines := g.Add("StackPanel").Orientation("Vertical").HorizontalAlignment("Right").VerticalAlignment("Center").Margin("3,0,0,0")
+            loop 3
+                lines.Add("Rectangle").Width(9).Height(1.6).Fill("{DynamicResource TextMain}").RadiusX(0.6).RadiusY(0.6).Margin(A_Index < 3 ? "0,0,0,2" : "0")
         } else
             btn.Content(glyph)
         if (isToggle) {
@@ -1166,11 +1244,11 @@ class MainWin {
     }
 
     OnSideAiToolHistory(t, *) {
-        Toast.Show(GetLang("对话记录（后续实装）"), "info")
+        AiHistoryGui.ShowGui(t)
     }
 
     OnSideAiToolSettings(t, *) {
-        Toast.Show(GetLang("设置（后续实装）"), "info")
+        AiSettingGui.ShowGui()
     }
 
     _BuildSideTreeContextMenus(host) {
@@ -1586,7 +1664,7 @@ class MainWin {
         this._AddSideToolBtn(toolBar, idx, "Run", Chr(0xE768), GetLang("运行"), false)
         this._AddSideToolBtn(toolBar, idx, "Step", "", GetLang("单步运行"), false)
         this._AddSideToolBtn(toolBar, idx, "Var", Chr(0xE7B3), GetLang("变量监视"), true)
-        this._AddSideToolBtn(toolBar, idx, "CmdTip", Chr(0xE8D1), GetLang("指令显示"), true)
+        this._AddSideToolBtn(toolBar, idx, "CmdTip", Chr(0xE8E3), GetLang("指令显示"), true)
         this._AddSideToolBtn(toolBar, idx, "Top", Chr(0xE840), GetLang("窗口置顶"), true)
 
         aiToolBar := head.Add("StackPanel").Name("SideAiToolBar_" idx).Grid_Row(2)
@@ -1609,7 +1687,7 @@ class MainWin {
         treeHost := body.Add("Grid").Name("SideTreePane_" idx).Visibility("Visible")
         lbStyle := '<Style TargetType="ListBoxItem"><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0"/><Setter Property="BorderThickness" Value="0"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem"><Border x:Name="Bd" Background="Transparent" SnapsToDevicePixels="True"><ContentPresenter/></Border></ControlTemplate></Setter.Value></Setter></Style>'
         treeLb := treeHost.Add("ListBox").Name("SideTreeList_" idx)
-            .BorderThickness("0").Background("Transparent")
+            .BorderThickness("0").Background("Transparent").Padding("0")
             .HorizontalContentAlignment("Stretch")
             .ScrollViewer_HorizontalScrollBarVisibility("Disabled")
             .ScrollViewer_VerticalScrollBarVisibility("Auto")
@@ -1637,39 +1715,54 @@ class MainWin {
 
         aiSv := body.Add("ScrollViewer").Name("SideAiPane_" idx).Visibility("Collapsed")
             .VerticalScrollBarVisibility("Auto").HorizontalScrollBarVisibility("Disabled")
-        msgs := aiSv.Add("StackPanel").Name("SideAiMsgs_" idx).Margin("8,10,8,10")
+        msgs := aiSv.Add("StackPanel").Name("SideAiMsgs_" idx).Margin("12,12,12,8")
         lineH := this._AiInputLineH()
-        maxH := lineH * this._AiInputMaxLines()
+        textH := lineH - 2
+        maxH := lineH + (this._AiInputMaxLines() - 1) * this._AiInputExtraLineH()
         sendW := this._AiInputSendW()
-        foot := g.Add("Border").Name("SideAiFoot_" idx).Grid_Row(2).Padding("7,8,5,8").BorderThickness("0")
+        padL := AiSettingGui.ContentPadL
+        r := this._AiInputRadius()
+        foot := g.Add("Border").Name("SideAiFoot_" idx).Grid_Row(2).Padding("10,4,10,8").BorderThickness("0")
             .Visibility("Collapsed")
-        chrome := foot.Add("Border").Name("AiInputHost_" idx).Height(lineH).MinHeight(lineH).MaxHeight(maxH)
+        footCol := foot.Add("StackPanel")
+        ; 「正在思考」放在输入区上方（不进消息列表），避免第二次请求复用旧节点导致位置错乱
+        footCol.Add("TextBlock").Name("AiThinkTxt_" idx).Text(GetLang("正在思考") "…")
+            .FontSize(this._AiChatBodyFontSize()).FontStyle("Italic").Foreground("{DynamicResource TextSub}")
+            .Margin("2,0,0,6").Visibility("Collapsed").IsHitTestVisible("False")
+            .TextWrapping("Wrap")
+        chrome := footCol.Add("Border").Name("AiInputHost_" idx).Height(lineH).MinHeight(lineH).MaxHeight(maxH + this._AiAttachBarH())
+            .Padding(padL ",0," padL ",0")
             .Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}")
-            .BorderThickness("1.25").CornerRadius("3")
+            .BorderThickness("1").CornerRadius(String(r)).AllowDrop("True")
         chrome.Apply({SnapsToDevicePixels: "True", UseLayoutRounding: "False"})
-        inner := chrome.Add("Grid")
-        inner.Cols("*", "Auto")
+        box := chrome.Add("Grid")
+        box.Rows("Auto", "*")
+        att := box.Add("StackPanel").Name("AiAttachBar_" idx).Grid_Row(0).Orientation("Horizontal")
+            .Margin("0,6,4,4").Visibility("Collapsed").ClipToBounds("False")
+        inner := box.Add("Grid").Grid_Row(1)
+        inner.Cols("*", "Auto", "Auto")
         tb := inner.Add("TextBox").Name("AiInput_" idx).Grid_Column(0).Style("{StaticResource RmtAiChatBox}")
-            .Height(lineH).MinHeight(lineH).MaxHeight(maxH)
-            .AcceptsReturn("False").TextWrapping("Wrap")
+            .Height(textH).MinHeight(textH).MaxHeight(maxH)
+            .AcceptsReturn("True").TextWrapping("Wrap").AllowDrop("False")
             .VerticalScrollBarVisibility("Hidden").HorizontalScrollBarVisibility("Disabled")
-            .VerticalContentAlignment("Center").Padding(this._AiInputPad(1))
+            .VerticalContentAlignment("Center").Padding("0").Margin("0")
+            .FontSize(this._AiChatBodyFontSize())
             .Foreground("{DynamicResource InputText}")
             .Background("Transparent").BorderThickness("0")
         this._AttachTextEditContextMenu(tb, true)
-        ph := inner.Add("TextBlock").Name("AiInputPh_" idx).Grid_Column(0).Text(GetLang("输入消息…")).IsHitTestVisible("False")
-            .VerticalAlignment("Center").HorizontalAlignment("Left").Margin(this._AiInputPhMargin(1))
+        ph := inner.Add("TextBlock").Name("AiInputPh_" idx).Grid_Column(0).Text(GetLang("询问关于宏的任何问题…")).IsHitTestVisible("False")
+            .VerticalAlignment("Center").HorizontalAlignment("Left").Margin("0")
             .Foreground("{DynamicResource TextSub}").Opacity("0.55")
-            .FontSize(XAMLHost.FormatFontSize(XAMLHost.ScaleFontSize(11)))
-        st := ph.Add("TextBlock.Style").Add("Style").TargetType("TextBlock")
-        st.Add("Setter").Property("Visibility").Value("Collapsed")
-        trig := st.Add("Style.Triggers").Add("DataTrigger").Value("")
-        trig.SetMarkup("Binding", "{Binding Text, ElementName=AiInput_" idx "}")
-        trig.Add("Setter").Property("Visibility").Value("Visible")
-        inner.Add("Button").Name("AiSend_" idx).Grid_Column(1).Width(sendW).Height(sendW).MinHeight(sendW)
+            .FontSize(this._AiChatBodyFontSize())
+        inner.Add("Button").Name("AiMic_" idx).Grid_Column(1).Width(sendW).Height(sendW).MinHeight(sendW)
             .VerticalAlignment("Center")
-            .Style("{StaticResource RmtFoldToolBtn}").Margin("2")
-            .Content(Chr(0xE724)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(12)
+            .Style("{StaticResource RmtAiIconBtn}").Margin("2,0,0,0")
+            .Content(Chr(0xE720)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(11)
+            .ToolTip(GetLang("语音输入"))
+        inner.Add("Button").Name("AiSend_" idx).Grid_Column(2).Width(sendW).Height(sendW).MinHeight(sendW)
+            .VerticalAlignment("Center")
+            .Style("{StaticResource RmtAiIconBtn}").Margin("2,0,0,0")
+            .Content(Chr(0xE724)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(11)
             .ToolTip(GetLang("发送"))
     }
 
@@ -1706,9 +1799,21 @@ class MainWin {
         }
     }
 
-    _AiMsgContextMenuXaml() {
+    _AiMsgContextMenuXaml(isUser := false, text := "") {
         fs := XAMLHost.FontSize()
         ff := (MainSoftData.HasProp("FontType") && MainSoftData.FontType != "") ? this._XmlEsc(MainSoftData.FontType) : "微软雅黑"
+        extra := '<MenuItem Header="' this._XmlEsc(GetLang("全选")) '" Command="SelectAll"/>'
+        if (isUser) {
+            this._aiLinkSeq += 1
+            name := "AiCopyAll_" this._aiLinkSeq
+            if (!IsObject(this._aiPendingCopyAll))
+                this._aiPendingCopyAll := []
+            if (!IsObject(this._aiCopyAllText))
+                this._aiCopyAllText := Map()
+            this._aiPendingCopyAll.Push(name)
+            this._aiCopyAllText[name] := this._AiPlainAttachLabel(text)
+            extra := '<MenuItem Name="' name '" Header="' this._XmlEsc(GetLang("全部复制")) '"/>'
+        }
         return '<RichTextBox.ContextMenu>'
             . '<ContextMenu MinWidth="140" Placement="MousePoint"'
             . ' FontSize="' fs '" FontFamily="' ff '"'
@@ -1716,8 +1821,18 @@ class MainWin {
             . ' BorderThickness="1" Foreground="{DynamicResource TextMain}">'
             . '<MenuItem Header="' this._XmlEsc(GetLang("复制")) '" Command="Copy"/>'
             . '<Separator/>'
-            . '<MenuItem Header="' this._XmlEsc(GetLang("全选")) '" Command="SelectAll"/>'
+            . extra
             . '</ContextMenu></RichTextBox.ContextMenu>'
+    }
+
+    OnAiCopyAll(name, *) {
+        txt := ""
+        if (IsObject(this._aiCopyAllText) && this._aiCopyAllText.Has(name))
+            txt := this._aiCopyAllText[name]
+        if (txt == "")
+            return
+        A_Clipboard := txt
+        Toast.Success(GetLang("已复制"))
     }
 
     _AiInputSendW() {
@@ -1725,11 +1840,17 @@ class MainWin {
     }
 
     _AiInputPad(lines) {
-        return lines <= 1 ? "2,0,2,0" : "2,2,2,2"
+        ; 外层 Border 承担边距（与 AI 设置 ContentPadL 一致），内层 TextBox 不再叠一层
+        pad := AiSettingGui.ContentPadL
+        return lines <= 1 ? pad ",0," pad ",0" : pad ",4," pad ",4"
     }
 
     _AiInputPhMargin(lines) {
-        return lines <= 1 ? "2,0,2,0" : "2,2,2,2"
+        return "0"
+    }
+
+    _AiAttachBarH() {
+        return 52
     }
 
     _SeedAiMsgs() {
@@ -1759,52 +1880,63 @@ class MainWin {
         this.aiSeeded := true
         fence := Chr(96) Chr(96) Chr(96)
         tick := Chr(96)
-        d1 := "你好，我是 RMT 助手。对话按主流 AI 聊天来表现，支持标题、列表、**加粗**、*斜体*、" tick "行内代码" tick "、表格，以及内嵌跳转链接。`n`n"
-            . "## 建议`n- 触发键改成 " tick "F1" tick "`n- 循环次数设为 **3**`n`n"
-            . "| 项 | 当前 | 建议 |`n| --- | --- | --- |`n| 触发 | 空 | F1 |`n| 循环 | 1 | 3 |`n`n"
-            . "> 改完后可点链接查看对应宏。`n`n"
-            . "示例：打开 [当前页第 1 个宏](rmt:" t ":1) 并切换到逻辑树。"
-        d2 := "帮我看看这条宏怎么改。"
-        d3 := "可以按下面改搜索：`n`n" fence "ini`n[Search]`nPic=目标.png`n" fence "`n`n"
-            . "1. 打开编辑`n2. 粘贴图片路径`n3. 保存配置"
-        this._AiAppendMsg(t, false, d1)
-        this._AiAppendMsg(t, true, d2)
-        this._AiAppendMsg(t, false, d3)
+        ; Cursor 风格：单条助手欢迎，不做 A/B 对聊演示
+        welcome := "我是 **RMT 助手**，可以帮你解读、修改和生成宏配置。`n`n"
+            . "试试：`n"
+            . "- 描述你想做的操作，我给出可落地的改法`n"
+            . "- 粘贴或拖入文件路径，一起分析配置`n"
+            . "- 用链接跳转宏项，例如 [当前页第 1 个宏](rmt:" t ":1)`n`n"
+            . "支持 Markdown（标题、列表、**加粗**、" tick "代码" tick "、表格等）。"
+        this._AiAppendMsg(t, false, welcome)
     }
 
     _AiAppendMsg(t, isUser, text) {
         stick := true
         try stick := this._AiIsStickBottom(t)
         this._aiPendingLinks := []
+        this._aiPendingFileActs := []
+        this._aiPendingCopyAll := []
         xaml := this._AiMsgXaml(isUser, text)
         try this.ui.Update("SideAiMsgs_" t, "AddXamlItem", xaml)
         for name in this._aiPendingLinks
             this._Bind(name, "Click", ObjBindMethod(this, "OnAiNavClick", name))
+        for act in this._aiPendingFileActs
+            this._Bind(act.name, "Click", ObjBindMethod(this, "OnAiFileMenu", act))
+        for name in this._aiPendingCopyAll
+            this._Bind(name, "Click", ObjBindMethod(this, "OnAiCopyAll", name))
         if (stick)
             this._AiScrollToEndSoon(t)
     }
 
+    ; Cursor 风格回合：用户有边框卡片；助手正文铺开。不再标「你 / 助手」。
     _AiMsgXaml(isUser, text) {
-        ; AddXamlItem 走 XamlReader.Parse，不能用 StaticResource（无窗口资源作用域）
         ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
-        fg := isUser ? "{DynamicResource ActionText}" : "{DynamicResource TextMain}"
-        margin := isUser ? "32,0,0,10" : "0,0,8,10"
-        ha := isUser ? "Right" : "Stretch"
-        bg := isUser ? "ActionBg" : "FoldHeaderBg"
-        bd := isUser ? "ActionStroke" : "ControlBorder"
-        return '<Border ' ns ' Margin="' margin '" Padding="8,6" CornerRadius="6"'
-            . ' HorizontalAlignment="' ha '"'
-            . ' Background="{DynamicResource ' bg '}"'
-            . ' BorderThickness="1" BorderBrush="{DynamicResource ' bd '}">'
-            . '<RichTextBox IsReadOnly="True" IsDocumentEnabled="True" BorderThickness="0"'
+        fg := "{DynamicResource TextMain}"
+        this._aiMsgFilePaths := this._AiExtractFilePaths(text)
+        body := this._AiMdBodyXaml(text, fg)
+        fs := this._AiChatBodyFontSize()
+        ff := this._XmlEsc(this._AiChatFontFamily())
+        rtb := '<RichTextBox IsReadOnly="True" IsDocumentEnabled="True" BorderThickness="0"'
             . ' Background="Transparent" Padding="0" Margin="0"'
             . ' VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Disabled"'
             . ' IsUndoEnabled="False" CaretBrush="Transparent" Cursor="IBeam" Tag="PassScroll"'
-            . ' Foreground="' fg '">'
-            . this._AiMsgContextMenuXaml()
-            . '<FlowDocument PagePadding="0" TextAlignment="Left">'
-            . this._AiMdBodyXaml(text, fg)
-            . '</FlowDocument></RichTextBox></Border>'
+            . ' FontSize="' fs '" FontFamily="' ff '" Foreground="' fg '">'
+            . this._AiMsgContextMenuXaml(isUser, text)
+            . '<FlowDocument PagePadding="0" TextAlignment="Left" FontSize="' fs '" FontFamily="' ff '">'
+            . body
+            . '</FlowDocument></RichTextBox>'
+        if (isUser) {
+            pad := AiSettingGui.ContentPadL
+            r := this._AiInputRadius()
+            return '<Border ' ns ' Margin="0,2,0,9" Padding="' pad ',' pad '" HorizontalAlignment="Stretch"'
+                . ' Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource InputStroke}"'
+                . ' BorderThickness="1" CornerRadius="' r '">'
+                . rtb
+                . '</Border>'
+        }
+        return '<Border ' ns ' Margin="0,0,0,13" Padding="2,0,0,0" Background="Transparent" HorizontalAlignment="Stretch">'
+            . rtb
+            . '</Border>'
     }
 
     _AiMdBodyXaml(text, fg) {
@@ -1812,7 +1944,7 @@ class MainWin {
         for blk in this._AiParseMd(text)
             out .= this._AiMdBlockXaml(blk, fg)
         if (out == "")
-            out := this._AiMdParagraph(text, fg, 12, "0,0,0,0")
+            out := this._AiMdParagraph(text, fg, this._AiChatBodyFontSize(), "0,0,0,0")
         return out
     }
 
@@ -1894,13 +2026,27 @@ class MainWin {
             }
             para := line
             i++
-            while (i <= n && !this._AiMdBreak(lines[i])) {
+            while (i <= n && !this._AiMdBreak(lines[i]) && !this._AiMdKeepLine(para, lines[i])) {
                 para .= " " Trim(lines[i])
                 i++
             }
             blocks.Push(Map("type", "p", "text", para))
         }
         return blocks
+    }
+
+    ; 上一行已是完整句，或下一行是路径/目标，不要拼成一段（避免「评分」被从中间折开）
+    _AiMdKeepLine(prev, nextLine) {
+        next := Trim(nextLine)
+        if (next == "")
+            return true
+        if (RegExMatch(Trim(prev), "[。！？.!?」』]$"))
+            return true
+        if (RegExMatch(next, "^(目标：|写入失败|请到|路径：)"))
+            return true
+        if (RegExMatch(next, "^[A-Za-z]:[\\/]") || InStr(next, "\Desktop\") || InStr(next, "/Desktop/"))
+            return true
+        return false
     }
 
     _AiMdBreak(line) {
@@ -1952,18 +2098,18 @@ class MainWin {
             return this._AiMdParagraph(blk["text"], fg, fs, "0,2,0,6", true)
         }
         if (tp == "p")
-            return this._AiMdParagraph(blk["text"], fg, 12, "0,0,0,6")
+            return this._AiMdParagraph(blk["text"], fg, this._AiChatBodyFontSize(), "0,0,0,6")
         if (tp == "hr")
             return '<BlockUIContainer><Rectangle Height="1" Fill="{DynamicResource ControlBorder}" Margin="0,8" HorizontalAlignment="Stretch"/></BlockUIContainer>'
         if (tp == "quote")
             return '<BlockUIContainer><Border BorderThickness="2,0,0,0" BorderBrush="{DynamicResource Accent}" Padding="8,2,0,2" Margin="0,2,0,8">'
-                . '<TextBlock TextWrapping="Wrap" FontSize="12" Foreground="' fg '" Opacity="0.9">' this._AiInlineXaml(blk["text"], fg) '</TextBlock>'
+                . '<TextBlock TextWrapping="Wrap" FontSize="' this._AiChatBodyFontSize() '" Foreground="' fg '" Opacity="0.9">' this._AiInlineXaml(blk["text"], fg) '</TextBlock>'
                 . '</Border></BlockUIContainer>'
         if (tp == "code") {
-            head := blk["lang"] != "" ? '<TextBlock Text="' this._XmlEsc(blk["lang"]) '" FontSize="10" Margin="0,0,0,4" Foreground="{DynamicResource TextSub}"/>' : ""
+            head := blk["lang"] != "" ? '<TextBlock Text="' this._XmlEsc(blk["lang"]) '" FontSize="' this._AiChatSmallFontSize() '" Margin="0,0,0,4" Foreground="{DynamicResource TextSub}"/>' : ""
             return '<BlockUIContainer><Border Background="{DynamicResource ListAltBg}" CornerRadius="4" Padding="8,6" Margin="0,2,0,8">'
                 . '<StackPanel>' head
-                . '<TextBlock Text="' this._XmlEsc(blk["text"]) '" FontFamily="Consolas, Cascadia Mono, Courier New" FontSize="11"'
+                . '<TextBlock Text="' this._XmlEsc(blk["text"]) '" FontFamily="Consolas, Cascadia Mono, Courier New" FontSize="' this._AiChatSmallFontSize() '"'
                 . ' TextWrapping="Wrap" Foreground="{DynamicResource TextMain}" xml:space="preserve"/>'
                 . '</StackPanel></Border></BlockUIContainer>'
         }
@@ -1972,7 +2118,7 @@ class MainWin {
             idx := 1
             for it in blk["items"] {
                 mark := tp == "ol" ? (idx ". ") : "• "
-                out .= '<Paragraph Margin="0,1,0,1" FontSize="12" Foreground="' fg '">'
+                out .= '<Paragraph Margin="0,1,0,1" FontSize="' this._AiChatBodyFontSize() '" Foreground="' fg '">'
                     . '<Run Text="' this._XmlEsc(mark) '"/>' this._AiInlineXaml(it, fg)
                     . '</Paragraph>'
                 idx++
@@ -1981,7 +2127,7 @@ class MainWin {
         }
         if (tp == "table")
             return '<BlockUIContainer>' this._AiMdTableXaml(blk["rows"], fg) '</BlockUIContainer>'
-        return this._AiMdParagraph(blk.Has("text") ? blk["text"] : "", fg, 12, "0,0,0,0")
+        return this._AiMdParagraph(blk.Has("text") ? blk["text"] : "", fg, this._AiChatBodyFontSize(), "0,0,0,0")
     }
 
     _AiMdTableXaml(rows, fg) {
@@ -2008,7 +2154,7 @@ class MainWin {
                 val := c < row.Length ? row[c + 1] : ""
                 cells .= '<Border Grid.Row="' r '" Grid.Column="' c '" Background="' bg '"'
                     . ' BorderBrush="{DynamicResource ControlBorder}" BorderThickness="0,0,1,1" Padding="6,4">'
-                    . '<TextBlock TextWrapping="Wrap" FontSize="11"' wt '>' this._AiInlineXaml(val, fg) '</TextBlock>'
+                    . '<TextBlock TextWrapping="Wrap" FontSize="' this._AiChatSmallFontSize() '"' wt '>' this._AiInlineXaml(val, fg) '</TextBlock>'
                     . '</Border>'
                 c++
             }
@@ -2064,7 +2210,7 @@ class MainWin {
                 }
             }
             if (ch == "*" || ch == "_") {
-                close := InStr(s, ch, false, i + 1)
+                close := this._AiMdEmphClose(s, i, ch)
                 if (close) {
                     out .= this._AiMdRun(SubStr(s, i + 1, close - i - 1), ' FontStyle="Italic" Foreground="' fg '"')
                     i := close + 1
@@ -2073,6 +2219,11 @@ class MainWin {
             }
             if (ch == "[") {
                 rest := SubStr(s, i)
+                if (RegExMatch(rest, "^\[([^\]]+)\]\((rmtfile:[^)]+)\)", &ml)) {
+                    out .= this._AiFileLinkXaml(ml[1], this._AiDecodeFileUrl(ml[2]))
+                    i += StrLen(ml[0])
+                    continue
+                }
                 if (RegExMatch(rest, "^\[([^\]]+)\]\(([^)]+)\)", &ml)) {
                     nav := this._AiParseNavUrl(ml[2])
                     if (IsObject(nav))
@@ -2097,8 +2248,42 @@ class MainWin {
         return out
     }
 
+    ; 路径、宏指令（按键_a_点击）里的 _ / * 不当成斜体
+    _AiMdEmphClose(s, i, ch) {
+        if (ch == "_" && this._AiMdPathish(s))
+            return 0
+        prev := (i > 1) ? SubStr(s, i - 1, 1) : " "
+        nxt := SubStr(s, i + 1, 1)
+        if (nxt == "" || nxt == ch)
+            return 0
+        if (this._AiMdWordChar(prev) || this._AiMdPathChar(prev))
+            return 0
+        close := InStr(s, ch, false, i + 1)
+        while (close) {
+            inner := SubStr(s, i + 1, close - i - 1)
+            after := (close < StrLen(s)) ? SubStr(s, close + 1, 1) : " "
+            if (inner != "" && !this._AiMdPathChar(after) && !(ch == "_" && this._AiMdWordChar(after))
+                && !InStr(inner, "\") && !InStr(inner, "/") && !InStr(inner, ":"))
+                return close
+            close := InStr(s, ch, false, close + 1)
+        }
+        return 0
+    }
+
+    _AiMdPathish(s) {
+        return InStr(s, ":\") || InStr(s, ":/") || InStr(s, "\Desktop") || InStr(s, "/Desktop")
+    }
+
+    _AiMdWordChar(c) {
+        return (c != "" && RegExMatch(c, "^[A-Za-z0-9]$"))
+    }
+
+    _AiMdPathChar(c) {
+        return (c = "\" || c = "/" || c = ":" || c = "." || c = "-")
+    }
+
     _AiMdRun(text, extra) {
-        return '<Run' extra ' Text="' this._XmlEsc(text) '"/>'
+        return '<Run' extra ' BaselineAlignment="Baseline" Text="' this._XmlEsc(text) '"/>'
     }
 
     _AiParseNavUrl(url) {
@@ -2114,6 +2299,89 @@ class MainWin {
         return ""
     }
 
+    _AiEncodeFileUrl(path) {
+        p := StrReplace(String(path), "\", "/")
+        p := StrReplace(p, "%", "%25")
+        p := StrReplace(p, ")", "%29")
+        p := StrReplace(p, "(", "%28")
+        p := StrReplace(p, " ", "%20")
+        return "rmtfile:///" p
+    }
+
+    _AiDecodeFileUrl(url) {
+        p := String(url)
+        p := RegExReplace(p, "^rmtfile:/+", "")
+        p := StrReplace(p, "%20", " ")
+        p := StrReplace(p, "%28", "(")
+        p := StrReplace(p, "%29", ")")
+        p := StrReplace(p, "%25", "%")
+        p := StrReplace(p, "/", "\")
+        return p
+    }
+
+    _AiExtractFilePaths(text) {
+        paths := []
+        pos := 1
+        while (RegExMatch(text, "\[([^\]]+)\]\((rmtfile:[^)]+)\)", &m, pos)) {
+            paths.Push(this._AiDecodeFileUrl(m[2]))
+            pos += StrLen(m[0])
+            if (pos < 1)
+                break
+        }
+        return paths
+    }
+
+    _AiFileLinkXaml(label, path) {
+        this._aiLinkSeq += 1
+        id := this._aiLinkSeq
+        btn := "AiFile_" id
+        mOpen := "AiFileOpen_" id
+        mDir := "AiFileDir_" id
+        mAll := "AiFileAll_" id
+        allPaths := IsObject(this._aiMsgFilePaths) ? this._aiMsgFilePaths.Clone() : [path]
+        this._aiPendingFileActs.Push({name: btn, act: "open", path: path, paths: allPaths})
+        this._aiPendingFileActs.Push({name: mOpen, act: "open", path: path, paths: allPaths})
+        this._aiPendingFileActs.Push({name: mDir, act: "folder", path: path, paths: allPaths})
+        this._aiPendingFileActs.Push({name: mAll, act: "folders", path: path, paths: allPaths})
+        return '<InlineUIContainer BaselineAlignment="Center">'
+            . '<Button Name="' btn '" Cursor="Hand" Background="Transparent" BorderThickness="0"'
+            . ' Padding="0" Margin="0,0,2,0" VerticalAlignment="Center"'
+            . ' ToolTip="' this._XmlEsc(path) '">'
+            . '<Button.ContextMenu><ContextMenu MinWidth="160" Placement="MousePoint"'
+            . ' Background="{DynamicResource DropdownBg}" BorderBrush="{DynamicResource InputStroke}"'
+            . ' BorderThickness="1" Foreground="{DynamicResource TextMain}">'
+            . '<MenuItem Name="' mOpen '" Header="' this._XmlEsc(GetLang("打开")) '"/>'
+            . '<MenuItem Name="' mDir '" Header="' this._XmlEsc(GetLang("打开所在文件夹")) '"/>'
+            . '<MenuItem Name="' mAll '" Header="' this._XmlEsc(GetLang("打开所有文件夹")) '"/>'
+            . '</ContextMenu></Button.ContextMenu>'
+            . '<TextBlock Text="' this._XmlEsc(label) '" TextDecorations="Underline"'
+            . ' Foreground="{DynamicResource Accent}" FontSize="' this._AiChatBodyFontSize() '" Cursor="Hand"/>'
+            . '</Button></InlineUIContainer>'
+    }
+
+    OnAiFileMenu(act, *) {
+        if (!IsObject(act) || !act.HasProp("act"))
+            return
+        if (act.act = "open") {
+            if (act.path != "" && FileExist(act.path))
+                try Run('"' act.path '"')
+            return
+        }
+        paths := (act.HasProp("paths") && Type(act.paths) = "Array") ? act.paths : [act.path]
+        if (act.act = "folder")
+            paths := [act.path]
+        seen := Map()
+        for p in paths {
+            dir := ""
+            SplitPath(p, , &dir)
+            if (dir == "" || seen.Has(dir))
+                continue
+            seen[dir] := true
+            if (DirExist(dir))
+                try Run('explorer.exe "' dir '"')
+        }
+    }
+
     _AiNavLinkXaml(label, tab, idx) {
         this._aiLinkSeq += 1
         name := "AiNav_" this._aiLinkSeq
@@ -2124,7 +2392,7 @@ class MainWin {
             . ' Background="Transparent" BorderThickness="0" Padding="0" Margin="0,0,0,0"'
             . ' VerticalAlignment="Center" ToolTip="' this._XmlEsc(tip) '">'
             . '<TextBlock Text="' this._XmlEsc(label) '" TextDecorations="Underline"'
-            . ' Foreground="{DynamicResource Accent}" FontSize="12" Cursor="Hand"/>'
+            . ' Foreground="{DynamicResource Accent}" FontSize="' this._AiChatBodyFontSize() '" Cursor="Hand"/>'
             . '</Button></InlineUIContainer>'
     }
 
@@ -2211,6 +2479,7 @@ class MainWin {
 
     OnAiInputChanged(t, state, ctrl, event) {
         this._AiNormalizeInputBox(t)
+        this._AiSyncPlaceholder(t)
         this._aiFitTab := t
         SetTimer(this.aiFitTick, -30)
     }
@@ -2260,23 +2529,320 @@ class MainWin {
         this._AiSendFrom(t)
     }
 
-    _AiInsertNewline(t) {
+    OnAiInputPasteKey(t, state, ctrl, event) {
+        mods := ""
+        if (IsObject(state) && state.Has("KeyModifiers"))
+            mods := state["KeyModifiers"]
+        if (!InStr(mods, "Ctrl"))
+            return
+        if (DllCall("IsClipboardFormatAvailable", "UInt", 8) || DllCall("IsClipboardFormatAvailable", "UInt", 2)) {
+            if (this._AiPasteClipboardImage(t))
+                return
+        }
+    }
+
+    OnAiMicClick(t, *) {
+        if (!IsObject(this._aiRec))
+            this._aiRec := Map()
+        if (this._aiRec.Has(t) && this._aiRec[t]) {
+            this._AiStopRec(t)
+            return
+        }
+        engine := InitSttEngine()
+        if (!IsObject(engine) || !engine.IsDllReady()) {
+            Toast.Warning(GetLang("语音引擎未就绪"))
+            return
+        }
+        if (!engine.IsStreamReady()) {
+            Toast.Warning(GetLang("识别模型未就绪，请先下载模型"))
+            return
+        }
+        if (!engine.StreamBegin()) {
+            Toast.Error(GetLang("开始录音失败：") engine._ErrText(engine.StreamGetLastError()))
+            return
+        }
+        this._aiRec[t] := true
+        this._aiSttTab := t
+        try this.ui.Update("AiMic_" t, "Foreground", "{DynamicResource Accent}")
+        try this.ui.Update("AiMic_" t, "ToolTip", GetLang("停止录音"))
+        try this.ui.Update("AiInputPh_" t, "Text", GetLang("正在聆听…"))
+        this._AiSyncPlaceholder(t)
+        SetTimer(this.aiSttTick, 150)
+    }
+
+    _AiPollStt() {
+        t := this._aiSttTab
+        if (t < 1 || !IsObject(this._aiRec) || !this._aiRec.Has(t) || !this._aiRec[t]) {
+            SetTimer(this.aiSttTick, 0)
+            return
+        }
+        engine := InitSttEngine()
+        live := ""
+        try live := engine.StreamPoll()
+        if (Trim(live) != "")
+            try this.ui.Update("AiInputPh_" t, "Text", live)
+    }
+
+    _AiStopRec(t) {
+        if (!IsObject(this._aiRec))
+            this._aiRec := Map()
+        this._aiRec[t] := false
+        SetTimer(this.aiSttTick, 0)
+        try this.ui.Update("AiMic_" t, "Foreground", "{DynamicResource TextMain}")
+        try this.ui.Update("AiMic_" t, "ToolTip", GetLang("语音输入"))
+        try this.ui.Update("AiInputPh_" t, "Text", GetLang("询问关于宏的任何问题…"))
+        engine := InitSttEngine()
+        if (!IsObject(engine))
+            return
+        if (!engine.StreamEnd(0)) {
+            this._AiSyncPlaceholder(t)
+            return
+        }
+        loop 40 {
+            st := engine.StreamGetState()
+            if (st == 3 || st == 4)
+                break
+            Sleep(50)
+        }
+        result := Trim(engine.StreamGetResult())
+        if (result != "")
+            this._AiAppendInputText(t, result)
+        this._AiSyncPlaceholder(t)
+    }
+
+    ; 拖入文件：顶部芯片（仅文件名，下划线，整块删除）
+    OnAiInputFileDrop(t, state, ctrl, event) {
+        files := this._AiParseDropFiles(state)
+        if (files.Length < 1)
+            return
+        for path in files {
+            path := Trim(path)
+            if (path == "" || !FileExist(path))
+                continue
+            this._AiAddAttach(t, this._AiIsImageFile(path) ? "image" : "file", path)
+        }
+    }
+
+    _AiParseDropFiles(state) {
+        files := []
+        raw := ""
+        if (IsObject(state)) {
+            if (state.Has("DropFiles") && Type(state["DropFiles"]) = "Array")
+                return state["DropFiles"]
+            if (state.Has("FileDrop"))
+                raw := String(state["FileDrop"])
+            else if (state.Has("Drop"))
+                raw := String(state["Drop"])
+        }
+        if (raw == "")
+            return files
+        for part in StrSplit(raw, "|") {
+            p := Trim(part)
+            if (p != "")
+                files.Push(p)
+        }
+        return files
+    }
+
+    _AiAttachList(t) {
+        if (!IsObject(this._aiAttach))
+            this._aiAttach := Map()
+        if (!this._aiAttach.Has(t))
+            this._aiAttach[t] := []
+        return this._aiAttach[t]
+    }
+
+    _AiIsImageFile(path) {
+        SplitPath(path, , , &ext)
+        ext := StrLower(ext)
+        return (ext = "png" || ext = "jpg" || ext = "jpeg" || ext = "gif" || ext = "bmp" || ext = "webp")
+    }
+
+    _AiAddAttach(t, kind, path) {
+        list := this._AiAttachList(t)
+        for a in list {
+            if (a["path"] = path)
+                return
+        }
+        this._aiAttachSeq := Integer(this._aiAttachSeq) + 1
+        SplitPath(path, &name)
+        if (name == "")
+            name := path
+        list.Push(Map("id", this._aiAttachSeq, "kind", kind, "path", path, "name", name))
+        this._AiRefreshAttachBar(t)
+    }
+
+    _AiRemoveAttach(t, id) {
+        list := this._AiAttachList(t)
+        out := []
+        for a in list {
+            if (Integer(a["id"]) != Integer(id))
+                out.Push(a)
+        }
+        this._aiAttach[t] := out
+        this._AiRefreshAttachBar(t)
+    }
+
+    _AiClearAttach(t) {
+        if (!IsObject(this._aiAttach))
+            this._aiAttach := Map()
+        this._aiAttach[t] := []
+        this._AiRefreshAttachBar(t)
+    }
+
+    _AiRefreshAttachBar(t) {
+        list := this._AiAttachList(t)
+        try this.ui.Update("AiAttachBar_" t, "ClearItems", "")
+        if (list.Length < 1) {
+            try this.ui.Update("AiAttachBar_" t, "Visibility", "Collapsed")
+            this._AiSyncPlaceholder(t)
+            this._FitAiInput(t)
+            return
+        }
+        try this.ui.Update("AiAttachBar_" t, "Visibility", "Visible")
+        ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
+        for a in list {
+            id := a["id"]
+            if (a["kind"] = "image")
+                xaml := this._AiImageChipXaml(t, id, a["path"], ns)
+            else
+                xaml := this._AiFileChipXaml(t, id, a["name"], ns)
+            try this.ui.Update("AiAttachBar_" t, "AddXamlItem", xaml)
+            this._AiBindAttachEvents(t, id)
+        }
+        this._AiSyncPlaceholder(t)
+        this._FitAiInput(t)
+    }
+
+    _AiBindAttachEvents(t, id) {
+        ; 动态 AddXamlItem 后必须 BindEvent，否则引擎未挂 WPF 事件，点击无反应
+        try this._Bind("AiAttOpen_" t "_" id, "MouseLeftButtonUp", ObjBindMethod(this, "OnAiAttachOpen", t, id))
+        try this._Bind("AiAttDel_" t "_" id, "Click", ObjBindMethod(this, "OnAiAttachDel", t, id))
+    }
+
+    _AiFileChipXaml(t, id, name, ns) {
+        return this._AiChipWrapXaml(t, id, ns
+            , '<TextBlock Name="AiAttOpen_' t '_' id '" Text="' this._XmlEsc(name) '" TextDecorations="Underline"'
+            . ' Cursor="Hand" VerticalAlignment="Center" Margin="4,2,4,2" Foreground="{DynamicResource Accent}" FontSize="' this._AiChatBodyFontSize() '"/>')
+    }
+
+    _AiImageChipXaml(t, id, path, ns) {
+        src := this._AiFileUri(path)
+        return this._AiChipWrapXaml(t, id, ns
+            , '<Image Name="AiAttOpen_' t '_' id '" Source="' this._XmlEsc(src) '" Width="32" Height="32"'
+            . ' Margin="2" Stretch="UniformToFill" Cursor="Hand"/>')
+    }
+
+    _AiChipWrapXaml(t, id, ns, inner) {
+        del := "AiAttDel_" t "_" id
+        return '<Grid ' ns ' Margin="0,0,8,2" Background="Transparent">'
+            . '<Border Background="{DynamicResource ControlBg}" BorderBrush="{DynamicResource InputStroke}"'
+            . ' BorderThickness="1" CornerRadius="3" Padding="4,4,16,4">' inner '</Border>'
+            . '<Button Name="' del '" Width="14" Height="14" Padding="0"'
+            . ' HorizontalAlignment="Right" VerticalAlignment="Top"'
+            . ' Background="{DynamicResource ControlBorder}" BorderThickness="0" Cursor="Hand"'
+            . ' ToolTip="' this._XmlEsc(GetLang("删除")) '" Focusable="False" Panel.ZIndex="2">'
+            . '<Button.Style><Style TargetType="Button">'
+            . '<Setter Property="Opacity" Value="0"/>'
+            . '<Style.Triggers>'
+            . '<DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Grid}}" Value="True">'
+            . '<Setter Property="Opacity" Value="1"/>'
+            . '</DataTrigger></Style.Triggers></Style></Button.Style>'
+            . '<Button.Template><ControlTemplate TargetType="Button">'
+            . '<Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="7" Width="14" Height="14">'
+            . '<TextBlock Text="' Chr(0xE711) '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"'
+            . ' FontSize="8" Foreground="{DynamicResource TitleBarForeground}"'
+            . ' HorizontalAlignment="Center" VerticalAlignment="Center"/>'
+            . '</Border></ControlTemplate></Button.Template></Button></Grid>'
+    }
+
+    _AiFileUri(path) {
+        p := StrReplace(path, "\", "/")
+        p := StrReplace(p, " ", "%20")
+        if (RegExMatch(p, "^[A-Za-z]:"))
+            p := "/" p
+        return "file://" p
+    }
+
+    OnAiAttachOpen(t, id, *) {
+        for a in this._AiAttachList(t) {
+            if (Integer(a["id"]) = Integer(id)) {
+                try Run('"' a["path"] '"')
+                return
+            }
+        }
+    }
+
+    OnAiAttachDel(t, id, *) {
+        this._AiRemoveAttach(t, id)
+    }
+
+    _AiSyncPlaceholder(t) {
+        text := ""
+        try text := this.ui.Query("AiInput_" t)
+        rec := IsObject(this._aiRec) && this._aiRec.Has(t) && this._aiRec[t]
+        hasAtt := this._AiAttachList(t).Length > 0
+        vis := (!rec && Trim(text) == "" && !hasAtt) ? "Visible" : "Collapsed"
+        try this.ui.Update("AiInputPh_" t, "Visibility", vis)
+    }
+
+    _AiPasteClipboardImage(t) {
+        dir := A_Temp "\RMT\AiPaste"
+        if (!DirExist(dir))
+            DirCreate(dir)
+        path := dir "\" FormatTime(A_Now, "yyyyMMddHHmmss") "_" Random(100, 999) ".png"
+        pBm := 0
+        try pBm := Gdip_CreateBitmapFromClipboard()
+        if (!pBm)
+            return false
+        ok := false
+        try {
+            Gdip_SaveBitmapToFile(pBm, path)
+            ok := FileExist(path)
+        }
+        try Gdip_DisposeImage(pBm)
+        if (!ok)
+            return false
+        this._AiAddAttach(t, "image", path)
+        return true
+    }
+
+    _AiAppendInputText(t, extra) {
+        extra := Trim(extra)
+        if (extra == "")
+            return
         text := ""
         try text := this.ui.Query("AiInput_" t)
         text := this._AiNormalizeNewlines(text, true)
-        caret := StrLen(text)
-        try {
-            v := this.ui.Query("AiInput_" t ">CaretIndex")
-            if (v != "")
-                caret := Integer(v)
+        if (text != "" && !RegExMatch(text, "[`r`n\s]$"))
+            text .= " "
+        text .= extra
+        try this.ui.Update("AiInput_" t, "Text", text)
+        this._aiFitTab := t
+        SetTimer(this.aiFitTick, -30)
+        this._AiSyncPlaceholder(t)
+    }
+
+    _AiConsumeAttachText(t) {
+        list := this._AiAttachList(t)
+        if (list.Length < 1)
+            return ""
+        out := ""
+        for a in list {
+            name := a["name"]
+            path := a["path"]
+            out .= (out == "" ? "" : " ") "[" name "](" this._AiEncodeFileUrl(path) ")"
         }
-        if (caret < 0)
-            caret := 0
-        if (caret > StrLen(text))
-            caret := StrLen(text)
-        newText := SubStr(text, 1, caret) "`r`n" SubStr(text, caret + 1)
-        try this.ui.Update("AiInput_" t, "Text", newText)
-        try this.ui.Update("AiInput_" t, "CaretIndex", String(caret + 2))
+        this._AiClearAttach(t)
+        return (out == "") ? "" : "`n" out
+    }
+
+    _AiInsertNewline(t) {
+        try this.ui.Update("AiInput_" t, "InsertText", "`r`n")
+        caret := ""
+        try caret := this.ui.Query("AiInput_" t ">CaretIndex")
+        if (caret != "" && IsNumber(caret))
+            this._aiPendingCaret[t] := Integer(caret)
         this._aiFitTab := t
         SetTimer(this.aiFitTick, -30)
     }
@@ -2289,6 +2855,7 @@ class MainWin {
         if (t < 1)
             return
         lineH := this._AiInputLineH()
+        extraH := this._AiInputExtraLineH()
         maxLines := this._AiInputMaxLines()
         lines := 1
         try {
@@ -2296,7 +2863,7 @@ class MainWin {
             if (v != "")
                 lines := Integer(v)
         }
-        ; LineCount 偶发未计入部分换行符时，用文本硬换行数兜底
+        ; 以硬换行为主；LineCount 含软换行时取较大值，但高度按「首行 lineH + 额外行距」算，避免 2*lineH 显得过高
         text := ""
         try text := this.ui.Query("AiInput_" t)
         if (text != "") {
@@ -2308,29 +2875,599 @@ class MainWin {
             lines := 1
         if (lines > maxLines)
             lines := maxLines
-        h := lines * lineH
+        vPad := lines <= 1 ? 0 : 8
+        chromeH := lineH + (lines - 1) * extraH
+        if (lines > 1)
+            chromeH += 1
+        textH := chromeH - 2 - vPad
+        if (textH < lineH - 2)
+            textH := lineH - 2
         pad := this._AiInputPad(lines)
         vca := lines <= 1 ? "Center" : "Top"
         sb := lines >= maxLines ? "Auto" : (lines <= 1 ? "Hidden" : "Disabled")
-        try this.ui.Update("AiInput_" t, "Height", String(h))
-        try this.ui.Update("AiInput_" t, "Padding", pad)
+        try this.ui.Update("AiInput_" t, "Height", String(textH))
+        try this.ui.Update("AiInput_" t, "Padding", "0")
         try this.ui.Update("AiInput_" t, "VerticalContentAlignment", vca)
         try this.ui.Update("AiInput_" t, "VerticalScrollBarVisibility", sb)
-        try this.ui.Update("AiInputHost_" t, "Height", String(h))
+        try this.ui.Update("AiInputHost_" t, "Height", String(chromeH + this._AiAttachHostExtra(t)))
+        try this.ui.Update("AiInputHost_" t, "Padding", pad)
         try this.ui.Update("AiInputPh_" t, "VerticalAlignment", vca)
-        try this.ui.Update("AiInputPh_" t, "Margin", this._AiInputPhMargin(lines))
-        try this.ui.Update("AiSend_" t, "VerticalAlignment", lines <= 1 ? "Center" : "Bottom")
+        try this.ui.Update("AiInputPh_" t, "Margin", "0")
+        vBtn := lines <= 1 ? "Center" : "Bottom"
+        mBtn := lines <= 1 ? "2,0,0,0" : "2,0,0,2"
+        try this.ui.Update("AiSend_" t, "VerticalAlignment", vBtn)
+        try this.ui.Update("AiMic_" t, "VerticalAlignment", vBtn)
+        try this.ui.Update("AiSend_" t, "Margin", mBtn)
+        try this.ui.Update("AiMic_" t, "Margin", mBtn)
+        if (IsObject(this._aiPendingCaret) && this._aiPendingCaret.Has(t)) {
+            try this.ui.Update("AiInput_" t, "CaretIndex", String(this._aiPendingCaret[t]))
+            this._aiPendingCaret.Delete(t)
+        }
+        this._AiSyncPlaceholder(t)
+    }
+
+    _AiAttachHostExtra(t) {
+        if (this._AiAttachList(t).Length < 1)
+            return 0
+        return this._AiAttachBarH()
     }
 
     _AiSendFrom(t) {
         text := ""
         try text := this.ui.Query("AiInput_" t)
         text := Trim(this._AiNormalizeNewlines(text, false), "`n")
-        if (text == "")
+        if (text == "" && this._AiAttachList(t).Length < 1)
             return
+        if (!IsObject(this._aiBusy))
+            this._aiBusy := Map()
+        if (this._aiBusy.Has(t) && this._aiBusy[t]) {
+            Toast.Info(GetLang("正在等待上一条回复…"))
+            return
+        }
+        AiAssist.EnsureDefaults()
+        if (!AiAssist.IsConfigured()) {
+            Toast.Warning(GetLang("请先在设置中填写 API Key、API URL 与模型"))
+            AiSettingGui.ShowGui()
+            return
+        }
+        this._aiBusy[t] := true
+        this._aiChatTab := t
+        if (!IsObject(this._aiToolRound))
+            this._aiToolRound := Map()
+        this._aiToolRound[t] := 0
+        this._AiClearToolNotes(t)
+        try this.ui.Update("AiSend_" t, "IsEnabled", "False")
+        this._AiShowThinking(t, false, GetLang("正在分析你的问题"))
         try this.ui.Update("AiInput_" t, "Text", "")
-        this._FitAiInput(t)
-        this._AiAppendMsg(t, true, text)
+        try {
+            attTxt := this._AiConsumeAttachText(t)
+            if (attTxt != "")
+                text := Trim(text attTxt)
+            this._FitAiInput(t)
+            try this._AiAppendMsg(t, true, text)
+            catch
+                this._AiAppendMsg(t, true, this._AiPlainAttachLabel(text))
+            try this._AiHistPush(t, "user", text)
+        } catch as e {
+            this._AiFinishChat(t, "", this._AiErrText(e))
+            return
+        }
+        SetTimer(this.aiStartTick, -30)
+    }
+
+    _AiStartChat(*) {
+        t := this._aiChatTab
+        if (t < 1)
+            return
+        try {
+            msgs := this._AiBuildApiMessages(t)
+            AiAssist.BeginChat(msgs)
+            SetTimer(this.aiChatTick, 200)
+        } catch as e {
+            this._AiFinishChat(t, "", this._AiErrText(e))
+        }
+    }
+
+    _AiPlainAttachLabel(text) {
+        t := Trim(RegExReplace(String(text), "\[([^\]]+)\]\(rmtfile:[^)]+\)", "$1"))
+        return (t != "") ? t : GetLang("附件")
+    }
+
+    _AiErrText(e) {
+        errMsg := IsObject(e) && e.HasProp("Message") ? e.Message : String(e)
+        if (IsObject(e) && e.HasProp("File") && e.File != "")
+            errMsg .= "`n" e.File (e.HasProp("Line") ? ":" e.Line : "")
+        return errMsg
+    }
+
+    _AiPollChat() {
+        t := this._aiChatTab
+        if (t < 1) {
+            SetTimer(this.aiChatTick, 0)
+            return
+        }
+        st := 0
+        try st := AiAssist.ChatState()
+        catch {
+            this._AiFinishChat(t, "", GetLang("无法读取请求状态"))
+            return
+        }
+        if (st == 1) {
+            this._AiPulseThinking(t)
+            return
+        }
+        if (st == 0) {
+            ; idle：可能尚未 latch，或结果已被另一轮 Take 取走；勿当成「中断」清掉 busy
+            return
+        }
+        reply := ""
+        errMsg := ""
+        try reply := AiAssist.TakeChat()
+        catch as e
+            errMsg := this._AiErrText(e)
+        if (errMsg == "" && this._AiContinueTools(t, reply))
+            return
+        this._AiFinishChat(t, reply, errMsg)
+    }
+
+    _AiContinueTools(t, reply) {
+        payload := AiAssist.ParseToolPayload(reply)
+        if (!IsObject(payload))
+            return false
+        calls := (payload.Has("calls") && Type(payload["calls"]) = "Array") ? payload["calls"] : []
+        if (calls.Length < 1)
+            return false
+        if (!IsObject(this._aiToolRound))
+            this._aiToolRound := Map()
+        rnd := this._aiToolRound.Has(t) ? Integer(this._aiToolRound[t]) : 0
+        if (rnd >= 5) {
+            this._aiToolRound[t] := 0
+            return false
+        }
+        this._aiToolRound[t] := rnd + 1
+        this._AiShowThinking(t, true, GetLang("正在调用工具"))
+        content := payload.Has("content") ? String(payload["content"]) : ""
+        tcParts := ""
+        for call in calls {
+            if (Type(call) != "Map")
+                continue
+            cid := call.Has("id") ? String(call["id"]) : ("call_" A_Index)
+            name := call.Has("name") ? String(call["name"]) : ""
+            args := call.Has("arguments") ? String(call["arguments"]) : "{}"
+            if (tcParts != "")
+                tcParts .= ","
+            tcParts .= '{"id":"' AiAssist._JsonEsc(cid) '","type":"function","function":{"name":"' AiAssist._JsonEsc(name) '","arguments":"' AiAssist._JsonEsc(args) '"}}'
+        }
+        asst := Map("role", "assistant", "content", content, "tool_calls", "[" tcParts "]")
+        reason := AiAssist.ReasoningOf(payload)
+        if (reason != "")
+            asst["reasoning_content"] := reason
+        this._AiHistPushMap(t, asst)
+        for call in calls {
+            if (Type(call) != "Map")
+                continue
+            cid := call.Has("id") ? String(call["id"]) : ("call_" A_Index)
+            name := call.Has("name") ? String(call["name"]) : ""
+            args := call.Has("arguments") ? String(call["arguments"]) : "{}"
+            this._AiShowThinking(t, true, this._AiToolDoingText(name, args))
+            result := AiAssist.ExecTool(name, args)
+            this._AiNoteToolResult(t, name, args, result)
+            this._AiHistPushMap(t, Map("role", "tool", "content", result, "tool_call_id", cid))
+        }
+        this._AiShowThinking(t, false, GetLang("正在根据工具结果继续思考"))
+        try {
+            msgs := this._AiBuildApiMessages(t)
+            AiAssist.BeginChat(msgs)
+            SetTimer(this.aiChatTick, 200)
+            return true
+        } catch as e {
+            this._AiFinishChat(t, "", this._AiErrText(e))
+            return true
+        }
+    }
+
+    _AiFinishChat(t, reply, errMsg) {
+        SetTimer(this.aiChatTick, 0)
+        if (!IsObject(this._aiBusy))
+            this._aiBusy := Map()
+        this._aiBusy[t] := false
+        if (IsObject(this._aiToolRound) && this._aiToolRound.Has(t))
+            this._aiToolRound[t] := 0
+        try this.ui.Update("AiSend_" t, "IsEnabled", "True")
+        this._AiHideThinking(t)
+        if (errMsg != "") {
+            fail := GetLang("请求失败") "：`n" errMsg
+            this._AiAppendMsg(t, false, fail)
+            try this._AiHistPush(t, "assistant", fail)
+            this._AiClearToolNotes(t)
+            return
+        }
+        payload := AiAssist.ParseToolPayload(reply)
+        reason := ""
+        if (IsObject(payload) && payload.Has("content"))
+            reply := String(payload["content"])
+        if (IsObject(payload))
+            reason := AiAssist.ReasoningOf(payload)
+        reply := Trim(reply)
+        if (reply == "") {
+            note := this._AiComposeToolFailReply(t)
+            reply := (note != "") ? note : GetLang("（模型返回空内容）")
+        } else if (this._AiHasPermissionFail(t) && !InStr(reply, "写入权限") && !InStr(reply, "完全访问")) {
+            extra := this._AiComposeToolFailReply(t)
+            if (extra != "")
+                reply .= "`n`n" extra
+        }
+        asst := Map("role", "assistant", "content", reply)
+        if (reason != "")
+            asst["reasoning_content"] := reason
+        try this._AiHistPushMap(t, asst)
+        this._AiAppendMsg(t, false, reply)
+        this._AiClearToolNotes(t)
+    }
+
+    _AiThinkLabel(t) {
+        if (IsObject(this._aiThinkDetail) && this._aiThinkDetail.Has(t) && Trim(this._aiThinkDetail[t]) != "")
+            return this._aiThinkDetail[t]
+        if (IsObject(this._aiThinkMode) && this._aiThinkMode.Has(t) && this._aiThinkMode[t] = "edit")
+            return GetLang("正在编辑")
+        return GetLang("正在思考")
+    }
+
+    _AiShowThinking(t, editing := false, detail := "") {
+        if (!IsObject(this._aiThinkPhase))
+            this._aiThinkPhase := Map()
+        if (!IsObject(this._aiThinkMode))
+            this._aiThinkMode := Map()
+        if (!IsObject(this._aiThinkDetail))
+            this._aiThinkDetail := Map()
+        this._aiThinkPhase[t] := 0
+        this._aiThinkMode[t] := editing ? "edit" : "think"
+        if (detail != "")
+            this._aiThinkDetail[t] := detail
+        else if (!this._aiThinkDetail.Has(t) || this._aiThinkDetail[t] == "")
+            this._aiThinkDetail[t] := editing ? GetLang("正在编辑") : GetLang("正在思考")
+        try this.ui.Update("AiThinkTxt_" t, "Text", this._AiThinkLabel(t) "…")
+        try this.ui.Update("AiThinkTxt_" t, "Visibility", "Visible")
+    }
+
+    _AiPulseThinking(t) {
+        if (!IsObject(this._aiThinkPhase))
+            this._aiThinkPhase := Map()
+        phase := this._aiThinkPhase.Has(t) ? Integer(this._aiThinkPhase[t]) : 0
+        phase := Mod(phase + 1, 4)
+        this._aiThinkPhase[t] := phase
+        dots := ""
+        loop phase
+            dots .= "."
+        if (dots == "")
+            dots := "…"
+        try this.ui.Update("AiThinkTxt_" t, "Text", this._AiThinkLabel(t) dots)
+    }
+
+    _AiHideThinking(t) {
+        if (IsObject(this._aiThinkMode) && this._aiThinkMode.Has(t))
+            this._aiThinkMode[t] := "think"
+        if (IsObject(this._aiThinkDetail) && this._aiThinkDetail.Has(t))
+            this._aiThinkDetail[t] := ""
+        try this.ui.Update("AiThinkTxt_" t, "Visibility", "Collapsed")
+    }
+
+    _AiToolArgPath(argsJson) {
+        try {
+            obj := JSON.parse(argsJson)
+            if (Type(obj) = "Map") {
+                if (obj.Has("path") && Trim(String(obj["path"])) != "")
+                    return String(obj["path"])
+                if (obj.Has("command") && Trim(String(obj["command"])) != "")
+                    return String(obj["command"])
+            }
+        } catch {
+        }
+        return ""
+    }
+
+    _AiToolDoingText(name, argsJson) {
+        path := this._AiToolArgPath(argsJson)
+        SplitPath(path, &fn)
+        switch name {
+            case "write_file":
+                return GetLang("正在写入文件") (fn != "" ? "：" fn : "")
+            case "read_file":
+                return GetLang("正在读取文件") (fn != "" ? "：" fn : "")
+            case "list_dir":
+                return GetLang("正在列出目录") (path != "" ? "：" path : "")
+            case "run_command":
+                return GetLang("正在执行命令")
+            case "run_script":
+                return GetLang("正在运行脚本") (fn != "" ? "：" fn : "")
+            case "update_macro":
+                return GetLang("正在修改宏")
+            case "add_macro":
+                return GetLang("正在新增宏")
+            case "list_macros":
+                return GetLang("正在查看宏列表")
+            case "read_macro":
+                return GetLang("正在读取宏")
+            default:
+                return GetLang("正在调用") " " name
+        }
+    }
+
+    _AiNoteToolResult(t, name, argsJson, result) {
+        if (!IsObject(this._aiToolNotes))
+            this._aiToolNotes := Map()
+        if (!this._aiToolNotes.Has(t))
+            this._aiToolNotes[t] := []
+        ok := true
+        err := ""
+        try {
+            obj := JSON.parse(result)
+            if (Type(obj) = "Map") {
+                if (obj.Has("ok") && !obj["ok"])
+                    ok := false
+                if (obj.Has("error"))
+                    err := String(obj["error"])
+            }
+        } catch {
+        }
+        path := this._AiToolArgPath(argsJson)
+        this._aiToolNotes[t].Push(Map("name", name, "ok", ok, "error", err, "path", path))
+        if (!ok && err != "")
+            this._AiShowThinking(t, true, GetLang("工具失败") "：" this._AiShortErr(err))
+    }
+
+    _AiShortErr(err) {
+        e := Trim(RegExReplace(String(err), "[\r\n]+", " "))
+        if (StrLen(e) > 48)
+            return SubStr(e, 1, 48) "…"
+        return e
+    }
+
+    _AiHasPermissionFail(t) {
+        if (!IsObject(this._aiToolNotes) || !this._aiToolNotes.Has(t))
+            return false
+        for n in this._aiToolNotes[t] {
+            if (Type(n) != "Map" || !n.Has("error"))
+                continue
+            e := String(n["error"])
+            if (InStr(e, "工作区") || InStr(e, "写入权限") || InStr(e, "完全访问") || InStr(e, "permission"))
+                return true
+        }
+        return false
+    }
+
+    _AiComposeToolFailReply(t) {
+        if (!this._AiHasPermissionFail(t))
+            return ""
+        lines := []
+        lines.Push(GetLang("写入失败：当前写入权限为「工作区」，不能写到桌面等软件目录以外的位置。"))
+        lines.Push(GetLang("请到「AI 设置 → 写入权限」改为「完全访问」后再试。"))
+        seen := Map()
+        for n in this._aiToolNotes[t] {
+            if (Type(n) != "Map" || (n.Has("ok") && n["ok"]))
+                continue
+            p := n.Has("path") ? Trim(n["path"]) : ""
+            if (p != "" && !seen.Has(p)) {
+                seen[p] := true
+                lines.Push("")
+                fence := Chr(96) Chr(96) Chr(96)
+                lines.Push(GetLang("目标："))
+                lines.Push(fence)
+                lines.Push(p)
+                lines.Push(fence)
+            }
+        }
+        out := ""
+        for line in lines
+            out .= (out == "" ? "" : "`n") line
+        return out
+    }
+
+    _AiClearToolNotes(t) {
+        if (IsObject(this._aiToolNotes) && this._aiToolNotes.Has(t))
+            this._aiToolNotes[t] := []
+    }
+
+    _AiHistPush(t, role, content) {
+        this._AiHistPushMap(t, Map("role", role, "content", content))
+    }
+
+    _AiHistPushMap(t, m) {
+        if (!IsObject(this._aiHist))
+            this._aiHist := Map()
+        if (!this._aiHist.Has(t))
+            this._aiHist[t] := []
+        this._aiHist[t].Push(m)
+        this._AiPersistSession(t)
+    }
+
+    AiGetSessionId(t) {
+        if (!IsObject(this._aiSessionId) || !this._aiSessionId.Has(t))
+            return ""
+        return String(this._aiSessionId[t])
+    }
+
+    ; saveCurrent=true 时先落盘当前会话再清空
+    AiNewChat(t, saveCurrent := true, showToast := true) {
+        t := Integer(t)
+        if (t < 1)
+            return
+        if (saveCurrent)
+            this._AiPersistSession(t)
+        this._AiClearChatUi(t)
+        if (!IsObject(this._aiHist))
+            this._aiHist := Map()
+        this._aiHist[t] := []
+        if (!IsObject(this._aiSessionId))
+            this._aiSessionId := Map()
+        this._aiSessionId[t] := ""
+        if (!IsObject(this._aiSeededTabs))
+            this._aiSeededTabs := Map()
+        this._aiSeededTabs[t] := true  ; 阻止再次注入演示对话
+        if (showToast)
+            Toast.Success(GetLang("已新建对话"))
+    }
+
+    AiLoadSession(t, id) {
+        t := Integer(t)
+        id := Trim(String(id))
+        if (t < 1 || id == "")
+            return
+        sess := AiChatStore.Get(id)
+        if (!IsObject(sess)) {
+            Toast.Warning(GetLang("找不到该对话记录"))
+            return
+        }
+        ; 切换前保存当前（不同会话时）
+        curId := this.AiGetSessionId(t)
+        if (curId != "" && curId != id)
+            this._AiPersistSession(t)
+        else if (curId == "" && IsObject(this._aiHist) && this._aiHist.Has(t) && this._aiHist[t].Length > 0)
+            this._AiPersistSession(t)
+
+        msgs := []
+        if (sess.Has("messages") && Type(sess["messages"]) = "Array") {
+            for m in sess["messages"] {
+                if (Type(m) != "Map")
+                    continue
+                role := m.Has("role") ? String(m["role"]) : "user"
+                content := m.Has("content") ? String(m["content"]) : ""
+                if (role = "tool" || role = "system" || Trim(content) == "")
+                    continue
+                rec := Map("role", role, "content", content)
+                if (m.Has("tool_calls"))
+                    rec["tool_calls"] := String(m["tool_calls"])
+                if (m.Has("reasoning_content") && m["reasoning_content"] != "")
+                    rec["reasoning_content"] := String(m["reasoning_content"])
+                msgs.Push(rec)
+            }
+        }
+        this._AiClearChatUi(t)
+        if (!IsObject(this._aiHist))
+            this._aiHist := Map()
+        this._aiHist[t] := msgs.Clone()
+        if (!IsObject(this._aiSessionId))
+            this._aiSessionId := Map()
+        this._aiSessionId[t] := id
+        if (!IsObject(this._aiSeededTabs))
+            this._aiSeededTabs := Map()
+        this._aiSeededTabs[t] := true
+        for m in msgs
+            this._AiAppendMsg(t, m["role"] = "user", m["content"])
+        Toast.Success(GetLang("已打开对话"))
+    }
+
+    _AiPersistAllTabs() {
+        if (!IsObject(this._aiHist))
+            return
+        for t, _ in this._aiHist
+            this._AiPersistSession(t)
+    }
+
+    _AiPersistSession(t) {
+        if (!IsObject(this._aiHist) || !this._aiHist.Has(t))
+            return
+        msgs := this._aiHist[t]
+        if (Type(msgs) != "Array" || msgs.Length < 1)
+            return
+        if (!IsObject(this._aiSessionId))
+            this._aiSessionId := Map()
+        curId := this._aiSessionId.Has(t) ? String(this._aiSessionId[t]) : ""
+        newId := ""
+        try newId := AiChatStore.Upsert(curId, msgs)
+        if (newId != "")
+            this._aiSessionId[t] := newId
+        try {
+            if (AiHistoryGui.instances.Has("main")) {
+                inst := AiHistoryGui.instances["main"]
+                if (IsObject(inst) && !inst.closed)
+                    inst._RefreshList()
+            }
+        }
+    }
+
+    _AiClearChatUi(t) {
+        try this.ui.Update("SideAiMsgs_" t, "ClearItems", "")
+        this._AiHideThinking(t)
+    }
+
+    _AiBuildApiMessages(t) {
+        msgs := []
+        msgs.Push(Map("role", "system", "content", AiAssist.BuildSystemPrompt()))
+        if (IsObject(this._aiHist) && this._aiHist.Has(t)) {
+            arr := this._aiHist[t]
+            start := 1
+            maxKeep := 24
+            if (arr.Length > maxKeep)
+                start := arr.Length - maxKeep + 1
+            i := start
+            while (i <= arr.Length) {
+                m := arr[i]
+                if (Type(m) = "Map")
+                    msgs.Push(this._AiApiMessage(m))
+                i++
+            }
+        }
+        return msgs
+    }
+
+    _AiApiMessage(m) {
+        role := m.Has("role") ? String(m["role"]) : "user"
+        content := m.Has("content") ? String(m["content"]) : ""
+        if (role = "user")
+            content := this._AiExpandAttachForApi(content)
+        out := Map("role", role, "content", content)
+        if (m.Has("tool_calls"))
+            out["tool_calls"] := m["tool_calls"]
+        if (m.Has("tool_call_id"))
+            out["tool_call_id"] := m["tool_call_id"]
+        if (m.Has("reasoning_content") && m["reasoning_content"] != "")
+            out["reasoning_content"] := m["reasoning_content"]
+        else if (m.Has("reasoning") && m["reasoning"] != "")
+            out["reasoning_content"] := m["reasoning"]
+        if (m.Has("raw"))
+            out["raw"] := m["raw"]
+        return out
+    }
+
+    _AiExpandAttachForApi(text) {
+        paths := this._AiExtractFilePaths(text)
+        if (paths.Length < 1)
+            return text
+        display := Trim(RegExReplace(text, "\[([^\]]+)\]\(rmtfile:[^)]+\)", "$1"))
+        extra := ""
+        for path in paths {
+            extra .= this._AiReadAttachBody(path)
+        }
+        return Trim(display) extra
+    }
+
+    _AiReadAttachBody(path) {
+        if (path == "" || !FileExist(path))
+            return "`n`n[文件不存在] " path
+        SplitPath(path, &name, , &ext)
+        ext := StrLower(ext)
+        if (RegExMatch(ext, "i)^(png|jpe?g|gif|bmp|webp|ico)$"))
+            return "`n`n[图片] " name " 路径: " path
+        maxChars := 24000
+        raw := ""
+        try {
+            f := FileOpen(path, "r", "UTF-8")
+            raw := f.Read(maxChars + 1)
+            f.Close()
+        } catch {
+            try {
+                f := FileOpen(path, "r")
+                raw := f.Read(maxChars + 1)
+                f.Close()
+            } catch {
+                return "`n`n[无法读取] " name " 路径: " path
+            }
+        }
+        if (StrLen(raw) > maxChars)
+            raw := SubStr(raw, 1, maxChars) "`n…(已截断)"
+        fence := Chr(96) Chr(96) Chr(96)
+        return "`n`n### 附件 " name "`n路径: " path "`n" fence ext "`n" raw "`n" fence
     }
 
     ; ============ 宏列表渲染 ============
@@ -2442,7 +3579,7 @@ class MainWin {
         ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
         foldBg := fold.ForbidState ? "{DynamicResource ListRowForbidBg}" : "{DynamicResource FoldHeaderBg}"
         xaml := '<Border ' ns ' Name="FoldCard_' t '_' f '" CornerRadius="0" BorderThickness="0" BorderBrush="{DynamicResource OutlineStroke}" Background="' foldBg '" Margin="0" Padding="8,6,8,6"' this._BorderSnap() '>'
-            . '<StackPanel VerticalAlignment="Center" TextElement.FontSize="' XAMLHost.FormatFontSize(XAMLHost.ScaleFontSize(11)) '">'
+            . '<StackPanel Name="FoldCardInner_' t '_' f '" Opacity="' (fold.ForbidState ? this._ForbidContentOpacity() : "1") '" VerticalAlignment="Center" TextElement.FontSize="' XAMLHost.FormatFontSize(XAMLHost.ScaleFontSize(11)) '">'
             . this._BuildFoldDividerXaml(false, isFirst)
             . this._BuildFoldHeaderRowXaml(t, f, fold, false)
         if (isMenu || isUI) {
@@ -2525,24 +3662,44 @@ class MainWin {
             . '<Trigger Property="IsReadOnly" Value="True"><Setter Property="FontSize" Value="' foldFs '"/></Trigger>'
             . '</Style.Triggers></Style>'
         chatBox := '<Style x:Key="RmtAiChatBox" TargetType="TextBox">'
-            . '<Setter Property="FontSize" Value="' foldFs '"/>'
-            . '<Setter Property="MinHeight" Value="' this._AiInputLineH() '"/>'
-            . '<Setter Property="Padding" Value="' this._AiInputPad(1) '"/>'
+            . '<Setter Property="FontSize" Value="' this._AiChatBodyFontSize() '"/>'
+            . '<Setter Property="MinHeight" Value="' (this._AiInputLineH() - 2) '"/>'
+            . '<Setter Property="Padding" Value="0"/>'
             . '<Setter Property="TextWrapping" Value="Wrap"/>'
-            . '<Setter Property="AcceptsReturn" Value="False"/>'
+            . '<Setter Property="AcceptsReturn" Value="True"/>'
             . '<Setter Property="VerticalContentAlignment" Value="Center"/>'
             . '<Setter Property="TextAlignment" Value="Left"/>'
             . '<Setter Property="Foreground" Value="{DynamicResource InputText}"/>'
-            . '<Setter Property="Background" Value="{DynamicResource ControlBg}"/>'
-            . '<Setter Property="BorderBrush" Value="{DynamicResource InputStroke}"/>'
-            . '<Setter Property="BorderThickness" Value="1.25"/>'
+            . '<Setter Property="Background" Value="Transparent"/>'
+            . '<Setter Property="BorderBrush" Value="Transparent"/>'
+            . '<Setter Property="BorderThickness" Value="0"/>'
             . '<Setter Property="VerticalScrollBarVisibility" Value="Hidden"/>'
             . '<Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>'
             . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TextBox">'
-            . '<Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3"' this._BorderSnap() '>'
-            . '<ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" HorizontalScrollBarVisibility="{TemplateBinding HorizontalScrollBarVisibility}" VerticalScrollBarVisibility="{TemplateBinding VerticalScrollBarVisibility}"/>'
+            . '<Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="' this._AiInputRadius() '"' this._BorderSnap() '>'
+            . '<ScrollViewer x:Name="PART_ContentHost" Margin="0" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" HorizontalScrollBarVisibility="{TemplateBinding HorizontalScrollBarVisibility}" VerticalScrollBarVisibility="{TemplateBinding VerticalScrollBarVisibility}"/>'
             . '</Border></ControlTemplate></Setter.Value></Setter></Style>'
+        aiIconBtn := '<Style x:Key="RmtAiIconBtn" TargetType="Button">'
+            . '<Setter Property="Width" Value="22"/><Setter Property="Height" Value="22"/><Setter Property="MinHeight" Value="22"/>'
+            . '<Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0"/>'
+            . '<Setter Property="Cursor" Value="Hand"/>'
+            . '<Setter Property="Background" Value="Transparent"/>'
+            . '<Setter Property="BorderBrush" Value="Transparent"/>'
+            . '<Setter Property="BorderThickness" Value="0"/>'
+            . '<Setter Property="Foreground" Value="{DynamicResource TextSub}"/>'
+            . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">'
+            . '<Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="3" Width="22" Height="22">'
+            . '<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>'
+            . '</Border>'
+            . '<ControlTemplate.Triggers>'
+            . '<Trigger Property="IsMouseOver" Value="True">'
+            . '<Setter TargetName="Bd" Property="Background" Value="{DynamicResource ControlBgHover}"/>'
+            . '<Setter Property="Foreground" Value="{DynamicResource TextMain}"/>'
+            . '</Trigger>'
+            . '</ControlTemplate.Triggers>'
+            . '</ControlTemplate></Setter.Value></Setter></Style>'
         aiMsgBox := '<Style x:Key="RmtAiMsgBox" TargetType="RichTextBox">'
+            . '<Setter Property="FontSize" Value="' this._AiChatBodyFontSize() '"/>'
             . '<Setter Property="IsReadOnly" Value="True"/>'
             . '<Setter Property="IsDocumentEnabled" Value="True"/>'
             . '<Setter Property="BorderThickness" Value="0"/>'
@@ -2761,7 +3918,7 @@ class MainWin {
             . '<Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource ControlBorder}"/></Trigger>'
             . '<Trigger Property="IsSelected" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource TabSelBg}"/></Trigger>'
             . '</ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
-        return fieldBox . chatBox . aiMsgBox . toolBtn . primaryBtn . editBtn . forbidBtn . itemForbid . itemFieldBtn . itemCombo . aiRail . sideModeTab . sideTreeItem
+        return fieldBox . chatBox . aiIconBtn . aiMsgBox . toolBtn . primaryBtn . editBtn . forbidBtn . itemForbid . itemFieldBtn . itemCombo . aiRail . sideModeTab . sideTreeItem
     }
 
     ; 模块头输入框：RmtFoldFieldBox 覆盖全局 TextBox Padding=12，保证与占位符左对齐
@@ -2873,7 +4030,8 @@ class MainWin {
             . '<DataTrigger Binding="{Binding FoldForbid}" Value="True"><Setter Property="Background" Value="{DynamicResource ListRowForbidBg}"/></DataTrigger>'
             . '<DataTrigger Binding="{Binding RowSel}" Value="True"><Setter Property="Background" Value="{DynamicResource TabSelBg}"/></DataTrigger>'
             . '</Style.Triggers></Style></Border.Style>'
-            . '<Grid Height="24" VerticalAlignment="Center">'
+            . '<Grid Height="24" VerticalAlignment="Center"' this._ItemForbidOpacityAttrs(t == 0, t, i, forbid) '>'
+            . this._ItemForbidOpacityStyle(t == 0)
             . '<Grid.ColumnDefinitions><ColumnDefinition Width="' this._ItemDragColW() '"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>'
             . '<Grid Grid.Column="0" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" ClipToBounds="False">'
             . this._BuildRowSelDotXaml(t == 0, t, i, rowSel)
@@ -2887,8 +4045,26 @@ class MainWin {
         return '</Grid></Grid></Border>'
     }
 
-    _RowSelGlyph(*) {
-        return Chr(0xE72A)
+    ; 禁用时内容整体变淡（边框/文字一起暗淡），不靠深色底
+    _ItemForbidOpacityAttrs(vlMode, t := 0, i := 0, forbid := false) {
+        if (vlMode)
+            return ""
+        return ' Name="ItemCardInner_' t '_' i '" Opacity="' (forbid ? this._ForbidContentOpacity() : "1") '"'
+    }
+
+    _ForbidContentOpacity() {
+        return "0.42"
+    }
+
+    _ItemForbidOpacityStyle(vlMode) {
+        if (!vlMode)
+            return ""
+        op := this._ForbidContentOpacity()
+        return '<Grid.Style><Style TargetType="Grid"><Setter Property="Opacity" Value="1"/>'
+            . '<Style.Triggers>'
+            . '<DataTrigger Binding="{Binding Forbid}" Value="True"><Setter Property="Opacity" Value="' op '"/></DataTrigger>'
+            . '<DataTrigger Binding="{Binding FoldForbid}" Value="True"><Setter Property="Opacity" Value="' op '"/></DataTrigger>'
+            . '</Style.Triggers></Style></Grid.Style>'
     }
 
     _BuildRowSelDotXaml(vlMode, t := 0, i := 0, rowSel := false) {
@@ -2905,10 +4081,7 @@ class MainWin {
     }
 
     _BuildRowSelIconXaml(vlMode, t := 0, i := 0, rowSel := false) {
-        glyph := this._RowSelGlyph()
-        body := '<TextBlock Text="' glyph '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"'
-            . ' Foreground="{DynamicResource Accent}" VerticalAlignment="Center" HorizontalAlignment="Left"'
-            . ' Margin="0,0,0,0" IsHitTestVisible="False"/>'
+        body := CmdKeyRightIconXaml("{DynamicResource Accent}", 15, 12, "2.1")
         if (vlMode) {
             return '<Grid HorizontalAlignment="Left" VerticalAlignment="Center">'
                 . '<Grid.Style><Style TargetType="Grid"><Setter Property="Visibility" Value="Collapsed"/>'
@@ -3269,6 +4442,7 @@ class MainWin {
         rowSel := this._sideTreeSel.Has(t) && this._sideTreeSel[t] == item.ID
         cardBg := rowSel ? "{DynamicResource TabSelBg}" : ((item.Forbid || GetItemFoldForbidState(tableItem, i)) ? "{DynamicResource ListRowForbidBg}" : "{DynamicResource ControlBg}")
         this.ui.Update("ItemCard_" t "_" i, "Background", cardBg)
+        try this.ui.Update("ItemCardInner_" t "_" i, "Opacity", (item.Forbid || GetItemFoldForbidState(tableItem, i)) ? this._ForbidContentOpacity() : "1")
         this.ui.Update("RowSelDot_" t "_" i, "Visibility", rowSel ? "Visible" : "Collapsed")
         this.ui.Update("RowSelMark_" t "_" i, "Visibility", rowSel ? "Visible" : "Collapsed")
         this.UpdateItemColor(t, i)
@@ -3350,6 +4524,8 @@ class MainWin {
         fold := '<DataTemplate x:Key="RmtFoldHeader' suf '">'
             . this._BuildFoldCardBorderOpen()
             . '<StackPanel VerticalAlignment="Center" TextElement.FontSize="' foldFs '">'
+            . '<StackPanel.Style><Style TargetType="StackPanel"><Setter Property="Opacity" Value="1"/>'
+            . '<Style.Triggers><DataTrigger Binding="{Binding FoldForbid}" Value="True"><Setter Property="Opacity" Value="' this._ForbidContentOpacity() '"/></DataTrigger></Style.Triggers></Style></StackPanel.Style>'
             . this._BuildFoldDividerXaml(true)
             . this._BuildFoldHeaderRowXaml(0, 0, "", true)
             . '<StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,4,0,0" Visibility="{Binding ShowTKRowVisibility}">'
@@ -3452,6 +4628,7 @@ class MainWin {
             this.ui.Update("FoldForbidDot_" t "_" f, "Visibility", "Collapsed")
         }
         this.ui.Update("FoldCard_" t "_" f, "Background", forbidState ? "{DynamicResource ListRowForbidBg}" : "{DynamicResource FoldHeaderBg}")
+        try this.ui.Update("FoldCardInner_" t "_" f, "Opacity", forbidState ? this._ForbidContentOpacity() : "1")
         tableItem := MySoftData.TableInfo[t]
         fold := tableItem.Folds[f]
         if (!fold)

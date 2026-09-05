@@ -184,18 +184,8 @@ class SettingMgrGui {
         this._revealed := false
         ; Show 前入队配置：LoadedHwnd 时引擎先 flush _updateQueue 再调 OnWindowLoad，首帧已有文案
         this.Refresh()
-        this.ui.Show()
-        gotHwnd := false
-        loop 40 {
-            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
-                gotHwnd := true
-                ; 内容已入队并在 LoadedHwnd 刷入，立即揭盖（主题界面同款；引擎在 Show 前已离屏隐藏）
-                try this.ui.Update("Window", "Opacity", "1")
-                try WinActivate("ahk_id " this.ui.wpfHwnd)
-                break
-            }
-            Sleep(50)
-        }
+        if (!XamlWin.Open(this.ui, "", XamlWin.Owner(this)))
+            this.closed := true
         ; LoadedHwnd 若丢失则兜底（正常路径等待循环已 reveal）
         SetTimer(ObjBindMethod(this, "_RevealFallback"), -800)
     }
@@ -234,13 +224,7 @@ class SettingMgrGui {
     }
 
     OnWindowLoad(state, ctrl, event) {
-        try {
-            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
-            ApplyXamlTheme(this.ui, themeName)
-            this.Refresh()
-        } catch {
-        }
-        this._TryReveal("theme")
+        XamlWin.OnLoadTheme(this.ui)
     }
 
     ; 揭盖一次（防重复）：引擎还原位置并显示，窗口从离屏直接变完整内容，无 Hide/Show

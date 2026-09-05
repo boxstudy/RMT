@@ -462,7 +462,12 @@ OnClickTriggerJoyTypeHelpBtn(*) {
 
 OnExitSoft(*) {
     global MyPToken, MyChineseOcr, MyEnglishOcr, MyUIMacroGui, MyWorkPool, MyVoiceEngine
-    global MainSoftData, MySoftData, IniFile, IniSection
+    global MainSoftData, MySoftData, IniFile, IniSection, MyMainWin
+
+    try {
+        if (IsSet(MyMainWin) && IsObject(MyMainWin))
+            MyMainWin._AiPersistAllTabs()
+    }
 
     ; ① 先隐藏主窗口：WPF 窗口属于 daemon 进程，进程清理期间仍留在屏幕上正是「窗口关得慢」的主因。
     ;    先隐藏后，用户感知窗口立即关闭，其余清理在后台进行。

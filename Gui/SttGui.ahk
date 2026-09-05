@@ -181,19 +181,7 @@ class SttGui {
         this.ui.OnEvent("TopCon", "Checked", ObjBindMethod(this, "OnTogTop"))
         this.ui.OnEvent("TopCon", "Unchecked", ObjBindMethod(this, "OnTogTop"))
 
-        this.ui.Show()
-
-        gotHwnd := false
-        loop 40 {
-            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
-                gotHwnd := true
-                try WinActivate("ahk_id " this.ui.wpfHwnd)
-                try SetTimer((*) => this.ui.Update("Window", "Opacity", "1"), -10)
-                break
-            }
-            Sleep(50)
-        }
-        if (!gotHwnd) {
+        if (!XamlWin.Open(this.ui, "", XamlWin.Owner(this))) {
             this.hasGui := false
             SttGui.instances.Delete("global")
             return
@@ -206,11 +194,7 @@ class SttGui {
     }
 
     OnWindowLoad(state, ctrl, event) {
-        try {
-            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
-            ApplyXamlTheme(this.ui, themeName)
-        } catch {
-        }
+        XamlWin.OnLoadTheme(this.ui)
     }
 
     OnWindowClosing(state, ctrl, event) {

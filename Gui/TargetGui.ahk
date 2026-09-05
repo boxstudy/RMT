@@ -176,17 +176,7 @@ class TargetGui {
         this.ui.OnEvent("Root", "MouseLeftButtonDown", ObjBindMethod(this, "OnConfirmClick"))
         this.ui.OnEvent("Root", "MouseRightButtonDown", ObjBindMethod(this, "OnCancelClick"))
 
-        this.ui.Show()
-
-        gotHwnd := false
-        loop 40 {
-            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
-                gotHwnd := true
-                break
-            }
-            Sleep(50)
-        }
-        if (!gotHwnd) {
+        if (!XamlWin.Open(this.ui, "", "", false)) {
             this._closed := true
             this.Gui := ""
             return

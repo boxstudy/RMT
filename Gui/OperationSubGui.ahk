@@ -44,6 +44,8 @@ class OperationSubGui {
             try SafeGuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
         }
         this.Init(Index, ExpressStr)
+        if (!XamlWin.Open(this.ui, "", XamlWin.Owner(this)))
+            this._closed := true
     }
 
     ; 兼容接口：原生 AddGui() 创建并显示窗口（MacroGraphFormal.ahk:577 直接调用）。
@@ -52,6 +54,7 @@ class OperationSubGui {
         if (IsObject(this.ui) && !this._closed)
             return
         this._BuildAndShow()
+        XamlWin.Open(this.ui, "", XamlWin.Owner(this))
     }
 
     _BuildAndShow() {
@@ -135,22 +138,6 @@ class OperationSubGui {
         this.ui.OnEvent("BtnBackspace", "Click", ObjBindMethod(this, "OnBackspaceBtnClick"))
         this.ui.OnEvent("BtnSure", "Click", ObjBindMethod(this, "OnClickSureBtn"))
 
-        this.ui.Show()
-
-        gotHwnd := false
-        loop 40 {
-            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
-                gotHwnd := true
-                if (this.OwnerHwnd != "")
-                    try this.ui.Update("Window", "NativeOwner", String(this.OwnerHwnd))
-                try WinActivate("ahk_id " this.ui.wpfHwnd)
-                try SetTimer((*) => this.ui.Update("Window", "Opacity", "1"), -10)
-                break
-            }
-            Sleep(50)
-        }
-        if (!gotHwnd)
-            this._closed := true
     }
 
     Init(Index, ExpressStr) {
@@ -173,12 +160,7 @@ class OperationSubGui {
     }
 
     OnWindowLoad(state, ctrl, event) {
-        try {
-            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
-            ApplyXamlTheme(this.ui, themeName)
-        } catch {
-        } finally {
-        }
+        XamlWin.OnLoadTheme(this.ui)
     }
 
     OnWindowClosing(state, ctrl, event) {

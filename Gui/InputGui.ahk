@@ -33,6 +33,8 @@ class InputGui {
             this._flushBatch()
         }
         this.RefreshConVisable()
+        if (!XamlWin.Open(this.ui, "", XamlWin.Owner(this)))
+            this._closed := true
     }
 
     Hwnd() {
@@ -139,31 +141,10 @@ class InputGui {
         this.ui.OnEvent("TypeCombo", "SelectionChanged", ObjBindMethod(this, "OnRefreshType"))
         this.ui.OnEvent("BtnOk", "Click", ObjBindMethod(this, "OnClickSureBtn"))
 
-        this.ui.Show()
-
-        gotHwnd := false
-        loop 40 {
-            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
-                gotHwnd := true
-                if (this.OwnerHwnd != "")
-                    try this.ui.Update("Window", "NativeOwner", String(this.OwnerHwnd))
-                try WinActivate("ahk_id " this.ui.wpfHwnd)
-                try SetTimer((*) => this.ui.Update("Window", "Opacity", "1"), -10)
-                break
-            }
-            Sleep(50)
-        }
-        if (!gotHwnd)
-            this._closed := true
     }
 
     OnWindowLoad(state, ctrl, event) {
-        try {
-            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
-            ApplyXamlTheme(this.ui, themeName)
-        } catch {
-        } finally {
-        }
+        XamlWin.OnLoadTheme(this.ui)
     }
 
     OnWindowClosing(state, ctrl, event) {

@@ -162,23 +162,12 @@ class ColorPanelGui {
         this.ui.OnEvent("BtnPanelClose", "Click", ObjBindMethod(this, "OnClose"))
         this.ui.OnEvent("DragArea", "MouseLeftButtonDown", ObjBindMethod(this, "OnPanelMouseDown"))
 
-        this.ui.Show()
-
-        PanelPosX := A_ScreenWidth - this.GuiWidth
-        gotHwnd := false
-        loop 40 {
-            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
-                gotHwnd := true
-                ; 原生初始位置：右下角 (x = 屏宽 - 160, y = 0)
-                ; try 守护：刚拿到句柄也可能被 daemon 立即关闭（极端竞态），失败不影响重建流程
-                try WinMove(PanelPosX, 0, , , this.ui.wpfHwnd)
-                try SetTimer((*) => this.ui.Update("Window", "Opacity", "1"), -10)
-                break
-            }
-            Sleep(50)
-        }
-        if (!gotHwnd)
+        if (!XamlWin.Open(this.ui, "", "", false))
             this._closed := true
+        else {
+            PanelPosX := A_ScreenWidth - this.GuiWidth
+            try WinMove(PanelPosX, 0, , , this.ui.wpfHwnd)
+        }
         this.Gui := this._NewGuiFacade()
     }
 

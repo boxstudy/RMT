@@ -48,6 +48,8 @@ class SearchGui {
             try SafeGuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
         }
         this.Init(cmd)
+        if (!XamlWin.Open(this.ui, "", XamlWin.Owner(this)))
+            this._closed := true
         this.ToggleFunc(true)
     }
 
@@ -208,22 +210,6 @@ class SearchGui {
         ; （Init 会用 Data.MouseActionType 覆盖；数据校验失败提前 return 时也能保持原生默认）
         this.ui.Update("MouseActionTypeCon", "SelectedIndex", "1")
 
-        this.ui.Show()
-
-        gotHwnd := false
-        loop 40 {
-            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
-                gotHwnd := true
-                if (this.OwnerHwnd != "")
-                    try this.ui.Update("Window", "NativeOwner", String(this.OwnerHwnd))
-                try WinActivate("ahk_id " this.ui.wpfHwnd)
-                try SetTimer((*) => this.ui.Update("Window", "Opacity", "1"), -10)
-                break
-            }
-            Sleep(50)
-        }
-        if (!gotHwnd)
-            this._closed := true
     }
 
     ; ---------------- 数据 ----------------
@@ -612,11 +598,7 @@ class SearchGui {
     ; ---------------- 生命周期 ----------------
 
     OnWindowLoad(state, ctrl, event) {
-        try {
-            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
-            ApplyXamlTheme(this.ui, themeName)
-        } catch {
-        }
+        XamlWin.OnLoadTheme(this.ui)
     }
 
     OnWindowClosing(state, ctrl, event) {

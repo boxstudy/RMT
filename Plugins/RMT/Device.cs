@@ -12,15 +12,27 @@ namespace RMT
             {
                 using (var mc = new ManagementClass("Win32_BaseBoard"))
                     foreach (ManagementObject mo in mc.GetInstances())
-                    { id += mo["SerialNumber"]?.ToString() ?? ""; break; }
+                    {
+                        object sn = mo["SerialNumber"];
+                        id += sn != null ? sn.ToString() : "";
+                        break;
+                    }
 
                 using (var mc = new ManagementClass("Win32_Processor"))
                     foreach (ManagementObject mo in mc.GetInstances())
-                    { id += mo["ProcessorId"]?.ToString() ?? ""; break; }
+                    {
+                        object sn = mo["ProcessorId"];
+                        id += sn != null ? sn.ToString() : "";
+                        break;
+                    }
 
                 using (var mc = new ManagementClass("Win32_DiskDrive"))
                     foreach (ManagementObject mo in mc.GetInstances())
-                    { id += mo["SerialNumber"]?.ToString() ?? ""; break; }
+                    {
+                        object sn = mo["SerialNumber"];
+                        id += sn != null ? sn.ToString() : "";
+                        break;
+                    }
             }
             catch { id = Environment.MachineName + Environment.UserName; } // 回退方案
 

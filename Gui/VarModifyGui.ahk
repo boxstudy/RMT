@@ -113,18 +113,9 @@ class VarModifyGui {
         this.ui.OnEvent("ValueCon", "TextChanged", ObjBindMethod(this, "OnValueTextChanged"))
 
         this.Gui := this  ; 兼容：若外部读 .Gui，指向自身（含 Hwnd）
-        this.ui.Show()
-
-        loop 40 {
-            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
-                this._ApplyOwner()
-                this._ApplyValuesToUI()
-                try this.ui.Update("Window", "Opacity", "1")
-                try WinActivate("ahk_id " this.ui.wpfHwnd)
-                break
-            }
-            Sleep(50)
-        }
+        this._ApplyValuesToUI()
+        if (!XamlWin.Open(this.ui, "", XamlWin.Owner(this)))
+            this.closed := true
     }
 
     Hwnd {
@@ -132,14 +123,7 @@ class VarModifyGui {
     }
 
     OnWindowLoad(state, ctrl, event) {
-        try {
-            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
-            ApplyXamlTheme(this.ui, themeName)
-            this._ApplyOwner()
-            this._ApplyValuesToUI()
-        } finally {
-            this.ui.Update("Window", "Opacity", "1")
-        }
+        XamlWin.OnLoadTheme(this.ui)
     }
 
     OnWindowClosing(state, ctrl, event) {

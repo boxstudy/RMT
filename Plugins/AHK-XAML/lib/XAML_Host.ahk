@@ -518,6 +518,37 @@ class XAMLHost {
         return Max(themeMin, Max(6, v))
     }
 
+    ; 相对主题平移、不抬到主题下限。ScaleFontSize 有 themeMin，声明 12/11 在默认主题下会被抬成 15，改字号看不出变化。
+    static ScaleFontSizeRelative(declared) {
+        global XAML_FontSizeDelta, XAML_FontSizeBase
+        XAMLHost.SyncThemeFontDelta()
+        delta := IsSet(XAML_FontSizeDelta) ? XAML_FontSizeDelta : 0
+        return Max(6, Float(declared) + delta)
+    }
+
+    static ChatBodyDesignSize() {
+        return 12
+    }
+
+    static ChatSmallDesignSize() {
+        return 11
+    }
+
+    static ChatBodyFontSize() {
+        return XAMLHost.FormatFontSize(XAMLHost.ScaleFontSizeRelative(XAMLHost.ChatBodyDesignSize()))
+    }
+
+    static ChatSmallFontSize() {
+        return XAMLHost.FormatFontSize(XAMLHost.ScaleFontSizeRelative(XAMLHost.ChatSmallDesignSize()))
+    }
+
+    static SyncChatFontResources(host) {
+        if (!IsObject(host))
+            return
+        try host.Update("Resource", "AiChatFontSize", "Double:" XAMLHost.ChatBodyFontSize())
+        try host.Update("Resource", "AiChatFontSizeSmall", "Double:" XAMLHost.ChatSmallFontSize())
+    }
+
     static FormatFontSize(v) {
         v := Float(v)
         return (v = Floor(v)) ? Integer(v) : v
@@ -666,6 +697,7 @@ class XAMLHost {
             if (!DllCall("user32\IsWindow", "Ptr", host.wpfHwnd, "Int"))
                 continue
             try host.Update("Window", "ApplyFonts", payload)
+            XAMLHost.SyncChatFontResources(host)
         }
     }
 
@@ -2004,6 +2036,7 @@ class XAMLHost {
                 try {
                     themeFs := XAMLHost.GetThemeFontSize()
                     instance.Update("Window", "ApplyFonts", XAMLHost.BuildApplyFontsPayload(0, themeFs))
+                    XAMLHost.SyncChatFontResources(instance)
                 }
             }
             ; 配置管理同款：队列和字号刷完立刻揭盖。再等 OnWindowLoad 只会让已在屏上的黑框更久。

@@ -1212,7 +1212,12 @@ public partial class AhkWpfEngine
                     foreach (object item in ((ListBox)ctrl).Items)
                     {
                         var lbi = item as ListBoxItem;
-                        if (lbi != null && lbi.Tag != null && lbi.Tag.ToString() == tagHash)
+                        if (lbi == null)
+                            continue;
+                        bool match = (lbi.Tag != null && lbi.Tag.ToString() == tagHash);
+                        if (!match)
+                            match = FindDescendantByTag(lbi, tagHash) != null;
+                        if (match)
                         {
                             ((ListBox)ctrl).ScrollIntoView(lbi);
                             break;
@@ -3881,6 +3886,24 @@ public partial class AhkWpfEngine
             p = next;
         }
         return false;
+    }
+
+    private static FrameworkElement FindDescendantByTag(DependencyObject root, string tag)
+    {
+        if (root == null || string.IsNullOrEmpty(tag))
+            return null;
+        int n = VisualTreeHelper.GetChildrenCount(root);
+        for (int i = 0; i < n; i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            var fe = child as FrameworkElement;
+            if (fe != null && fe.Tag != null && fe.Tag.ToString() == tag)
+                return fe;
+            var found = FindDescendantByTag(child, tag);
+            if (found != null)
+                return found;
+        }
+        return null;
     }
 
     // 固定 Height 的按钮/下拉/输入框随字号加高，避免文字被裁切；标题栏窄按钮（宽<=40 且未设高）不改。

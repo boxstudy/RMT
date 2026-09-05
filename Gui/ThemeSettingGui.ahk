@@ -206,36 +206,10 @@ class ThemeSettingGui {
         for def in AppThemeUtil.ColorDefs
             this.ui.OnEvent(def.Key "_Preview", "MouseLeftButtonDown", ObjBindMethod(this, "OnPickColor", def.Key, def.Label))
 
-        ; Show 前入队主题色+控件值：LoadedHwnd 一次刷完再揭盖，避免白框→描边→滚动条→阴影分段刷新
         this._applyingTheme := true
         this.LoadInitValues()
-        try {
-            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
-            ApplyXamlTheme(this.ui, themeName)
-        } catch as e {
-            XamlUiDiag("preShow ApplyXamlTheme err: " e.Message, "Theme")
-        }
         this.ApplyValuesToUI()
-        XamlUiDiag("before ui.Show() hostId=" this.ui.id, "Theme")
-        tShow := A_TickCount
-        this.ui.Show()
-        XamlUiDiag("ui.Show() returned cost=" (A_TickCount - tShow) "ms", "Theme")
-
-        gotHwnd := false
-        loop 40 {
-            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
-                gotHwnd := true
-                hwnd := this.ui.wpfHwnd
-                XamlUiDiag("got wpfHwnd at loop=" A_Index " +" (A_TickCount - tShow) "ms", "Theme")
-                ; LoadedHwnd 异步后 Opacity=1 可能尚未执行，这里兜底强制可见
-                try this.ui.Update("Window", "Opacity", "1")
-                try WinActivate("ahk_id " hwnd)
-                XamlUiDiagWindow(hwnd, "Theme.afterShow", true)
-                break
-            }
-            Sleep(50)
-        }
-        if (!gotHwnd) {
+        if (!XamlWin.Open(this.ui)) {
             XamlUiDiag("FAIL: no wpfHwnd after wait (LoadedHwnd missing?)", "Theme")
             XamlUiDiagDaemon("Theme.noHwnd")
         }

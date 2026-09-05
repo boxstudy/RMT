@@ -136,30 +136,21 @@ class RmtDialog {
             ui.OnEvent("Btn" idx, "Click", ObjBindMethod(RmtDialog, "_OnPick", ui, resultObj, btnText, owner))
         }
 
-        try {
-            themeName := (IsSet(MainSoftData) && MainSoftData.HasProp("Theme") && MainSoftData.Theme != "") ? MainSoftData.Theme : "RMT_Light"
-            ApplyXamlTheme(ui, themeName)
-        } catch as e {
-            RmtDialog._Trace("ApplyXamlTheme err=" e.Message)
+        RmtDialog._Trace("Show start owner=" owner " w=" winW " fs=" fs)
+        if (!XamlWin.Open(ui, "", owner)) {
+            try {
+                dir := A_ScriptDir "\Log"
+                if !DirExist(dir)
+                    DirCreate(dir)
+                FileAppend(ui.xaml, dir "\RmtDialog.last.xaml", "UTF-8")
+            }
+            throw Error("Dialog window failed to open")
         }
 
-        RmtDialog._Trace("Show start owner=" owner " w=" winW " fs=" fs)
-        ui.Show()
-
-        waitStart := A_TickCount
-        while (resultObj.Button == "" && (ui.wpfHwnd == 0 || WinExist("ahk_id " ui.wpfHwnd))) {
+        while (resultObj.Button == "" && WinExist("ahk_id " ui.wpfHwnd)) {
             if (ui.wpfHwnd && owner && !ownerDisabled) {
                 try WinSetEnabled(0, "ahk_id " owner)
                 ownerDisabled := true
-            }
-            if (ui.wpfHwnd == 0 && A_TickCount - waitStart > 5000) {
-                try {
-                    dir := A_ScriptDir "\Log"
-                    if !DirExist(dir)
-                        DirCreate(dir)
-                    FileAppend(ui.xaml, dir "\RmtDialog.last.xaml", "UTF-8")
-                }
-                throw Error("Dialog window failed to open")
             }
             Sleep(50)
         }
@@ -173,9 +164,7 @@ class RmtDialog {
     }
 
     static _OnLoad(ui, owner, state := "", ctrl := "", event := "") {
-        if (owner)
-            try ui.Update("Window", "NativeOwner", owner)
-        try ui.Update("Window", "Opacity", "1")
+        XamlWin.OnLoadTheme(ui)
     }
 
     static _OnClosing(resultObj, owner, state := "", ctrl := "", event := "") {

@@ -296,7 +296,10 @@ class XDialog {
             ui.Track("DialogInput")
         }
 
-        ui.Show()
+        if (IsSet(XamlWin))
+            XamlWin.Open(ui, "", actualOwner)
+        else
+            ui.Show()
         try RmtDialog._Trace("XDialog.Show after ui.Show hwnd=" ui.wpfHwnd " id=" ui.id " daemon=" XAMLHost.daemonHwnd)
 
         if (waitForResponse) {
@@ -373,9 +376,13 @@ class XDialog {
         } catch as e {
             try RmtDialog._Trace("ApplyTheme err=" e.Message)
         }
-        try ApplyXamlTheme(ui, themeName)
-        catch as e {
-            try RmtDialog._Trace("ApplyXamlTheme err=" e.Message)
+        if (IsSet(XamlWin))
+            XamlWin.OnLoadTheme(ui)
+        else {
+            try ApplyXamlTheme(ui, themeName)
+            catch as e {
+                try RmtDialog._Trace("ApplyXamlTheme err=" e.Message)
+            }
         }
     }
 

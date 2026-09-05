@@ -308,16 +308,10 @@ class CMDTipSettingGui {
 
         this.LoadInitValues()
         this.ApplyValuesToUI()
-        this.ui.Show()
-        this.ToggleFunc(true)
-
-        loop 20 {
-            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
-                try WinActivate("ahk_id " this.ui.wpfHwnd)
-                break
-            }
-            Sleep(50)
-        }
+        if (!XamlWin.Open(this.ui, "", XamlWin.Owner(this)))
+            this.closed := true
+        else
+            this.ToggleFunc(true)
     }
 
     ToggleFunc(state) {
@@ -373,8 +367,7 @@ class CMDTipSettingGui {
 
     OnWindowLoad(state, ctrl, event) {
         try {
-            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
-            ApplyXamlTheme(this.ui, themeName)
+            XamlWin.OnLoadTheme(this.ui)
             this.ApplyValuesToUI()
         } finally {
             this.ui.Update("Window", "Opacity", "1")

@@ -202,16 +202,8 @@ class ToolRecordSettingGui {
 
         this.LoadInitValues()
         this.ApplyValuesToUI()
-        this.ui.Show()
-
-        loop 40 {
-            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
-                try this.ui.Update("Window", "Opacity", "1")
-                try WinActivate("ahk_id " this.ui.wpfHwnd)
-                break
-            }
-            Sleep(50)
-        }
+        if (!XamlWin.Open(this.ui, "", XamlWin.Owner(this)))
+            this.closed := true
     }
 
     LoadInitValues() {
@@ -363,8 +355,7 @@ class ToolRecordSettingGui {
 
     OnWindowLoad(state, ctrl, event) {
         try {
-            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
-            ApplyXamlTheme(this.ui, themeName)
+            XamlWin.OnLoadTheme(this.ui)
             this.ApplyValuesToUI()
         } finally {
             this.ui.Update("Window", "Opacity", "1")

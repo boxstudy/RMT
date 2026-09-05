@@ -23,6 +23,8 @@ class ErrorMsgBoxGui {
         this._BuildAndShow()
         if (IsObject(this.ui))
             this.ui.Update("TextCon", "Text", this.GetErrorText())
+        if (!XamlWin.Open(this.ui, "", XamlWin.Owner(this)))
+            this._closed := true
     }
 
     GetErrorText() {
@@ -57,12 +59,13 @@ class ErrorMsgBoxGui {
         main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize(XAMLHost.FontSize())
         main.Rows(titleHeight, "*")
 
-        ; === 标题栏 ===
-        tb := main.Add("Border").Grid_Row(0).Background("{DynamicResource TitleBarColor}").Name("DragArea")
-        tbInner := tb.Add("Grid")
-        tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TitleBarForeground}").FontSize(XAMLHost.TitleFontSize()).FontWeight("Bold").VerticalAlignment("Center").Margin("12,0,0,0")
-        BtnGroup := tbInner.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Right")
-        closeBtn := BtnGroup.Add("Button").Name("BtnClosePanel").WindowChrome_IsHitTestVisibleInChrome("True").Width(40).Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
+        ; === 标题栏：关闭钮不放进 DragArea，避免拖动吃掉点击 ===
+        tb := main.Add("Grid").Grid_Row(0).Background("{DynamicResource TitleBarColor}")
+        tb.Cols("*", "Auto")
+        drag := tb.Add("Border").Grid_Column(0).Background("{DynamicResource TitleBarColor}").Name("DragArea")
+        drag.Add("TextBlock").Text(title).Foreground("{DynamicResource TitleBarForeground}").FontSize(XAMLHost.TitleFontSize()).FontWeight("Bold").VerticalAlignment("Center").Margin("12,0,0,0")
+        closeBtn := tb.Add("Button").Name("BtnClose").Grid_Column(1).WindowChrome_IsHitTestVisibleInChrome("True")
+            .Width(40).Height(titleHeight).Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
         closeBtn.Add("TextBlock").Text(Chr(0xE8BB)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
 
         ; === 内容 ===
@@ -73,10 +76,10 @@ class ErrorMsgBoxGui {
             .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
             .ScrollViewer_VerticalScrollBarVisibility("Auto")
-        btnRow := body.Add("StackPanel").Grid_Row(1).Orientation("Horizontal").VerticalAlignment("Center")
-        btnRow.Add("Button").Name("BtnCopy").Content(GetLang("复制")).Width(80).Height(30).MinHeight(30).Margin("0,0,10,0")
-        btnRow.Add("Button").Name("BtnClear").Content(GetLang("清空")).Width(80).Height(30).MinHeight(30).Margin("0,0,10,0")
-        btnRow.Add("Button").Name("BtnClose").Content(GetLang("关闭")).Width(80).Height(30).MinHeight(30)
+        btnRow := body.Add("Grid").Grid_Row(1).HorizontalAlignment("Center").VerticalAlignment("Center")
+        btnRow.Cols("Auto", "300", "Auto")
+        btnRow.Add("Button").Name("BtnCopy").Grid_Column(0).Content(GetLang("复制")).Width(80).Height(30).MinHeight(30)
+        btnRow.Add("Button").Name("BtnOk").Grid_Column(2).Content(GetLang("确定")).Width(80).Height(30).MinHeight(30)
 
         ; === 创建 XAMLHost ===
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
@@ -88,34 +91,13 @@ class ErrorMsgBoxGui {
         ; === 事件 ===
         this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
         this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
-        this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
+        this.ui.OnEvent("BtnClose", "Click", ObjBindMethod(this, "OnCancelClick"))
         this.ui.OnEvent("BtnCopy", "Click", ObjBindMethod(this, "OnCopyBtnClick"))
-        this.ui.OnEvent("BtnClear", "Click", ObjBindMethod(this, "OnClearBtnClick"))
-        this.ui.OnEvent("BtnClose", "Click", ObjBindMethod(this, "OnCloseBtnClick"))
-
-        this.ui.Show()
-
-        gotHwnd := false
-        loop 40 {
-            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
-                gotHwnd := true
-                try WinActivate("ahk_id " this.ui.wpfHwnd)
-                try SetTimer((*) => (IsObject(this.ui) ? this.ui.Update("Window", "Opacity", "1") : ""), -10)
-                break
-            }
-            Sleep(50)
-        }
-        if (!gotHwnd)
-            this._closed := true
+        this.ui.OnEvent("BtnOk", "Click", ObjBindMethod(this, "OnCancelClick"))
     }
 
     OnWindowLoad(state, ctrl, event) {
-        try {
-            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
-            ApplyXamlTheme(this.ui, themeName)
-        } catch {
-        } finally {
-        }
+        XamlWin.OnLoadTheme(this.ui)
     }
 
     OnWindowClosing(state, ctrl, event) {
@@ -147,13 +129,4 @@ class ErrorMsgBoxGui {
         }
     }
 
-    OnClearBtnClick(state, ctrl, event) {
-        this.ErrorList := []
-        if (IsObject(this.ui))
-            this.ui.Update("TextCon", "Text", "")
-    }
-
-    OnCloseBtnClick(state, ctrl, event) {
-        this._CloseWindow()
-    }
 }

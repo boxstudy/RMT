@@ -1,15 +1,14 @@
 #Requires AutoHotkey v2.0
 
 global LastError := ""
+global _ErrShowing := false
 
+; 始终返回 1：阻止 AHK 默认错误框（Help/Edit/Reload/ExitApp），只走 RMT 错误窗
 ErrHandler(exception, mode) {
+    global LastError
     LastError := exception
-
-    result := _HandleError(exception)
-    if (result == true || result == "suppress")
-        return mode == "Return" ? -1 : 1
-
-    return 0
+    try _HandleError(exception)
+    return 1
 }
 
 _HandleError(exception) {
@@ -33,12 +32,13 @@ _HandleError(exception) {
         return true
     }
 
-    ; 其余错误：统一归口日志 + 错误中心聚合，不再弹 AHK 默认错误框（避免打断操作）
+    ; 其余错误：统一归口日志 + RMT 错误窗，不再弹 AHK 默认错误框
     _ShowError(fullInfo, stack)
     return true
 }
 
 _ShowError(msg, stack := "") {
+    global _ErrShowing
     fullMsg := msg
     if (stack != "")
         fullMsg .= "`n堆栈信息：`n" stack
@@ -46,15 +46,21 @@ _ShowError(msg, stack := "") {
     if (IsSet(MySoftData) && ObjHasOwnProp(MySoftData, "isWorker") && MySoftData.isWorker) {
         if (IsSet(MsgSendHandler)) {
             ; Worker：仅 ER 上报主进程（主进程统一记录日志 + 聚合，避免双写）
-            MsgSendHandler("Error", "error|" workIndex "|" fullMsg)
+            try MsgSendHandler("Error", "error|" workIndex "|" fullMsg)
             return
         }
     }
 
-    ; 主进程：归口系统日志 + 错误中心聚合（不模态弹窗打断）
-    RMTLogSys(RMT_LV_ERROR, "Master", fullMsg)
-    if (IsSet(MyErrorMsgBoxGui) && IsObject(MyErrorMsgBoxGui))
-        MyErrorMsgBoxGui.ShowGui(Format("[Master] {}", fullMsg))
-    else
-        msgbox(fullMsg)
+    if (_ErrShowing)
+        return
+    _ErrShowing := true
+    try {
+        ; 主进程：归口系统日志 + 错误中心聚合（不模态弹窗打断）
+        RMTLogSys(RMT_LV_ERROR, "Master", fullMsg)
+        if (IsSet(MyErrorMsgBoxGui) && IsObject(MyErrorMsgBoxGui))
+            MyErrorMsgBoxGui.ShowGui(Format("[Master] {}", fullMsg))
+    } catch {
+    } finally {
+        _ErrShowing := false
+    }
 }

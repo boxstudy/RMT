@@ -429,7 +429,8 @@ public partial class AhkWpfEngine
 
         element.AllowDrop = true;
 
-        element.DragEnter += (s, e) =>
+        // Preview*：TextBox 默认 AllowDrop 会在冒泡阶段把文件拖放吞掉（光标禁拖）
+        element.PreviewDragEnter += (s, e) =>
         {
             if (e.Data.GetDataPresent(dataFormat))
             {
@@ -449,7 +450,7 @@ public partial class AhkWpfEngine
             e.Handled = true;
         };
 
-        element.DragOver += (s, e) =>
+        element.PreviewDragOver += (s, e) =>
         {
             if (e.Data.GetDataPresent(dataFormat) || e.Data.GetDataPresent(DataFormats.FileDrop))
             {
@@ -462,12 +463,12 @@ public partial class AhkWpfEngine
             e.Handled = true;
         };
 
-        element.DragLeave += (s, e) =>
+        element.PreviewDragLeave += (s, e) =>
         {
             SendToAhk("EVENT|" + winId + "|" + ctrlName + "|DragLeave|\n");
         };
 
-        element.Drop += (s, e) =>
+        element.PreviewDrop += (s, e) =>
         {
             if (e.Data.GetDataPresent(dataFormat))
             {

@@ -273,16 +273,9 @@ class TimingGui {
         this.ui.OnEvent("EndEnableCon", "Checked", ObjBindMethod(this, "OnEndEnableChanged"))
         this.ui.OnEvent("EndEnableCon", "Unchecked", ObjBindMethod(this, "OnEndEnableChanged"))
 
-        this.ui.Show()
-        loop 40 {
-            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
-                this._ApplyValuesToUI()
-                try this.ui.Update("Window", "Opacity", "1")
-                try WinActivate("ahk_id " this.ui.wpfHwnd)
-                break
-            }
-            Sleep(50)
-        }
+        this._ApplyValuesToUI()
+        if (!XamlWin.Open(this.ui, "", XamlWin.Owner(this)))
+            this.closed := true
     }
 
     _AddTextBox(parent, name, text, width, readOnly := false, centerText := false) {
@@ -301,13 +294,7 @@ class TimingGui {
     }
 
     OnWindowLoad(state, ctrl, event) {
-        try {
-            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
-            ApplyXamlTheme(this.ui, themeName)
-            this._ApplyValuesToUI()
-        } finally {
-            this.ui.Update("Window", "Opacity", "1")
-        }
+        XamlWin.OnLoadTheme(this.ui)
     }
 
     OnWindowClosing(state, ctrl, event) {
@@ -580,40 +567,28 @@ class TimingGui {
         picker.Track("SecCon")
 
         this._pickerGui := picker
-        picker.Show()
-
-        loop 40 {
-            if (picker.HasProp("wpfHwnd") && picker.wpfHwnd) {
-                try picker.Update("Window", "Opacity", "1")
-                try WinActivate("ahk_id " picker.wpfHwnd)
-                break
-            }
-            Sleep(50)
-        }
+        XamlWin.Open(picker, ObjBindMethod(this, "_FillPicker", dateStr, hour, minute, second))
     }
 
     _OnPickerClosing(state := unset, ctrl := unset, event := unset) {
         this._pickerGui := ""
     }
 
+    _FillPicker(dateStr, hour, minute, second) {
+        if (!IsObject(this._pickerGui))
+            return
+        this._pickerGui.Update("CalendarCon", "SelectedDate", dateStr)
+        this._pickerGui.Update("CalendarCon", "DisplayDate", dateStr)
+        this._pickerGui.Update("HourCon", "Text", Format("{:02}", Integer(hour)))
+        this._pickerGui.Update("MinCon", "Text", Format("{:02}", Integer(minute)))
+        this._pickerGui.Update("SecCon", "Text", Format("{:02}", Integer(second)))
+        this._pickerGui.Update("HourCon", "SelectedIndex", String(Integer(hour)))
+        this._pickerGui.Update("MinCon", "SelectedIndex", String(Integer(minute)))
+        this._pickerGui.Update("SecCon", "SelectedIndex", String(Integer(second)))
+    }
+
     _OnPickerLoad(dateStr, hour, minute, second, state := unset, ctrl := unset, event := unset) {
-        try {
-            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
-            ApplyXamlTheme(this._pickerGui, themeName)
-
-            this._pickerGui.Update("CalendarCon", "SelectedDate", dateStr)
-            this._pickerGui.Update("CalendarCon", "DisplayDate", dateStr)
-
-            this._pickerGui.Update("HourCon", "Text", Format("{:02}", Integer(hour)))
-            this._pickerGui.Update("MinCon", "Text", Format("{:02}", Integer(minute)))
-            this._pickerGui.Update("SecCon", "Text", Format("{:02}", Integer(second)))
-
-            this._pickerGui.Update("HourCon", "SelectedIndex", String(Integer(hour)))
-            this._pickerGui.Update("MinCon", "SelectedIndex", String(Integer(minute)))
-            this._pickerGui.Update("SecCon", "SelectedIndex", String(Integer(second)))
-        } finally {
-            this._pickerGui.Update("Window", "Opacity", "1")
-        }
+        XamlWin.OnLoadTheme(this._pickerGui)
     }
 
     _OnPickerConfirmClick(which, state := unset, ctrl := unset, event := unset) {

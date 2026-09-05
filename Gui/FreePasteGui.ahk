@@ -91,20 +91,7 @@ class FreePasteGui {
         this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
         this.ui.OnEvent("OverlayCon", "PreviewMouseLeftButtonDown", ObjBindMethod(this, "OnOverlayMouseDown").Bind(localUi))
 
-        this.ui.Show()
-
-        gotHwnd := false
-        loop 40 {
-            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
-                gotHwnd := true
-                localHwnd := this.ui.wpfHwnd
-                try WinActivate("ahk_id " localHwnd)
-                try SetTimer((*) => localUi.Update("Window", "Opacity", "1"), -10)
-                break
-            }
-            Sleep(50)
-        }
-        if (!gotHwnd) {
+        if (!XamlWin.Open(this.ui)) {
             this.ui := ""
             return
         }

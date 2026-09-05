@@ -13,6 +13,7 @@
 #Include ..\Plugins\AHK-XAML\lib\XAML_Adv_Components.ahk
 #Include ..\Plugins\AHK-XAML\lib\XAML_Dialog.ahk
 #Include ..\Plugins\AHK-XAML\lib\AXML.ahk
+#Include Util\XamlWin.ahk
 #Include Util\ToastUtil.ahk
 #Include Util\RmtDialog.ahk
 #Include RMTUtil.ahk
@@ -33,6 +34,8 @@
 #Include Util\HotReloadBus.ahk
 #Include Util\VoiceUtil.ahk
 #Include Util\SttUtil.ahk
+#Include Util\AiAssistUtil.ahk
+#Include Util\RmtDllUtil.ahk
 #Include ..\Plugins\ViGEm\AHK-ViGEm-Bus-v2.ahk
 
 #Include ..\Gui\TriggerKeyGui.ahk
@@ -69,6 +72,8 @@
 #Include ..\Gui\ErrorMsgBoxGui.ahk
 #Include ..\Gui\LogCenterGui.ahk
 #Include ..\Gui\LogSettingGui.ahk
+#Include ..\Gui\AiSettingGui.ahk
+#Include ..\Gui\AiHistoryGui.ahk
 #Include ..\Gui\CustomInputGui.ahk
 #Include ..\Gui\InputBtnXamlGui.ahk
 #Include ..\Gui\ConfigMergeGui.ahk

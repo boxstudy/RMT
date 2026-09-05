@@ -140,26 +140,13 @@ class MenuMacroSettingGui {
         this.ui.OnEvent("IcoPathCon", "LostFocus", ObjBindMethod(this, "OnPathChanged"))
         this.ui.OnEvent("IcoPathCon", "KeyDown:Return", ObjBindMethod(this, "OnPathChanged"))
 
-        this.ui.Show()
-        loop 40 {
-            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
-                this._ApplyValuesToUI()
-                try this.ui.Update("Window", "Opacity", "1")
-                try WinActivate("ahk_id " this.ui.wpfHwnd)
-                break
-            }
-            Sleep(50)
-        }
+        this._ApplyValuesToUI()
+        if (!XamlWin.Open(this.ui, "", XamlWin.Owner(this)))
+            this.closed := true
     }
 
     OnWindowLoad(state, ctrl, event) {
-        try {
-            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
-            ApplyXamlTheme(this.ui, themeName)
-            this._ApplyValuesToUI()
-        } finally {
-            this.ui.Update("Window", "Opacity", "1")
-        }
+        XamlWin.OnLoadTheme(this.ui)
     }
 
     OnWindowClosing(state, ctrl, event) {

@@ -360,7 +360,7 @@ class MacroEditGui {
             this._sideBound := true
         }
         if (bindHotkeys && this._hkIds.Length == 0 && hwnd)
-            this._hkIds := WinHotkey.Register([this._GetDebugRunHotkey(), this._GetDebugStepHotkey(), "Delete", "$^c", "$^v"], ObjBindMethod(this, "_OnHotkey"), hwnd)
+            this._hkIds := WinHotkey.Register([this._GetDebugRunHotkey(), this._GetDebugStepHotkey(), "Delete", "$^c", "$^v", "$^z", "$^y"], ObjBindMethod(this, "_OnHotkey"), hwnd)
     }
 
     SetSideActive(active) {
@@ -372,12 +372,9 @@ class MacroEditGui {
             return
         this.InitTreeView(MacroStr)
         this.ClearMultiSelection()
-        firstItem := this.MacroTreeViewCon.GetNext(0)
-        if (firstItem) {
-            this.SetMultiSelected(firstItem, true)
-            this.CurItemID := firstItem
-        } else
-            this.CurItemID := 0
+        this.CurItemID := 0
+        if (IsObject(this.MacroTreeViewCon) && this.MacroTreeViewCon.HasMethod("Unselect"))
+            this.MacroTreeViewCon.Unselect()
     }
 
     _NotifyMacroChanged() {
@@ -396,6 +393,7 @@ class MacroEditGui {
             return
         this.ui.OnEvent(this.treeName, "PreviewMouseLeftButtonDown", ObjBindMethod(this, "_OnTreePreviewLeftDown"))
         this.ui.OnEvent(this.treeName, "PreviewMouseRightButtonDown", ObjBindMethod(this, "_OnTreePreviewRightDown"))
+        this.ui.OnEvent(this.treeName, "PreviewKeyDown", ObjBindMethod(this, "_OnTreePreviewKeyDown"))
         this.ui.OnEvent("Window", "PreviewMouseMove", ObjBindMethod(this, "_OnTreeDragMove"))
         this.ui.OnEvent("Window", "PreviewMouseLeftButtonUp", ObjBindMethod(this, "_OnTreeDragDrop"))
     }
@@ -796,7 +794,7 @@ class MacroEditGui {
         ; 关虚拟化（注入真实 ListBoxItem，虚拟化会导致插入后滚动条复位）+ 去 ListBoxItem 默认内边距/选中高亮
         lbStyle := '<Style TargetType="ListBoxItem"><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0"/><Setter Property="BorderThickness" Value="0"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem"><Border x:Name="Bd" Background="Transparent" SnapsToDevicePixels="True"><ContentPresenter/></Border></ControlTemplate></Setter.Value></Setter></Style>'
         view.Add("ListBox").Name("MacroTree").Background("{DynamicResource BgColor}").Foreground("{DynamicResource TextMain}")
-            .BorderThickness("0")
+            .BorderThickness("0").Padding("0")
             .VirtualizingPanel_IsVirtualizing("False")
             .ScrollViewer_HorizontalScrollBarVisibility("Auto").ScrollViewer_VerticalScrollBarVisibility("Auto")
             .InjectResources(lbStyle)
@@ -904,25 +902,10 @@ class MacroEditGui {
         this.ui.Update("EditModeCombo", "SelectedIndex", "0")
         try this.EditModeCon._value := 1
 
-        this.ui.Show()
-
-        gotHwnd := false
-        loop 40 {
-            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
-                gotHwnd := true
-                if (this.OwnerHwnd != "")
-                    try this.ui.Update("Window", "NativeOwner", String(this.OwnerHwnd))
-                ; 内容已入队并在 LoadedHwnd 刷入，立即揭盖（主题界面同款）
-                try this.ui.Update("Window", "Opacity", "1")
-                try WinActivate("ahk_id " this.ui.wpfHwnd)
-                break
-            }
-            Sleep(50)
-        }
+        if (!XamlWin.Open(this.ui, "", XamlWin.Owner(this)))
+            this._closed := true
         ; 等待循环已消费 LoadedHwnd 刷入触发的 SelectionChanged，此时解除抑制
         this._suppressModeChange := false
-        if (!gotHwnd)
-            this._closed := true
     }
 
     OnWindowLoad(state, ctrl, event) {
@@ -932,8 +915,7 @@ class MacroEditGui {
                 if (hIcon)
                     this.ui.Update("Window", "Icon", "HICON:" hIcon)
             }
-            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
-            ApplyXamlTheme(this.ui, themeName)
+            XamlWin.OnLoadTheme(this.ui)
         } catch {
         }
         this._TryReveal("theme")
@@ -1070,36 +1052,52 @@ class MacroEditGui {
         this.InitMacroText(MacroStr)
 
         this.ClearMultiSelection()
-        firstItem := this.MacroTreeViewCon.GetNext(0)
+        this.CurItemID := 0
         this.MacroTreeViewCon.Focus()
-        if (firstItem)
-            this.SetMultiSelected(firstItem, true)
+        if (IsObject(this.MacroTreeViewCon) && this.MacroTreeViewCon.HasMethod("Unselect"))
+            this.MacroTreeViewCon.Unselect()
+    }
+
+    _LastRootItem() {
+        last := 0
+        if (!IsObject(this.MacroTreeViewCon))
+            return 0
+        cur := this.MacroTreeViewCon.GetNext(0)
+        while (cur) {
+            last := cur
+            cur := this.MacroTreeViewCon.GetNext(cur)
+        }
+        return last
     }
 
     Backspace() {
-        this._PushUndo()
         if (this.EditModeCon.Value == 1) {
-            if (this.MacroTreeViewCon.GetCount() == 0)
+            last := this._LastRootItem()
+            if (!last)
                 return
-            preItemID := this.MacroTreeViewCon.GetPrev(this.LastItemID)
-            this.MacroTreeViewCon.Delete(this.LastItemID)
-            this.LastItemID := preItemID
+            this._PushUndo()
+            this.ResetDebugState()
+            this.CurItemID := last
+            this._DeleteSingleCmd(last)
+            this.LastItemID := this._LastRootItem()
+            this.ClearMultiSelection()
+            this._NotifyMacroChanged()
+            return
         }
-        else {
-            MacroStr := this.GetMacroStr()
-            cmdArr := SplitMacro(MacroStr)
-            if (cmdArr.Length > 0)
-                cmdArr.Pop()
-            MacroStr := GetMacroStrByCmdArr(cmdArr)
+        this._PushUndo()
+        MacroStr := this.GetMacroStr()
+        cmdArr := SplitMacro(MacroStr)
+        if (cmdArr.Length > 0)
+            cmdArr.Pop()
+        MacroStr := GetMacroStrByCmdArr(cmdArr)
 
-            ; 保留滚动位置（#3）：改前抓首行，改后滚回
-            firstVisible := IsObject(this.ui) ? this.ui.Query("MacroText>FirstVisibleLine") : ""
-            this.InitMacroText(MacroStr)
-            if (firstVisible != "" && IsObject(this.ui))
-                this.ui.Update("MacroText", "ScrollToLine", firstVisible)
-            else
-                this.MacroEditTextCon.ScrollToEnd()
-        }
+        ; 保留滚动位置（#3）：改前抓首行，改后滚回
+        firstVisible := IsObject(this.ui) ? this.ui.Query("MacroText>FirstVisibleLine") : ""
+        this.InitMacroText(MacroStr)
+        if (firstVisible != "" && IsObject(this.ui))
+            this.ui.Update("MacroText", "ScrollToLine", firstVisible)
+        else
+            this.MacroEditTextCon.ScrollToEnd()
     }
 
     ClearStr() {
@@ -1245,7 +1243,7 @@ class MacroEditGui {
 
     ; 从指令文本（可能带 ⭐/🚫/→ 前缀与显示名）提取「命令名_序号」形式的序列码；无序号返回 ""
     _SerialOfCmd(cmdStr) {
-        cmdStr := StrReplace(StrReplace(cmdStr, "⭐", ""), "→", "")
+        cmdStr := StrReplace(CmdStripDebug(cmdStr), "→", "")
         paramArr := StrSplit(cmdStr, "_")
         if (paramArr.Length == 0)
             return ""
@@ -1302,9 +1300,10 @@ class MacroEditGui {
         }
         if (this.EditModeCon.Value == 1) {
             this.InitTreeView(snap.root)
-            firstItem := this.MacroTreeViewCon.GetNext(0)
-            if (firstItem)
-                this.SetMultiSelected(firstItem, true)
+            this.ClearMultiSelection()
+            this.CurItemID := 0
+            if (IsObject(this.MacroTreeViewCon) && this.MacroTreeViewCon.HasMethod("Unselect"))
+                this.MacroTreeViewCon.Unselect()
         }
         else {
             this.InitMacroText(snap.root)
@@ -1456,7 +1455,7 @@ class MacroEditGui {
             }
 
             CurDebugMenuText := this.ContextMenu.IsDebug ? GetLang("调试起点") : GetLang("取消调试起点")
-            DebugMenuText := SubStr(cleanItemText, 1, 1) == "⭐" ? GetLang("取消调试起点") : GetLang("调试起点")
+            DebugMenuText := CmdIsDebug(cleanItemText) ? GetLang("取消调试起点") : GetLang("调试起点")
             if (CurDebugMenuText != DebugMenuText) {
                 this.ContextMenu.Rename(CurDebugMenuText, DebugMenuText)
                 this.ContextMenu.IsDebug := !this.ContextMenu.IsDebug
@@ -1570,10 +1569,12 @@ class MacroEditGui {
         tagSlot := this._HitTest(this.treeName, coord)
         if (tagSlot == "")
             return
-        parts := StrSplit(tagSlot, "|")
-        itemID := parts[1]
+        hit := this._ResolveHit(tagSlot, coord)
+        itemID := hit.id
+        if (itemID == "")
+            return
         ; 点在展开箭头上：只折叠，不打开编辑器；叶子无子节点则正常打开编辑器
-        if (parts.Length > 2 && parts[3] == "1" && this.MacroTreeViewCon.GetChild(itemID) != 0)
+        if (hit.expander && this.MacroTreeViewCon.GetChild(itemID) != 0)
             return
         this.OnDoubleClick(this.MacroTreeViewCon, itemID)
     }
@@ -1604,9 +1605,19 @@ class MacroEditGui {
         if (coord != "") {
             tagSlot := this._HitTest(this.treeName, coord)
             if (tagSlot != "") {
-                parts := StrSplit(tagSlot, "|")
-                source := parts[1]
+                hit := this._ResolveHit(tagSlot, coord)
+                if (hit.splitBtn != "") {
+                    this._OnSplitViewClick(hit.splitBtn)
+                    this._dragCandidate := ""
+                    return
+                }
+                source := hit.id
             }
+        }
+        if (source != "") {
+            srcText := this.MacroTreeViewCon.GetText(source)
+            if (this._IsImmovableNode(srcText))
+                source := ""
         }
         this._dragCandidate := {fromLeft: false, gui: "", name: "", source: source, sx: sx, sy: sy}
         this._treeClickCoord := coord
@@ -1640,6 +1651,8 @@ class MacroEditGui {
             CoordMode("Mouse", "Screen")
             MouseGetPos(&cx, &cy)
             if (Abs(cx - cand.sx) > 8 || Abs(cy - cand.sy) > 8) {
+                if (!cand.fromLeft && cand.source == "")
+                    return
                 this._dragActive := true
                 this.MacroTreeViewCon._suppressRender := true   ; 拖拽期间禁全量重建
             }
@@ -1653,20 +1666,14 @@ class MacroEditGui {
             if (treeCoord != "") {
                 tagSlot := this._HitTest(this.treeName, treeCoord)
                 if (tagSlot != "") {
-                    parts := StrSplit(tagSlot, "|")
-                    this._dragTarget := parts[1]
-                    this._dragSlot := parts.Length > 1 ? parts[2] : ""
-                    if (this._dragTarget != "" && parts.Length >= 4) {
-                        originY := IsNumber(parts[4]) ? parts[4] : 0
-                        h := IsNumber(parts[5]) ? parts[5] : 0
-                        lineY := (this._dragSlot == "top") ? originY : originY + h
-                    }
+                    hit := this._ResolveHit(tagSlot, treeCoord)
+                    this._dragTarget := hit.id
+                    this._dragSlot := hit.slot
+                    this._ApplyInsertLine(hit)
+                    lineY := hit.lineY
                 }
             }
-            if (lineY >= 0) {
-                try this.ui.Update(this.insertLineName, "Margin", "1," Integer(lineY) ",1,0")
-                try this.ui.Update(this.insertLineName, "Visibility", "Visible")
-            } else
+            if (lineY < 0)
                 try this.ui.Update(this.insertLineName, "Visibility", "Collapsed")
             name := this._dragCandidate.fromLeft ? this._dragCandidate.name : this.MacroTreeViewCon.GetText(this._dragCandidate.source)
             this._ShowDragGhost(name)
@@ -1801,9 +1808,9 @@ class MacroEditGui {
         if (treeCoord != "") {
             tagSlot := this._HitTest(this.treeName, treeCoord)
             if (tagSlot != "") {
-                parts := StrSplit(tagSlot, "|")
-                target := parts[1]
-                slot := parts.Length > 1 ? parts[2] : ""
+                hit := this._ResolveHit(tagSlot, treeCoord)
+                target := hit.id
+                slot := hit.slot
             }
         }
         if (cand.fromLeft) {
@@ -1826,6 +1833,8 @@ class MacroEditGui {
         source := cand.source
         if (source == "")
             return
+        if (this._IsImmovableNode(this.MacroTreeViewCon.GetText(source)))
+            return
         if (target == "") {
             this.MoveTreeViewItem(source, 0, 0, 1)
             return
@@ -1835,7 +1844,7 @@ class MacroEditGui {
         if (this.IsDescendantOrSelf(this.MacroTreeViewCon, source, target))
             return
         text := this.MacroTreeViewCon.GetText(target)
-        if (SubStr(StrReplace(text, "→", ""), 1, 1) == "⎖")
+        if (this._IsImmovableNode(text) && !this.IsContainerNode(text))
             return
         if (this.IsContainerNode(text)) {
             this.MoveTreeViewItem(source, target, target, 5)
@@ -1852,12 +1861,18 @@ class MacroEditGui {
         if (coord == "")
             return
         tagSlot := this._HitTest(this.treeName, coord)
-        if (tagSlot == "")
+        if (tagSlot == "") {
+            this._ClearTreeSelection()
             return
-        parts := StrSplit(tagSlot, "|")
-        itemID := parts[1]
+        }
+        hit := this._ResolveHit(tagSlot, coord)
+        itemID := hit.id
+        if (itemID == "") {
+            this._ClearTreeSelection()
+            return
+        }
         ; 点在展开箭头上：切换展开/折叠（扁平列表无 WPF 原生箭头）；叶子无子节点则落到下方正常选择
-        if (parts.Length > 2 && parts[3] == "1") {
+        if (hit.expander) {
             if (this.MacroTreeViewCon.GetChild(itemID) != 0) {
                 this.MacroTreeViewCon.Modify(itemID, this.MacroTreeViewCon.IsExpanded(itemID) ? "Collapse" : "Expand")
                 return
@@ -1871,6 +1886,54 @@ class MacroEditGui {
             this.SetSingleMultiSelection(itemID)
         this.CurItemID := itemID
         this.MacroTreeViewCon.Modify(itemID, "Select")
+        try this.MacroTreeViewCon.Focus()
+    }
+
+    _ClearTreeSelection() {
+        this.ClearMultiSelection()
+        this.CurItemID := 0
+        if (IsObject(this.MacroTreeViewCon) && this.MacroTreeViewCon.HasMethod("Unselect"))
+            this.MacroTreeViewCon.Unselect()
+        else if (IsObject(this.ui))
+            try this.ui.Update(this.treeName, "SelectedIndex", "-1")
+    }
+
+    _OnTreePreviewKeyDown(state, ctrl, event) {
+        if (this.EditModeCon.Value != 1)
+            return
+        if (this._sideMode && !this._sideActive) {
+            if (IsSet(MyMainWin) && IsObject(MyMainWin) && IsObject(MyMainWin._sideTree)) {
+                ed := MyMainWin._sideTree.ActiveEditor()
+                if (IsObject(ed) && ed != this) {
+                    ed._OnTreePreviewKeyDown(state, ctrl, event)
+                    return
+                }
+            }
+            return
+        }
+        key := ""
+        if (IsObject(event)) {
+            if (event.HasProp("Key"))
+                key := String(event.Key)
+        } else if (event != "") {
+            key := String(event)
+            if (InStr(key, ":"))
+                key := StrSplit(key, ":")[2]
+        }
+        mods := ""
+        if (IsObject(state) && state.Has("KeyModifiers"))
+            mods := state["KeyModifiers"]
+        hasCtrl := InStr(mods, "Ctrl")
+        if (key == "Delete" && !hasCtrl)
+            this.OnDeleteCmd()
+        else if (hasCtrl && (key == "C" || key == "c"))
+            this.ContentMenuHandler(GetLang("复制"))
+        else if (hasCtrl && (key == "V" || key == "v"))
+            this.ContentMenuHandler(GetLang("粘贴"))
+        else if (hasCtrl && (key == "Z" || key == "z"))
+            this.Undo()
+        else if (hasCtrl && (key == "Y" || key == "y"))
+            this.Redo()
     }
 
     ; WPF 树右键按下：记录命中坐标，延迟弹右键菜单（命中不到节点不弹，不误改多选）
@@ -1901,12 +1964,20 @@ class MacroEditGui {
             return
         tagSlot := this._HitTest(this.treeName, coord)
         if (tagSlot == "") {
-            this.CurItemID := 0
+            this._ClearTreeSelection()
             this._OpenCtxMenu(this.blankCtxMenuName)
             return
         }
-        itemID := StrSplit(tagSlot, "|")[1]
+        itemID := this._ResolveHit(tagSlot, coord).id
+        if (itemID == "") {
+            this._ClearTreeSelection()
+            this._OpenCtxMenu(this.blankCtxMenuName)
+            return
+        }
+        this.SetSingleMultiSelection(itemID)
         this.CurItemID := itemID
+        this.MacroTreeViewCon.Modify(itemID, "Select")
+        try this.MacroTreeViewCon.Focus()
         itemText := this.MacroTreeViewCon.GetText(itemID)
         cleanItemText := StrReplace(itemText, "→", "")
         if (cleanItemText == "" || SubStr(cleanItemText, 1, 1) == "⎖") {
@@ -1919,7 +1990,7 @@ class MacroEditGui {
             return
         }
         SkipMenuText := SubStr(cleanItemText, 1, 2) == "🚫" ? GetLang("取消跳过") : GetLang("跳过指令")
-        DebugMenuText := SubStr(cleanItemText, 1, 1) == "⭐" ? GetLang("取消调试起点") : GetLang("调试起点")
+        DebugMenuText := CmdIsDebug(cleanItemText) ? GetLang("取消调试起点") : GetLang("调试起点")
         this.ui.Update(this.menuSkipName, "Header", SkipMenuText)
         this.ui.Update(this.menuDebugName, "Header", DebugMenuText)
         this._OpenCtxMenu(this.ctxMenuName)
@@ -2132,8 +2203,10 @@ class MacroEditGui {
                 this.ResetDebugState()
                 MacroStr := this.GetMacroStr()
                 MacroStr := GetLangMacro(macroStr, 2)
-                ResArr := StrSplit(MacroStr, "⭐", 2)
-                MacroStr := ResArr.Length > 1 ? ResArr[2] : MacroStr
+                if (InStr(MacroStr, CmdDebugMark()))
+                    MacroStr := StrSplit(MacroStr, CmdDebugMark(), 2)[2]
+                else if (InStr(MacroStr, Chr(0x2B50)))
+                    MacroStr := StrSplit(MacroStr, Chr(0x2B50), 2)[2]
                 MyCMDTipGui.Hide()
                 OnTriggerSepcialItemMacro(MacroStr)
                 MsgBox(GetLang("调试运行结束"), "", "Owner" this.Gui.Hwnd)
@@ -2179,7 +2252,7 @@ class MacroEditGui {
                 ; 阶段3: 标记当前位置 → 执行
                 this.MarkCurrentPosition(this.DebugItemID)
 
-                CleanCMD := StrReplace(StrReplace(CurCMD, "⭐", ""), "→", "")
+                CleanCMD := StrReplace(CmdStripDebug(CurCMD), "→", "")
                 ; 还原格式化的手柄键名后执行
                 CleanCMD := MySoftData.ParseCmdJoyDisplay(CleanCMD)
                 CurLangCMD := GetLangMacro(CleanCMD, 2)
@@ -2248,7 +2321,7 @@ class MacroEditGui {
             }
             case "Skip":
             {
-                if (SubStr(cleanItemText, 1, 1) == "⭐") {
+                if (CmdIsDebug(cleanItemText)) {
                     MsgBox(GetLang("调试起点不能跳过"), "", "Owner" this.Gui.Hwnd)
                     return
                 }
@@ -2261,9 +2334,9 @@ class MacroEditGui {
                     MsgBox(GetLang("跳过指令不可设置为调试起点"), "", "Owner" this.Gui.Hwnd)
                     return
                 }
-                IsToDebug := SubStr(cleanItemText, 1, 1) != "⭐"
-                CommandStr := IsToDebug ? "⭐" cleanItemText : SubStr(cleanItemText, 2)
-                ; ⭐是持久标记，由F6单步时FindDebugStartItem查找，不直接设DebugItemID
+                IsToDebug := !CmdIsDebug(cleanItemText)
+                CommandStr := IsToDebug ? CmdDebugMark() cleanItemText : CmdStripDebug(cleanItemText)
+                ; 调试标记是持久标记，由F6单步时FindDebugStartItem查找，不直接设DebugItemID
                 this.OnModifyCmd(CommandStr)
             case GetLang("复制"):
             {
@@ -2283,8 +2356,7 @@ class MacroEditGui {
                     } catch {
                         continue
                     }
-                    text := StrReplace(text, "⭐", "")
-                    text := StrReplace(text, "→", "")
+                    text := StrReplace(CmdStripDebug(text), "→", "")
                     if (text == "" || SubStr(text, 1, 1) == "⎖")
                         continue
                     cmd := FullCopyCmd(text)
@@ -2319,8 +2391,7 @@ class MacroEditGui {
                     } catch {
                         continue
                     }
-                    text := StrReplace(text, "⭐", "")
-                    text := StrReplace(text, "→", "")
+                    text := StrReplace(CmdStripDebug(text), "→", "")
                     if (text == "" || SubStr(text, 1, 1) == "⎖")
                         continue
                     if (text != "")
@@ -2346,8 +2417,7 @@ class MacroEditGui {
                         text := Trim(text, " `t`r`n")
                         if (text == "")
                             continue
-                        text := StrReplace(text, "⭐", "")
-                        text := StrReplace(text, "→", "")
+                        text := StrReplace(CmdStripDebug(text), "→", "")
                         cmd := FullCopyCmd(text)
                         if (cmd != "")
                             copyStr .= (copyStr == "" ? "" : ",") cmd
@@ -2393,14 +2463,13 @@ class MacroEditGui {
                 ; 旧项可能已失效，忽略
             }
         }
-        ; 在新项上加→（保留⭐标记）
+        ; 在新项上加→（保留调试起点标记）
         try {
             text := this.MacroTreeViewCon.GetText(itemID)
-            hasStar := SubStr(text, 1, 1) == "⭐"
-            cleanText := StrReplace(text, "⭐", "")
-            cleanText := StrReplace(cleanText, "→", "")
+            hasDebug := CmdIsDebug(text)
+            cleanText := StrReplace(CmdStripDebug(text), "→", "")
             if (SubStr(cleanText, 1, 2) != "🚫" && SubStr(cleanText, 1, 1) != "⎖") {
-                newText := hasStar ? "→⭐" cleanText : "→" cleanText
+                newText := hasDebug ? "→" CmdDebugMark() cleanText : "→" cleanText
                 this.MacroTreeViewCon.Modify(itemID, , newText)
             }
         } catch {
@@ -2478,8 +2547,8 @@ class MacroEditGui {
                     break
                 continue
             }
-            ; 当前项就是⭐起点
-            if (SubStr(text, 1, 1) == "⭐")
+            ; 当前项就是调试起点
+            if (CmdIsDebug(text))
                 return itemID
             ; 递归检查子分支（支持任意层级嵌套）
             found := this._FindStarInChildren(itemID)
@@ -2509,7 +2578,7 @@ class MacroEditGui {
                     break
                 continue
             }
-            if (SubStr(childText, 1, 1) == "⭐")
+            if (CmdIsDebug(childText))
                 return childID
             ; 递归深入子节点的子节点
             deeper := this._FindStarInChildren(childID)
@@ -2727,9 +2796,9 @@ class MacroEditGui {
 
         if (modeType == 2) {
             ItemText := this.MacroTreeViewCon.GetText(this.CurItemID)
-            ; 清理→和⭐前缀
+            ; 清理→和调试起点前缀
             ; 只清理位置标记→（前缀，不是方向箭头显示名）
-            ItemText := StrReplace(ItemText, "⭐", "")
+            ItemText := CmdStripDebug(ItemText)
             if SubStr(ItemText, 1, 1) = "→"
                 ItemText := SubStr(ItemText, 2)
             ; 还原显示名 + 转 BtnN → Joy* 后传给旧 GUI 编辑器
@@ -2834,13 +2903,17 @@ class MacroEditGui {
     }
 
     OnPreMoveCmd() {
+        if (this._IsImmovableNode(this.MacroTreeViewCon.GetText(this.CurItemID))) {
+            MsgBox(GetLang("该节点不能移动"))
+            return
+        }
         PreItemID := this.MacroTreeViewCon.GetPrev(this.CurItemID)
         if (PreItemID == 0) {
             MsgBox(GetLang("已经是第一个指令了，无法上移"))
             return
         }
         PreText := this.MacroTreeViewCon.GetText(PreItemID)
-        if (PreText == "" || SubStr(PreText, 1, 1) == "⎖") {
+        if (PreText == "" || this._IsImmovableNode(PreText)) {
             MsgBox(GetLang("不可与特殊指令进行交换"))
             return
         }
@@ -2848,13 +2921,17 @@ class MacroEditGui {
     }
 
     OnNextMoveCmd() {
+        if (this._IsImmovableNode(this.MacroTreeViewCon.GetText(this.CurItemID))) {
+            MsgBox(GetLang("该节点不能移动"))
+            return
+        }
         NextItemID := this.MacroTreeViewCon.GetNext(this.CurItemID)
         if (NextItemID == 0) {
             MsgBox(GetLang("已经是最后的指令了，无法下移"))
             return
         }
         NextText := this.MacroTreeViewCon.GetText(NextItemID)
-        if (NextText == "" || SubStr(NextText, 1, 1) == "⎖") {
+        if (NextText == "" || this._IsImmovableNode(NextText)) {
             MsgBox(GetLang("不可与特殊指令进行交换"))
             return
         }
@@ -2862,6 +2939,10 @@ class MacroEditGui {
     }
 
     OnSwitchCmd(ItemAID, ItemBID) {
+        if (this._IsImmovableNode(this.MacroTreeViewCon.GetText(ItemAID)) || this._IsImmovableNode(this.MacroTreeViewCon.GetText(ItemBID))) {
+            MsgBox(GetLang("不可与特殊指令进行交换"))
+            return
+        }
         this._PushUndo()
         this.ResetDebugState()
         LastItemID := this.MacroTreeViewCon.GetPrev(ItemAID)
@@ -3884,6 +3965,137 @@ class MacroEditGui {
         )
     }
 
+    ; 真/假/循环体/条件/⎖：可选中，不可拖拽改位置（对齐 CurrentDev）
+    _IsImmovableNode(itemText) {
+        if (itemText == "")
+            return true
+        clean := StrReplace(itemText, "→", "")
+        if (SubStr(clean, 1, 1) == "⎖")
+            return true
+        return this.IsContainerNode(itemText)
+    }
+
+    ; 分栏行 Tag 为 leftId+rightId+inset+view；HitTest 另附 originY|height|originX|width|splitBtn
+    _ResolveHit(tagSlot, coord := "") {
+        hit := {id: "", slot: "", expander: false, splitBtn: "", lineX: 0, lineW: 0, lineY: -1, hasLineBox: false}
+        if (tagSlot == "")
+            return hit
+        parts := StrSplit(tagSlot, "|")
+        raw := parts[1]
+        hit.slot := parts.Length > 1 ? parts[2] : ""
+        hit.expander := (parts.Length > 2 && parts[3] == "1")
+        if (parts.Length >= 5 && IsNumber(parts[4]) && IsNumber(parts[5])) {
+            originY := Number(parts[4])
+            h := Number(parts[5])
+            hit.lineY := (hit.slot == "top") ? originY : originY + h
+        }
+        if (parts.Length >= 7 && IsNumber(parts[6]) && IsNumber(parts[7])) {
+            hit.lineX := Number(parts[6])
+            hit.lineW := Number(parts[7])
+            hit.hasLineBox := (hit.lineW > 8)
+        }
+        if (parts.Length >= 8 && parts[8] != "")
+            hit.splitBtn := parts[8]
+        hit.id := raw
+        if (InStr(raw, "+")) {
+            ids := StrSplit(raw, "+")
+            leftId := ids[1]
+            rightId := ids.Length > 1 ? ids[2] : ""
+            inset := (ids.Length > 2 && IsNumber(ids[3])) ? Number(ids[3]) : 0
+            view := ids.Length > 3 ? ids[4] : "both"
+            x := 0
+            if (coord != "" && InStr(coord, ";")) {
+                xs := StrSplit(coord, ";")[1]
+                if (IsNumber(xs))
+                    x := Number(xs)
+            }
+            this._ApplySplitPairHit(&hit, leftId, rightId, inset, view, x)
+        }
+        return hit
+    }
+
+    _ApplySplitPairHit(&hit, leftId, rightId, inset, view, x) {
+        btnW := 16
+        aw := 0
+        try {
+            rawW := this.ui.Query(this.treeName ">ActualWidth")
+            if (IsNumber(rawW))
+                aw := Number(rawW)
+        }
+        pairLeft := inset
+        pairW := (aw > inset + 20) ? (aw - inset) : 320
+        if (hit.hasLineBox && hit.lineW > 40 && hit.lineX <= inset + 2)
+            pairW := hit.lineW - inset
+        id := leftId
+        if (view == "true") {
+            id := leftId
+            hit.lineX := pairLeft
+            hit.lineW := Max(8, pairW - btnW)
+            hit.hasLineBox := true
+        } else if (view == "false") {
+            id := rightId
+            hit.lineX := pairLeft + btnW
+            hit.lineW := Max(8, pairW - btnW)
+            hit.hasLineBox := true
+        } else {
+            colW := Max(8, (pairW - btnW) / 2)
+            mid := pairLeft + colW
+            if (x < mid) {
+                id := leftId
+                hit.lineX := pairLeft
+                hit.lineW := colW
+            } else if (x > mid + btnW) {
+                id := rightId
+                hit.lineX := mid + btnW
+                hit.lineW := colW
+            } else {
+                id := (x < mid + btnW / 2) ? leftId : rightId
+                hit.hasLineBox := false
+                hit.lineY := -1
+            }
+            if (hit.lineY >= 0)
+                hit.hasLineBox := true
+        }
+        if (id == "")
+            id := (leftId != "") ? leftId : rightId
+        hit.id := id
+    }
+
+    _ApplyInsertLine(hit) {
+        if (!IsObject(this.ui) || !IsObject(hit) || hit.lineY < 0 || hit.splitBtn != "") {
+            try this.ui.Update(this.insertLineName, "Visibility", "Collapsed")
+            return
+        }
+        left := 1
+        right := 1
+        if (hit.hasLineBox && hit.lineW > 8) {
+            left := Integer(Round(hit.lineX))
+            aw := 0
+            try {
+                rawW := this.ui.Query(this.treeName ">ActualWidth")
+                if (IsNumber(rawW))
+                    aw := Number(rawW)
+            }
+            if (aw > 0)
+                right := Integer(Round(aw - hit.lineX - hit.lineW))
+            if (left < 0)
+                left := 0
+            if (right < 0)
+                right := 0
+        }
+        try this.ui.Update(this.insertLineName, "Margin", left "," Integer(Round(hit.lineY)) "," right ",0")
+        try this.ui.Update(this.insertLineName, "Visibility", "Visible")
+    }
+
+    _OnSplitViewClick(token) {
+        if (token == "" || !IsObject(this.MacroTreeViewCon))
+            return
+        parts := StrSplit(token, ":")
+        if (parts.Length < 2)
+            return
+        this.MacroTreeViewCon.ToggleSplitView(parts[2], parts[1])
+    }
+
     GetItemRect(TVCon, hItem) {
         hwnd := TVCon.Hwnd
         rect := Buffer(16, 0)
@@ -3900,11 +4112,13 @@ class MacroEditGui {
     }
 
     MoveTreeViewItem(sourceItem, destParent, relativeToItem, mode) {
+        sourceText := this.MacroTreeViewCon.GetText(sourceItem)
+        if (this._IsImmovableNode(sourceText))
+            return ""
         this._PushUndo()
         this.ResetDebugState()
         this.ClearMultiSelection()
 
-        sourceText := this.MacroTreeViewCon.GetText(sourceItem)
         sourceIcon := this.GetCmdIconStr(sourceText)
         sourceParent := this.MacroTreeViewCon.GetParent(sourceItem)
 
