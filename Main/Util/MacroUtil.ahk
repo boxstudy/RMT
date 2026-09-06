@@ -151,8 +151,7 @@ ExecuteMacroCmdOnce(tableItem, cmdStr, index, graphNode := "") {
     if (SubStr(cmdStr, 1, 2) == "🚫")
         return
 
-    frontInfo := GetItemFrontInfo(tableItem, index)
-    if (MainSoftData.CheckForeground && frontInfo != "" && !CheckFrontWindowActive(frontInfo)) {
+    if (MainSoftData.CheckForeground && (frontInfo := GetItemFrontInfo(tableItem, index)) != "" && !CheckFrontWindowActive(frontInfo)) {
         KillTableItemMacro(tableItem, index)
         return
     }
@@ -227,7 +226,7 @@ CheckFrontWindowActive(frontInfoStr) {
     if (InStr(frontInfoStr, "❖")) {
         hwndList := StrSplit(StrReplace(frontInfoStr, "❖"), "|")
         for hwnd in hwndList {
-            if (WinExist("ahk_id " hwnd) && WinActive("ahk_id " hwnd))
+            if (WinActive("ahk_id " hwnd))
                 return true
         }
         return false
@@ -254,7 +253,7 @@ CheckFrontWindowActive(frontInfoStr) {
     if (winTitle == "")
         return true
 
-    return !!(WinExist(winTitle) && WinActive(winTitle))
+    return !!WinActive(winTitle)
 }
 
 OnSearchWrapper(tableItem, cmdStr, index) {
