@@ -17,40 +17,48 @@ class TableMgrGui {
 
     _Build() {
         this.closed := false
-        this.Gui := Gui("+AlwaysOnTop +Owner" (IsObject(MainSoftData.MyGui) ? MainSoftData.MyGui.Hwnd : ""), GetLang("表管理"))
-        this.Gui.SetFont("s11", "微软雅黑")
-
-        ; 说明
-        this.Gui.Add("Text", "w480", GetLang("管理主窗口页签：可新增/重命名/删除表。删除表会同时删除其中的全部宏。"))
-
-        ; 表列表（ListView）
-        this.LV := this.Gui.Add("ListView", "w480 h280 vTableLV", ["#", GetLang("表名"), GetLang("类型"), GetLang("条目数")])
-        this.LV.OnEvent("DoubleClick", (*) => this._Rename())
+        panel := XAML_Generator("StackPanel").Margin("16")
+        panel.Add("TextBlock").Text(GetLang("管理主窗口页签：可新增/重命名/删除表。删除表会同时删除其中的全部宏。")).TextWrapping("Wrap").Margin("0,0,0,12")
+        header := panel.Add("Grid").Margin("8,0,8,6")
+        header.Cols("45", "*", "110", "80")
+        for i, label in ["#", GetLang("表名"), GetLang("类型"), GetLang("条目数")]
+            header.Add("TextBlock").Grid_Column(i - 1).Text(label).FontWeight("Bold")
+        panel.Add("ListBox").Name("TableLV").Height(280).HorizontalContentAlignment("Stretch")
+        buttons := panel.Add("StackPanel").Orientation("Horizontal").Margin("0,12,0,0")
+        for i, label in [GetLang("新增表"), GetLang("重命名"), GetLang("删除表"), GetLang("关闭")]
+            buttons.Add("Button").Name("TableBtn" i).Content(label).Width(100).MinHeight(30).Margin("0,0,8,0").IsCancel(i == 4 ? "True" : "False")
+        this.ui := XamlWin.Create(GetLang("表管理"), panel, 560, 445)
+        this.ui.OnEvent("TableLV", "MouseDoubleClick", (*) => this._Rename())
+        this.ui.OnEvent("TableBtn1", "Click", (*) => this._Add())
+        this.ui.OnEvent("TableBtn2", "Click", (*) => this._Rename())
+        this.ui.OnEvent("TableBtn3", "Click", (*) => this._Delete())
+        this.ui.OnEvent("TableBtn4", "Click", (*) => this._Close())
+        this.ui.OnEvent("Window", "Closing", (*) => this._OnClosed())
         this._ReloadList()
-
-        ; 按钮行
-        btnRow := this.Gui.Add("Button", "w100 h30 Default x10", GetLang("新增表")).OnEvent("Click", (*) => this._Add())
-        this.Gui.Add("Button", "w100 h30 x120", GetLang("重命名")).OnEvent("Click", (*) => this._Rename())
-        this.Gui.Add("Button", "w100 h30 x230", GetLang("删除表")).OnEvent("Click", (*) => this._Delete())
-        this.Gui.Add("Button", "w100 h30 x340", GetLang("关闭")).OnEvent("Click", (*) => this._Close())
-
-        this.Gui.OnEvent("Escape", (*) => this._Close())
-        this.Gui.OnEvent("Close", (*) => this._Close())
-        this.Gui.Show()
+        owner := IsObject(MainSoftData.MyGui) ? MainSoftData.MyGui.Hwnd : ""
+        if (XamlWin.Open(this.ui, "", owner))
+            this.Gui := {Hwnd: this.ui.wpfHwnd}
+        else
+            this._Close()
     }
 
     _ReloadList() {
-        this.LV.Delete()
+        this.ui.Update("TableLV", "ClearItems", "")
         for t in MySoftData.TableInfo {
-            this.LV.Add("", t.Index, t.Name, t.Symbol, t.Items.Length)
+            row := XAML_Generator("Grid")
+            row.Cols("45", "*", "110", "80")
+            for i, value in [t.Index, t.Name, t.Symbol, t.Items.Length]
+                row.Add("TextBlock").Grid_Column(i - 1).Text(String(value)).TextTrimming("CharacterEllipsis")
+            this.ui.Update("TableLV", "AddXamlItem", row.ToString())
         }
     }
 
     _Selected() {
-        row := this.LV.GetNext(0, "Focused")
-        if (!row)
+        selected := this.ui.Query("TableLV>SelectedIndex")
+        if (!IsNumber(selected) || Integer(selected) < 0)
             return ""
-        return MySoftData.TableInfo[row]
+        row := Integer(selected) + 1
+        return row <= MySoftData.TableInfo.Length ? MySoftData.TableInfo[row] : ""
     }
 
     _Add() {
@@ -123,7 +131,14 @@ class TableMgrGui {
     }
 
     _Close() {
+        if (IsObject(this.ui))
+            this.ui.Update("Window", "Close", "")
+        this._OnClosed()
+    }
+
+    _OnClosed() {
         this.closed := true
-        this.Gui.Destroy()
+        this.ui := ""
+        this.Gui := ""
     }
 }

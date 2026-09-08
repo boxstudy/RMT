@@ -12,6 +12,7 @@
 class VoiceGui {
     __New() {
         this.Gui := ""
+        this.ui := ""
         this.hasGui := false      ; 窗口是否存活（Gui 对象 Destroy 后仍非空，需独立标志）
         this.tableItem := ""
         this.index := 0
@@ -39,38 +40,34 @@ class VoiceGui {
         }
 
         mainGui := IsObject(MainSoftData.MyGui) ? MainSoftData.MyGui.Hwnd : ""
-        this.Gui := Gui("+Owner" (mainGui ? mainGui : "") " +AlwaysOnTop", GetLang("语音关键词"))
-        this.Gui.SetFont("s11", "微软雅黑")
-
-        ; 说明文案
-        this.Gui.Add("Text", "w420 r2 Wrap", GetLang("说出以下关键词即可触发该宏。支持多个关键词，用英文逗号 , 分隔。"))
-
-        ; 关键词输入
-        this.Gui.Add("Text", "x16 y30", GetLang("唤醒关键词："))
-        this.edKeywords := this.Gui.Add("Edit", "vEdKeywords x16 y52 w420 h120 r4", "")
-        this.Gui.Add("Text", "x16 y182 cGray w420", GetLang("示例：开始攻击, 暂停, 保存进度（每个关键词之间用英文逗号分隔）"))
-
-        ; 按钮
-        this.Gui.Add("Button", "x170 y214 w90 h32 Default", GetLang("确定"))
-            .OnEvent("Click", (*) => this.OnSureClick())
-        this.Gui.Add("Button", "x270 y214 w90 h32", GetLang("取消"))
-            .OnEvent("Click", (*) => this.Cancel())
-
-        this._LoadToFields(curKeywords)
-        this.Gui.OnEvent("Escape", (*) => this.Cancel())
-        this.Gui.OnEvent("Close", (*) => this.Cancel())
-        this.Gui.Show()
+        panel := XAML_Generator("StackPanel").Margin("16")
+        panel.Add("TextBlock").Text(GetLang("说出以下关键词即可触发该宏。支持多个关键词，用英文逗号 , 分隔。")).TextWrapping("Wrap").Margin("0,0,0,10")
+        panel.Add("TextBlock").Text(GetLang("唤醒关键词：")).Margin("0,0,0,6")
+        panel.Add("TextBox").Name("EdKeywords").Height(120).AcceptsReturn("True").TextWrapping("Wrap").VerticalScrollBarVisibility("Auto")
+        panel.Add("TextBlock").Text(GetLang("示例：开始攻击, 暂停, 保存进度（每个关键词之间用英文逗号分隔）")).TextWrapping("Wrap").Margin("0,8,0,12")
+        buttons := panel.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Right")
+        buttons.Add("Button").Name("BtnSure").Content(GetLang("确定")).Width(90).MinHeight(32).IsDefault("True").Margin("0,0,10,0")
+        buttons.Add("Button").Name("BtnCancel").Content(GetLang("取消")).Width(90).MinHeight(32).IsCancel("True")
+        this.ui := XamlWin.Create(GetLang("语音关键词"), panel, 480, 360)
+        this.ui.OnEvent("BtnSure", "Click", (*) => this.OnSureClick())
+        this.ui.OnEvent("BtnCancel", "Click", (*) => this.Cancel())
+        this.ui.OnEvent("Window", "Closing", (*) => this._OnClosed())
+        this.ui.Update("EdKeywords", "Text", curKeywords)
         this.hasGui := true
+        if (XamlWin.Open(this.ui, "", mainGui))
+            this.Gui := {Hwnd: this.ui.wpfHwnd}
+        else
+            this.Cancel()
     }
 
     _LoadToFields(keywords) {
-        this.edKeywords.Value := keywords
-        this.Gui.Show()
+        this.ui.Update("EdKeywords", "Text", keywords)
+        try WinActivate("ahk_id " this.ui.wpfHwnd)
     }
 
     ; 收集界面值写回模型
     _ReadFields() {
-        keywords := Trim(this.edKeywords.Value)
+        keywords := Trim(this.ui.Query("EdKeywords"))
         keywords := Trim(keywords, "，, ")
         ; 统一关键词内分隔符为英文逗号（兼容中文逗号输入）
         keywords := StrReplace(keywords, "，", ",")
@@ -121,11 +118,14 @@ class VoiceGui {
     }
 
     Cancel(*) {
-        if (this.hasGui) {
-            try this.Gui.Destroy()
-            catch
-                this.Gui := ""
-            this.hasGui := false
-        }
+        if (IsObject(this.ui))
+            this.ui.Update("Window", "Close", "")
+        this._OnClosed()
+    }
+
+    _OnClosed() {
+        this.hasGui := false
+        this.Gui := ""
+        this.ui := ""
     }
 }

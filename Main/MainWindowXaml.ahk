@@ -426,7 +426,7 @@ class MainWin {
         ; 当前配置名称：单行居中、非粗体；字号=主题字号；超长由 Viewbox 仅缩小不放大（改 FontSize 会被主题下限钳制）
         curNameBox := leftTop.Add("Viewbox").Margin("0,3,0,2").Stretch("Uniform").StretchDirection("DownOnly").HorizontalAlignment("Stretch")
         curNameBox.Add("TextBlock").Name("TxtCurSetting").Text(MySoftData.CurSettingName).TextAlignment("Center").HorizontalAlignment("Center").VerticalAlignment("Center").TextWrapping("NoWrap")
-        leftTop.Add("Button").Name("BtnConfig").Content(GetLang("配置管理")).Height(33).MinHeight(33).Margin("0,3,0,2").Style("{StaticResource RmtSidebarBtn}")
+        leftTop.Add("Button").Name("BtnConfig").Uid("gm:Main.Config").Content(GetLang("配置管理")).Height(33).MinHeight(33).Margin("0,3,0,2").Style("{StaticResource RmtSidebarBtn}")
         leftTop.Add("Rectangle").Height(1).Margin("2,6,2,6").Fill("{DynamicResource ControlBorder}").Stretch("Fill")
         ; 全局操作标题 + 右侧展开按钮（控制休眠/暂停/终止所有宏的快捷键提示显隐，默认显示）
         globalOps := leftTop.Add("Grid").Margin("4,0,0,4")
@@ -449,9 +449,11 @@ class MainWin {
         leftTop.Add("Button").Name("BtnKill").Content(GetLang("终止所有宏")).Height(33).MinHeight(33).Margin("0,8,0,0").Style("{StaticResource RmtSidebarBtn}")
         leftTop.Add("TextBlock").Name("TxtKillKey").Text(FormatHotkeyDisplay(MainSoftData.KillMacroHotkey)).Opacity("0.6").FontSize(11).Margin("0,0,6,0").HorizontalAlignment("Right").TextAlignment("Right")
         leftTop.Add("Button").Name("BtnReload").Content(GetLang("重启")).Height(33).MinHeight(33).Margin("0,8,0,0").Style("{StaticResource RmtSidebarBtn}")
+        if (!A_IsCompiled)
+            leftTop.Add("Button").Name("BtnGMUI").Content("GM-UI").Height(33).MinHeight(33).Margin("0,8,0,0").Style("{StaticResource RmtSidebarBtn}")
         leftBottom := left.Add("StackPanel").Grid_Row(1).VerticalAlignment("Bottom")
         leftBottom.Add("Button").Name("BtnHelp").Content(GetLang("RMT文档")).Height(28).MinHeight(28).Margin("0,2,0,2")
-        leftBottom.Add("Button").Name("BtnSave").Content(GetLang("应用并保存")).Height(36).MinHeight(36).Margin("0,2,0,0").FontWeight("Bold")
+        leftBottom.Add("Button").Name("BtnSave").Uid("gm:Main.Save").Content(GetLang("应用并保存")).Height(36).MinHeight(36).Margin("0,2,0,0").FontWeight("Bold")
 
         ; ---- 右侧 TabControl ----
         right := main.Add("Grid").Grid_Row(1).Grid_Column(1).Margin("0,2,2,4")
@@ -734,6 +736,8 @@ class MainWin {
         }
         this.ui.OnEvent("BtnKill", "Click", OnKillAllMacro)
         this.ui.OnEvent("BtnReload", "Click", MenuReload)
+        if (!A_IsCompiled)
+            this.ui.OnEvent("BtnGMUI", "Click", (*) => this.ui.Update("Window", "GMUIOpen", ""))
         this.ui.OnEvent("BtnHelp", "Click", (*) => Run(A_WorkingDir "\index.html"))
         this.ui.OnEvent("BtnSave", "Click", OnSaveSetting)
 
@@ -4540,10 +4544,10 @@ class MainWin {
             . '<Border Grid.Column="0" Name="Color_' t '_' i '" Width="12" Height="12" CornerRadius="6" Background="' colorHex '" VerticalAlignment="Center" HorizontalAlignment="Center"/>'
             . this._BuildSeqNoXaml(false, t, i, rowSel)
             . this._BuildItemRemarkFieldXaml(t, i, item.Remark, false)
-            . '<StackPanel Grid.Column="4" Orientation="Horizontal" HorizontalAlignment="Left">'
+            . '<DockPanel Grid.Column="4" LastChildFill="True" HorizontalAlignment="Stretch">'
             . (isNetwork ? '<Button Name="NetHelp_' t '_' i '" Style="{StaticResource RmtItemFieldBtn}" Width="24" Margin="0,0,2,0" Content="&#xE946;" ToolTip="' GetLang("网络触发说明") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"/>' : '')
             . '<Button Name="TKBtn_' t '_' i '" Style="{StaticResource RmtItemFieldBtn}" Margin="0,0,4,0" ToolTip="' GetLang("触发键") '" IsEnabled="' (isSubMacro ? "False" : "True") '">' this._BuildTKBtnInnerXaml(tkStr, false) '</Button>'
-            . '</StackPanel>'
+            . '</DockPanel>'
             . '<ComboBox Grid.Column="5" Name="TKType_' t '_' i '" Style="{StaticResource RmtItemCombo}" Margin="0" SelectedIndex="' tkTypeIdx '" IsEnabled="' (isNormal ? "True" : "False") '" Visibility="' (isNetwork ? "Collapsed" : "Visible") '" ToolTip="' GetLang("触发类型") '">'
             . '<ComboBoxItem Content="' GetLang("按下") '"/><ComboBoxItem Content="' GetLang("松开") '"/><ComboBoxItem Content="' GetLang("松止") '"/><ComboBoxItem Content="' GetLang("开关") '"/><ComboBoxItem Content="' GetLang("长按") '"/><ComboBoxItem Content="' GetLang("双击") '"/>'
             . '</ComboBox>'
@@ -4807,10 +4811,10 @@ class MainWin {
             . '<Border Grid.Column="0" Width="12" Height="12" CornerRadius="6" Background="{Binding ColorHex}" VerticalAlignment="Center" HorizontalAlignment="Center"/>'
             . this._BuildSeqNoXaml(true)
             . this._BuildItemRemarkFieldXaml(0, 0, "", true)
-            . '<StackPanel Grid.Column="4" Orientation="Horizontal" HorizontalAlignment="Left">'
+            . '<DockPanel Grid.Column="4" LastChildFill="True" HorizontalAlignment="Stretch">'
             . '<Button Tag="NetHelp" Visibility="{Binding NetHelpVis}" Style="{StaticResource RmtItemFieldBtn}" Width="24" Margin="0,0,2,0" Content="&#xE946;" ToolTip="' GetLang("网络触发说明") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"/>'
             . '<Button Tag="TKBtn" IsEnabled="{Binding TKBtnEnabled}" Style="{StaticResource RmtItemFieldBtn}" Margin="0,0,4,0" ToolTip="' GetLang("触发键") '">' this._BuildTKBtnInnerXaml("", true) '</Button>'
-            . '</StackPanel>'
+            . '</DockPanel>'
             . '<ComboBox Grid.Column="5" Tag="TKType" Visibility="{Binding NetTypeVis}" SelectedIndex="{Binding TKType}" IsEnabled="{Binding TKTypeEnabled}" Style="{StaticResource RmtItemCombo}" Margin="0" ToolTip="' GetLang("触发类型") '">'
             . '<ComboBoxItem Content="' GetLang("按下") '"/><ComboBoxItem Content="' GetLang("松开") '"/><ComboBoxItem Content="' GetLang("松止") '"/><ComboBoxItem Content="' GetLang("开关") '"/><ComboBoxItem Content="' GetLang("长按") '"/><ComboBoxItem Content="' GetLang("双击") '"/>'
             . '</ComboBox>'

@@ -1,7 +1,7 @@
 #Requires AutoHotkey v2.0
 
 ; =============================================================================
-; AppThemeUtil — 统一主题颜色（通用窗口 / 轮盘 / 界面浮窗 / 指令显示等）
+; AppThemeUtil — 统一主题调色板（窗口、节点、轮盘与运行浮层共用）
 ;
 ; 存储：MainSettings.ini [ThemeColors]
 ; 运行时：同步到 MainSoftData.ThemeColors，以及各消费字段（UIPanel* / CMD*）
@@ -9,69 +9,69 @@
 ;
 ; ---------- 扩展约定（增删改颜色 / 预设时请遵守）----------
 ; 1. 新增颜色项：
-;    - 在 ColorDefs 增加 {Key, Group, Label}
+;    - 在 ColorDefs 增加 {Key, Group, Label}；Group/Label 用于调色板提示，不再生成分组标题
 ;    - 至少在默认主题（DefaultThemeKey）Preset 上写上同名属性；其它预设建议一并补齐
 ;    - 若该色需驱动运行时字段，在 ApplyToRuntime / ApplyWinThemeToXaml 增加映射
-;    - 主题设置 UI 按 ColorDefs 的 Group 自动排布，一般不必改 ThemeSettingGui
+;    - 主题设置 UI 固定展开 14 个语义槽位为双列调色板，一般不必改 ThemeSettingGui
 ; 2. 删除颜色项：从 ColorDefs（及各 Preset 属性、ApplyToRuntime）移除即可；
 ;    旧 ini 残留键会被忽略，不影响加载
-; 3. 重命名颜色键：保留一段 ini 旧键迁移（参见下方 Panel_FontColor 示例）
+; 3. 颜色键直接使用固定的 14 个主题槽位，不迁移旧版本的颜色设置。
 ; 4. 缺省回退规则（兼容自定义主题与版本升级）：
 ;    任意路径取不到某 Key（未保存 / 预设未写 / Map 残缺）时，
 ;    一律使用默认主题（DefaultThemeKey）对应色，禁止用纯黑凑数（纯黑仅作开发兜底）
 ; 5. 自定义主题（AppTheme=Custom）：
 ;    以默认主题为底图，再叠加 ini 中已保存的逐项颜色；新增 Key 自动得默认色
 ; 6. 预设增删：只改 Presets；未知 Key 在 LoadFromIni 因 IsPresetKey 失败而回退到默认主题
-; 7. 运行时浮层（菜单轮盘本体、界面浮窗面板、指令显示浮层）使用业务色（Wheel_* / Panel_* / CMD_*）；
-;    节点编辑器与各设置窗走 ApplyXamlTheme（通用窗口色）
+; 7. ColorDefs 的 Group/Label 只描述颜色用途，不再作为主题设置页分组标题；
+;    主题设置页固定显示 14 个语义槽位，修改一个槽位会同步其全部用途键。
 ; =============================================================================
 
 class AppThemeUtil {
-    ; 颜色权威清单：UI 编辑项、ini 读写、完整 Map 均以此为准
-    ; 分组顺序即主题选项页展示顺序；「通用窗口」置于菜单轮盘之上
+    ; Canonical theme palette. Every preset exposes these 14 slots in the same order.
     static ColorDefs := [
-        {Key: "Win_TitleBg", Group: "通用窗口", Label: "标题背景"},
-        {Key: "Win_TitleText", Group: "通用窗口", Label: "标题文本"},
-        {Key: "Win_WindowBg", Group: "通用窗口", Label: "窗口背景"},
-        {Key: "Win_GroupStroke", Group: "通用窗口", Label: "组描边"},
-        {Key: "Win_LabelColor", Group: "通用窗口", Label: "标签颜色"},
-        {Key: "Win_InputBg", Group: "通用窗口", Label: "输入框背景"},
-        {Key: "Win_InputStroke", Group: "通用窗口", Label: "输入框描边"},
-        {Key: "Win_InputText", Group: "通用窗口", Label: "输入框文本"},
-        {Key: "Win_EditBg", Group: "通用窗口", Label: "编辑背景"},
-        {Key: "Win_EditStroke", Group: "通用窗口", Label: "编辑描边"},
-        {Key: "Win_EditText", Group: "通用窗口", Label: "编辑文本"},
-        {Key: "Win_EditHoverBg", Group: "通用窗口", Label: "编辑悬停背景"},
-        {Key: "Win_EditHoverStroke", Group: "通用窗口", Label: "编辑悬停描边"},
-        {Key: "Win_ActionBg", Group: "通用窗口", Label: "操作背景"},
-        {Key: "Win_ActionStroke", Group: "通用窗口", Label: "操作描边"},
-        {Key: "Win_ActionText", Group: "通用窗口", Label: "操作文本"},
-        {Key: "Win_ActionHoverBg", Group: "通用窗口", Label: "操作悬停背景"},
-        {Key: "Win_ActionHoverStroke", Group: "通用窗口", Label: "操作悬停描边"},
-        {Key: "Win_ProgressBar", Group: "通用窗口", Label: "进度条"},
-        ; 节点编辑器画布：网格 / 连线 / 选中连线
-        {Key: "Win_GraphLine", Group: "图形节点", Label: "背景线条"},
-        {Key: "Win_GraphConn", Group: "图形节点", Label: "节点连线"},
-        {Key: "Win_GraphConnSel", Group: "图形节点", Label: "选中描边"},
-        {Key: "Wheel_NormalText", Group: "菜单轮盘", Label: "常态文字"},
-        {Key: "Wheel_NormalFill", Group: "菜单轮盘", Label: "常态填充"},
-        {Key: "Wheel_NormalStroke", Group: "菜单轮盘", Label: "常态描边"},
-        {Key: "Wheel_HoverText", Group: "菜单轮盘", Label: "悬停文字"},
-        {Key: "Wheel_HoverFill", Group: "菜单轮盘", Label: "悬停填充"},
-        {Key: "Wheel_HoverStroke", Group: "菜单轮盘", Label: "悬停描边"},
-        {Key: "Wheel_SwipeLineColor", Group: "菜单轮盘", Label: "划线颜色"},
-        {Key: "Panel_TitleBg", Group: "界面浮窗", Label: "标题背景"},
-        {Key: "Panel_TitleText", Group: "界面浮窗", Label: "标题文本"},
-        {Key: "Panel_BtnColor", Group: "界面浮窗", Label: "按钮背景"},
-        {Key: "Panel_BtnText", Group: "界面浮窗", Label: "按钮文本"},
-        {Key: "Panel_BgColor", Group: "界面浮窗", Label: "内容背景"},
-        {Key: "CMD_FontColor", Group: "指令显示", Label: "字体颜色"},
-        {Key: "CMD_BGColor", Group: "指令显示", Label: "背景颜色"},
-        {Key: "CMD_RunBGColor", Group: "指令显示", Label: "运行背景"}
+        {Key: "Theme_Color01", Source: "Win_ActionBg", Group: "主题颜色", Label: "主色", Uses: ["操作按钮背景", "图形选中边框", "进度条", "菜单轮盘划线", "界面浮窗按钮"]},
+        {Key: "Theme_Color02", Source: "Win_ActionHoverBg", Group: "主题颜色", Label: "主色悬停", Uses: ["操作按钮悬停", "输入框悬停边框"]},
+        {Key: "Theme_Color03", Source: "Win_EditHoverBg", Group: "主题颜色", Label: "浅色强调", Uses: ["输入框悬停背景", "菜单轮盘悬停填充", "指令运行背景"]},
+        {Key: "Theme_Color04", Source: "Win_TitleBg", Group: "主题颜色", Label: "标题背景", Uses: ["通用窗口标题", "界面浮窗标题"]},
+        {Key: "Theme_Color05", Source: "Win_TitleText", Group: "主题颜色", Label: "标题文字", Uses: ["通用窗口标题文字", "界面浮窗标题文字"]},
+        {Key: "Theme_Color06", Source: "Win_WindowBg", Group: "主题颜色", Label: "窗口背景", Uses: ["通用窗口背景", "指令显示背景"]},
+        {Key: "Theme_Color07", Source: "Win_InputBg", Group: "主题颜色", Label: "内容背景", Uses: ["输入框", "编辑框", "菜单轮盘普通填充", "界面浮窗内容"]},
+        {Key: "Theme_Color08", Source: "Win_InputStroke", Group: "主题颜色", Label: "普通边框", Uses: ["输入框边框", "编辑框边框", "菜单轮盘普通边框"]},
+        {Key: "Theme_Color09", Source: "Win_GroupStroke", Group: "主题颜色", Label: "强调边框", Uses: ["内容框选边框", "窗口外框"]},
+        {Key: "Theme_Color10", Source: "Win_LabelColor", Group: "主题颜色", Label: "主文字", Uses: ["标签文字", "指令文字", "菜单轮盘普通文字"]},
+        {Key: "Theme_Color11", Source: "Win_InputText", Group: "主题颜色", Label: "输入文字", Uses: ["输入框文字", "编辑框文字"]},
+        {Key: "Theme_Color12", Source: "Win_GraphLine", Group: "主题颜色", Label: "图形线", Uses: ["图形节点网格线"]},
+        {Key: "Theme_Color13", Source: "Win_GraphConn", Group: "主题颜色", Label: "图形连接面", Uses: ["图形节点连接线"]},
+        {Key: "Theme_Color14", Source: "Win_ActionText", Group: "主题颜色", Label: "主色文字", Uses: ["操作按钮文字", "界面浮窗按钮文字"]}
     ]
 
-    ; 预设列表；DefaultThemeKey 对应项必须存在，且应含 ColorDefs 全部 Key
-    ; 显示顺序：默认、霜灰、暗夜、暖阳、海洋、绯樱、抹茶、青瓷、暮紫
+    ; All runtime color keys resolve to the same canonical slot for every preset.
+    static ColorAliases := Map(
+        "Win_ActionBg", "Theme_Color01", "Win_ActionStroke", "Theme_Color01",
+        "Win_GraphConnSel", "Theme_Color01", "Win_ProgressBar", "Theme_Color01",
+        "Wheel_HoverText", "Theme_Color01", "Wheel_HoverStroke", "Theme_Color01",
+        "Wheel_SwipeLineColor", "Theme_Color01", "Panel_BtnColor", "Theme_Color01",
+        "Win_ActionHoverBg", "Theme_Color02", "Win_ActionHoverStroke", "Theme_Color02",
+        "Win_EditHoverStroke", "Theme_Color02",
+        "Win_EditHoverBg", "Theme_Color03", "Wheel_HoverFill", "Theme_Color03",
+        "CMD_RunBGColor", "Theme_Color03",
+        "Win_TitleBg", "Theme_Color04", "Panel_TitleBg", "Theme_Color04",
+        "Win_TitleText", "Theme_Color05", "Panel_TitleText", "Theme_Color05",
+        "Win_WindowBg", "Theme_Color06", "CMD_BGColor", "Theme_Color06",
+        "Win_InputBg", "Theme_Color07", "Win_EditBg", "Theme_Color07",
+        "Wheel_NormalFill", "Theme_Color07", "Panel_BgColor", "Theme_Color07",
+        "Win_InputStroke", "Theme_Color08", "Win_EditStroke", "Theme_Color08",
+        "Wheel_NormalStroke", "Theme_Color08",
+        "Win_GroupStroke", "Theme_Color09",
+        "Win_LabelColor", "Theme_Color10", "CMD_FontColor", "Theme_Color10",
+        "Wheel_NormalText", "Theme_Color10",
+        "Win_InputText", "Theme_Color11", "Win_EditText", "Theme_Color11",
+        "Win_GraphLine", "Theme_Color12",
+        "Win_GraphConn", "Theme_Color13",
+        "Win_ActionText", "Theme_Color14", "Panel_BtnText", "Theme_Color14"
+    )
+    ; 颜色权威清单：UI 编辑项、ini 读写、完整 Map 均以此为准
+    ; 分组顺序即主题选项页展示顺序；「通用窗口」置于菜单轮盘之上
     static Presets := [
         ; Win_GraphLine=背景网格；Win_GraphConn=节点连线；Win_GraphConnSel=选中连线色兼节点选中描边
         {Key: "Default", Name: "默认",
@@ -260,7 +260,7 @@ class AppThemeUtil {
         return ""
     }
 
-    ; ColorDefs 中 Group 去重顺序（供主题设置 UI 自动分组）
+    ; ColorDefs 中 Group 去重顺序（兼容旧调用；主题设置页现在使用 BuildPalette）
     static GetGroupNames() {
         names := []
         seen := Map()
@@ -273,13 +273,106 @@ class AppThemeUtil {
         return names
     }
 
+    ; 将主题的 14 个语义颜色键按固定槽位顺序展开，保证不同主题的颜色 X 用途一致。
+    static BuildPalette(colors) {
+        complete := AppThemeUtil.BuildCompleteColorMap(colors)
+        palette := []
+        for defIndex, def in AppThemeUtil.ColorDefs {
+            color := AppThemeUtil.ResolveColor(complete, def.Key)
+            uses := def.HasProp("Uses") ? def.Uses : [def.Group " · " def.Label]
+            entry := {Color: color, Keys: [def.Key], Uses: uses, DefIndex: defIndex}
+            entry.SortInfo := AppThemeUtil.PaletteColorInfo(entry.Color)
+            palette.Push(entry)
+        }
+        return palette
+    }
+    ; 主题色优先，白/黑/灰等低饱和通用色放在末尾；同一色相按明度、饱和度相邻排列。
+    static PaletteColorInfo(color) {
+        c := AppThemeUtil.NormalizeArgb(color)
+        r := Integer("0x" SubStr(c, 4, 2)) / 255.0
+        g := Integer("0x" SubStr(c, 6, 2)) / 255.0
+        b := Integer("0x" SubStr(c, 8, 2)) / 255.0
+        maxC := Max(r, g, b)
+        minC := Min(r, g, b)
+        delta := maxC - minC
+        light := (maxC + minC) / 2.0
+        if (delta == 0) {
+            hue := 0.0
+            sat := 0.0
+        } else {
+            sat := delta / (1 - Abs(2 * light - 1))
+            if (maxC == r) {
+                hue := 60.0 * ((g - b) / delta)
+                if (hue < 0)
+                    hue += 360.0
+            } else if (maxC == g) {
+                hue := 60.0 * ((b - r) / delta + 2)
+            } else {
+                hue := 60.0 * ((r - g) / delta + 4)
+            }
+        }
+        alpha := Integer("0x" SubStr(c, 2, 2))
+        return {Neutral: sat < 0.08 ? 1 : 0, Hue: hue, Light: light, Sat: sat, Alpha: alpha}
+    }
+
+    static ComparePaletteEntries(left, right) {
+        a := left.SortInfo
+        b := right.SortInfo
+        if (a.Neutral != b.Neutral)
+            return a.Neutral < b.Neutral ? -1 : 1
+        if (a.Hue != b.Hue)
+            return a.Hue < b.Hue ? -1 : 1
+        if (a.Light != b.Light)
+            return a.Light < b.Light ? -1 : 1
+        if (a.Sat != b.Sat)
+            return a.Sat > b.Sat ? -1 : 1
+        if (a.Alpha != b.Alpha)
+            return a.Alpha > b.Alpha ? -1 : 1
+        if (a.DefIndex != b.DefIndex)
+            return a.DefIndex < b.DefIndex ? -1 : 1
+        return StrCompare(left.Color, right.Color)
+    }
+
+    static PaletteTooltip(entry) {
+        if (!IsObject(entry) || !entry.HasProp("Uses") || entry.Uses.Length == 0)
+            return ""
+        tip := "常用位置："
+        for i, useName in entry.Uses
+            tip .= (i == 1 ? "" : "；") useName
+        return tip
+    }
+
+    ; 色块与输入框描边相同会融为一体，依次尝试主题描边/文字色，最后使用对比色。
+    static PaletteSwatchStroke(colors, fillColor) {
+        fill := AppThemeUtil.NormalizeArgb(fillColor)
+        stroke := AppThemeUtil.ResolveColor(colors, "Win_InputStroke")
+        if (stroke != fill)
+            return stroke
+        for key in ["Win_GroupStroke", "Win_LabelColor", "Win_ActionStroke"] {
+            candidate := AppThemeUtil.ResolveColor(colors, key)
+            if (candidate != fill)
+                return candidate
+        }
+        return AppThemeUtil.RgbLuma(fill) >= 150 ? "#FF4B5563" : "#FFE5E7EB"
+    }
+
+    static SetPaletteColor(colors, entry, newColor) {
+        if (!IsObject(colors) || !IsObject(entry) || !entry.HasProp("Keys"))
+            return false
+        normalized := AppThemeUtil.NormalizeArgb(newColor)
+        for colorKey in entry.Keys
+            colors[colorKey] := normalized
+        return true
+    }
+
     ; ---------- 颜色解析与完整 Map（兼容核心）----------
 
     ; 默认主题上某 Key 的标准色；默认主题也未定义时才回退纯黑（应避免出现）
     static GetDefaultColor(key) {
-        preset := AppThemeUtil.GetDefaultPreset()
-        if (preset.HasProp(key))
-            return AppThemeUtil.NormalizeArgb(preset.%key%)
+        canonical := AppThemeUtil.CanonicalKey(key)
+        slots := AppThemeUtil.GetPresetSlotMap(AppThemeUtil.GetDefaultPreset())
+        if (slots.Has(canonical))
+            return slots[canonical]
         return "#FF000000"
     }
 
@@ -290,6 +383,12 @@ class AppThemeUtil {
             if (val != "")
                 return AppThemeUtil.NormalizeArgb(val)
         }
+        canonical := AppThemeUtil.CanonicalKey(key)
+        if (IsObject(colors) && colors.Has(canonical)) {
+            val := colors[canonical]
+            if (val != "")
+                return AppThemeUtil.NormalizeArgb(val)
+        }
         return AppThemeUtil.GetDefaultColor(key)
     }
 
@@ -297,7 +396,11 @@ class AppThemeUtil {
     ; 用于：选预设、加载自定义残缺配置、克隆后补齐新增项
     static BuildCompleteColorMap(overlay := "") {
         colors := Map()
-        base := AppThemeUtil.GetDefaultPreset()
+        used := Map()
+        baseSlots := AppThemeUtil.GetPresetSlotMap(AppThemeUtil.GetDefaultPreset())
+        overlaySlots := (IsObject(overlay) && !(overlay is Map) && overlay.HasProp("Key"))
+            ? AppThemeUtil.GetPresetSlotMap(overlay)
+            : Map()
         for def in AppThemeUtil.ColorDefs {
             key := def.Key
             val := ""
@@ -312,10 +415,35 @@ class AppThemeUtil {
                 }
             }
             if (val == "")
-                val := base.HasProp(key) ? base.%key% : "#FF000000"
-            colors[key] := AppThemeUtil.NormalizeArgb(val)
+                val := overlaySlots.Has(key) ? overlaySlots[key] : (baseSlots.Has(key) ? baseSlots[key] : "#FF000000")
+            val := AppThemeUtil.MakeDistinctColor(val, used)
+            colors[key] := val
+            used[val] := true
         }
+        for alias, canonical in AppThemeUtil.ColorAliases
+            colors[alias] := colors[canonical]
         return colors
+    }
+
+    static CanonicalKey(key) {
+        return AppThemeUtil.ColorAliases.Has(key) ? AppThemeUtil.ColorAliases[key] : key
+    }
+
+    static GetPresetSlotMap(preset) {
+        slots := Map()
+        used := Map()
+        base := AppThemeUtil.GetDefaultPreset()
+        for def in AppThemeUtil.ColorDefs {
+            val := ""
+            if (IsObject(preset) && def.HasProp("Source") && preset.HasProp(def.Source))
+                val := preset.%def.Source%
+            if (val == "" && IsObject(base) && base.HasProp(def.Source))
+                val := base.%def.Source%
+            val := AppThemeUtil.MakeDistinctColor(val, used)
+            slots[def.Key] := val
+            used[val] := true
+        }
+        return slots
     }
 
     ; 由预设生成完整颜色 Map（预设缺属性时补默认主题色）
@@ -339,12 +467,34 @@ class AppThemeUtil {
     }
 
     static NormalizeArgb(color) {
-        s := StrReplace(String(color), "#")
+        s := StrUpper(StrReplace(String(color), "#"))
         if (StrLen(s) == 6)
             return "#FF" s
         if (StrLen(s) == 8)
             return "#" s
         return "#FF000000"
+    }
+
+    static MakeDistinctColor(color, used) {
+        candidate := AppThemeUtil.NormalizeArgb(color)
+        if (!used.Has(candidate))
+            return candidate
+        alpha := Integer("0x" SubStr(candidate, 2, 2))
+        baseR := Integer("0x" SubStr(candidate, 4, 2))
+        baseG := Integer("0x" SubStr(candidate, 6, 2))
+        baseB := Integer("0x" SubStr(candidate, 8, 2))
+        loop 255 {
+            distance := Ceil(A_Index / 2)
+            if (Mod(A_Index, 2) == 1)
+                distance := -distance
+            r := Max(0, Min(255, baseR + distance))
+            g := Max(0, Min(255, baseG + distance))
+            b := Max(0, Min(255, baseB + distance))
+            candidate := Format("#{:02X}{:02X}{:02X}{:02X}", alpha, r, g, b)
+            if (!used.Has(candidate))
+                return candidate
+        }
+        return Format("#FF{:02X}{:02X}{:02X}", Mod(baseR + 1, 256), Mod(baseG + 3, 256), Mod(baseB + 5, 256))
     }
 
     static MapGet(colors, key, defaultVal) {
@@ -359,21 +509,15 @@ class AppThemeUtil {
     static ApplyToRuntime(colors) {
         if (!IsObject(colors))
             colors := Map()
-        ; BuildComplete 只保留 ColorDefs：旧键须在补齐前取出
-        legacyBtnText := AppThemeUtil.MapGet(colors, "Panel_FontColor", "")
+        ; BuildComplete 只读取固定的 14 个主题槽位，并重新生成运行时别名。
         colors := AppThemeUtil.BuildCompleteColorMap(colors)
 
         MainSoftData.UIPanelTitleBg := AppThemeUtil.ResolveColor(colors, "Panel_TitleBg")
         MainSoftData.UIPanelTitleText := AppThemeUtil.ResolveColor(colors, "Panel_TitleText")
         MainSoftData.UIPanelBtnColor := AppThemeUtil.ResolveColor(colors, "Panel_BtnColor")
 
-        ; 按钮文本：优先 Panel_BtnText；兼容旧键 Panel_FontColor
-        btnText := AppThemeUtil.MapGet(colors, "Panel_BtnText", "")
-        if (btnText == "" && legacyBtnText != "")
-            btnText := legacyBtnText
-        if (btnText == "")
-            btnText := AppThemeUtil.GetDefaultColor("Panel_BtnText")
-        MainSoftData.UIPanelBtnText := AppThemeUtil.NormalizeArgb(btnText)
+        ; 按钮文本由固定的主题槽位提供。
+        MainSoftData.UIPanelBtnText := AppThemeUtil.ResolveColor(colors, "Panel_BtnText")
         MainSoftData.UIPanelFontColor := MainSoftData.UIPanelBtnText  ; 兼容旧字段名
 
         MainSoftData.UIPanelBgColor := AppThemeUtil.ResolveColor(colors, "Panel_BgColor")
@@ -410,11 +554,7 @@ class AppThemeUtil {
                 colors[def.Key] := AppThemeUtil.NormalizeArgb(saved)
         }
 
-        ; 旧键迁移示例：Panel_FontColor → Panel_BtnText（仅当新键未写入时）
-        legacyBtnText := IniRead(IniFile, section, "Panel_FontColor", "")
-        if (legacyBtnText != "" && IniRead(IniFile, section, "Panel_BtnText", "") == "")
-            colors["Panel_BtnText"] := AppThemeUtil.NormalizeArgb(legacyBtnText)
-
+        colors := AppThemeUtil.CloneColorMap(colors)
         MainSoftData.ThemeColors := colors
         AppThemeUtil.ApplyToRuntime(colors)
     }
@@ -428,15 +568,7 @@ class AppThemeUtil {
             val := AppThemeUtil.ResolveColor(MainSoftData.ThemeColors, def.Key)
             IniWrite(val, IniFile, section, def.Key)
         }
-        ; 同步旧版扁平键（主题权威来源仍是 [ThemeColors]）
-        IniWrite(MainSoftData.UIPanelTitleBg, IniFile, IniSection, "UIPanelTitleBg")
-        IniWrite(MainSoftData.UIPanelTitleText, IniFile, IniSection, "UIPanelTitleText")
-        IniWrite(MainSoftData.UIPanelBtnColor, IniFile, IniSection, "UIPanelBtnColor")
-        IniWrite(MainSoftData.UIPanelBtnText, IniFile, IniSection, "UIPanelBtnText")
-        IniWrite(MainSoftData.UIPanelBgColor, IniFile, IniSection, "UIPanelBgColor")
-        IniWrite(MainSoftData.CMDBGColor, IniFile, IniSection, "CMDBGColor")
-        IniWrite(MainSoftData.CMDRunBGColor, IniFile, IniSection, "CMDRunBGColor")
-        IniWrite(MainSoftData.CMDFontColor, IniFile, IniSection, "CMDFontColor")
+        ; 其他界面设置仍写入原有配置段；主题颜色只写入 14 个 Theme_Color 槽位。
         IniWrite(MainSoftData.AppTheme, IniFile, IniSection, "AppTheme")
         if (MainSoftData.HasProp("FontSize"))
             IniWrite(MainSoftData.FontSize, IniFile, IniSection, "FontSize")
@@ -445,9 +577,9 @@ class AppThemeUtil {
     ; 轮盘取色：ThemeColors → 默认主题；defaultVal 仅作额外兜底（调用方可省略）
     static GetWheelColor(name, defaultVal := "") {
         key := "Wheel_" name
-        if (IsObject(MainSoftData.ThemeColors) && MainSoftData.ThemeColors.Has(key)
-            && MainSoftData.ThemeColors[key] != "")
-            return MainSoftData.ThemeColors[key]
+        if (IsObject(MainSoftData.ThemeColors)
+            && (MainSoftData.ThemeColors.Has(key) || MainSoftData.ThemeColors.Has(AppThemeUtil.CanonicalKey(key))))
+            return AppThemeUtil.ResolveColor(MainSoftData.ThemeColors, key)
         warm := AppThemeUtil.GetDefaultColor(key)
         if (warm != "#FF000000")
             return warm
@@ -671,9 +803,11 @@ class AppThemeUtil {
         if (IsSet(MacroGraphGui) && IsObject(MacroGraphGui))
             try MacroGraphGui.RefreshOpenThemes()
         if (IsSet(MyUIMacroGui) && IsObject(MyUIMacroGui))
-            MyUIMacroGui.RefreshPanels()
+            MyUIMacroGui.ApplyThemeColors()
         if (IsSet(MyCMDTipGui) && IsObject(MyCMDTipGui))
             MyCMDTipGui.ApplyThemeColors()
+        if (IsSet(MyMenuWheel) && IsObject(MyMenuWheel))
+            MyMenuWheel.ApplyThemeColors()
     }
 
     ; 刷新已打开的通用窗口类设置界面（主题保存后同步）

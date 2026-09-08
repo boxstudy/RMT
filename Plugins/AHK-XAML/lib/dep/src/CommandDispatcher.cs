@@ -423,6 +423,18 @@ public partial class AhkWpfEngine
             parts[2] = parts[2].Replace("&#x0A;", "\n").Replace("&#x0D;", "\r");
         }
 
+        if (parts[0] == "Window" && parts[1] == "GMUIConfigure" && parts.Length == 3)
+        {
+            RmtCommonStyles.Configure(win, parts[2]);
+            return;
+        }
+        if (parts[0] == "Window" && parts[1] == "GMUIOpen")
+        {
+            // Do not open a window inside the synchronous AHK SendMessage call.
+            win.Dispatcher.BeginInvoke(new Action(() => RmtCommonStyles.Open(win)));
+            return;
+        }
+
         // MQUERY: batched targeted query — returns values for specific controls in one IPC call
         // Format: MQUERY|ctrl1,ctrl2,ctrl3  or  MQUERY|*  (all tracked)
         if (parts[0] == "MQUERY" && parts.Length >= 2)
@@ -923,6 +935,7 @@ public partial class AhkWpfEngine
                 if (!(synced is System.Windows.Style) && !(synced is FrameworkTemplate))
                     Application.Current.Resources[parts[1]] = synced;
             }
+            RmtCommonStyles.ThemeChanged(win, parts[1]);
             // Force-apply ScrollBarWidth to all ScrollBar elements in the visual tree
             if (parts[1] == "ScrollBarWidth" && win.Resources[parts[1]] is double)
             {

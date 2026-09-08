@@ -184,6 +184,8 @@ class XAMLHost {
         this.wpfHwnd := 0
         this.pid := 0
         this.skipFontScale := false
+        ; Shared styles are consumed in release builds too; only the editor is development-only.
+        this.Update("Window", "GMUIConfigure", A_WorkingDir "\Setting\CommonUIStyles.xml|" (!A_IsCompiled ? "1" : "0"))
         XAMLHost.GetAppDir()
         if !DirExist(A_WorkingDir "\Log")
             DirCreate(A_WorkingDir "\Log")

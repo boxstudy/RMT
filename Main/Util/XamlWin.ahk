@@ -17,6 +17,26 @@
 ; =============================================================================
 
 class XamlWin {
+    ; Small business dialogs share the same chrome, theme and GM-UI registration.
+    static Create(title, content, width, height) {
+        main := XAML_Generator("Grid").Background("{DynamicResource BgColor}")
+            .TextElement_FontFamily(MainSoftData.FontType).TextElement_FontSize(XAMLHost.FontSize())
+        main.Rows("30", "*")
+        XAMLHost.AddTitleBar(main, title, "30")
+        body := main.Add("Border").Grid_Row(1)
+        body._Children.Push(content)
+        content._Parent := body
+        tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", "30")
+        ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()))
+        safeTitle := StrReplace(StrReplace(StrReplace(title, "&", "&amp;"), '"', "&quot;"), "<", "&lt;")
+        scale := XAMLHost.GetMainViewboxScale()
+        ui.xaml := StrReplace(ui.xaml, 'Width="940" Height="700"', 'Title="' safeTitle '" ShowInTaskbar="False" Width="' Round(width * scale) '" Height="' Round(height * scale) '" Opacity="0"')
+        ui.xaml := StrReplace(ui.xaml, "%resources%", "")
+        ui.OnEvent("BtnClosePanel", "Click", (*) => ui.Update("Window", "Close", ""))
+        ui.OnEvent("Window", "LoadedHwnd", (*) => XamlWin.OnLoadTheme(ui))
+        return ui
+    }
+
     static Owner(obj) {
         if (!IsObject(obj))
             return ""

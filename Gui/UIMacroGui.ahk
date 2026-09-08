@@ -328,12 +328,12 @@ class UIMacroGui {
 
         ; 构建XAML（与 floating_panel L213-233 完全一致的结构）
         main := XAML_Generator("Grid")
-        main.Background(bgColor)
+        main.Background("{DynamicResource UIPanelBgColor}")
         main.Rows(titleBarH, "*")
 
-        titleBar := main.Add("Border").Grid_Row(0).Name("TitleBar").Background(titleBg)
+        titleBar := main.Add("Border").Grid_Row(0).Name("TitleBar").Background("{DynamicResource UIPanelTitleBg}")
         titleBar.Add("TextBlock").Name("TitleText").Text(foldRemark)
-            .Foreground(titleText).FontSize(11).FontWeight("SemiBold")
+            .Foreground("{DynamicResource UIPanelTitleText}").FontSize(11).FontWeight("SemiBold")
             .VerticalAlignment("Center").HorizontalAlignment("Center").Margin("6,0,6,0")
 
         body := main.Add("Grid").Grid_Row(1).Name("BodyPanel").Margin("2,1,2,2")
@@ -341,7 +341,7 @@ class UIMacroGui {
 
         ; 按钮样式挂在控件本地，避免无 x:Key 的 Style 进 Window.Resources 后被同步到
         ; Application.Current，关闭浮窗后污染其它 XAML 窗口
-        panelBtnStyle := '<Style TargetType="Button"><Setter Property="BorderThickness" Value="1"/><Setter Property="BorderBrush" Value="Transparent"/><Setter Property="Padding" Value="0"/><Setter Property="Cursor" Value="Arrow"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="1,0"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="#FF0A84FF"/><Setter TargetName="Bd" Property="BorderThickness" Value="1"/></Trigger><Trigger Property="IsPressed" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="#FF0A84FF"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
+        panelBtnStyle := '<Style TargetType="Button"><Setter Property="BorderThickness" Value="1"/><Setter Property="BorderBrush" Value="Transparent"/><Setter Property="Padding" Value="0"/><Setter Property="Cursor" Value="Arrow"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="1,0"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource UIPanelTitleBg}"/><Setter TargetName="Bd" Property="BorderThickness" Value="1"/></Trigger><Trigger Property="IsPressed" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource UIPanelTitleBg}"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
 
         ; 列定义：根据按钮宽度显式设置
         colDefs := body.Add("Grid.ColumnDefinitions")
@@ -363,7 +363,7 @@ class UIMacroGui {
             btn := body.Add("Button").Name(item.name).Height(btnItemH)
                 .Grid_Row(row).Grid_Column(col)
                 .Margin(marginStr)
-            btn.Background(btnColor).Foreground(btnTextColor).FontSize(fontSize)
+            btn.Background("{DynamicResource UIPanelBtnColor}").Foreground("{DynamicResource UIPanelBtnText}").FontSize(fontSize)
             btn.HorizontalAlignment("Stretch")
             btn.Padding("0")
             btn.InjectResources(panelBtnStyle)
@@ -384,7 +384,7 @@ class UIMacroGui {
                 }
             }
 
-            sp.Add("TextBlock").Text(item.text).VerticalAlignment("Center").Foreground(btnTextColor).FontSize(fontSize)
+            sp.Add("TextBlock").Text(item.text).VerticalAlignment("Center").Foreground("{DynamicResource UIPanelBtnText}").FontSize(fontSize)
                 .TextTrimming("CharacterEllipsis").MaxWidth(String(textMaxW))
         }
 
@@ -397,7 +397,13 @@ class UIMacroGui {
         ui.xaml := StrReplace(ui.xaml, 'AllowsTransparency="False"', 'AllowsTransparency="True"')
         ui.xaml := StrReplace(ui.xaml, 'Background="Transparent"', 'Background="' bgColor '"')
 
-        ui.xaml := StrReplace(ui.xaml, '%resources%', '<CornerRadius x:Key="CloseBtnRadius">0,8,0,0</CornerRadius>')
+        panelResources := '<CornerRadius x:Key="CloseBtnRadius">0,8,0,0</CornerRadius>'
+            . '<SolidColorBrush x:Key="UIPanelBtnColor" Color="' btnColor '"/>'
+            . '<SolidColorBrush x:Key="UIPanelBtnText" Color="' btnTextColor '"/>'
+            . '<SolidColorBrush x:Key="UIPanelBgColor" Color="' bgColor '"/>'
+            . '<SolidColorBrush x:Key="UIPanelTitleBg" Color="' titleBg '"/>'
+            . '<SolidColorBrush x:Key="UIPanelTitleText" Color="' titleText '"/>'
+        ui.xaml := StrReplace(ui.xaml, '%resources%', panelResources)
         ui.xaml := StrReplace(ui.xaml, '%components%', '')
 
         ; 绑定事件（对齐 floating_panel L246-249）
@@ -1070,7 +1076,28 @@ class UIMacroGui {
     }
 
     RefreshPanels() {
+        ; 配置/宏数据热重载仍需清空面板缓存，下次显示时重建按钮布局。
         this.HideAllPanels()
+    }
+
+    ApplyThemeColors() {
+        for , panelInfo in this.PanelMap {
+            if (!panelInfo || !IsObject(panelInfo.ui))
+                continue
+            updates := [
+                {ControlName: "Resource", PropertyName: "UIPanelBtnColor", Value: MainSoftData.UIPanelBtnColor},
+                {ControlName: "Resource", PropertyName: "UIPanelBtnText", Value: MainSoftData.UIPanelBtnText},
+                {ControlName: "Resource", PropertyName: "UIPanelBgColor", Value: MainSoftData.UIPanelBgColor},
+                {ControlName: "Resource", PropertyName: "UIPanelTitleBg", Value: MainSoftData.UIPanelTitleBg},
+                {ControlName: "Resource", PropertyName: "UIPanelTitleText", Value: MainSoftData.UIPanelTitleText}
+            ]
+            try panelInfo.ui.BatchUpdate(updates)
+            panelInfo._cfg_BtnColor := MainSoftData.UIPanelBtnColor
+            panelInfo._cfg_BtnText := MainSoftData.UIPanelBtnText
+            panelInfo._cfg_BgColor := MainSoftData.UIPanelBgColor
+            panelInfo._cfg_TitleBg := MainSoftData.UIPanelTitleBg
+            panelInfo._cfg_TitleText := MainSoftData.UIPanelTitleText
+        }
     }
 
     ShowPanel(foldIndex) {

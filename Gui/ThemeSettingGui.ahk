@@ -75,13 +75,9 @@ class ThemeSettingGui {
         chrome := XAMLHost.AddTitleBar(main, title, titleHeight)
 
         body := main.Add("Border").Grid_Row(1).Background("{DynamicResource BgColor}")
-        scrollViewer := body.Add("ScrollViewer").VerticalScrollBarVisibility("Auto").HorizontalScrollBarVisibility("Disabled")
-        ; 左边距 +15，左右对称，内容按两列色块宽度居中
-        panel := scrollViewer.Add("StackPanel").Margin("29, 6, 29, 10")
+        scrollViewer := body.Add("ScrollViewer").VerticalScrollBarVisibility("Hidden").HorizontalScrollBarVisibility("Disabled")
+        panel := scrollViewer.Add("StackPanel").Margin("5,5,10,10")
 
-        ; 颜色值用 Border+TextBlock 显示，避免 WPF TextBox 默认 MinHeight 导致高度调不动
-        ; 主题界面字号与主题「字体大小」一致（默认 15）
-        ; 色块行宽 = labelW + boxW + previewMargin + previewW，字体大小右侧与该宽度对齐
         uiFs := XAMLHost.FontSize()
         this._colorUi := {
             labelFg: "{DynamicResource TextMain}", labelFs: uiFs, labelW: 100,
@@ -93,20 +89,14 @@ class ThemeSettingGui {
         this._colorUi.twoColW := this._colorUi.itemW * 2 + this._colorUi.colGapW
         this._colorUi.comboW := this._colorUi.itemW - this._colorUi.labelW
         this._colorUi.themeComboW := this._colorUi.twoColW - this._colorUi.labelW
-        designW := 29 + 29 + 12 + 12 + 4 + this._colorUi.twoColW + 30
-        designH := 760
+        designW := 29 + 29 + 12 + 12 + 4 + this._colorUi.twoColW - 10
+        designH := 390
         main.Width(designW).Height(designH)
-
-        ; ===== 字体（在主题预设上面，其他内容顺延）=====
-        fontGroup := panel.Add("GroupBox").Header(GetLang("字体")).Margin("0,0,0,0")
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
-            .Foreground("{DynamicResource TextMain}")
-        fontInner := fontGroup.Add("StackPanel").Margin("12, 8")
 
         defFs := (IsSet(MainSoftData) && MainSoftData.HasProp("FontSize") && IsNumber(MainSoftData.FontSize))
             ? Integer(MainSoftData.FontSize)
             : (IsSet(XAML_FontSizeDefault) ? XAML_FontSizeDefault : 15)
-        fontRow := fontInner.Add("Grid").Margin("0,2,0,0").Width(this._colorUi.twoColW)
+        fontRow := panel.Add("Grid").Margin("0,0,0,0").Width(this._colorUi.twoColW)
         fontRow.Cols(String(this._colorUi.itemW), String(this._colorUi.itemW + this._colorUi.colGapW))
 
         familyCol := fontRow.Add("Grid").Grid_Column(0).HorizontalAlignment("Left").Width(this._colorUi.itemW)
@@ -115,7 +105,7 @@ class ThemeSettingGui {
             .Foreground(this._colorUi.labelFg).FontSize(this._colorUi.labelFs)
             .VerticalAlignment("Center")
         fontCombo := familyCol.Add("ComboBox").Grid_Column(1).Name("FontFamilyCon")
-            .Height(this._colorUi.boxH).MinHeight(this._colorUi.boxH).HorizontalAlignment("Stretch")
+            .Width(this._colorUi.comboW).Height(this._colorUi.boxH).MinHeight(this._colorUi.boxH).HorizontalAlignment("Left")
             .VerticalContentAlignment("Center").FontSize(this._colorUi.labelFs)
             .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
@@ -136,18 +126,13 @@ class ThemeSettingGui {
             .FontSize(this._colorUi.labelFs).Foreground("{DynamicResource TextMain}")
             .VerticalAlignment("Center").HorizontalAlignment("Right")
 
-        ; ===== 顶部：主题下拉 =====
-        themeGroup := panel.Add("GroupBox").Header(GetLang("主题预设")).Margin("0,10,0,0")
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
-            .Foreground("{DynamicResource TextMain}")
-        themeInner := themeGroup.Add("StackPanel").Margin("12, 8")
-        themeRow := themeInner.Add("Grid").Margin("0,2,0,0").Width(this._colorUi.twoColW)
+        themeRow := panel.Add("Grid").Margin("0,10,0,0").Width(this._colorUi.twoColW)
         themeRow.Cols(String(this._colorUi.labelW), "*")
         themeRow.Add("TextBlock").Grid_Column(0).Text(GetLang("选择主题") "：")
             .Foreground(this._colorUi.labelFg).FontSize(this._colorUi.labelFs)
             .VerticalAlignment("Center")
         themeCombo := themeRow.Add("ComboBox").Grid_Column(1).Name("ThemeCombo")
-            .Height(this._colorUi.boxH).MinHeight(this._colorUi.boxH).HorizontalAlignment("Stretch")
+            .Width(this._colorUi.comboW).Height(this._colorUi.boxH).MinHeight(this._colorUi.boxH).HorizontalAlignment("Left")
             .VerticalContentAlignment("Center").FontSize(this._colorUi.labelFs)
             .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
@@ -155,24 +140,24 @@ class ThemeSettingGui {
             themeCombo.Add("ComboBoxItem").Content(GetLang(item.Name))
         themeCombo.Add("ComboBoxItem").Content(GetLang("自定义"))
 
-        ; ===== 下方：可滚动颜色组（分组与行布局由 ColorDefs 自动生成，便于后续扩展）=====
-        groups := AppThemeUtil.GetGroupNames()
-        for gi, groupName in groups {
-            groupBox := panel.Add("GroupBox").Header(GetLang(groupName)).Margin(gi == 1 ? "0,10,0,0" : "0,8,0,0")
-                .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
-                .Foreground("{DynamicResource TextMain}")
-            inner := groupBox.Add("StackPanel").Margin("12, 8")
-            rowKeys := this._GetGroupRowKeys(groupName)
-            for ri, keys in rowKeys {
-                ; 双列 Grid：第二列与字体行第二列统一左对齐
-                row := inner.Add("Grid").Margin(ri == 1 ? "0,4,0,0" : "0,6,0,0").Width(this._colorUi.twoColW)
-                row.Cols(String(this._colorUi.itemW), String(this._colorUi.itemW + this._colorUi.colGapW))
-                this._AddColorItem(row, this._FindColorDef(keys[1]), 0)
-                if (keys.Length >= 2)
-                    this._AddColorItem(row, this._FindColorDef(keys[2]), 1)
+        colorGroup := panel.Add("Border").Margin("0,10,0,0")
+            .BorderBrush("{DynamicResource OutlineStroke}").BorderThickness("1.5")
+            .CornerRadius("4").Padding("12,4")
+            .Width(this._colorUi.twoColW + 30).HorizontalAlignment("Center")
+        colorInner := colorGroup.Add("StackPanel")
+        slot := 1
+        while (slot <= AppThemeUtil.ColorDefs.Length) {
+            rowIndex := Ceil(slot / 2)
+            row := colorInner.Add("Grid").Name("PaletteRow_" rowIndex)
+                .Margin(slot == 1 ? "0,2,0,0" : "0,3,0,0").Width(this._colorUi.twoColW)
+            row.Cols(String(this._colorUi.itemW), String(this._colorUi.itemW + this._colorUi.colGapW))
+            this._AddPaletteItem(row, slot, 0)
+            slot += 1
+            if (slot <= AppThemeUtil.ColorDefs.Length) {
+                this._AddPaletteItem(row, slot, 1)
+                slot += 1
             }
         }
-
         PrimaryBtnStyle := '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="bd" Property="Background" Value="{DynamicResource ActionHoverBg}"/><Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource ActionHoverStroke}"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
         btnRow := panel.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Center").Margin("0,18,0,10")
         okBtn := btnRow.Add("Button").Name("BtnConfirm").Content(GetLang("确定")).Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}").FontWeight("Bold").BorderBrush("{DynamicResource ActionStroke}").BorderThickness("1").FontSize(13).Cursor("Hand").Width(80).Height(32)
@@ -197,8 +182,8 @@ class ThemeSettingGui {
         this.ui.OnEvent("ThemeCombo", "SelectionChanged", ObjBindMethod(this, "OnThemeSelectionChanged"))
         this.ui.OnEvent("BtnConfirm", "Click", ObjBindMethod(this, "OnConfirmClick"))
 
-        for def in AppThemeUtil.ColorDefs
-            this.ui.OnEvent(def.Key "_Preview", "MouseLeftButtonDown", ObjBindMethod(this, "OnPickColor", def.Key, def.Label))
+        loop AppThemeUtil.ColorDefs.Length
+            this.ui.OnEvent("PalettePreview_" A_Index, "MouseLeftButtonDown", ObjBindMethod(this, "OnPickColor", A_Index))
 
         this._applyingTheme := true
         this.LoadInitValues()
@@ -210,59 +195,32 @@ class ThemeSettingGui {
     }
 
     ; 按 ColorDefs 顺序收集该组 Key，两两一行（新增颜色项无需改此处）
-    _GetGroupRowKeys(groupName) {
-        keys := []
-        for def in AppThemeUtil.ColorDefs {
-            if (def.Group == groupName)
-                keys.Push(def.Key)
-        }
-        rows := []
-        i := 1
-        while (i <= keys.Length) {
-            if (i + 1 <= keys.Length) {
-                rows.Push([keys[i], keys[i + 1]])
-                i += 2
-            } else {
-                rows.Push([keys[i]])
-                i += 1
-            }
-        }
-        return rows
-    }
-
-    _FindColorDef(key) {
-        for def in AppThemeUtil.ColorDefs {
-            if (def.Key == key)
-                return def
-        }
-        return {Key: key, Group: "", Label: key}
-    }
-
-    _AddColorItem(row, def, col) {
+    _AddPaletteItem(row, slot, col) {
         ui := this._colorUi
-        item := row.Add("Grid").Grid_Column(col)
+        item := row.Add("Grid").Name("PaletteItem_" slot).Grid_Column(col)
             .VerticalAlignment("Center").HorizontalAlignment("Left").Width(ui.itemW)
         if (col == 1)
             item.Margin(ui.colGap)
         item.Cols(String(ui.labelW), String(ui.boxW), "Auto")
-        item.Add("TextBlock").Grid_Column(0).Text(GetLang(def.Label) "：")
+        item.Add("TextBlock").Name("PaletteLabel_" slot).Grid_Column(0).Text(GetLang("颜色") slot "：")
             .Foreground(ui.labelFg).FontSize(ui.labelFs)
             .VerticalAlignment("Center")
-        ; 只读色值展示：Border + TextBlock，高度可控
+            .ToolTip("")
         box := item.Add("Border").Grid_Column(1).Width(ui.boxW).Height(ui.boxH).CornerRadius("3")
             .Background("{DynamicResource InputBg}")
-            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1.5")
+            .SnapsToDevicePixels("True").UseLayoutRounding("False")
             .VerticalAlignment("Center").HorizontalAlignment("Left")
-        box.Add("TextBlock").Name(def.Key "_Text")
+        box.Add("TextBlock").Name("PaletteText_" slot)
             .Text("#FF000000").FontSize(ui.boxFs)
             .Foreground("{DynamicResource InputText}")
             .HorizontalAlignment("Center").VerticalAlignment("Center")
-        item.Add("Border").Grid_Column(2).Name(def.Key "_Preview")
+        item.Add("Border").Grid_Column(2).Name("PalettePreview_" slot)
             .Width(ui.previewW).Height(ui.previewH).CornerRadius("3").Margin(ui.previewMargin ",0,0,0")
-            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1.5")
             .Background("#FF000000").Cursor("Hand").VerticalAlignment("Center")
+            .SnapsToDevicePixels("True").UseLayoutRounding("False")
     }
-
     LoadInitValues() {
         this._themeKey := MainSoftData.HasProp("AppTheme") ? MainSoftData.AppTheme : AppThemeUtil.DefaultThemeKey
         if (this._themeKey == "" || !AppThemeUtil.IsPresetKey(this._themeKey))
@@ -272,6 +230,8 @@ class ThemeSettingGui {
             this._colors := AppThemeUtil.CloneColorMap(MainSoftData.ThemeColors)
         else
             this._colors := AppThemeUtil.NewColorMapFromPreset(AppThemeUtil.FindPreset(this._themeKey))
+        this._originalThemeKey := this._themeKey
+        this._originalColors := AppThemeUtil.CloneColorMap(this._colors)
     }
 
     ApplyValuesToUI() {
@@ -286,7 +246,7 @@ class ThemeSettingGui {
                 }
             }
             this.ui.Update("ThemeCombo", "SelectedIndex", String(themeIdx))
-            this.RefreshColorRows()
+            this.RebuildPalette()
             defFs := IsSet(XAML_FontSizeDefault) ? XAML_FontSizeDefault : 15
             fsz := MainSoftData.HasProp("FontSize") ? Integer(MainSoftData.FontSize) : defFs
             this._previewFontSize := fsz
@@ -309,11 +269,31 @@ class ThemeSettingGui {
         }
     }
 
-    RefreshColorRows() {
-        for def in AppThemeUtil.ColorDefs {
-            color := AppThemeUtil.ResolveColor(this._colors, def.Key)
-            this.ui.Update(def.Key "_Preview", "Background", color)
-            this.ui.Update(def.Key "_Text", "Text", color)
+    RebuildPalette() {
+        this._palette := AppThemeUtil.BuildPalette(this._colors)
+        updates := []
+        loop AppThemeUtil.ColorDefs.Length {
+            slot := A_Index
+            visible := slot <= this._palette.Length
+            updates.Push({ControlName: "PaletteItem_" slot, PropertyName: "Visibility", Value: visible ? "Visible" : "Collapsed"})
+            if (!visible)
+                continue
+            entry := this._palette[slot]
+            tip := AppThemeUtil.PaletteTooltip(entry)
+            updates.Push({ControlName: "PaletteLabel_" slot, PropertyName: "Text", Value: GetLang("颜色") slot "："})
+            updates.Push({ControlName: "PaletteLabel_" slot, PropertyName: "ToolTip", Value: tip})
+            updates.Push({ControlName: "PaletteText_" slot, PropertyName: "Text", Value: entry.Color})
+            updates.Push({ControlName: "PalettePreview_" slot, PropertyName: "Background", Value: entry.Color})
+            updates.Push({ControlName: "PalettePreview_" slot, PropertyName: "BorderBrush", Value: AppThemeUtil.PaletteSwatchStroke(this._colors, entry.Color)})
+            updates.Push({ControlName: "PalettePreview_" slot, PropertyName: "ToolTip", Value: tip})
+        }
+        loop Ceil(AppThemeUtil.ColorDefs.Length / 2)
+            updates.Push({ControlName: "PaletteRow_" A_Index, PropertyName: "Visibility", Value: (A_Index * 2 - 1 <= this._palette.Length) ? "Visible" : "Collapsed"})
+        if (this.ui.HasMethod("BatchUpdate"))
+            this.ui.BatchUpdate(updates)
+        else {
+            for update in updates
+                this.ui.Update(update.ControlName, update.PropertyName, update.Value)
         }
     }
 
@@ -330,7 +310,7 @@ class ThemeSettingGui {
             return
         this._themeKey := preset.Key
         this._colors := AppThemeUtil.NewColorMapFromPreset(preset)
-        this.RefreshColorRows()
+        this.RebuildPalette()
         AppThemeUtil.ApplyWinThemeToXaml(this.ui, this._colors)
     }
 
@@ -351,33 +331,39 @@ class ThemeSettingGui {
         ApplyUserFontSize(fs, false)
     }
 
-    OnPickColor(colorKey, labelKey, state, ctrl, event) {
-        cur := AppThemeUtil.ResolveColor(this._colors, colorKey)
+    OnPickColor(slot, state, ctrl, event) {
+        if (!IsObject(this._palette) || slot < 1 || slot > this._palette.Length)
+            return
+        entry := this._palette[slot]
+        cur := entry.Color
         result := XColorPicker.Show({
-            Title: GetLang(labelKey),
+            Title: GetLang("颜色") slot,
             DefaultColor: cur,
             Owner: this.ui.wpfHwnd,
             Modal: true
         })
         if (result.Status != "OK")
             return
-        this._colors[colorKey] := result.Color
-        this.ui.Update(colorKey "_Preview", "Background", result.Color)
-        this.ui.Update(colorKey "_Text", "Text", result.Color)
-        if (InStr(colorKey, "Win_") == 1)
-            AppThemeUtil.ApplyWinThemeToXaml(this.ui, this._colors)
+        AppThemeUtil.SetPaletteColor(this._colors, entry, result.Color)
         this._themeKey := "Custom"
+        this.RebuildPalette()
+        AppThemeUtil.ApplyWinThemeToXaml(this.ui, this._colors)
         this._applyingTheme := true
         try this.ui.Update("ThemeCombo", "SelectedIndex", String(AppThemeUtil.Presets.Length))
         finally this._applyingTheme := false
     }
-
     OnConfirmClick(state, ctrl, event) {
         this.SaveData()
         this.ui.Update("Window", "Close", "")
     }
 
     OnCancelClick(state, ctrl, event) {
+        if (this.HasProp("_originalColors") && IsObject(this._originalColors)) {
+            MainSoftData.AppTheme := this._originalThemeKey
+            MainSoftData.ThemeColors := AppThemeUtil.CloneColorMap(this._originalColors)
+            AppThemeUtil.ApplyToRuntime(MainSoftData.ThemeColors)
+            AppThemeUtil.ApplyWinThemeToXaml(this.ui, MainSoftData.ThemeColors)
+        }
         this.ui.Update("Window", "Close", "")
     }
 

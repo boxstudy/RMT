@@ -166,6 +166,34 @@ class MenuWheelGui {
         this._Cleanup()
     }
 
+    ; 主题调色板预览/保存时即时刷新已打开轮盘；样式触发器使用动态资源，
+    ; 因而常态、悬停、选中、文字与划线会一起换色，无需关闭重开。
+    ApplyThemeColors() {
+        this.normalFill := AppThemeUtil.GetWheelColor("NormalFill", "#FFFCFCFC")
+        this.normalStroke := AppThemeUtil.GetWheelColor("NormalStroke", "#FFC6DFFC")
+        this.hoverFill := AppThemeUtil.GetWheelColor("HoverFill", "#FFE8F1FB")
+        this.hoverStroke := AppThemeUtil.GetWheelColor("HoverStroke", "#FF0078D7")
+        this.normalText := AppThemeUtil.GetWheelColor("NormalText", "#CC333333")
+        this.hoverText := AppThemeUtil.GetWheelColor("HoverText", "#FF0078D7")
+        this.selectedFill := this.hoverFill
+        this.selectedStroke := this.hoverStroke
+        this.selectedText := this.hoverText
+        this.swipeLineColor := AppThemeUtil.GetWheelColor("SwipeLineColor", "#FF3A88F5")
+        if (this.closed || !this.isOpen || !IsObject(this.ui))
+            return
+        updates := [
+            {ControlName: "Resource", PropertyName: "WheelNormalFill", Value: this.normalFill},
+            {ControlName: "Resource", PropertyName: "WheelNormalStroke", Value: this.normalStroke},
+            {ControlName: "Resource", PropertyName: "WheelHoverFill", Value: this.hoverFill},
+            {ControlName: "Resource", PropertyName: "WheelHoverStroke", Value: this.hoverStroke},
+            {ControlName: "Resource", PropertyName: "WheelNormalText", Value: this.normalText},
+            {ControlName: "Resource", PropertyName: "WheelHoverText", Value: this.hoverText}
+        ]
+        if (this.selectMode == 2)
+            updates.Push({ControlName: "SwipeLine", PropertyName: "Stroke", Value: this.swipeLineColor})
+        try this.ui.BatchUpdate(updates)
+    }
+
     _BuildAndShow(items, x, y, options) {
         radius := options.HasProp("Radius") ? options.Radius : 150
         innerR := options.HasProp("InnerRadius") ? options.InnerRadius : Round(radius * 0.4)
@@ -259,38 +287,44 @@ class MenuWheelGui {
         win.WindowStartupLocation("Manual")
         ; 注入原生 WPF 悬停样式 + 圆角配置 + Tooltip 配置
         wheelStyle := '<CornerRadius x:Key="PanelRadius">0,0,0,0</CornerRadius>'
+            . '<SolidColorBrush x:Key="WheelNormalFill" Color="' normalFill '"/>'
+            . '<SolidColorBrush x:Key="WheelNormalStroke" Color="' normalStroke '"/>'
+            . '<SolidColorBrush x:Key="WheelHoverFill" Color="' hoverFill '"/>'
+            . '<SolidColorBrush x:Key="WheelHoverStroke" Color="' hoverStroke '"/>'
+            . '<SolidColorBrush x:Key="WheelNormalText" Color="' normalText '"/>'
+            . '<SolidColorBrush x:Key="WheelHoverText" Color="' hoverText '"/>'
             . '<Style TargetType="{x:Type FrameworkElement}" x:Key="GlobalToolTipStyle">'
             . '  <Setter Property="ToolTipService.InitialShowDelay" Value="200"/>'
             . '</Style>'
             . '<Style x:Key="WheelWedgeStyle" TargetType="Path">'
-            . '  <Setter Property="Fill" Value="' normalFill '"/>'
-            . '  <Setter Property="Stroke" Value="' normalStroke '"/>'
+            . '  <Setter Property="Fill" Value="{DynamicResource WheelNormalFill}"/>'
+            . '  <Setter Property="Stroke" Value="{DynamicResource WheelNormalStroke}"/>'
             . '  <Setter Property="StrokeThickness" Value="' String(normalThickness) '"/>'
             . '  <Style.Triggers>'
             . '    <Trigger Property="IsMouseOver" Value="True">'
-            . '      <Setter Property="Fill" Value="' hoverFill '"/>'
-            . '      <Setter Property="Stroke" Value="' hoverStroke '"/>'
+            . '      <Setter Property="Fill" Value="{DynamicResource WheelHoverFill}"/>'
+            . '      <Setter Property="Stroke" Value="{DynamicResource WheelHoverStroke}"/>'
             . '      <Setter Property="StrokeThickness" Value="' String(hoverThickness) '"/>'
             . '    </Trigger>'
             . '  </Style.Triggers>'
             . '</Style>'
             . '<Style x:Key="CenterCircleStyle" TargetType="Ellipse">'
-            . '  <Setter Property="Fill" Value="' normalFill '"/>'
-            . '  <Setter Property="Stroke" Value="' normalStroke '"/>'
+            . '  <Setter Property="Fill" Value="{DynamicResource WheelNormalFill}"/>'
+            . '  <Setter Property="Stroke" Value="{DynamicResource WheelNormalStroke}"/>'
             . '  <Setter Property="StrokeThickness" Value="' String(normalThickness) '"/>'
             . '  <Style.Triggers>'
             . '    <Trigger Property="IsMouseOver" Value="True">'
-            . '      <Setter Property="Fill" Value="' hoverFill '"/>'
-            . '      <Setter Property="Stroke" Value="' hoverStroke '"/>'
+            . '      <Setter Property="Fill" Value="{DynamicResource WheelHoverFill}"/>'
+            . '      <Setter Property="Stroke" Value="{DynamicResource WheelHoverStroke}"/>'
             . '      <Setter Property="StrokeThickness" Value="' String(hoverThickness) '"/>'
             . '    </Trigger>'
             . '  </Style.Triggers>'
             . '</Style>'
             . '<Style x:Key="CloseIconStyle" TargetType="TextBlock">'
-            . '  <Setter Property="Foreground" Value="' this.normalText '"/>'
+            . '  <Setter Property="Foreground" Value="{DynamicResource WheelNormalText}"/>'
             . '  <Style.Triggers>'
             . '    <DataTrigger Binding="{Binding IsMouseOver, ElementName=CenterCircle}" Value="True">'
-            . '      <Setter Property="Foreground" Value="' this.hoverText '"/>'
+            . '      <Setter Property="Foreground" Value="{DynamicResource WheelHoverText}"/>'
             . '    </DataTrigger>'
             . '  </Style.Triggers>'
             . '</Style>'
@@ -298,10 +332,10 @@ class MenuWheelGui {
         Loop itemCount {
             idx := A_Index
             wheelStyle .= '<Style x:Key="WheelLabelStyle_' idx '" TargetType="TextBlock">'
-                . '  <Setter Property="Foreground" Value="' this.normalText '"/>'
+                . '  <Setter Property="Foreground" Value="{DynamicResource WheelNormalText}"/>'
                 . '  <Style.Triggers>'
                 . '    <DataTrigger Binding="{Binding IsMouseOver, ElementName=Wedge_' idx '}" Value="True">'
-                . '      <Setter Property="Foreground" Value="' this.hoverText '"/>'
+                . '      <Setter Property="Foreground" Value="{DynamicResource WheelHoverText}"/>'
                 . '    </DataTrigger>'
                 . '  </Style.Triggers>'
                 . '</Style>'
