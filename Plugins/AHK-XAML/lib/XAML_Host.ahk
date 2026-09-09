@@ -369,13 +369,18 @@ class XAMLHost {
 
     ; 标题栏关闭钮：与主界面 BtnWinClose 同款（46×标题栏高、TitleBarCloseButton、右上圆角 hover）
     static AddTitleCloseBtn(parent, name := "BtnClosePanel", titleHeight := "30") {
+        return XAMLHost.AddTitleChromeBtn(parent, name, titleHeight, Chr(0xE8BB), "Visible", "{StaticResource TitleBarCloseButton}")
+    }
+
+    static AddTitleChromeBtn(parent, name, titleHeight := "30", glyph := "", visibility := "Visible", style := "{StaticResource TitleBarChromeButton}") {
         btn := parent.Add("Button").Name(name)
-            .Style("{StaticResource TitleBarCloseButton}")
+            .Style(style)
             .WindowChrome_IsHitTestVisibleInChrome("True")
             .Width(46).Height(titleHeight).MinHeight(titleHeight).Padding("0")
             .VerticalAlignment("Stretch").Background("Transparent")
             .Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
-        btn.Add("TextBlock").Text(Chr(0xE8BB)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets")
+            .Visibility(visibility)
+        btn.Add("TextBlock").Text(glyph).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets")
             .FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
         return btn
     }
@@ -407,6 +412,9 @@ class XAMLHost {
     ; 标准标题栏 + 关闭钮。返回 { Root, Drag, Btns, Close }
     static AddTitleBar(main, title, titleHeight := "30", closeName := "BtnClosePanel", titleName := "", titleIcon := "", titleIconColor := "") {
         chrome := XAMLHost.AddTitleBarChrome(main, title, titleName, titleIcon, titleIconColor)
+        chrome.Minimize := XAMLHost.AddTitleChromeBtn(chrome.Btns, "BtnMinimize", titleHeight, Chr(0xE921), "Collapsed")
+        chrome.Maximize := XAMLHost.AddTitleChromeBtn(chrome.Btns, "BtnMaximize", titleHeight, Chr(0xE922), "Collapsed")
+        chrome.Pin := XAMLHost.AddTitleChromeBtn(chrome.Btns, "BtnPin", titleHeight, Chr(0xE840), "Collapsed")
         chrome.Close := XAMLHost.AddTitleCloseBtn(chrome.Btns, closeName, titleHeight)
         return chrome
     }
@@ -663,7 +671,7 @@ class XAMLHost {
 
     static IsTitleChromeButton(tag) {
         return XAMLHost.IsTitleCloseButton(tag)
-            || InStr(tag, 'Name="BtnMinimize"') || InStr(tag, 'Name="BtnMaximize"')
+            || InStr(tag, 'Name="BtnMinimize"') || InStr(tag, 'Name="BtnMaximize"') || InStr(tag, 'Name="BtnPin"')
     }
 
     ; 标题栏：窗口标题 = 主题字号+2 且粗体；铬钮统一 TitleBarCloseButton

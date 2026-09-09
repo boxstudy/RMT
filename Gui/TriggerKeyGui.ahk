@@ -389,7 +389,7 @@ class TriggerKeyGui {
             . '<Trigger Property="IsPressed" Value="True"><Setter TargetName="bd" Property="Background" Value="{DynamicResource BtnPressBg}"/><Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Accent}"/></Trigger>'
             . '</ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
 
-        keyGroup := main.Add("Border").Grid_Row(1).Margin("8,4,8,19").Padding("4,2,4,4")
+        keyGroup := main.Add("Border").Name("WindowBody").Grid_Row(1).Margin("8,4,8,19").Padding("4,2,4,4")
             .BorderBrush("{DynamicResource OutlineStroke}").BorderThickness("1.5").CornerRadius("4")
             .Background("Transparent").ClipToBounds("False")
         keyGroup.Apply({SnapsToDevicePixels: "True", UseLayoutRounding: "False"})
@@ -460,7 +460,7 @@ class TriggerKeyGui {
         ; === 创建 XAMLHost ===
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", "")
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="1280" Height="635" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Uid="gm:Window.TriggerKey" Title="' this._EscapeXml(title) '" Width="1280" Height="635" Opacity="0"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
         this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '')
 

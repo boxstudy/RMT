@@ -451,6 +451,8 @@ public partial class AhkWpfEngine
         if (btnMaximize != null) btnMaximize.Click += (s, e) => { win.WindowState = win.WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized; };
         var btnMinimize = win.FindName("BtnMinimize") as ButtonBase;
         if (btnMinimize != null) btnMinimize.Click += (s, e) => { win.WindowState = WindowState.Minimized; };
+        var btnPin = win.FindName("BtnPin") as ButtonBase;
+        if (btnPin != null) btnPin.Click += (s, e) => { win.Topmost = !win.Topmost; };
 
         win.Resources["BaseWindowRadius"] = new CornerRadius(12);
         if (Application.Current != null) Application.Current.Resources["BaseWindowRadius"] = win.Resources["BaseWindowRadius"];
@@ -867,7 +869,7 @@ public partial class AhkWpfEngine
                     try { chrome.CornerRadius = (CornerRadius)Application.Current.Resources["WindowRadius"]; } catch { chrome.CornerRadius = new CornerRadius(12); }
                     System.Windows.Shell.WindowChrome.SetWindowChrome(win, chrome);
                     // Re-apply IsHitTestVisibleInChrome on known buttons
-                    foreach (string btnName in new[] { "BtnToggleSidebar", "BtnClose", "BtnClosePanel", "BtnWinClose", "BtnMinimize", "BtnMaximize" })
+                    foreach (string btnName in new[] { "BtnToggleSidebar", "BtnClose", "BtnClosePanel", "BtnWinClose", "BtnMinimize", "BtnMaximize", "BtnPin" })
                     {
                         var el = win.FindName(btnName) as System.Windows.IInputElement;
                         if (el != null) System.Windows.Shell.WindowChrome.SetIsHitTestVisibleInChrome(el, true);
@@ -1038,6 +1040,8 @@ public partial class AhkWpfEngine
 
         var btnMinimize = win.FindName("BtnMinimize") as ButtonBase;
         if (btnMinimize != null) btnMinimize.Click += (s, e) => { win.WindowState = WindowState.Minimized; };
+        var btnPin = win.FindName("BtnPin") as ButtonBase;
+        if (btnPin != null) btnPin.Click += (s, e) => { win.Topmost = !win.Topmost; };
 
         win.Resources["BaseWindowRadius"] = new CornerRadius(12);
         if (Application.Current != null) Application.Current.Resources["BaseWindowRadius"] = win.Resources["BaseWindowRadius"];
@@ -1076,8 +1080,10 @@ public partial class AhkWpfEngine
             timer.Tick += (sender, args) =>
             {
                 timer.Stop();
+                bool keepTopmost = win.Topmost;
                 win.Topmost = true;
                 win.Topmost = false;
+                if (keepTopmost) win.Topmost = true;
                 // 揭盖前窗口处于 SW_HIDE 隐藏阶段：不激活（Activate 会把隐藏窗口重新显示成白壳）
                 if (!win.Resources.Contains("_NativeAlphaPending"))
                     win.Activate();

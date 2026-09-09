@@ -3848,7 +3848,7 @@ public partial class AhkWpfEngine
             return;
         if (btn.Name != "BtnClosePanel" && btn.Name != "BtnClose" && btn.Name != "BtnWinClose"
             && btn.Name != "BtnClosePicker"
-            && btn.Name != "BtnMinimize" && btn.Name != "BtnMaximize")
+            && btn.Name != "BtnMinimize" && btn.Name != "BtnMaximize" && btn.Name != "BtnPin")
             return;
         btn.Width = 46;
         btn.Height = 30;
@@ -3888,7 +3888,7 @@ public partial class AhkWpfEngine
                 bd.VerticalAlignment = VerticalAlignment.Stretch;
                 bd.MinWidth = 46;
                 bd.MinHeight = 30;
-                if (btn.Name == "BtnMinimize" || btn.Name == "BtnMaximize")
+                if (btn.Name == "BtnMinimize" || btn.Name == "BtnMaximize" || btn.Name == "BtnPin")
                     bd.CornerRadius = new CornerRadius(0);
             }
             ContentPresenter cp = BridgeUtil.FindVisualChild<ContentPresenter>(btn);
@@ -3905,7 +3905,7 @@ public partial class AhkWpfEngine
             return false;
         return btn.Name == "BtnClosePanel" || btn.Name == "BtnClose" || btn.Name == "BtnWinClose"
             || btn.Name == "BtnClosePicker"
-            || btn.Name == "BtnMinimize" || btn.Name == "BtnMaximize";
+            || btn.Name == "BtnMinimize" || btn.Name == "BtnMaximize" || btn.Name == "BtnPin";
     }
 
     static bool IsInTitleBar(DependencyObject node)

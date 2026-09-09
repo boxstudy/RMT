@@ -74,7 +74,7 @@ class ThemeSettingGui {
 
         chrome := XAMLHost.AddTitleBar(main, title, titleHeight)
 
-        body := main.Add("Border").Grid_Row(1).Background("{DynamicResource BgColor}")
+        body := main.Add("Border").Name("WindowBody").Grid_Row(1).Background("{DynamicResource BgColor}")
         scrollViewer := body.Add("ScrollViewer").VerticalScrollBarVisibility("Hidden").HorizontalScrollBarVisibility("Disabled")
         panel := scrollViewer.Add("StackPanel").Margin("5,5,10,10")
 
@@ -160,14 +160,14 @@ class ThemeSettingGui {
         }
         PrimaryBtnStyle := '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="bd" Property="Background" Value="{DynamicResource ActionHoverBg}"/><Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource ActionHoverStroke}"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
         btnRow := panel.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Center").Margin("0,18,0,10")
-        okBtn := btnRow.Add("Button").Name("BtnConfirm").Content(GetLang("确定")).Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}").FontWeight("Bold").BorderBrush("{DynamicResource ActionStroke}").BorderThickness("1").FontSize(13).Cursor("Hand").Width(80).Height(32)
+        okBtn := btnRow.Add("Button").Name("BtnConfirm").Uid("gm:Theme.Confirm").Content(GetLang("确定")).Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}").FontWeight("Bold").BorderBrush("{DynamicResource ActionStroke}").BorderThickness("1").FontSize(13).Cursor("Hand").Width(80).Height(32)
         okBtn.InjectResources(PrimaryBtnStyle)
 
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", "")
         winW := Round(designW * uiScale)
         winH := Round(designH * uiScale)
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' title '" ShowInTaskbar="False" Width="' winW '" Height="' winH '" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Uid="gm:Window.Theme" Title="' title '" ShowInTaskbar="False" Width="' winW '" Height="' winH '" Opacity="0"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'CornerRadius="{DynamicResource WindowRadius}"', 'CornerRadius="{DynamicResource PanelRadius}"')
         groupBoxStyle := '<Style TargetType="GroupBox"><Setter Property="BorderBrush" Value="{DynamicResource ControlBorder}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="Foreground" Value="{DynamicResource TextMain}"/></Style>'

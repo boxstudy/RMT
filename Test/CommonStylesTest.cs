@@ -55,11 +55,12 @@ class CommonStylesTest
             RmtCommonStyles.Values["样式/RmtItemEditBtn"] = new Dictionary<string, string> { { "Width", "88" } };
             RmtCommonStyles.Values["通用/TextBox"] = new Dictionary<string, string> { { "RelativeFontSize", "2" } };
             RmtCommonStyles.Refresh();
-            Check(double.IsNaN(b.Width), "button template isolated from formal instances");
+            Check(b.Width == 123, "button template applies to named instances as base");
+            Check(a.Width == 88, "named style overrides button template");
             Check(special.Width == 31, "explicit exception retained");
             Check(input.FontSize == 19 && BindingOperations.IsDataBound(input, TextBox.FontSizeProperty), "data binding retained");
             var dynamic = new Button(); ((StackPanel)window.Content).Children.Add(dynamic); Pump();
-            Check(true, "dynamic button registration remains safe");
+            Check(dynamic.Width == 123, "button template applies to new instances");
             ((ItemsControl)window.FindName("Virtual")).Items.Add("row"); Pump();
             Check(RmtCommonStyles.Live().Count(x => x.Key == "样式/RmtItemEditBtn") >= 2, "DataTemplate row registered");
             var rounded = (Button)XamlReader.Parse("<Button xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml'><Button.Template><ControlTemplate TargetType='Button'><Border x:Name='BD' CornerRadius='3'/></ControlTemplate></Button.Template></Button>");
