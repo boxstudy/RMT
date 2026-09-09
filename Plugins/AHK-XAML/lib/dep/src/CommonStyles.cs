@@ -14,6 +14,9 @@ using System.Windows.Data;
 using System.Windows.Media;
 using System.Windows.Markup;
 using System.Windows.Input;
+using System.Windows.Shapes;
+using System.Windows.Documents;
+using System.Windows.Threading;
 using System.Xml;
 
 internal static class RmtCommonStyles
@@ -42,6 +45,7 @@ internal static class RmtCommonStyles
     private static readonly ConditionalWeakTable<FrameworkElement, Entry> entries = new ConditionalWeakTable<FrameworkElement, Entry>();
     private static readonly List<WeakReference> elements = new List<WeakReference>();
     internal static readonly Dictionary<string, Dictionary<string, string>> Values = new Dictionary<string, Dictionary<string, string>>();
+    internal static readonly Dictionary<string, Dictionary<string, string>> Layouts = new Dictionary<string, Dictionary<string, string>>();
     internal static readonly Dictionary<string, string> CloneBases = new Dictionary<string, string>();
     internal static readonly Dictionary<string, string> DisplayNames = new Dictionary<string, string>();
     private static string path;
@@ -144,6 +148,25 @@ internal static class RmtCommonStyles
         return "通用/" + fe.GetType().Name;
     }
 
+    internal static string StyleKeyPublic(FrameworkElement fe)
+    {
+        return StyleKey(fe);
+    }
+
+    internal static bool IsPickable(FrameworkElement fe)
+    {
+        if (fe == null || fe is Window || fe is RmtStyleEditor) return false;
+        if (Window.GetWindow(fe) is RmtStyleEditor) return false;
+        if (fe.TemplatedParent is Control && !(fe.TemplatedParent is ContentPresenter)) return false;
+        if (fe is ContentPresenter) return false;
+        return fe is Control;
+    }
+
+    internal static void EnsureRegistered(FrameworkElement fe)
+    {
+        Register(fe);
+    }
+
     private static DependencyObject VisualParent(DependencyObject value)
     {
         return value is Visual ? VisualTreeHelper.GetParent(value) : null;
@@ -181,6 +204,50 @@ internal static class RmtCommonStyles
             if (fe.ReadLocalValue(dp) == DependencyProperty.UnsetValue) entry.Unset.Add(property);
         }
         Apply(entry);
+        ApplyLayout(fe);
+    }
+
+    internal static string LayoutId(FrameworkElement fe)
+    {
+        if (fe == null) return "";
+        if (!string.IsNullOrEmpty(fe.Uid) && (fe.Uid.StartsWith("gm:") || fe.Uid.StartsWith("ahk:"))) return fe.Uid;
+        var window = fe as Window ?? Window.GetWindow(fe);
+        string title = window == null ? "" : (window.Title ?? "");
+        if (!string.IsNullOrEmpty(fe.Name)) return title + "/" + fe.Name;
+        if (fe is Window && !string.IsNullOrEmpty(title)) return "Window:" + title;
+        return "";
+    }
+
+    internal static void ApplyLayout(FrameworkElement fe)
+    {
+        string id = LayoutId(fe);
+        Dictionary<string, string> layout;
+        if (id == "" || !Layouts.TryGetValue(id, out layout)) return;
+        string value;
+        if (layout.TryGetValue("Margin", out value))
+        {
+            try { fe.Margin = (Thickness)ConvertValue(typeof(Thickness), value); } catch { }
+        }
+        if (layout.TryGetValue("CanvasLeft", out value))
+        {
+            try { Canvas.SetLeft(fe, (double)ConvertValue(typeof(double), value)); } catch { }
+        }
+        if (layout.TryGetValue("CanvasTop", out value))
+        {
+            try { Canvas.SetTop(fe, (double)ConvertValue(typeof(double), value)); } catch { }
+        }
+        var window = fe as Window;
+        if (window != null)
+        {
+            if (layout.TryGetValue("Left", out value))
+            {
+                try { window.Left = (double)ConvertValue(typeof(double), value); } catch { }
+            }
+            if (layout.TryGetValue("Top", out value))
+            {
+                try { window.Top = (double)ConvertValue(typeof(double), value); } catch { }
+            }
+        }
     }
 
     internal static DependencyProperty Property(FrameworkElement fe, string name)
@@ -445,7 +512,12 @@ internal static class RmtCommonStyles
 
     internal static void Refresh()
     {
-        foreach (var entry in Live()) Apply(entry);
+        foreach (var entry in Live())
+        {
+            Apply(entry);
+            var fe = entry.Element.Target as FrameworkElement;
+            if (fe != null) ApplyLayout(fe);
+        }
         foreach (Window window in Application.Current.Windows.Cast<Window>().ToArray()) ApplyResources(window);
     }
 
@@ -645,13 +717,21 @@ internal static class RmtCommonStyles
                 if (style.HasAttribute("base")) CloneBases[styleKey] = style.GetAttribute("base");
                 if (style.HasAttribute("display")) DisplayNames[styleKey] = style.GetAttribute("display");
             }
+            foreach (XmlElement layout in doc.SelectNodes("/CommonStyles/Layout"))
+            {
+                var properties = new Dictionary<string, string>();
+                foreach (XmlElement prop in layout.SelectNodes("Property"))
+                    properties[prop.GetAttribute("name")] = prop.GetAttribute("value");
+                string layoutKey = layout.GetAttribute("key");
+                if (!string.IsNullOrEmpty(layoutKey)) Layouts[layoutKey] = properties;
+            }
         }
         catch (Exception ex) { LoadError = "样式配置读取失败：" + ex.Message; }
     }
 
     internal static void Save()
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(path));
+        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path));
         var settings = new XmlWriterSettings { Indent = true, Encoding = new System.Text.UTF8Encoding(false) };
         string temp = path + ".tmp";
         using (var writer = XmlWriter.Create(temp, settings))
@@ -665,6 +745,16 @@ internal static class RmtCommonStyles
                 string displayName;
                 if (DisplayNames.TryGetValue(style.Key, out displayName)) writer.WriteAttributeString("display", displayName);
                 foreach (var prop in style.Value.OrderBy(x => x.Key))
+                {
+                    writer.WriteStartElement("Property"); writer.WriteAttributeString("name", prop.Key);
+                    writer.WriteAttributeString("value", prop.Value); writer.WriteEndElement();
+                }
+                writer.WriteEndElement();
+            }
+            foreach (var layout in Layouts.OrderBy(x => x.Key))
+            {
+                writer.WriteStartElement("Layout"); writer.WriteAttributeString("key", layout.Key);
+                foreach (var prop in layout.Value.OrderBy(x => x.Key))
                 {
                     writer.WriteStartElement("Property"); writer.WriteAttributeString("name", prop.Key);
                     writer.WriteAttributeString("value", prop.Value); writer.WriteEndElement();
@@ -717,26 +807,54 @@ internal sealed class RmtStyleEditor : Window
     };
     private string selected;
     private FrameworkElement sample;
+    private WeakReference inspectRef;
+    private bool reflecting;
     private bool dirty;
+    private Button cmdReflect;
+    private Ellipse reflectorDot;
+    private DispatcherTimer reflectorTimer;
+    private readonly HashSet<Window> reflectorWindows = new HashSet<Window>();
+    private FrameworkElement highlightTarget;
     private Dictionary<string, Dictionary<string, string>> snapshot;
+    private Dictionary<string, Dictionary<string, string>> layoutSnapshot;
     private Dictionary<string, string> cloneSnapshot;
     private Dictionary<string, string> displaySnapshot;
 
     internal RmtStyleEditor(Window owner)
     {
-        source = owner; Owner = owner; Title = "GM-UI · 通用样式管理";
+        source = owner; Title = "GM-UI · 通用样式管理";
         Width = 1240; Height = 850; MinWidth = 980; MinHeight = 640;
         FontFamily = owner.FontFamily; FontSize = owner.FontSize;
         snapshot = CopyValues();
+        layoutSnapshot = CopyLayouts();
         cloneSnapshot = new Dictionary<string, string>(RmtCommonStyles.CloneBases);
         displaySnapshot = new Dictionary<string, string>(RmtCommonStyles.DisplayNames);
         const string editorXaml = @"<Border xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml' Margin='10' Background='{DynamicResource BgColor}' BorderBrush='{DynamicResource ControlBorder}' BorderThickness='1' CornerRadius='{DynamicResource WindowRadius}' TextElement.Foreground='{DynamicResource TextMain}'>
   <Border.Effect><DropShadowEffect BlurRadius='15' ShadowDepth='2' Opacity='.30'/></Border.Effect>
-  <Grid><Grid.RowDefinitions><RowDefinition Height='36'/><RowDefinition Height='*'/></Grid.RowDefinitions>
-    <Grid x:Name='DragArea' Background='{DynamicResource TitleBarColor}'><TextBlock Text='GM-UI · 控件样式管理' Foreground='{DynamicResource TitleBarForeground}' FontWeight='Bold' FontSize='17' VerticalAlignment='Center' Margin='15,0,0,0'/><Button x:Name='BtnClosePanel' HorizontalAlignment='Right' VerticalAlignment='Stretch' Width='46' Height='36' MinHeight='36' Padding='0' Background='Transparent' Foreground='{DynamicResource TitleBarForeground}' BorderThickness='0'/></Grid>
+  <Grid><Grid.RowDefinitions><RowDefinition Height='30'/><RowDefinition Height='*'/></Grid.RowDefinitions>
+    <Grid Background='{DynamicResource TitleBarColor}'>
+      <Grid.ColumnDefinitions><ColumnDefinition Width='*'/><ColumnDefinition Width='Auto'/></Grid.ColumnDefinitions>
+      <Border x:Name='DragArea' Grid.Column='0' Background='{DynamicResource TitleBarColor}'>
+        <TextBlock Text='GM-UI · 控件样式管理' Foreground='{DynamicResource TitleBarForeground}' FontWeight='Bold' FontSize='17' VerticalAlignment='Center' Margin='15,0,0,0'/>
+      </Border>
+      <StackPanel Grid.Column='1' Orientation='Horizontal' VerticalAlignment='Stretch'>
+        <Button x:Name='BtnWinClose' Width='46' Height='30' MinWidth='46' MinHeight='30' Padding='0' Margin='0' VerticalAlignment='Stretch' Background='Transparent' Foreground='{DynamicResource TitleBarForeground}' BorderThickness='0'>
+          <TextBlock Text='&#xE8BB;' FontFamily='Segoe Fluent Icons, Segoe MDL2 Assets' FontSize='10' VerticalAlignment='Center' HorizontalAlignment='Center' Margin='0' Foreground='{DynamicResource TitleBarForeground}'/>
+        </Button>
+      </StackPanel>
+    </Grid>
     <DockPanel Grid.Row='1' Margin='18'>
-      <TextBlock DockPanel.Dock='Top' Text='按钮与窗口样式统一在此管理。颜色只能引用主题颜色 1～14；属性值修改后仅更新下方目标预览。' TextWrapping='Wrap' Margin='0,0,0,12'/>
-      <StackPanel DockPanel.Dock='Bottom' Margin='0,12,0,0'><StackPanel Orientation='Horizontal'><Button x:Name='CmdReset' Content='重置' Padding='12,7' Margin='0,0,8,8'/><Button x:Name='CmdSave' Content='应用并重启' Padding='12,7' Margin='0,0,8,8'/></StackPanel><TextBlock x:Name='Status' TextWrapping='Wrap'/></StackPanel>
+      <DockPanel DockPanel.Dock='Top' Margin='0,0,0,12'>
+        <StackPanel Orientation='Horizontal' DockPanel.Dock='Left'>
+          <Grid x:Name='ReflectorHost' Margin='0,0,8,0'>
+            <Button x:Name='CmdReflect' Content='控件反射器' Padding='12,7'/>
+            <Ellipse x:Name='ReflectorDot' Width='8' Height='8' Fill='#E53935' HorizontalAlignment='Right' VerticalAlignment='Top' Margin='0,-3,-3,0' Visibility='Collapsed' IsHitTestVisible='False'/>
+          </Grid>
+          <Button x:Name='CmdReset' Content='重置' Padding='12,7' Margin='0,0,8,0'/>
+          <Button x:Name='CmdSave' Content='应用并重启' Padding='12,7'/>
+        </StackPanel>
+        <TextBlock x:Name='Status' TextWrapping='Wrap' VerticalAlignment='Center' Margin='16,0,0,0'/>
+      </DockPanel>
       <Grid><Grid.ColumnDefinitions><ColumnDefinition Width='300'/><ColumnDefinition Width='16'/><ColumnDefinition Width='*'/></Grid.ColumnDefinitions>
         <Border Grid.Column='0' BorderBrush='{DynamicResource Win_GroupStroke}' BorderThickness='1' CornerRadius='5' Padding='10'><DockPanel><TextBox x:Name='Search' DockPanel.Dock='Top' MinHeight='30' Margin='0,0,0,8' ToolTip='搜索按钮或窗口样式'/><TreeView x:Name='Catalog'/></DockPanel></Border>
         <DockPanel Grid.Column='2'><GroupBox DockPanel.Dock='Top' Header='目标样式预览' Margin='0,0,0,10' Padding='12' MaxHeight='175'><StackPanel x:Name='Preview'/></GroupBox><TextBlock DockPanel.Dock='Top' Text='属性名 / 属性值（每行三组）' FontWeight='SemiBold' Margin='0,0,0,6'/><ScrollViewer VerticalScrollBarVisibility='Auto'><StackPanel x:Name='Fields'/></ScrollViewer></DockPanel>
@@ -745,8 +863,8 @@ internal sealed class RmtStyleEditor : Window
   </Grid>
 </Border>";
         var root = (Border)XamlReader.Parse(editorXaml); Content = root;
-        WindowStyle = WindowStyle.None; AllowsTransparency = true; Background = Brushes.Transparent; ShowInTaskbar = false; WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        var chrome = new System.Windows.Shell.WindowChrome { CaptionHeight = 36, ResizeBorderThickness = new Thickness(6), GlassFrameThickness = new Thickness(0), CornerRadius = new CornerRadius(0) };
+        WindowStyle = WindowStyle.None; AllowsTransparency = true; Background = Brushes.Transparent; ShowInTaskbar = true; WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        var chrome = new System.Windows.Shell.WindowChrome { CaptionHeight = 30, ResizeBorderThickness = new Thickness(6), GlassFrameThickness = new Thickness(0), CornerRadius = new CornerRadius(0) };
         System.Windows.Shell.WindowChrome.SetWindowChrome(this, chrome);
         Resources.MergedDictionaries.Add(source.Resources);
         search = (TextBox)root.FindName("Search");
@@ -754,23 +872,36 @@ internal sealed class RmtStyleEditor : Window
         fields = (StackPanel)root.FindName("Fields");
         preview = (StackPanel)root.FindName("Preview");
         status = (TextBlock)root.FindName("Status");
-        var drag = (Grid)root.FindName("DragArea"); drag.MouseLeftButtonDown += delegate { try { DragMove(); } catch { } };
-        var close = (Button)root.FindName("BtnClosePanel");
+        var drag = (Border)root.FindName("DragArea"); drag.MouseLeftButtonDown += delegate { try { DragMove(); } catch { } };
+        var close = (Button)root.FindName("BtnWinClose");
         close.Style = source.TryFindResource("TitleBarCloseButton") as Style ?? Application.Current.TryFindResource("TitleBarCloseButton") as Style;
-        close.Content = new TextBlock
+        close.Width = 46; close.Height = 30; close.MinWidth = 46; close.MinHeight = 30;
+        close.Padding = new Thickness(0); close.Margin = new Thickness(0);
+        close.VerticalAlignment = VerticalAlignment.Stretch;
+        close.Background = Brushes.Transparent; close.BorderThickness = new Thickness(0);
+        var glyph = close.Content as TextBlock;
+        if (glyph == null)
         {
-            Text = "\uE8BB",
-            FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"),
-            FontSize = 10,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center
-        };
+            glyph = new TextBlock();
+            close.Content = glyph;
+        }
+        glyph.Text = "\uE8BB";
+        glyph.FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets");
+        glyph.FontSize = 10;
+        glyph.Margin = new Thickness(0);
+        glyph.HorizontalAlignment = HorizontalAlignment.Center;
+        glyph.VerticalAlignment = VerticalAlignment.Center;
+        glyph.Foreground = close.Foreground;
         System.Windows.Shell.WindowChrome.SetIsHitTestVisibleInChrome(close, true); close.Click += delegate { Close(); };
-        ((Button)root.FindName("CmdSave")).Click += delegate { if (Commit(true)) { try { RmtCommonStyles.Save(); snapshot = CopyValues(); cloneSnapshot = new Dictionary<string, string>(RmtCommonStyles.CloneBases); displaySnapshot = new Dictionary<string, string>(RmtCommonStyles.DisplayNames); dirty = false; status.Text = "已保存并应用到所有已打开实例；软件重启后也会保持此样式。"; } catch (Exception ex) { status.Text = ex.Message; } } };
-        ((Button)root.FindName("CmdReset")).Click += delegate { Restore(); selected = null; Populate(); Render(); };
+        cmdReflect = (Button)root.FindName("CmdReflect");
+        reflectorDot = (Ellipse)root.FindName("ReflectorDot");
+        cmdReflect.Click += delegate { ToggleReflector(); };
+        ((Button)root.FindName("CmdSave")).Click += delegate { if (Commit(true)) { try { RmtCommonStyles.Save(); snapshot = CopyValues(); layoutSnapshot = CopyLayouts(); cloneSnapshot = new Dictionary<string, string>(RmtCommonStyles.CloneBases); displaySnapshot = new Dictionary<string, string>(RmtCommonStyles.DisplayNames); dirty = false; status.Text = "已保存并应用到所有已打开实例；软件重启后也会保持此样式。"; } catch (Exception ex) { status.Text = ex.Message; } } };
+        ((Button)root.FindName("CmdReset")).Click += delegate { Restore(); selected = null; inspectRef = null; Populate(); Render(); };
         catalog.SelectedItemChanged += delegate { var item = catalog.SelectedItem as TreeViewItem; if (item != null && item.Tag is string) { selected = (string)item.Tag; Render(); } };
         search.TextChanged += delegate { Populate(); };
-        Closing += delegate(object sender, CancelEventArgs args) { if (dirty) Restore(); };
+        PreviewKeyDown += EditorKeyDown;
+        Closing += delegate(object sender, CancelEventArgs args) { StopReflector(); if (dirty) Restore(); };
         Populate();
         status.Text = RmtCommonStyles.LoadError;
     }
@@ -779,12 +910,256 @@ internal sealed class RmtStyleEditor : Window
     {
         return RmtCommonStyles.Values.ToDictionary(x => x.Key, x => new Dictionary<string, string>(x.Value));
     }
+    private static Dictionary<string, Dictionary<string, string>> CopyLayouts()
+    {
+        return RmtCommonStyles.Layouts.ToDictionary(x => x.Key, x => new Dictionary<string, string>(x.Value));
+    }
     private void Restore()
     {
         RmtCommonStyles.Values.Clear(); foreach (var item in snapshot) RmtCommonStyles.Values[item.Key] = new Dictionary<string, string>(item.Value);
+        RmtCommonStyles.Layouts.Clear(); foreach (var item in layoutSnapshot) RmtCommonStyles.Layouts[item.Key] = new Dictionary<string, string>(item.Value);
         RmtCommonStyles.CloneBases.Clear(); foreach (var item in cloneSnapshot) RmtCommonStyles.CloneBases[item.Key] = item.Value;
         RmtCommonStyles.DisplayNames.Clear(); foreach (var item in displaySnapshot) RmtCommonStyles.DisplayNames[item.Key] = item.Value;
         RmtCommonStyles.Refresh(); dirty = false; status.Text = "已撤销未保存预览。";
+    }
+
+    private FrameworkElement Inspected()
+    {
+        return inspectRef == null ? null : inspectRef.Target as FrameworkElement;
+    }
+
+    private bool LiveInspecting()
+    {
+        var target = Inspected();
+        return target != null && selected == RmtCommonStyles.StyleKeyPublic(target);
+    }
+
+    private void ToggleReflector()
+    {
+        if (reflecting) StopReflector();
+        else StartReflector();
+    }
+
+    private void StartReflector()
+    {
+        reflecting = true;
+        UpdateReflectorVisual();
+        HookNewWindows();
+        if (reflectorTimer == null)
+        {
+            reflectorTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
+            reflectorTimer.Tick += delegate { if (reflecting) HookNewWindows(); else reflectorTimer.Stop(); };
+        }
+        reflectorTimer.Start();
+        status.Text = "控件反射器已开启：在其它窗口上点击要调整的控件，Esc 或再点一次按钮退出。";
+    }
+
+    private void StopReflector()
+    {
+        if (!reflecting) return;
+        reflecting = false;
+        if (reflectorTimer != null) reflectorTimer.Stop();
+        ClearHighlight();
+        foreach (Window window in reflectorWindows.ToArray())
+            UnhookReflector(window);
+        reflectorWindows.Clear();
+        UpdateReflectorVisual();
+        status.Text = Inspected() == null ? "已退出控件反射器。" : "已退出控件反射器，可继续调整上次选中的控件。";
+    }
+
+    private void HookNewWindows()
+    {
+        if (Application.Current == null) return;
+        foreach (Window window in Application.Current.Windows.Cast<Window>().ToArray())
+        {
+            if (window == null || window is RmtStyleEditor || reflectorWindows.Contains(window)) continue;
+            window.PreviewMouseMove += InspectMove;
+            window.PreviewMouseLeftButtonDown += InspectDown;
+            window.PreviewKeyDown += InspectKey;
+            window.Cursor = Cursors.Cross;
+            window.Closed += ReflectorWindowClosed;
+            reflectorWindows.Add(window);
+        }
+    }
+
+    private void UnhookReflector(Window window)
+    {
+        if (window == null) return;
+        window.PreviewMouseMove -= InspectMove;
+        window.PreviewMouseLeftButtonDown -= InspectDown;
+        window.PreviewKeyDown -= InspectKey;
+        window.Closed -= ReflectorWindowClosed;
+        window.Cursor = Cursors.Arrow;
+        reflectorWindows.Remove(window);
+    }
+
+    private void ReflectorWindowClosed(object sender, EventArgs args)
+    {
+        UnhookReflector(sender as Window);
+    }
+
+    private void UpdateReflectorVisual()
+    {
+        if (cmdReflect == null) return;
+        if (reflecting)
+            cmdReflect.Background = source.TryFindResource("ActionHoverBg") as Brush
+                ?? source.TryFindResource("ControlBorder") as Brush
+                ?? Brushes.Orange;
+        else
+            cmdReflect.ClearValue(Control.BackgroundProperty);
+        if (reflectorDot != null) reflectorDot.Visibility = reflecting ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void EditorKeyDown(object sender, KeyEventArgs args)
+    {
+        if (args.Key == Key.Escape && reflecting) { StopReflector(); args.Handled = true; }
+    }
+
+    private void InspectKey(object sender, KeyEventArgs args)
+    {
+        if (args.Key == Key.Escape && reflecting) { StopReflector(); args.Handled = true; }
+    }
+
+    private RmtHighlightAdorner highlightAdorner;
+
+    private void InspectMove(object sender, MouseEventArgs args)
+    {
+        if (!reflecting) return;
+        var window = sender as Window;
+        if (window == null) return;
+        var hit = HitControl(window, args.GetPosition(window));
+        ShowHighlight(hit);
+    }
+
+    private void InspectDown(object sender, MouseButtonEventArgs args)
+    {
+        if (!reflecting) return;
+        var window = sender as Window;
+        if (window == null) return;
+        var hit = HitControl(window, args.GetPosition(window));
+        args.Handled = true;
+        if (hit == null) { StopReflector(); return; }
+        inspectRef = new WeakReference(hit);
+        selected = RmtCommonStyles.StyleKeyPublic(hit);
+        RmtCommonStyles.EnsureRegistered(hit);
+        StopReflector();
+        Populate();
+        SelectCatalog(selected);
+        Render();
+        status.Text = "已选中 " + hit.GetType().Name + (string.IsNullOrEmpty(hit.Name) ? "" : " / " + hit.Name) + "，可继续调整重载属性与位置。";
+    }
+
+    private static FrameworkElement HitControl(Window window, Point pos)
+    {
+        var result = VisualTreeHelper.HitTest(window, pos);
+        var current = result == null ? null : result.VisualHit as DependencyObject;
+        while (current != null)
+        {
+            var fe = current as FrameworkElement;
+            if (fe != null && RmtCommonStyles.IsPickable(fe)) return fe;
+            current = VisualTreeHelper.GetParent(current);
+        }
+        return null;
+    }
+
+    private void ShowHighlight(FrameworkElement element)
+    {
+        if (highlightTarget == element) return;
+        ClearHighlight();
+        if (element == null) return;
+        var layer = AdornerLayer.GetAdornerLayer(element);
+        if (layer == null) return;
+        highlightAdorner = new RmtHighlightAdorner(element);
+        layer.Add(highlightAdorner);
+        highlightTarget = element;
+    }
+
+    private void ClearHighlight()
+    {
+        if (highlightAdorner != null)
+        {
+            var layer = AdornerLayer.GetAdornerLayer(highlightAdorner.AdornedElement);
+            if (layer != null) layer.Remove(highlightAdorner);
+            highlightAdorner = null;
+        }
+        highlightTarget = null;
+    }
+
+    private void SelectCatalog(string key)
+    {
+        foreach (TreeViewItem group in catalog.Items)
+            foreach (TreeViewItem leaf in group.Items)
+                if ((leaf.Tag as string) == key) { leaf.IsSelected = true; return; }
+    }
+
+    private void AddPositionFields(FrameworkElement target)
+    {
+        fields.Children.Add(new TextBlock { Text = "位置（仅当前控件，点“应用位置”后下次打开生效）", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 12, 0, 6) });
+        var row = new Grid { Margin = new Thickness(0, 0, 0, 8) };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(80) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(80) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(100) });
+        double left = target.Margin.Left, top = target.Margin.Top;
+        if (target is Window)
+        {
+            left = ((Window)target).Left;
+            top = ((Window)target).Top;
+        }
+        else if (target.Parent is Canvas)
+        {
+            if (!double.IsNaN(Canvas.GetLeft(target))) left = Canvas.GetLeft(target);
+            if (!double.IsNaN(Canvas.GetTop(target))) top = Canvas.GetTop(target);
+        }
+        var leftBox = new TextBox { Name = "PosLeft", Text = left.ToString("0.##", CultureInfo.InvariantCulture), Height = 28, MinHeight = 28, Padding = new Thickness(2, 0, 2, 0), VerticalContentAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 14, 0) };
+        var topBox = new TextBox { Name = "PosTop", Text = top.ToString("0.##", CultureInfo.InvariantCulture), Height = 28, MinHeight = 28, Padding = new Thickness(2, 0, 2, 0), VerticalContentAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 14, 0) };
+        var apply = new Button { Content = "应用位置", Padding = new Thickness(10, 6, 10, 6) };
+        apply.Click += delegate { ApplyInspectedPosition(leftBox.Text, topBox.Text); };
+        row.Children.Add(new TextBlock { Text = "左边距", VerticalAlignment = VerticalAlignment.Center });
+        Grid.SetColumn(leftBox, 1); row.Children.Add(leftBox);
+        var topLabel = new TextBlock { Text = "上边距", VerticalAlignment = VerticalAlignment.Center };
+        Grid.SetColumn(topLabel, 2); row.Children.Add(topLabel);
+        Grid.SetColumn(topBox, 3); row.Children.Add(topBox);
+        Grid.SetColumn(apply, 4); row.Children.Add(apply);
+        fields.Children.Add(row);
+    }
+
+    private void ApplyInspectedPosition(string leftText, string topText)
+    {
+        var target = Inspected();
+        if (target == null) { status.Text = "没有选中的控件。"; return; }
+        double left, top;
+        if (!double.TryParse(leftText.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out left)
+            || !double.TryParse(topText.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out top))
+        { status.Text = "位置请输入数字。"; return; }
+        string id = RmtCommonStyles.LayoutId(target);
+        if (id == "") { status.Text = "该控件没有稳定名称，位置无法在下次打开时恢复。请先给控件命名。"; return; }
+        var layout = new Dictionary<string, string>();
+        if (target is Window)
+        {
+            ((Window)target).Left = left;
+            ((Window)target).Top = top;
+            layout["Left"] = left.ToString(CultureInfo.InvariantCulture);
+            layout["Top"] = top.ToString(CultureInfo.InvariantCulture);
+        }
+        else if (target.Parent is Canvas)
+        {
+            Canvas.SetLeft(target, left);
+            Canvas.SetTop(target, top);
+            layout["CanvasLeft"] = left.ToString(CultureInfo.InvariantCulture);
+            layout["CanvasTop"] = top.ToString(CultureInfo.InvariantCulture);
+        }
+        else
+        {
+            var m = target.Margin;
+            target.Margin = new Thickness(left, top, m.Right, m.Bottom);
+            layout["Margin"] = RmtCommonStyles.Text(target.Margin);
+        }
+        RmtCommonStyles.Layouts[id] = layout;
+        layoutSnapshot = CopyLayouts();
+        try { RmtCommonStyles.Save(); status.Text = "位置已应用并保存，下次打开该界面会保持此位置。"; }
+        catch (Exception ex) { status.Text = ex.Message; }
     }
     private static void AddButton(Panel parent, string title, Func<bool> callback)
     {
@@ -800,7 +1175,23 @@ internal sealed class RmtStyleEditor : Window
         all.UnionWith(RmtCommonStyles.Live().Select(x => x.Key));
         all.UnionWith(RmtCommonStyles.Values.Keys);
         all.UnionWith(RmtCommonStyles.CloneBases.Keys);
+        var inspected = Inspected();
+        if (inspected != null) all.Add(RmtCommonStyles.StyleKeyPublic(inspected));
         TreeViewItem firstLeaf = null;
+        if (inspected != null)
+        {
+            string inspectKey = RmtCommonStyles.StyleKeyPublic(inspected);
+            string inspectText = inspected.GetType().Name + (string.IsNullOrEmpty(inspected.Name) ? "" : " / " + inspected.Name);
+            if ((inspectText + inspectKey).IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                var inspectGroup = new TreeViewItem { Header = "反射控件", IsExpanded = true, FontWeight = FontWeights.SemiBold };
+                var leaf = MakeLeaf(inspectText, inspectKey);
+                inspectGroup.Items.Add(leaf);
+                if (inspectKey == old) leaf.IsSelected = true;
+                catalog.Items.Add(inspectGroup);
+                firstLeaf = leaf;
+            }
+        }
         var buttonGroup = new TreeViewItem { Header = "按钮", IsExpanded = true, FontWeight = FontWeights.SemiBold };
         int buttonNo = 0;
         foreach (string key in all.Where(IsButtonKey).OrderBy(ButtonOrder))
@@ -937,7 +1328,19 @@ internal sealed class RmtStyleEditor : Window
         rendering = true;
         fields.Children.Clear(); preview.Children.Clear(); inputs.Clear(); colorInputs.Clear(); optionInputs.Clear(); sliderInputs.Clear(); dimensionInputs.Clear(); presetInputs.Clear(); chromeChecks.Clear(); colorTouched.Clear(); propertyRow = null; propertyPair = 0; sample = null;
         if (selected == null) { rendering = false; return; }
-        if (RmtCommonStyles.IsWindowKey(selected)) { RenderWindow(); rendering = false; return; }
+        var inspected = Inspected();
+        bool inspectMode = inspected != null && selected == RmtCommonStyles.StyleKeyPublic(inspected);
+        if (RmtCommonStyles.IsWindowKey(selected))
+        {
+            RenderWindow();
+            if (inspectMode)
+            {
+                AddTemplateSection(inspected);
+                AddPositionFields(inspected);
+            }
+            rendering = false;
+            return;
+        }
         Dictionary<string, string> values; RmtCommonStyles.Values.TryGetValue(selected, out values);
         string previewBase;
         RmtCommonStyles.CloneBases.TryGetValue(selected, out previewBase);
@@ -948,7 +1351,7 @@ internal sealed class RmtStyleEditor : Window
         var entry = matches.FirstOrDefault();
         bool namedPreview = IsNamedButtonKey(targetKey);
         // Named styles must be previewed from a real registered target. A generic replacement is misleading for icon buttons and fixed layouts.
-        if (entry == null && !targetKey.StartsWith("通用/") && !namedPreview)
+        if (!inspectMode && entry == null && !targetKey.StartsWith("通用/") && !namedPreview)
         {
             preview.Children.Add(new TextBlock { Text = "对应目标控件尚未打开；打开它并点击“刷新实例”后，预览会直接复制目标样式、内容和尺寸。", TextWrapping = TextWrapping.Wrap });
             fields.Children.Add(new TextBlock { Text = selected + " · 已加载实例 0", FontWeight = FontWeights.Bold, Margin = new Thickness(0, 0, 0, 8) });
@@ -956,17 +1359,23 @@ internal sealed class RmtStyleEditor : Window
             rendering = false;
             return;
         }
-        sample = isTemplate ? CreateSample("通用/Button") : entry == null ? CreateSample(targetKey) : entry.Element.Target as FrameworkElement;
-        if (isTemplate) ConfigureButtonTemplate(sample as Button);
-        if (entry == null && namedPreview) ConfigureNamedButtonSample(sample as Button, targetKey);
-        if (entry == null && sample != null && targetKey.StartsWith("样式/"))
+        sample = inspectMode ? inspected : (isTemplate ? CreateSample("通用/Button") : entry == null ? CreateSample(targetKey) : entry.Element.Target as FrameworkElement);
+        if (isTemplate && !inspectMode) ConfigureButtonTemplate(sample as Button);
+        if (!inspectMode && entry == null && namedPreview) ConfigureNamedButtonSample(sample as Button, targetKey);
+        if (!inspectMode && entry == null && sample != null && targetKey.StartsWith("样式/"))
             sample.Style = source.TryFindResource(targetKey.Substring(3)) as Style;
-        fields.Children.Add(new TextBlock { Text = selected == "通用/Button" ? "按钮模版 · 应用到未单独指定样式的按钮，具名样式可覆盖" : (fromTemplateClone ? selected + " · 基于按钮模版的独立预览" : (entry == null ? selected + " · 按样式属性预览" : selected + " · 已加载实例 " + matches.Count)), FontWeight = FontWeights.Bold, Margin = new Thickness(0, 0, 0, 8) });
+        string header = inspectMode
+            ? ("反射 · " + inspected.GetType().Name + (string.IsNullOrEmpty(inspected.Name) ? "" : " / " + inspected.Name) + " · " + selected)
+            : (selected == "通用/Button" ? "按钮模版 · 应用到未单独指定样式的按钮，具名样式可覆盖" : (fromTemplateClone ? selected + " · 基于按钮模版的独立预览" : (entry == null ? selected + " · 按样式属性预览" : selected + " · 已加载实例 " + matches.Count)));
+        fields.Children.Add(new TextBlock { Text = header, FontWeight = FontWeights.Bold, Margin = new Thickness(0, 0, 0, 8) });
         if (sample == null) { fields.Children.Add(new TextBlock { Text = "请先打开使用此样式的界面，再刷新目录。" }); rendering = false; return; }
-        if (entry == null && !selected.StartsWith("通用/") && !namedPreview && sample.Style == null)
+        if (!inspectMode && entry == null && !selected.StartsWith("通用/") && !namedPreview && sample.Style == null)
             fields.Children.Add(new TextBlock { Text = "此界面尚未加载，当前为类型示例；打开对应界面并刷新后可查看实际样式。", TextWrapping = TextWrapping.Wrap });
         AddPreviewOptions();
         ShowPreview(sample);
+        if (inspectMode) AddTemplateSection(inspected);
+        fields.Children.Add(new TextBlock { Text = inspectMode ? "重载属性（修改后立即作用到选中控件）" : "重载属性", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 10, 0, 6) });
+        propertyRow = null; propertyPair = 0;
         foreach (string property in RmtCommonStyles.Properties)
         {
             if (property == "Width" || property == "Height" || property == "MinWidth" || property == "MinHeight" || property == "MaxWidth" || property == "MaxHeight") continue;
@@ -993,7 +1402,31 @@ internal sealed class RmtStyleEditor : Window
             try { fields.Children.Add(new Expander { Header = "样式模板 / 交互状态（只读来源）", Content = new TextBox { Text = System.Windows.Markup.XamlWriter.Save(sample.Style), IsReadOnly = true, TextWrapping = TextWrapping.Wrap, MaxHeight = 240, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } }); }
             catch { }
         }
+        if (inspectMode) AddPositionFields(inspected);
         rendering = false;
+    }
+
+    private void AddTemplateSection(FrameworkElement target)
+    {
+        string templateKey = "通用/" + target.GetType().Name;
+        string cloneBase;
+        if (RmtCommonStyles.CloneBases.TryGetValue(selected, out cloneBase) && !string.IsNullOrEmpty(cloneBase))
+            templateKey = cloneBase;
+        Dictionary<string, string> template;
+        RmtCommonStyles.Values.TryGetValue(templateKey, out template);
+        fields.Children.Add(new TextBlock { Text = "模版属性（" + templateKey + "，只读）", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 8, 0, 6) });
+        if (template == null || template.Count == 0)
+        {
+            fields.Children.Add(new TextBlock { Text = "该模版尚未配置覆盖项，当前显示控件自身样式。", TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 8) });
+            return;
+        }
+        var box = new StackPanel { Margin = new Thickness(0, 0, 0, 8) };
+        foreach (var pair in template.OrderBy(x => x.Key))
+        {
+            string title = propertyLabels.ContainsKey(pair.Key) ? propertyLabels[pair.Key] : pair.Key;
+            box.Children.Add(new TextBlock { Text = title + "  " + pair.Value, Margin = new Thickness(0, 2, 0, 2) });
+        }
+        fields.Children.Add(box);
     }
 
     private void RenderWindow()
@@ -1004,7 +1437,10 @@ internal sealed class RmtStyleEditor : Window
         RmtCommonStyles.CloneBases.TryGetValue(selected, out previewBase);
         string targetKey = previewBase ?? selected;
         var matches = RmtCommonStyles.Live().Where(x => x.Element.Target is Window && (x.Key == targetKey || (targetKey == "通用/Window" && x.Key == "通用/Window"))).ToList();
-        sample = matches.Count > 0 ? matches[0].Element.Target as FrameworkElement : new Window();
+        var inspectedWindow = Inspected();
+        sample = (inspectedWindow is Window && selected == RmtCommonStyles.StyleKeyPublic(inspectedWindow))
+            ? inspectedWindow
+            : (matches.Count > 0 ? matches[0].Element.Target as FrameworkElement : new Window());
         fields.Children.Add(new TextBlock
         {
             Text = selected == "通用/Window" ? "窗口模版 · 应用到未单独指定的窗口；具名窗口可覆盖" : (matches.Count > 0 ? selected + " · 已加载实例 " + matches.Count : selected + " · 按样式属性预览"),
@@ -1387,9 +1823,9 @@ internal sealed class RmtStyleEditor : Window
         {
             var combo = PresetPicker(name, string.IsNullOrEmpty(value) ? current : value, bound);
             combo.Margin = new Thickness(0, 0, 14, 0);
-            combo.SelectionChanged += delegate { Commit(false); };
-            combo.AddHandler(TextBox.TextChangedEvent, new TextChangedEventHandler(delegate { Commit(false); }));
-            combo.LostKeyboardFocus += delegate { Commit(false); };
+            combo.SelectionChanged += delegate { if (!combo.IsDropDownOpen) Commit(false); };
+            combo.DropDownClosed += delegate { Commit(false); };
+            combo.LostKeyboardFocus += delegate { if (!combo.IsDropDownOpen) Commit(false); };
             Grid.SetColumn(combo, column + 1); propertyRow.Children.Add(combo); presetInputs[name] = combo;
         }
         else if (name == "MaxWidth" || name == "MaxHeight")
@@ -1424,9 +1860,11 @@ internal sealed class RmtStyleEditor : Window
     {
         var options = name == "Padding"
             ? new[] { "0,0,0,0", "1,0,1,0", "2,0,2,0", "3,0,3,0", "4,0,4,0" }
+            : name == "BorderThickness"
+            ? new[] { "0,0,0,0", "1,1,1,1", "1.5,1.5,1.5,1.5", "2,2,2,2", "2.5,2.5,2.5,2.5", "3,3,3,3", "4,4,4,4" }
             : new[] { "0,0,0,0", "1,1,1,1", "2,2,2,2", "3,3,3,3", "4,4,4,4" };
         string shown = string.IsNullOrEmpty(current) ? options[0] : NormalizeThickness(current);
-        var combo = new ComboBox { IsEditable = true, IsEnabled = !bound, MinHeight = 28, Padding = new Thickness(2, 0, 2, 0), Text = shown, ToolTip = "选择常用值，也可直接输入。" };
+        var combo = new ComboBox { IsEditable = true, IsEnabled = !bound, MinHeight = 28, MaxDropDownHeight = 240, ToolTip = "选择常用值，也可直接输入。" };
         foreach (string option in options) combo.Items.Add(option);
         if (combo.Items.Contains(shown)) combo.SelectedItem = shown;
         return combo;
@@ -1438,7 +1876,7 @@ internal sealed class RmtStyleEditor : Window
         try
         {
             var t = (Thickness)RmtCommonStyles.ConvertValue(typeof(Thickness), value);
-            return t.Left + "," + t.Top + "," + t.Right + "," + t.Bottom;
+            return t.Left.ToString(CultureInfo.InvariantCulture) + "," + t.Top.ToString(CultureInfo.InvariantCulture) + "," + t.Right.ToString(CultureInfo.InvariantCulture) + "," + t.Bottom.ToString(CultureInfo.InvariantCulture);
         }
         catch { return value.Replace(" ", ""); }
     }
@@ -1522,8 +1960,8 @@ internal sealed class RmtStyleEditor : Window
             RmtCommonStyles.Values[selected] = next;
             dirty = true;
             ShowWindowPreview();
-            if (rerender) RmtCommonStyles.Refresh();
-            status.Text = rerender ? "已保存并应用到正式界面。" : "预览已更新；点击“应用并重启”后才会影响正式界面。";
+            if (rerender || LiveInspecting()) RmtCommonStyles.Refresh();
+            status.Text = rerender ? "已保存并应用到正式界面。" : (LiveInspecting() ? "已实时应用到选中控件。" : "预览已更新；点击“应用并重启”后才会影响正式界面。");
             return true;
         }
         catch (Exception ex) { status.Text = "未应用：" + ex.Message; return false; }
@@ -1623,10 +2061,30 @@ internal sealed class RmtStyleEditor : Window
             // Edits are staged in the configuration dictionary.  Only this window's cloned
             // target preview is redrawn; live application controls stay untouched until save.
             preview.Children.Clear(); ShowPreview(sample);
-            if (rerender) RmtCommonStyles.Refresh();
-            status.Text = rerender ? "已保存并应用到正式界面。" : "预览已更新；点击“应用并重启”后才会影响正式界面。"; return true;
+            if (rerender || LiveInspecting()) RmtCommonStyles.Refresh();
+            status.Text = rerender ? "已保存并应用到正式界面。" : (LiveInspecting() ? "已实时应用到选中控件。" : "预览已更新；点击“应用并重启”后才会影响正式界面。"); return true;
         }
         catch (Exception ex) { status.Text = "未应用：" + ex.Message; return false; }
         finally { applying = false; }
+    }
+}
+
+internal sealed class RmtHighlightAdorner : Adorner
+{
+    private readonly Pen borderPen;
+    private readonly Brush fillBrush;
+
+    public RmtHighlightAdorner(UIElement adornedElement) : base(adornedElement)
+    {
+        IsHitTestVisible = false;
+        fillBrush = new SolidColorBrush(Color.FromArgb(40, 255, 140, 0));
+        fillBrush.Freeze();
+        borderPen = new Pen(new SolidColorBrush(Color.FromRgb(255, 140, 0)), 2);
+        borderPen.Freeze();
+    }
+
+    protected override void OnRender(DrawingContext drawingContext)
+    {
+        drawingContext.DrawRectangle(fillBrush, borderPen, new Rect(AdornedElement.RenderSize));
     }
 }
