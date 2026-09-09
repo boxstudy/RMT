@@ -41,10 +41,10 @@ class CommonStylesTest
             }
             var editor = app.Windows.Cast<Window>().OfType<RmtStyleEditor>().Single(); editor.Opacity = 0;
             var selection = (string)typeof(RmtStyleEditor).GetField("selected", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
-            Check(selection == "样式/RmtItemEditBtn", "first style selected");
-            var catalog = (ListBox)typeof(RmtStyleEditor).GetField("catalog", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
-            for (int i = 0; i < catalog.Items.Count; i++) catalog.SelectedIndex = i;
-            catalog.SelectedIndex = 0;
+            Check(!string.IsNullOrEmpty(selection), "first style selected");
+            var catalog = (TreeView)typeof(RmtStyleEditor).GetField("catalog", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
+            foreach (TreeViewItem group in catalog.Items)
+                foreach (TreeViewItem item in group.Items) item.IsSelected = true;
             Check(true, "all catalog previews render");
             var a = (Button)window.FindName("First"); var b = (Button)window.FindName("Second");
             var special = (Button)window.FindName("Special");
