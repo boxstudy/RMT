@@ -755,6 +755,7 @@ public partial class AhkWpfEngine
                     SetWindowLong(hwndVal, -20, new IntPtr(exStyle));
 
                     SetTaskbarPresence(hwndVal, showInTaskbar);
+                    RmtTaskbarGroup.Refresh();
 
                     SetWindowPos(hwndVal, IntPtr.Zero, 0, 0, 0, 0, 0x0037); // SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOZORDER
 
@@ -4009,6 +4010,7 @@ public partial class AhkWpfEngine
             catch { }
         }
         ShowWindow(hwnd, 5);
+        RmtTaskbarGroup.Refresh();
     }
 
 }

@@ -2,6 +2,7 @@
 // Native interop: P/Invoke, structs, taskbar COM
 // =============================================================================
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -233,5 +234,178 @@ public interface ITaskbarList
 [Guid("56FDF344-FD6D-11d0-958A-006097C9A090")]
 public class TaskbarList
 {
+}
+
+[ComImport]
+[Guid("ea1afb91-9e28-4b86-90e9-9e9f8a5eefaf")]
+[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+public interface ITaskbarList3
+{
+    void HrInit();
+    void AddTab(IntPtr hwnd);
+    void DeleteTab(IntPtr hwnd);
+    void ActivateTab(IntPtr hwnd);
+    void SetActiveAlt(IntPtr hwnd);
+    void MarkFullscreenWindow(IntPtr hwnd, [MarshalAs(UnmanagedType.Bool)] bool fullscreen);
+    void SetProgressValue(IntPtr hwnd, ulong completed, ulong total);
+    void SetProgressState(IntPtr hwnd, int flags);
+    void RegisterTab(IntPtr hwndTab, IntPtr hwndMdi);
+    void UnregisterTab(IntPtr hwndTab);
+    void SetTabOrder(IntPtr hwndTab, IntPtr hwndInsertBefore);
+    void SetTabActive(IntPtr hwndTab, IntPtr hwndMdi, uint reserved);
+    void ThumbBarAddButtons(IntPtr hwnd, uint count, IntPtr buttons);
+    void ThumbBarUpdateButtons(IntPtr hwnd, uint count, IntPtr buttons);
+    void ThumbBarSetImageList(IntPtr hwnd, IntPtr imageList);
+    void SetOverlayIcon(IntPtr hwnd, IntPtr icon, [MarshalAs(UnmanagedType.LPWStr)] string description);
+    void SetThumbnailTooltip(IntPtr hwnd, [MarshalAs(UnmanagedType.LPWStr)] string tip);
+    void SetThumbnailClip(IntPtr hwnd, IntPtr clip);
+}
+
+internal static class RmtTaskbarGroup
+{
+    private static ITaskbarList3 list;
+    private static bool hooked;
+    private static IntPtr hubHwnd;
+    private static readonly Dictionary<IntPtr, Window> tabs = new Dictionary<IntPtr, Window>();
+
+    public static void EnsureHooked()
+    {
+        if (hooked) return;
+        hooked = true;
+        EventManager.RegisterClassHandler(typeof(Window), FrameworkElement.LoadedEvent, new RoutedEventHandler(OnWindowLoaded), true);
+    }
+
+    public static void Refresh()
+    {
+        try { RefreshCore(); }
+        catch { }
+    }
+
+    private static ITaskbarList3 List()
+    {
+        if (list == null)
+        {
+            list = (ITaskbarList3)new TaskbarList();
+            list.HrInit();
+        }
+        return list;
+    }
+
+    private static void OnWindowLoaded(object sender, RoutedEventArgs args)
+    {
+        var window = sender as Window;
+        if (window == null) return;
+        window.Activated -= OnWindowActivated;
+        window.Activated += OnWindowActivated;
+        window.Closed -= OnWindowClosed;
+        window.Closed += OnWindowClosed;
+        window.IsVisibleChanged -= OnWindowVisibleChanged;
+        window.IsVisibleChanged += OnWindowVisibleChanged;
+        Refresh();
+    }
+
+    private static void OnWindowActivated(object sender, EventArgs args)
+    {
+        var window = sender as Window;
+        if (window == null || hubHwnd == IntPtr.Zero) return;
+        IntPtr hwnd = new WindowInteropHelper(window).Handle;
+        if (hwnd == IntPtr.Zero || hwnd == hubHwnd || !tabs.ContainsKey(hwnd)) return;
+        try { List().SetTabActive(hwnd, hubHwnd, 0); }
+        catch { }
+    }
+
+    private static void OnWindowClosed(object sender, EventArgs args)
+    {
+        Refresh();
+    }
+
+    private static void OnWindowVisibleChanged(object sender, DependencyPropertyChangedEventArgs args)
+    {
+        Refresh();
+    }
+
+    private static void RefreshCore()
+    {
+        if (Application.Current == null) return;
+        Window[] windows = Application.Current.Windows.Cast<Window>().ToArray();
+        Window hub = FindHub(windows);
+        if (hub == null) return;
+        IntPtr nextHub = new WindowInteropHelper(hub).Handle;
+        if (nextHub == IntPtr.Zero) return;
+        if (nextHub != hubHwnd && hubHwnd != IntPtr.Zero)
+        {
+            foreach (IntPtr old in tabs.Keys.ToArray()) Unregister(old);
+            tabs.Clear();
+        }
+        hubHwnd = nextHub;
+
+        var wanted = new HashSet<IntPtr>();
+        foreach (Window window in windows)
+        {
+            if (window == null || ReferenceEquals(window, hub) || !IsGroupWindow(window)) continue;
+            IntPtr hwnd = new WindowInteropHelper(window).Handle;
+            if (hwnd == IntPtr.Zero) continue;
+            wanted.Add(hwnd);
+            if (!tabs.ContainsKey(hwnd)) Register(hwnd, window);
+            else UpdateTooltip(hwnd, window);
+        }
+        foreach (IntPtr old in tabs.Keys.ToArray())
+        {
+            if (wanted.Contains(old)) continue;
+            Unregister(old);
+            tabs.Remove(old);
+        }
+    }
+
+    private static Window FindHub(Window[] windows)
+    {
+        foreach (Window window in windows)
+        {
+            if (window != null && window.ShowInTaskbar && IsGroupWindow(window)) return window;
+        }
+        Window main = Application.Current != null ? Application.Current.MainWindow : null;
+        if (main != null && IsGroupWindow(main)) return main;
+        return null;
+    }
+
+    internal static bool IsGroupWindow(Window window)
+    {
+        if (window == null || !window.IsVisible) return false;
+        if (window.Resources.Contains("_NativeAlphaPending")) return false;
+        double width = window.ActualWidth > 1 ? window.ActualWidth : window.Width;
+        double height = window.ActualHeight > 1 ? window.ActualHeight : window.Height;
+        if (width > 0 && width < 180) return false;
+        if (height > 0 && height < 140) return false;
+        string title = window.Title ?? "";
+        if (title == "CMDTip" || title == "RMT-Target" || title.StartsWith("Developer Tools")) return false;
+        if (window.WindowStyle == WindowStyle.None && window.AllowsTransparency && width < 8) return false;
+        return true;
+    }
+
+    private static void Register(IntPtr hwnd, Window window)
+    {
+        ITaskbarList3 bar = List();
+        bar.DeleteTab(hwnd);
+        int ex = AhkWpfEngine.GetWindowLong(hwnd, -20);
+        if ((ex & 0x80) != 0)
+            AhkWpfEngine.SetWindowLong(hwnd, -20, new IntPtr(ex & ~0x80));
+        bar.RegisterTab(hwnd, hubHwnd);
+        bar.SetTabOrder(hwnd, IntPtr.Zero);
+        UpdateTooltip(hwnd, window);
+        tabs[hwnd] = window;
+    }
+
+    private static void Unregister(IntPtr hwnd)
+    {
+        try { List().UnregisterTab(hwnd); }
+        catch { }
+    }
+
+    private static void UpdateTooltip(IntPtr hwnd, Window window)
+    {
+        string tip = window == null || string.IsNullOrEmpty(window.Title) ? "若梦兔" : window.Title;
+        try { List().SetThumbnailTooltip(hwnd, tip); }
+        catch { }
+    }
 }
 

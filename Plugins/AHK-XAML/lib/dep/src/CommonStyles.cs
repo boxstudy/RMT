@@ -40,7 +40,10 @@ internal static class RmtCommonStyles
     }
     internal static readonly string[] Properties = {
         "Background", "HoverBackground", "PressedBackground", "Foreground", "BorderBrush", "CornerRadius", "BorderThickness",
-        "Margin", "Padding", "MaxDropDownHeight", "Width", "Height", "MinWidth", "MinHeight", "MaxWidth", "MaxHeight",
+        "Margin", "Padding", "MaxDropDownHeight", "HorizontalAlignment", "VerticalAlignment",
+        "TextAlignment", "TextWrapping", "TextTrimming", "IsReadOnly", "AcceptsReturn", "MaxLength",
+        "Orientation", "Stretch", "StretchDirection", "VerticalScrollBarVisibility", "HorizontalScrollBarVisibility",
+        "Width", "Height", "MinWidth", "MinHeight", "MaxWidth", "MaxHeight",
         "FontWeight", "RelativeFontSize", "Opacity", "HorizontalContentAlignment", "VerticalContentAlignment", "SizeMode"
     };
     internal static readonly string[] WindowExtraProperties = { "ShowMinimize", "ShowMaximize", "ShowPin", "ShowClose" };
@@ -167,7 +170,7 @@ internal static class RmtCommonStyles
     {
         if (fe == null || fe is RmtStyleEditor) return false;
         if (IsEditorWindow(Window.GetWindow(fe))) return false;
-        if (fe.TemplatedParent is Control && !(fe.TemplatedParent is ContentPresenter)) return false;
+        if (fe.TemplatedParent != null) return false;
         if (fe is ContentPresenter) return false;
         return fe is Control || fe is Panel || fe is Border || fe is TextBlock || fe is Image || fe is Viewbox;
     }
@@ -1397,6 +1400,8 @@ internal sealed class RmtStyleEditor : Window
         {"TextAlignment", "文本对齐"}, {"TextWrapping", "文本换行"}, {"TextTrimming", "文本裁剪"},
         {"IsReadOnly", "只读"}, {"AcceptsReturn", "允许换行"}, {"AcceptsTab", "允许Tab"}, {"MaxLength", "最大长度"},
         {"IsEditable", "允许编辑"}, {"SelectedIndex", "选中序号"}, {"Orientation", "排列方向"},
+        {"Stretch", "拉伸方式"}, {"StretchDirection", "拉伸方向"},
+        {"VerticalScrollBarVisibility", "纵向滚动条"}, {"HorizontalScrollBarVisibility", "横向滚动条"},
         {"SizeMode", "宽高类型"}, {"Color", "颜色"},
         {"ShowMinimize", "最小化"}, {"ShowMaximize", "最大化"}, {"ShowPin", "置顶"}, {"ShowClose", "关闭"}
     };
@@ -1411,6 +1416,7 @@ internal sealed class RmtStyleEditor : Window
     private TreeView hierarchyTree;
     private double previewHintWidth;
     private const double PropertyColumnGap = 44; // was 14; +30 between property columns
+    private const double PickInnerBand = 0.80;
     private TextBox positionX, positionY;
     private bool positionUpdating;
     private double chromeButtonWidth = 46, chromeButtonHeight = 30, chromeGlyphSize = 15;
@@ -2172,7 +2178,7 @@ internal sealed class RmtStyleEditor : Window
     private static bool IsConcretePick(FrameworkElement element)
     {
         if (element == null || element is Window || element is Panel || element is Viewbox) return false;
-        if (element.TemplatedParent is Control && !(element.TemplatedParent is ContentPresenter)) return false;
+        if (element.TemplatedParent != null) return false;
         return element is Control || element is TextBlock || element is Image;
     }
 
@@ -2188,7 +2194,7 @@ internal sealed class RmtStyleEditor : Window
         pickHover = null;
         Mouse.OverrideCursor = Cursors.Cross;
         if (cmdLocate != null) cmdLocate.Content = "取消定位";
-        status.Text = "在软件界面上悬停要定位的控件，按 Esc 确认；点「取消定位」放弃。";
+        status.Text = "悬停定位：控件中心 80% 选中自身，边缘选中父级。按 Esc 或左键确认，点「取消定位」放弃。";
         HookPickWindows();
     }
 
@@ -2249,7 +2255,8 @@ internal sealed class RmtStyleEditor : Window
     {
         if (!picking) return;
         var hit = HitPickable(sender as Window, args);
-        if (hit != null) pickHover = hit;
+        if (hit == null) return;
+        pickHover = hit;
         ShowHighlight(hit);
     }
 
@@ -2257,6 +2264,18 @@ internal sealed class RmtStyleEditor : Window
     {
         if (!picking) return;
         args.Handled = true;
+        var host = sender as Window;
+        var hit = HitPickable(host, args);
+        if (hit != null) pickHover = hit;
+        if (host != null) host.PreviewMouseLeftButtonUp += SwallowPickClick;
+        FinishControlPick();
+    }
+
+    private void SwallowPickClick(object sender, MouseButtonEventArgs args)
+    {
+        args.Handled = true;
+        var host = sender as Window;
+        if (host != null) host.PreviewMouseLeftButtonUp -= SwallowPickClick;
     }
 
     private void PickKeyDown(object sender, KeyEventArgs args)
@@ -2268,10 +2287,15 @@ internal sealed class RmtStyleEditor : Window
 
     private FrameworkElement HitPickable(Window window, MouseEventArgs args)
     {
+        if (window == null || args == null) return null;
+        return HitPickableAt(window, args.GetPosition(window));
+    }
+
+    internal FrameworkElement HitPickableAt(Window window, Point windowPoint)
+    {
         if (window == null || window == this || RmtCommonStyles.IsEditorWindow(window)) return null;
-        HitTestResult result = VisualTreeHelper.HitTest(window, args.GetPosition(window));
-        if (result == null) return null;
-        DependencyObject current = result.VisualHit;
+        DependencyObject current = HitVisibleVisual(window, windowPoint);
+        if (current == null) return null;
         FrameworkElement innermost = null;
         while (current != null)
         {
@@ -2279,12 +2303,80 @@ internal sealed class RmtStyleEditor : Window
             if (element != null && RmtCommonStyles.IsPickable(element))
             {
                 if (innermost == null) innermost = element;
-                if (IsConcretePick(element) || IsWindowChromeElement(element))
+                if (IsWindowChromeElement(element))
                     return ResolvePickedControl(element);
             }
-            current = VisualTreeHelper.GetParent(current);
+            current = NextHitParent(current);
         }
-        return ResolvePickedControl(innermost);
+        if (innermost == null) return null;
+        var leaf = ResolvePickedControl(innermost) ?? innermost;
+        Point local;
+        try { local = window.TranslatePoint(windowPoint, leaf); }
+        catch { local = new Point(leaf.ActualWidth / 2, leaf.ActualHeight / 2); }
+        return ResolveEdgeAwarePick(leaf, local);
+    }
+
+    private static DependencyObject HitVisibleVisual(Visual reference, Point point)
+    {
+        DependencyObject found = null;
+        VisualTreeHelper.HitTest(reference,
+            delegate(DependencyObject potential)
+            {
+                if (potential is Adorner || potential is AdornerLayer)
+                    return HitTestFilterBehavior.ContinueSkipSelfAndChildren;
+                var ui = potential as UIElement;
+                if (ui != null && !ui.IsHitTestVisible)
+                    return HitTestFilterBehavior.ContinueSkipSelfAndChildren;
+                return HitTestFilterBehavior.Continue;
+            },
+            delegate(HitTestResult result)
+            {
+                found = result.VisualHit;
+                return HitTestResultBehavior.Stop;
+            },
+            new PointHitTestParameters(point));
+        return found;
+    }
+
+    private static DependencyObject NextHitParent(DependencyObject current)
+    {
+        var adorner = current as Adorner;
+        if (adorner != null && adorner.AdornedElement != null) return adorner.AdornedElement;
+        return VisualTreeHelper.GetParent(current);
+    }
+
+    internal static FrameworkElement ResolveEdgeAwarePick(FrameworkElement leaf, Point local)
+    {
+        if (leaf == null) return null;
+        if (leaf is Window || IsWindowChromeElement(leaf)) return leaf;
+        if (IsInnerPickBand(leaf, local)) return leaf;
+        return PickableAncestor(leaf) ?? leaf;
+    }
+
+    internal static bool IsInnerPickBand(FrameworkElement element, Point local)
+    {
+        if (element == null) return false;
+        double width = element.ActualWidth;
+        double height = element.ActualHeight;
+        if (width <= 0 || height <= 0) return true;
+        double marginX = width * (1 - PickInnerBand) / 2;
+        double marginY = height * (1 - PickInnerBand) / 2;
+        return local.X >= marginX && local.X <= width - marginX
+            && local.Y >= marginY && local.Y <= height - marginY;
+    }
+
+    private static FrameworkElement PickableAncestor(FrameworkElement element)
+    {
+        if (element == null) return null;
+        DependencyObject current = LogicalTreeHelper.GetParent(element) ?? VisualTreeHelper.GetParent(element);
+        while (current != null)
+        {
+            var parent = current as FrameworkElement;
+            if (parent is Window) return null;
+            if (parent != null && RmtCommonStyles.IsPickable(parent)) return parent;
+            current = LogicalTreeHelper.GetParent(current) ?? VisualTreeHelper.GetParent(current);
+        }
+        return null;
     }
 
     private FrameworkElement HierarchySelectedElement()
@@ -3284,6 +3376,7 @@ internal sealed class RmtStyleEditor : Window
         foreach (string property in RmtCommonStyles.Properties)
         {
             if (property == "Width" || property == "Height" || property == "MinWidth" || property == "MinHeight" || property == "MaxWidth" || property == "MaxHeight") continue;
+            if (!ShouldShowProperty(sample, property)) continue;
             var dp = RmtCommonStyles.Property(sample, property); if (dp == null) continue;
             bool bound = BindingOperations.IsDataBound(sample, dp);
             object displayed = property == "RelativeFontSize" ? (object)0 : ResolveDisplayedValue(sample, property, dp);
@@ -3346,6 +3439,7 @@ internal sealed class RmtStyleEditor : Window
         {
             if (property == "SizeMode" || property == "Width" || property == "Height" || property == "MinWidth" || property == "MinHeight" || property == "MaxWidth" || property == "MaxHeight") continue;
             if (windowTarget && !IsWindowReloadProperty(property)) continue;
+            if (!ShouldShowProperty(templateSample, property)) continue;
             AddTemplateProperty(ref row, ref pairIndex, templateSample, template, property);
         }
         string sizeMode = SizeMode(template, templateSample);
@@ -3380,6 +3474,14 @@ internal sealed class RmtStyleEditor : Window
                 AddTemplateProperty(ref row, ref pairIndex, templateSample, template, chrome, shown);
             }
         }
+    }
+
+    private static bool ShouldShowProperty(FrameworkElement sample, string name)
+    {
+        if (sample == null || string.IsNullOrEmpty(name)) return false;
+        if (name == "HoverBackground" || name == "PressedBackground") return sample is Button;
+        if (name == "MaxDropDownHeight") return sample is ComboBox;
+        return true;
     }
 
     private static bool IsWindowReloadProperty(string name)
@@ -4441,7 +4543,7 @@ internal sealed class RmtStyleEditor : Window
             if (inherited) box.Foreground = Brushes.SlateGray;
             box.TextChanged += delegate { if (rendering || !interactionReady) return; if (!box.IsReadOnly) { box.Tag = "override"; box.Foreground = Brushes.Black; Commit(false); } };
             Grid.SetColumn(box, column + 1); propertyRow.Children.Add(box); inputs[name] = box;
-            if (!bound && (name == "Width" || name == "Height" || name == "MinWidth" || name == "MinHeight" || name == "MaxDropDownHeight"))
+            if (!bound && (name == "Width" || name == "Height" || name == "MinWidth" || name == "MinHeight" || name == "MaxDropDownHeight" || name == "MaxLength"))
                 EnableNumberDrag(label, box);
         }
     }
@@ -4510,7 +4612,9 @@ internal sealed class RmtStyleEditor : Window
             || name == "TextWrapping" || name == "TextTrimming" || name == "Orientation"
             || name == "IsEnabled" || name == "IsHitTestVisible" || name == "Focusable"
             || name == "UseLayoutRounding" || name == "SnapsToDevicePixels" || name == "IsReadOnly"
-            || name == "AcceptsReturn" || name == "AcceptsTab" || name == "IsEditable" || name == "SizeMode";
+            || name == "AcceptsReturn" || name == "AcceptsTab" || name == "IsEditable" || name == "SizeMode"
+            || name == "Stretch" || name == "StretchDirection"
+            || name == "VerticalScrollBarVisibility" || name == "HorizontalScrollBarVisibility";
     }
 
     private ComboBox OptionPicker(string name, string value, string current, bool bound)
@@ -4527,12 +4631,19 @@ internal sealed class RmtStyleEditor : Window
         else if (name == "TextWrapping") options = new[] { "NoWrap", "Wrap", "WrapWithOverflow" };
         else if (name == "TextTrimming") options = new[] { "None", "CharacterEllipsis", "WordEllipsis" };
         else if (name == "Orientation") options = new[] { "Horizontal", "Vertical" };
+        else if (name == "Stretch") options = new[] { "None", "Fill", "Uniform", "UniformToFill" };
+        else if (name == "StretchDirection") options = new[] { "UpOnly", "DownOnly", "Both" };
+        else if (name == "VerticalScrollBarVisibility" || name == "HorizontalScrollBarVisibility") options = new[] { "Disabled", "Auto", "Hidden", "Visible" };
         else if (name.StartsWith("Is") || name == "Focusable" || name == "UseLayoutRounding" || name == "SnapsToDevicePixels" || name == "AcceptsReturn" || name == "AcceptsTab") options = new[] { "True", "False" };
         else if (name == "SizeMode") options = new[] { "固定宽高", "自适应宽度", "自适应高度", "自适应宽高" };
         else options = new[] { "Left", "Center", "Right", "Stretch" };
         bool concreteOption = name == "SizeMode" || name == "FontWeight"
             || name == "HorizontalContentAlignment" || name == "VerticalContentAlignment"
-            || name == "HorizontalAlignment" || name == "VerticalAlignment";
+            || name == "HorizontalAlignment" || name == "VerticalAlignment"
+            || name == "TextAlignment" || name == "TextWrapping" || name == "TextTrimming"
+            || name == "Orientation" || name == "Stretch" || name == "StretchDirection"
+            || name == "IsReadOnly" || name == "AcceptsReturn"
+            || name == "VerticalScrollBarVisibility" || name == "HorizontalScrollBarVisibility";
         bool inherited = string.IsNullOrEmpty(value) && !concreteOption;
         if (inherited)
         {

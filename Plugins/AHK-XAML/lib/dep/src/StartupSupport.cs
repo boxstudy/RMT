@@ -38,6 +38,7 @@ public partial class AhkWpfEngine
         EventManager.RegisterClassHandler(typeof(System.Windows.Controls.MenuItem), FrameworkElement.LoadedEvent, new RoutedEventHandler(OnMenuItemLoadedFixSubmenu), false);
         // 启动即修正菜单右对齐（左手模式），使所有上下文菜单/子菜单向右弹。
         FixMenuDropAlignment();
+        RmtTaskbarGroup.EnsureHooked();
     }
 
     // 给 MG_* 菜单项的子菜单 Popup 安装自定义定位：右侧、顶部对齐、优先向下展开。
