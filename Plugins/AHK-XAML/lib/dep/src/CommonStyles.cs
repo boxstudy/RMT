@@ -28,12 +28,19 @@ internal static class RmtCommonStyles
         public Dictionary<string, object> Original = new Dictionary<string, object>();
         public HashSet<string> Unset = new HashSet<string>();
         public HashSet<string> Applied = new HashSet<string>();
+        public HashSet<string> Frozen = new HashSet<string>();
         public Dictionary<string, object> ResourceKeys = new Dictionary<string, object>();
         public Dictionary<string, string> LastApplied = new Dictionary<string, string>();
     }
+    internal sealed class StyleBranch
+    {
+        public string Key, Type, Path;
+        public Dictionary<string, string> Properties = new Dictionary<string, string>();
+        public List<StyleBranch> Children = new List<StyleBranch>();
+    }
     internal static readonly string[] Properties = {
         "Background", "HoverBackground", "PressedBackground", "Foreground", "BorderBrush", "CornerRadius", "BorderThickness",
-        "Margin", "Padding", "Width", "Height", "MinWidth", "MinHeight", "MaxWidth", "MaxHeight",
+        "Margin", "Padding", "MaxDropDownHeight", "Width", "Height", "MinWidth", "MinHeight", "MaxWidth", "MaxHeight",
         "FontWeight", "RelativeFontSize", "Opacity", "HorizontalContentAlignment", "VerticalContentAlignment", "SizeMode"
     };
     internal static readonly string[] WindowExtraProperties = { "ShowMinimize", "ShowMaximize", "ShowPin", "ShowClose" };
@@ -46,8 +53,11 @@ internal static class RmtCommonStyles
     private static readonly List<WeakReference> elements = new List<WeakReference>();
     internal static readonly Dictionary<string, Dictionary<string, string>> Values = new Dictionary<string, Dictionary<string, string>>();
     internal static readonly Dictionary<string, Dictionary<string, string>> Layouts = new Dictionary<string, Dictionary<string, string>>();
+    internal static readonly Dictionary<string, Dictionary<string, string>> InstanceStyles = new Dictionary<string, Dictionary<string, string>>();
+    internal static readonly Dictionary<string, StyleBranch> Composites = new Dictionary<string, StyleBranch>();
     internal static readonly Dictionary<string, string> CloneBases = new Dictionary<string, string>();
     internal static readonly Dictionary<string, string> DisplayNames = new Dictionary<string, string>();
+    internal static readonly HashSet<string> HiddenStyles = new HashSet<string>();
     private static string path;
     private static bool initialized, development;
     private static RmtStyleEditor editor;
@@ -129,7 +139,7 @@ internal static class RmtCommonStyles
         if (IsEditorWindow(fe as Window ?? Window.GetWindow(fe))) return false;
         if (fe is Window)
             return Application.Current == null || !ReferenceEquals(fe, Application.Current.MainWindow);
-        return fe is Control || fe is Border || fe is TextBlock;
+        return fe is Control || fe is Border || fe is TextBlock || fe is Panel;
     }
 
     private static string StyleKey(FrameworkElement fe)
@@ -155,14 +165,14 @@ internal static class RmtCommonStyles
 
     internal static bool IsPickable(FrameworkElement fe)
     {
-        if (fe == null || fe is Window || fe is RmtStyleEditor) return false;
+        if (fe == null || fe is RmtStyleEditor) return false;
         if (IsEditorWindow(Window.GetWindow(fe))) return false;
         if (fe.TemplatedParent is Control && !(fe.TemplatedParent is ContentPresenter)) return false;
         if (fe is ContentPresenter) return false;
-        return fe is Control;
+        return fe is Control || fe is Panel || fe is Border || fe is TextBlock || fe is Image || fe is Viewbox;
     }
 
-    private static bool IsEditorWindow(Window window)
+    internal static bool IsEditorWindow(Window window)
     {
         return window is RmtStyleEditor || window is RmtControlTreeWindow || (window != null && window.Owner is RmtStyleEditor);
     }
@@ -170,6 +180,12 @@ internal static class RmtCommonStyles
     internal static void EnsureRegistered(FrameworkElement fe)
     {
         Register(fe);
+    }
+
+    internal static bool TryGetEntry(FrameworkElement fe, out Entry entry)
+    {
+        entry = null;
+        return fe != null && entries.TryGetValue(fe, out entry);
     }
 
     private static DependencyObject VisualParent(DependencyObject value)
@@ -408,6 +424,11 @@ internal static class RmtCommonStyles
 
     private static void Apply(Entry entry)
     {
+        Apply(entry, null);
+    }
+
+    private static void Apply(Entry entry, Dictionary<string, string> overlay)
+    {
         var fe = entry.Element.Target as FrameworkElement;
         if (fe == null) return;
         // A theme/font change may replace a local value while an override is active.
@@ -423,16 +444,23 @@ internal static class RmtCommonStyles
             }
         }
         var desired = new Dictionary<string, string>();
-        Dictionary<string, string> common, specific;
+        var instanceKeys = new HashSet<string>();
+        Dictionary<string, string> common, specific, instance;
         // Explicit exceptions opt out of shared overrides but remain editable in the catalog.
         string commonKey = "通用/" + fe.GetType().Name;
         if (!entry.Key.StartsWith("特殊/") && Values.TryGetValue(commonKey, out common))
             foreach (var pair in common) desired[pair.Key] = pair.Value;
         if (Values.TryGetValue(entry.Key, out specific))
             foreach (var pair in specific) desired[pair.Key] = pair.Value;
+        string layoutId = LayoutId(fe);
+        if (layoutId != "" && InstanceStyles.TryGetValue(layoutId, out instance))
+            foreach (var pair in instance) { desired[pair.Key] = pair.Value; instanceKeys.Add(pair.Key); }
+        if (overlay != null)
+            foreach (var pair in overlay) { desired[pair.Key] = pair.Value; instanceKeys.Add(pair.Key); }
         foreach (string name in entry.Applied.ToArray())
         {
             if (desired.ContainsKey(name)) continue;
+            if (entry.Frozen.Contains(name)) continue;
             var dp = Property(fe, name);
             if (entry.ResourceKeys.ContainsKey(name)) fe.SetResourceReference(dp, entry.ResourceKeys[name]);
             else if (entry.Unset.Contains(name)) fe.ClearValue(dp);
@@ -442,6 +470,7 @@ internal static class RmtCommonStyles
         foreach (var pair in desired)
         {
             if (fe is Window && (pair.Key == "Padding" || IsWindowExtra(pair.Key))) continue;
+            if (entry.Frozen.Contains(pair.Key) && !instanceKeys.Contains(pair.Key)) continue;
             var dp = Property(fe, pair.Key);
             if (dp == null || BindingOperations.IsDataBound(fe, dp)) continue;
             try
@@ -473,7 +502,97 @@ internal static class RmtCommonStyles
         }
         ApplyButtonChrome(fe as Button, entry, desired);
         if (fe is Control) ApplyCorners((Control)fe);
+        if (fe is ComboBox) ApplyComboDropDown((ComboBox)fe);
         if (fe is Window) ApplyWindowChrome((Window)fe, entry, desired);
+        StyleBranch composite;
+        if (overlay == null && Composites.TryGetValue(entry.Key, out composite)) ApplyCompositeChildren(fe, composite);
+    }
+
+    internal static List<FrameworkElement> StyleChildren(DependencyObject parent)
+    {
+        var result = new List<FrameworkElement>();
+        if (parent == null) return result;
+        var children = LogicalTreeHelper.GetChildren(parent).OfType<DependencyObject>().ToList();
+        if (children.Count == 0 && parent is Visual)
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++) children.Add(VisualTreeHelper.GetChild(parent, i));
+        foreach (DependencyObject child in children)
+        {
+            var element = child as FrameworkElement;
+            if (element == null)
+            {
+                result.AddRange(StyleChildren(child));
+                continue;
+            }
+            if (element.TemplatedParent is Control && !(element.TemplatedParent is ContentPresenter)) continue;
+            if (element is ComboBoxItem || element is ListBoxItem || element is MenuItem) continue;
+            result.Add(element);
+        }
+        return result;
+    }
+
+    internal static bool IsCompositeRoot(string key)
+    {
+        return !string.IsNullOrEmpty(key) && Composites.ContainsKey(key);
+    }
+
+    internal static bool IsCompositeChild(string key)
+    {
+        if (string.IsNullOrEmpty(key) || IsCompositeRoot(key)) return false;
+        foreach (string root in Composites.Keys)
+            if (key.StartsWith(root + "/", StringComparison.Ordinal)) return true;
+        return false;
+    }
+
+    internal static StyleBranch CloneBranch(StyleBranch source)
+    {
+        if (source == null) return null;
+        var copy = new StyleBranch
+        {
+            Key = source.Key, Type = source.Type, Path = source.Path,
+            Properties = new Dictionary<string, string>(source.Properties)
+        };
+        foreach (var child in source.Children) copy.Children.Add(CloneBranch(child));
+        return copy;
+    }
+
+    internal static void FreezeApplied(Entry entry)
+    {
+        if (entry == null) return;
+        var fe = entry.Element.Target as FrameworkElement;
+        foreach (string name in entry.Applied.ToArray())
+        {
+            var dp = Property(fe, name);
+            if (fe != null && dp != null) entry.Original[name] = fe.GetValue(dp);
+            entry.Frozen.Add(name);
+        }
+    }
+
+    internal static void BakeInstance(FrameworkElement fe, Dictionary<string, string> values)
+    {
+        if (fe == null || values == null || values.Count == 0) return;
+        string id = LayoutId(fe);
+        if (id == "") return;
+        Dictionary<string, string> dest;
+        if (!InstanceStyles.TryGetValue(id, out dest)) dest = new Dictionary<string, string>();
+        foreach (var pair in values) dest[pair.Key] = pair.Value;
+        InstanceStyles[id] = dest;
+    }
+
+    private static void ApplyCompositeChildren(FrameworkElement parent, StyleBranch branch)
+    {
+        if (parent == null || branch == null) return;
+        var children = StyleChildren(parent);
+        for (int i = 0; i < branch.Children.Count; i++)
+        {
+            var childBranch = branch.Children[i];
+            if (i >= children.Count) break;
+            var child = children[i];
+            EnsureRegistered(child);
+            Entry childEntry;
+            if (!entries.TryGetValue(child, out childEntry)) continue;
+            Apply(childEntry, childBranch.Properties);
+            ApplyCompositeChildren(child, childBranch);
+        }
     }
 
     internal static bool IsWindowExtra(string name)
@@ -570,6 +689,41 @@ internal static class RmtCommonStyles
                 entry.Applied.Remove("Padding");
             }
         }
+        string radiusText;
+        if (desired.TryGetValue("CornerRadius", out radiusText))
+        {
+            try
+            {
+                var radius = (CornerRadius)ConvertValue(typeof(CornerRadius), radiusText);
+                window.Resources["WindowRadius"] = radius;
+                var chrome = System.Windows.Shell.WindowChrome.GetWindowChrome(window);
+                if (chrome != null) chrome.CornerRadius = radius;
+                var overlay = window.FindName("WindowBorderOverlay") as Border;
+                if (overlay != null) overlay.CornerRadius = radius;
+                var rootBorder = window.Content as Border;
+                if (rootBorder != null) rootBorder.CornerRadius = radius;
+                ApplyCorners(window);
+                entry.Applied.Add("CornerRadius");
+                entry.LastApplied["CornerRadius"] = radiusText;
+            }
+            catch (Exception ex) { LoadError = entry.Key + "/CornerRadius: " + ex.Message; }
+        }
+        string background;
+        if (desired.TryGetValue("Background", out background))
+        {
+            var rootBorder = window.Content as Border;
+            if (rootBorder != null)
+            {
+                if (!entry.Original.ContainsKey("SurfaceBackground"))
+                    entry.Original["SurfaceBackground"] = rootBorder.Background;
+                if (IsThemeColor(background)) rootBorder.SetResourceReference(Border.BackgroundProperty, ThemeColorKey(background));
+                else
+                {
+                    try { rootBorder.Background = (Brush)ConvertValue(typeof(Brush), background); }
+                    catch (Exception ex) { LoadError = entry.Key + "/Background: " + ex.Message; }
+                }
+            }
+        }
     }
 
     private static readonly Dictionary<Window, Dictionary<string, object>> resourceOriginals = new Dictionary<Window, Dictionary<string, object>>();
@@ -645,7 +799,12 @@ internal static class RmtCommonStyles
     internal static void ApplyCorners(Control control)
     {
         if (control == null) return;
-        var border = FindControlBorder(control);
+        var list = FindControlBorders(control);
+        for (int i = 0; i < list.Count; i++) ApplyCornerToBorder(control, list[i]);
+    }
+
+    private static void ApplyCornerToBorder(Control control, Border border)
+    {
         if (border == null) return;
         if (control.ReadLocalValue(ControlCornerRadius) == DependencyProperty.UnsetValue)
         {
@@ -657,6 +816,13 @@ internal static class RmtCommonStyles
             corners.GetValue(border, b => new Corners { Value = b.CornerRadius });
             border.SetValue(Border.CornerRadiusProperty, control.GetValue(ControlCornerRadius));
         }
+    }
+
+    internal static void ApplyComboDropDown(ComboBox combo)
+    {
+        if (combo == null) return;
+        var drop = FindComboDropDownBorder(combo);
+        if (drop != null) drop.MaxHeight = combo.MaxDropDownHeight;
     }
 
     private static void ApplyButtonChrome(Button button, Entry entry, Dictionary<string, string> desired)
@@ -758,27 +924,137 @@ internal static class RmtCommonStyles
 
     internal static object DisplayValue(FrameworkElement element, string name, DependencyProperty dp)
     {
+        if (name == "CornerRadius" && element is Window)
+        {
+            if (element.Resources.Contains("WindowRadius")) return element.Resources["WindowRadius"];
+            var resource = element.TryFindResource("WindowRadius");
+            if (resource is CornerRadius) return resource;
+        }
         if (name == "CornerRadius" && element is Control && element.ReadLocalValue(dp) == DependencyProperty.UnsetValue)
         {
             var border = FindControlBorder((Control)element);
             if (border != null) return border.CornerRadius;
         }
+        if (name == "MaxDropDownHeight" && element is ComboBox && element.ReadLocalValue(dp) == DependencyProperty.UnsetValue)
+        {
+            var drop = FindComboDropDownBorder((ComboBox)element);
+            if (drop != null) return drop.MaxHeight;
+        }
+        if (name == "HoverBackground" || name == "PressedBackground")
+        {
+            var brush = element.GetValue(dp) as Brush;
+            if (IsVisibleBrush(brush)) return brush;
+            return FallbackButtonChrome(element, name);
+        }
         return element.GetValue(dp);
+    }
+
+    internal static bool IsVisibleBrush(Brush brush)
+    {
+        if (brush == null || brush == Brushes.Transparent) return false;
+        var solid = brush as SolidColorBrush;
+        return solid == null || solid.Color.A > 0;
+    }
+
+    internal static Brush FallbackButtonChrome(FrameworkElement element, string name)
+    {
+        return FallbackButtonChrome(name, element);
+    }
+
+    internal static Brush FallbackButtonChrome(string name, params FrameworkElement[] roots)
+    {
+        string[] keys = name == "HoverBackground"
+            ? new[] { "ActionHoverBg", "ControlBorder" }
+            : new[] { "ActionPressBg", "BtnPressBg", "ActionHoverBg", "ActionBg" };
+        foreach (string key in keys)
+        {
+            if (roots == null) continue;
+            for (int i = 0; i < roots.Length; i++)
+            {
+                if (roots[i] == null) continue;
+                var brush = roots[i].TryFindResource(key) as Brush;
+                if (IsVisibleBrush(brush)) return brush;
+            }
+        }
+        return null;
     }
 
     internal static Border FindControlBorder(Control control)
     {
+        var list = FindControlBorders(control);
+        return list.Count > 0 ? list[0] : null;
+    }
+
+    internal static Border FindComboDropDownBorder(ComboBox combo)
+    {
+        return combo == null ? null : FindPopupBorder(combo);
+    }
+
+    internal static List<Border> FindControlBorders(Control control)
+    {
+        var result = new List<Border>();
+        if (control == null) return result;
         control.ApplyTemplate();
-        var queue = new Queue<DependencyObject>(); queue.Enqueue(control);
+        Border own = null, chrome = null, drop = null;
+        var queue = new Queue<DependencyObject>();
+        queue.Enqueue(control);
         while (queue.Count > 0)
         {
             var node = queue.Dequeue();
-            var border = node as Border;
-            if (border != null && ReferenceEquals(border.TemplatedParent, control))
+            var nested = node as Control;
+            if (nested != null && !ReferenceEquals(nested, control)) nested.ApplyTemplate();
+            var popup = node as Popup;
+            if (popup != null)
             {
-                return border;
+                if (drop == null) drop = FirstBorder(popup.Child ?? popup);
+                continue;
             }
-            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(node); i++) queue.Enqueue(VisualTreeHelper.GetChild(node, i));
+            var border = node as Border;
+            if (border != null)
+            {
+                if (own == null && ReferenceEquals(border.TemplatedParent, control)) own = border;
+                else if (chrome == null && control is ComboBox && border.TemplatedParent is ToggleButton) chrome = border;
+            }
+            if (node is Visual)
+            {
+                int count = VisualTreeHelper.GetChildrenCount(node);
+                for (int i = 0; i < count; i++) queue.Enqueue(VisualTreeHelper.GetChild(node, i));
+            }
+        }
+        if (own != null) result.Add(own);
+        if (chrome != null && !result.Contains(chrome)) result.Add(chrome);
+        if (drop != null && !result.Contains(drop)) result.Add(drop);
+        return result;
+    }
+
+    private static Border FindPopupBorder(DependencyObject root)
+    {
+        if (root == null) return null;
+        var queue = new Queue<DependencyObject>();
+        queue.Enqueue(root);
+        while (queue.Count > 0)
+        {
+            var node = queue.Dequeue();
+            var popup = node as Popup;
+            if (popup != null) return FirstBorder(popup.Child ?? popup);
+            if (!(node is Visual)) continue;
+            int count = VisualTreeHelper.GetChildrenCount(node);
+            for (int i = 0; i < count; i++) queue.Enqueue(VisualTreeHelper.GetChild(node, i));
+        }
+        return null;
+    }
+
+    private static Border FirstBorder(DependencyObject root)
+    {
+        if (root == null) return null;
+        var border = root as Border;
+        if (border != null) return border;
+        if (!(root is Visual)) return null;
+        int count = VisualTreeHelper.GetChildrenCount(root);
+        for (int i = 0; i < count; i++)
+        {
+            var found = FirstBorder(VisualTreeHelper.GetChild(root, i));
+            if (found != null) return found;
         }
         return null;
     }
@@ -826,30 +1102,24 @@ internal static class RmtCommonStyles
         if (!File.Exists(path)) return;
         try
         {
+            Composites.Clear();
+            InstanceStyles.Clear();
+            HiddenStyles.Clear();
             var doc = new XmlDocument { XmlResolver = null };
             using (var reader = XmlReader.Create(path, new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null })) doc.Load(reader);
             foreach (XmlElement style in doc.SelectNodes("/CommonStyles/Style"))
             {
-                var properties = new Dictionary<string, string>();
-                foreach (XmlElement prop in style.SelectNodes("Property"))
-                    if (Properties.Contains(prop.GetAttribute("name")) || IsWindowExtra(prop.GetAttribute("name")) || prop.GetAttribute("name") == "Color")
-                    {
-                        string name = prop.GetAttribute("name"), value = prop.GetAttribute("value");
-                        try
-                        {
-                            if (name == "SizeMode" || IsWindowExtra(name)) { properties[name] = value; continue; }
-                            if (IsColorProperty(name) && IsThemeColor(value)) { properties[name] = value; continue; }
-                            var dp = name == "Color" ? null : Property(new Button(), name);
-                            object converted = ConvertValue(dp == null ? typeof(Brush) : dp.PropertyType, value);
-                            if (dp != null && !dp.IsValidValue(converted)) throw new ArgumentException(name + " 值无效");
-                            properties[name] = value;
-                        }
-                        catch (Exception ex) { LoadError = "已忽略无效配置 " + name + ": " + ex.Message; }
-                    }
+                var properties = ReadStyleProperties(style);
                 string styleKey = style.GetAttribute("key");
                 Values[styleKey] = properties;
                 if (style.HasAttribute("base")) CloneBases[styleKey] = style.GetAttribute("base");
                 if (style.HasAttribute("display")) DisplayNames[styleKey] = style.GetAttribute("display");
+                if (style.GetAttribute("composite") == "1" || style.SelectNodes("Child").Count > 0)
+                {
+                    var branch = ReadStyleBranch(style, styleKey, style.GetAttribute("type"), "");
+                    branch.Properties = properties;
+                    Composites[styleKey] = branch;
+                }
             }
             foreach (XmlElement layout in doc.SelectNodes("/CommonStyles/Layout"))
             {
@@ -859,8 +1129,62 @@ internal static class RmtCommonStyles
                 string layoutKey = layout.GetAttribute("key");
                 if (!string.IsNullOrEmpty(layoutKey)) Layouts[layoutKey] = properties;
             }
+            foreach (XmlElement instance in doc.SelectNodes("/CommonStyles/Instance"))
+            {
+                var properties = new Dictionary<string, string>();
+                foreach (XmlElement prop in instance.SelectNodes("Property"))
+                    properties[prop.GetAttribute("name")] = prop.GetAttribute("value");
+                string instanceKey = instance.GetAttribute("key");
+                if (!string.IsNullOrEmpty(instanceKey)) InstanceStyles[instanceKey] = properties;
+            }
+            foreach (XmlElement hidden in doc.SelectNodes("/CommonStyles/Hidden"))
+            {
+                string hiddenKey = hidden.GetAttribute("key");
+                if (!string.IsNullOrEmpty(hiddenKey)) HiddenStyles.Add(hiddenKey);
+            }
+            foreach (XmlElement group in doc.SelectNodes("/CommonStyles/Group"))
+            {
+                string groupKey = group.GetAttribute("key");
+                string groupName = group.GetAttribute("display");
+                if (!string.IsNullOrEmpty(groupKey) && !string.IsNullOrEmpty(groupName)) DisplayNames[groupKey] = groupName;
+            }
         }
         catch (Exception ex) { LoadError = "样式配置读取失败：" + ex.Message; }
+    }
+
+    private static Dictionary<string, string> ReadStyleProperties(XmlElement owner)
+    {
+        var properties = new Dictionary<string, string>();
+        foreach (XmlElement prop in owner.SelectNodes("Property"))
+            if (Properties.Contains(prop.GetAttribute("name")) || IsWindowExtra(prop.GetAttribute("name")) || prop.GetAttribute("name") == "Color")
+            {
+                string name = prop.GetAttribute("name"), value = prop.GetAttribute("value");
+                try
+                {
+                    if (name == "SizeMode" || IsWindowExtra(name)) { properties[name] = value; continue; }
+                    if (IsColorProperty(name) && IsThemeColor(value)) { properties[name] = value; continue; }
+                    var dp = name == "Color" ? null : Property(new Button(), name);
+                    object converted = ConvertValue(dp == null ? typeof(Brush) : dp.PropertyType, value);
+                    if (dp != null && !dp.IsValidValue(converted)) throw new ArgumentException(name + " 值无效");
+                    properties[name] = value;
+                }
+                catch (Exception ex) { LoadError = "已忽略无效配置 " + name + ": " + ex.Message; }
+            }
+        return properties;
+    }
+
+    private static StyleBranch ReadStyleBranch(XmlElement owner, string key, string type, string path)
+    {
+        var branch = new StyleBranch { Key = key, Type = type, Path = path, Properties = ReadStyleProperties(owner) };
+        Values[key] = new Dictionary<string, string>(branch.Properties);
+        foreach (XmlElement child in owner.SelectNodes("Child"))
+        {
+            string childPath = child.GetAttribute("path");
+            string childKey = child.GetAttribute("key");
+            if (string.IsNullOrEmpty(childKey)) childKey = string.IsNullOrEmpty(childPath) ? key : key.Split('/')[0] + "/" + childPath;
+            branch.Children.Add(ReadStyleBranch(child, childKey, child.GetAttribute("type"), childPath));
+        }
+        return branch;
     }
 
     internal static void Save()
@@ -873,31 +1197,148 @@ internal static class RmtCommonStyles
             writer.WriteStartElement("CommonStyles"); writer.WriteAttributeString("version", "1");
             foreach (var style in Values.OrderBy(x => x.Key))
             {
+                if (IsCompositeChild(style.Key)) continue;
                 writer.WriteStartElement("Style"); writer.WriteAttributeString("key", style.Key);
                 string cloneBase;
                 if (CloneBases.TryGetValue(style.Key, out cloneBase)) writer.WriteAttributeString("base", cloneBase);
                 string displayName;
                 if (DisplayNames.TryGetValue(style.Key, out displayName)) writer.WriteAttributeString("display", displayName);
-                foreach (var prop in style.Value.OrderBy(x => x.Key))
+                StyleBranch composite;
+                if (Composites.TryGetValue(style.Key, out composite))
                 {
-                    writer.WriteStartElement("Property"); writer.WriteAttributeString("name", prop.Key);
-                    writer.WriteAttributeString("value", prop.Value); writer.WriteEndElement();
+                    writer.WriteAttributeString("composite", "1");
+                    if (!string.IsNullOrEmpty(composite.Type)) writer.WriteAttributeString("type", composite.Type);
+                    WriteStyleProperties(writer, composite.Properties.Count > 0 ? composite.Properties : style.Value);
+                    WriteStyleChildren(writer, composite);
                 }
+                else
+                    WriteStyleProperties(writer, style.Value);
                 writer.WriteEndElement();
             }
             foreach (var layout in Layouts.OrderBy(x => x.Key))
             {
                 writer.WriteStartElement("Layout"); writer.WriteAttributeString("key", layout.Key);
-                foreach (var prop in layout.Value.OrderBy(x => x.Key))
-                {
-                    writer.WriteStartElement("Property"); writer.WriteAttributeString("name", prop.Key);
-                    writer.WriteAttributeString("value", prop.Value); writer.WriteEndElement();
-                }
+                WriteStyleProperties(writer, layout.Value);
                 writer.WriteEndElement();
+            }
+            foreach (var instance in InstanceStyles.OrderBy(x => x.Key))
+            {
+                writer.WriteStartElement("Instance"); writer.WriteAttributeString("key", instance.Key);
+                WriteStyleProperties(writer, instance.Value);
+                writer.WriteEndElement();
+            }
+            foreach (string hidden in HiddenStyles.OrderBy(x => x))
+            {
+                writer.WriteStartElement("Hidden"); writer.WriteAttributeString("key", hidden); writer.WriteEndElement();
+            }
+            foreach (var group in DisplayNames.Where(x => x.Key.StartsWith("#group:", StringComparison.Ordinal)).OrderBy(x => x.Key))
+            {
+                writer.WriteStartElement("Group"); writer.WriteAttributeString("key", group.Key);
+                writer.WriteAttributeString("display", group.Value); writer.WriteEndElement();
             }
             writer.WriteEndElement();
         }
         if (File.Exists(path)) File.Replace(temp, path, path + ".bak"); else File.Move(temp, path);
+    }
+
+    private static void WriteStyleProperties(XmlWriter writer, Dictionary<string, string> properties)
+    {
+        if (properties == null) return;
+        foreach (var prop in properties.OrderBy(x => x.Key))
+        {
+            writer.WriteStartElement("Property"); writer.WriteAttributeString("name", prop.Key);
+            writer.WriteAttributeString("value", prop.Value); writer.WriteEndElement();
+        }
+    }
+
+    private static void WriteStyleChildren(XmlWriter writer, StyleBranch branch)
+    {
+        if (branch == null) return;
+        foreach (var child in branch.Children)
+        {
+            writer.WriteStartElement("Child");
+            writer.WriteAttributeString("key", child.Key);
+            if (!string.IsNullOrEmpty(child.Path)) writer.WriteAttributeString("path", child.Path);
+            if (!string.IsNullOrEmpty(child.Type)) writer.WriteAttributeString("type", child.Type);
+            WriteStyleProperties(writer, child.Properties);
+            WriteStyleChildren(writer, child);
+            writer.WriteEndElement();
+        }
+    }
+
+    internal static IEnumerable<string> StyleTreeKeys(string key)
+    {
+        yield return key;
+        StyleBranch branch;
+        if (!Composites.TryGetValue(key, out branch))
+        {
+            foreach (var composite in Composites.Values)
+            {
+                var found = FindBranch(composite, key);
+                if (found != null) { branch = found; break; }
+            }
+        }
+        if (branch == null) yield break;
+        foreach (string childKey in BranchKeys(branch))
+            if (childKey != key) yield return childKey;
+    }
+
+    private static IEnumerable<string> BranchKeys(StyleBranch branch)
+    {
+        if (branch == null) yield break;
+        yield return branch.Key;
+        foreach (var child in branch.Children)
+            foreach (string key in BranchKeys(child)) yield return key;
+    }
+
+    internal static StyleBranch FindBranch(StyleBranch branch, string key)
+    {
+        if (branch == null) return null;
+        if (branch.Key == key) return branch;
+        foreach (var child in branch.Children)
+        {
+            var found = FindBranch(child, key);
+            if (found != null) return found;
+        }
+        return null;
+    }
+
+    internal static void RemoveStyleTree(string key)
+    {
+        foreach (string item in StyleTreeKeys(key).ToArray())
+        {
+            Values.Remove(item);
+            CloneBases.Remove(item);
+            DisplayNames.Remove(item);
+        }
+        StyleBranch root;
+        if (Composites.TryGetValue(key, out root)) Composites.Remove(key);
+        else
+        {
+            foreach (var pair in Composites.ToArray())
+            {
+                if (RemoveChildBranch(pair.Value, key))
+                {
+                    Values.Remove(key);
+                    break;
+                }
+            }
+        }
+    }
+
+    private static bool RemoveChildBranch(StyleBranch parent, string key)
+    {
+        if (parent == null) return false;
+        for (int i = 0; i < parent.Children.Count; i++)
+        {
+            if (parent.Children[i].Key == key)
+            {
+                parent.Children.RemoveAt(i);
+                return true;
+            }
+            if (RemoveChildBranch(parent.Children[i], key)) return true;
+        }
+        return false;
     }
 }
 
@@ -920,6 +1361,7 @@ internal sealed class RmtStyleEditor : Window
     private readonly Dictionary<FrameworkElement, PositionOriginal> positionOriginals = new Dictionary<FrameworkElement, PositionOriginal>();
     private readonly Dictionary<string, CheckBox> chromeChecks = new Dictionary<string, CheckBox>();
     private TextBox previewContent;
+    private TextBox previewOptions;
     private readonly HashSet<string> colorTouched = new HashSet<string>();
     private readonly HashSet<string> sliderTouched = new HashSet<string>();
     private readonly HashSet<string> dimensionTouched = new HashSet<string>();
@@ -946,7 +1388,7 @@ internal sealed class RmtStyleEditor : Window
     private static readonly Dictionary<string, string> propertyLabels = new Dictionary<string, string> {
         {"Background", "背景颜色"}, {"HoverBackground", "悬停背景"}, {"PressedBackground", "按住背景"}, {"Foreground", "文字颜色"}, {"BorderBrush", "边框颜色"}, {"BorderThickness", "边框宽度"}, {"CornerRadius", "圆角"},
         {"Margin", "外边距"}, {"Padding", "内边距"}, {"Width", "宽度"}, {"Height", "高度"}, {"MinWidth", "最小宽度"}, {"MinHeight", "最小高度"},
-        {"MaxWidth", "最大宽度"}, {"MaxHeight", "最大高度"}, {"RelativeFontSize", "相对字号"}, {"FontWeight", "字体粗细"},
+        {"MaxWidth", "最大宽度"}, {"MaxHeight", "最大高度"}, {"MaxDropDownHeight", "展开高度"}, {"RelativeFontSize", "相对字号"}, {"FontWeight", "字体粗细"},
         {"FontFamily", "字体"}, {"FontStyle", "字体样式"}, {"FontStretch", "字体伸缩"}, {"Opacity", "不透明度"},
         {"HorizontalAlignment", "控件水平对齐"}, {"VerticalAlignment", "控件垂直对齐"},
         {"HorizontalContentAlignment", "水平对齐"}, {"VerticalContentAlignment", "垂直对齐"},
@@ -955,13 +1397,15 @@ internal sealed class RmtStyleEditor : Window
         {"TextAlignment", "文本对齐"}, {"TextWrapping", "文本换行"}, {"TextTrimming", "文本裁剪"},
         {"IsReadOnly", "只读"}, {"AcceptsReturn", "允许换行"}, {"AcceptsTab", "允许Tab"}, {"MaxLength", "最大长度"},
         {"IsEditable", "允许编辑"}, {"SelectedIndex", "选中序号"}, {"Orientation", "排列方向"},
-        {"SizeMode", "宽高类型"}, {"Color", "颜色"}
+        {"SizeMode", "宽高类型"}, {"Color", "颜色"},
+        {"ShowMinimize", "最小化"}, {"ShowMaximize", "最大化"}, {"ShowPin", "置顶"}, {"ShowClose", "关闭"}
     };
     private string selected;
     private FrameworkElement sample;
     private WeakReference inspectRef;
+    private WeakReference inspectRootRef;
     private bool dirty;
-    private Button cmdPin, cmdMin, cmdMax;
+    private Button cmdPin, cmdMin, cmdMax, cmdLocate;
     private TextBlock maxGlyph;
     private TabControl mainTabs;
     private TreeView hierarchyTree;
@@ -972,10 +1416,16 @@ internal sealed class RmtStyleEditor : Window
     private double chromeButtonWidth = 46, chromeButtonHeight = 30, chromeGlyphSize = 15;
     private FontWeight chromeGlyphWeight = FontWeights.Bold;
     private FrameworkElement highlightTarget;
+    private FrameworkElement pickHover;
+    private bool picking;
+    private readonly List<Window> pickHooked = new List<Window>();
     private Dictionary<string, Dictionary<string, string>> snapshot;
     private Dictionary<string, Dictionary<string, string>> layoutSnapshot;
+    private Dictionary<string, Dictionary<string, string>> instanceSnapshot;
+    private Dictionary<string, RmtCommonStyles.StyleBranch> compositeSnapshot;
     private Dictionary<string, string> cloneSnapshot;
     private Dictionary<string, string> displaySnapshot;
+    private HashSet<string> hiddenSnapshot;
 
     internal RmtStyleEditor(Window owner)
     {
@@ -984,8 +1434,11 @@ internal sealed class RmtStyleEditor : Window
         FontFamily = owner.FontFamily; FontSize = owner.FontSize;
         snapshot = CopyValues();
         layoutSnapshot = CopyLayouts();
+        instanceSnapshot = CopyInstances();
+        compositeSnapshot = CopyComposites();
         cloneSnapshot = new Dictionary<string, string>(RmtCommonStyles.CloneBases);
         displaySnapshot = new Dictionary<string, string>(RmtCommonStyles.DisplayNames);
+        hiddenSnapshot = new HashSet<string>(RmtCommonStyles.HiddenStyles);
         selected = "通用/Button";
         const string editorXaml = @"<Border xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml' Margin='10' Background='{DynamicResource BgColor}' BorderBrush='{DynamicResource ControlBorder}' BorderThickness='1' CornerRadius='{DynamicResource WindowRadius}' TextElement.Foreground='{DynamicResource TextMain}'>
   <Border.Effect><DropShadowEffect BlurRadius='15' ShadowDepth='2' Opacity='.30'/></Border.Effect>
@@ -1019,6 +1472,7 @@ internal sealed class RmtStyleEditor : Window
             <DockPanel Grid.Column='2'>
               <GroupBox DockPanel.Dock='Top' Header='目标样式预览' Margin='0,0,0,10' Padding='8' MaxHeight='200'><StackPanel x:Name='Preview'/></GroupBox>
               <StackPanel DockPanel.Dock='Bottom' Orientation='Horizontal' HorizontalAlignment='Right' Margin='0,10,0,0'>
+                <Button x:Name='CmdLocateControl' Content='控件定位' Padding='10,5' Margin='0,0,8,0'/>
                 <Button x:Name='CmdItemReset' Content='重置' Padding='10,5' Margin='0,0,8,0'/>
                 <Button x:Name='CmdItemApply' Content='应用' Padding='10,5' Margin='0,0,8,0'/>
                 <Button x:Name='CmdFindTemplate' Content='查找模版' Padding='10,5' Margin='0,0,8,0'/>
@@ -1062,6 +1516,12 @@ internal sealed class RmtStyleEditor : Window
         };
         search = (TextBox)root.FindName("Search");
         catalog = (TreeView)root.FindName("Catalog");
+        var catalogItemStyle = new Style(typeof(TreeViewItem));
+        catalogItemStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(0)));
+        catalogItemStyle.Setters.Add(new Setter(Control.BorderThicknessProperty, new Thickness(0)));
+        catalogItemStyle.Setters.Add(new Setter(Control.BackgroundProperty, Brushes.Transparent));
+        catalogItemStyle.Setters.Add(new Setter(Control.HorizontalContentAlignmentProperty, HorizontalAlignment.Stretch));
+        catalog.ItemContainerStyle = catalogItemStyle;
         fields = (StackPanel)root.FindName("Fields");
         preview = (StackPanel)root.FindName("Preview");
         mainTabs = (TabControl)root.FindName("MainTabs");
@@ -1123,6 +1583,8 @@ internal sealed class RmtStyleEditor : Window
         cmdMax.Click += delegate { WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized; };
         StateChanged += delegate { UpdateMaxVisual(); };
         UpdateMaxVisual();
+        cmdLocate = (Button)root.FindName("CmdLocateControl");
+        cmdLocate.Click += delegate { ToggleControlPick(); };
         ((Button)root.FindName("CmdItemReset")).Click += delegate { ResetCurrent(); };
         ((Button)root.FindName("CmdItemApply")).Click += delegate { ApplyCurrent(); };
         ((Button)root.FindName("CmdFindTemplate")).Click += delegate { FindTemplate(); };
@@ -1141,10 +1603,28 @@ internal sealed class RmtStyleEditor : Window
             if (mainTabs.SelectedIndex == 1 && hierarchyTree != null && hierarchyTree.Items.Count == 0)
                 RefreshHierarchyTree();
         };
-        catalog.SelectedItemChanged += delegate { var item = catalog.SelectedItem as TreeViewItem; if (item != null && item.Tag is string) { selected = (string)item.Tag; HighlightCatalogItem(item); Render(); } };
+        catalog.PreviewMouseRightButtonDown += CatalogRightButtonDown;
+        catalog.SelectedItemChanged += delegate
+        {
+            var item = catalog.SelectedItem as TreeViewItem;
+            if (item == null || !(item.Tag is string)) return;
+            string key = (string)item.Tag;
+            if (key.StartsWith("#group:", StringComparison.Ordinal)) return;
+            var weak = item.DataContext as WeakReference;
+            var inspect = weak == null ? null : weak.Target as FrameworkElement;
+            if (key == selected && ((inspect == null && Inspected() == null) || ReferenceEquals(inspect, Inspected())))
+            {
+                HighlightCatalogItem(item);
+                return;
+            }
+            selected = key;
+            if (inspect != null) inspectRef = weak;
+            HighlightCatalogItem(item);
+            Render();
+        };
         search.TextChanged += delegate { Populate(); };
         PreviewKeyDown += EditorKeyDown;
-        Closing += delegate(object sender, CancelEventArgs args) { ClearHighlight(); if (dirty) Restore(); };
+        Closing += delegate(object sender, CancelEventArgs args) { CancelControlPick(); ClearHighlight(); if (dirty) Restore(); };
         Populate();
         SelectCatalog("通用/Button", true);
         status.Text = RmtCommonStyles.LoadError;
@@ -1281,14 +1761,25 @@ internal sealed class RmtStyleEditor : Window
     {
         return RmtCommonStyles.Layouts.ToDictionary(x => x.Key, x => new Dictionary<string, string>(x.Value));
     }
+    private static Dictionary<string, Dictionary<string, string>> CopyInstances()
+    {
+        return RmtCommonStyles.InstanceStyles.ToDictionary(x => x.Key, x => new Dictionary<string, string>(x.Value));
+    }
+    private static Dictionary<string, RmtCommonStyles.StyleBranch> CopyComposites()
+    {
+        return RmtCommonStyles.Composites.ToDictionary(x => x.Key, x => RmtCommonStyles.CloneBranch(x.Value));
+    }
     private void Restore()
     {
         drafts.Clear();
         RestoreAllPositions();
         RmtCommonStyles.Values.Clear(); foreach (var item in snapshot) RmtCommonStyles.Values[item.Key] = new Dictionary<string, string>(item.Value);
         RmtCommonStyles.Layouts.Clear(); foreach (var item in layoutSnapshot) RmtCommonStyles.Layouts[item.Key] = new Dictionary<string, string>(item.Value);
+        RmtCommonStyles.InstanceStyles.Clear(); foreach (var item in instanceSnapshot) RmtCommonStyles.InstanceStyles[item.Key] = new Dictionary<string, string>(item.Value);
+        RmtCommonStyles.Composites.Clear(); foreach (var item in compositeSnapshot) RmtCommonStyles.Composites[item.Key] = RmtCommonStyles.CloneBranch(item.Value);
         RmtCommonStyles.CloneBases.Clear(); foreach (var item in cloneSnapshot) RmtCommonStyles.CloneBases[item.Key] = item.Value;
         RmtCommonStyles.DisplayNames.Clear(); foreach (var item in displaySnapshot) RmtCommonStyles.DisplayNames[item.Key] = item.Value;
+        RmtCommonStyles.HiddenStyles.Clear(); foreach (string item in hiddenSnapshot) RmtCommonStyles.HiddenStyles.Add(item);
         RmtCommonStyles.Refresh(); dirty = false; status.Text = "已撤销未保存预览。";
     }
 
@@ -1312,6 +1803,9 @@ internal sealed class RmtStyleEditor : Window
             Dictionary<string, string> layout;
             if (layoutSnapshot.TryGetValue(id, out layout)) RmtCommonStyles.Layouts[id] = new Dictionary<string, string>(layout);
             else RmtCommonStyles.Layouts.Remove(id);
+            Dictionary<string, string> instance;
+            if (instanceSnapshot.TryGetValue(id, out instance)) RmtCommonStyles.InstanceStyles[id] = new Dictionary<string, string>(instance);
+            else RmtCommonStyles.InstanceStyles.Remove(id);
         }
         RmtCommonStyles.Refresh();
         // Restore the preview position after style/layout refresh so one click cannot be
@@ -1337,8 +1831,11 @@ internal sealed class RmtStyleEditor : Window
             RmtCommonStyles.Save();
             snapshot = CopyValues();
             layoutSnapshot = CopyLayouts();
+            instanceSnapshot = CopyInstances();
+            compositeSnapshot = CopyComposites();
             cloneSnapshot = new Dictionary<string, string>(RmtCommonStyles.CloneBases);
             displaySnapshot = new Dictionary<string, string>(RmtCommonStyles.DisplayNames);
+            hiddenSnapshot = new HashSet<string>(RmtCommonStyles.HiddenStyles);
             var target = Inspected();
             if (target != null) positionOriginals.Remove(target);
             dirty = drafts.Count > 0;
@@ -1422,6 +1919,7 @@ internal sealed class RmtStyleEditor : Window
         Dictionary<string, string> current;
         TryConfiguredValues(selected, out current);
         RmtCommonStyles.Values[template] = current == null ? new Dictionary<string, string>() : new Dictionary<string, string>(current);
+        SyncBranchProperties(template, RmtCommonStyles.Values[template]);
         drafts.Remove(template);
         dirty = true;
         RmtCommonStyles.Refresh();
@@ -1430,10 +1928,14 @@ internal sealed class RmtStyleEditor : Window
 
     private void AddToTemplate()
     {
+        AddTemplateFromCurrent(PromptCategory());
+    }
+
+    internal void AddTemplateFromCurrent(string category)
+    {
         if (string.IsNullOrEmpty(selected) || sample == null) return;
-        if (!Commit(false)) return;
-        string category = PromptCategory();
         if (string.IsNullOrWhiteSpace(category)) return;
+        if (!Commit(false)) return;
         category = category.Trim();
         string baseKey = TemplateKey();
         if (string.IsNullOrEmpty(baseKey)) baseKey = sample is Window ? "通用/Window" : "通用/" + sample.GetType().Name;
@@ -1447,13 +1949,21 @@ internal sealed class RmtStyleEditor : Window
         {
             do { title = category + number++; } while (names.Contains(title));
         }
-        string prefix = sample is Window ? "WindowTemplate" : sample.GetType().Name + "Template";
+        var root = Inspected() ?? sample;
+        string prefix = root is Window ? "WindowTemplate" : root.GetType().Name + "Template";
         int keyNo = 1;
         string key;
-        do { key = prefix + keyNo++; } while (RmtCommonStyles.Values.ContainsKey(key) || RmtCommonStyles.CloneBases.ContainsKey(key));
-        Dictionary<string, string> current;
-        TryConfiguredValues(selected, out current);
-        RmtCommonStyles.Values[key] = current == null ? new Dictionary<string, string>() : new Dictionary<string, string>(current);
+        do { key = prefix + keyNo++; } while (RmtCommonStyles.Values.ContainsKey(key) || RmtCommonStyles.CloneBases.ContainsKey(key) || RmtCommonStyles.Composites.ContainsKey(key));
+        var children = root == null ? new List<FrameworkElement>() : RmtCommonStyles.StyleChildren(root);
+        if (root != null && children.Count > 0)
+        {
+            var branch = CaptureBranch(root, "", key);
+            branch.Properties = CurrentValues();
+            RmtCommonStyles.Values[key] = new Dictionary<string, string>(branch.Properties);
+            RmtCommonStyles.Composites[key] = branch;
+        }
+        else
+            RmtCommonStyles.Values[key] = CurrentValues();
         RmtCommonStyles.CloneBases[key] = baseKey;
         RmtCommonStyles.DisplayNames[key] = title;
         selected = key;
@@ -1461,7 +1971,116 @@ internal sealed class RmtStyleEditor : Window
         Populate();
         SelectCatalog(key, true);
         Render();
-        status.Text = "已添加新模版：" + title + "。";
+        status.Text = children.Count > 0 ? "已添加层级组合模版：" + title + "。" : "已添加新模版：" + title + "。";
+    }
+
+    private Dictionary<string, string> CurrentValues()
+    {
+        Dictionary<string, string> current;
+        TryConfiguredValues(selected, out current);
+        return current == null ? new Dictionary<string, string>() : new Dictionary<string, string>(current);
+    }
+
+    private RmtCommonStyles.StyleBranch CaptureBranch(FrameworkElement element, string path, string rootKey)
+    {
+        string key = path == "" ? rootKey : rootKey + "/" + path;
+        Dictionary<string, string> configured;
+        TryConfiguredValues(RmtCommonStyles.StyleKeyPublic(element), out configured);
+        var branch = new RmtCommonStyles.StyleBranch
+        {
+            Key = key,
+            Type = element.GetType().Name,
+            Path = path,
+            Properties = configured == null ? new Dictionary<string, string>() : new Dictionary<string, string>(configured)
+        };
+        if (path != "") RmtCommonStyles.Values[key] = new Dictionary<string, string>(branch.Properties);
+        var children = RmtCommonStyles.StyleChildren(element);
+        if (element is ComboBox || element is ListBox) children = new List<FrameworkElement>();
+        for (int i = 0; i < children.Count; i++)
+        {
+            string childPath = path == "" ? i.ToString(CultureInfo.InvariantCulture) : path + "/" + i.ToString(CultureInfo.InvariantCulture);
+            branch.Children.Add(CaptureBranch(children[i], childPath, rootKey));
+        }
+        return branch;
+    }
+
+    internal static bool CanDeleteStyle(string key)
+    {
+        if (string.IsNullOrEmpty(key) || key.StartsWith("特殊/", StringComparison.Ordinal)) return false;
+        return true;
+    }
+
+    internal void DeleteCatalogStyle(string key)
+    {
+        if (!CanDeleteStyle(key))
+        {
+            status.Text = "内置模版不能删除。";
+            return;
+        }
+        foreach (string item in RmtCommonStyles.StyleTreeKeys(key).ToArray())
+        {
+            Dictionary<string, string> values;
+            TryConfiguredValues(item, out values);
+            foreach (var entry in RmtCommonStyles.Live().ToArray())
+            {
+                if (entry.Key != item) continue;
+                var element = entry.Element.Target as FrameworkElement;
+                RmtCommonStyles.BakeInstance(element, values);
+                RmtCommonStyles.FreezeApplied(entry);
+                RmtCommonStyles.StyleBranch liveBranch;
+                if (RmtCommonStyles.Composites.TryGetValue(item, out liveBranch))
+                    BakeCompositeTree(element, liveBranch);
+            }
+            drafts.Remove(item);
+        }
+        string neighbor = NeighborCatalogKey(key);
+        RmtCommonStyles.RemoveStyleTree(key);
+        RmtCommonStyles.HiddenStyles.Add(key);
+        if (selected == key || selected != null && selected.StartsWith(key + "/", StringComparison.Ordinal))
+            selected = neighbor;
+        dirty = true;
+        Populate();
+        if (!SelectCatalog(selected, true, true))
+            SelectCatalog(selected, true);
+        Render();
+        status.Text = "已删除模版，已使用该样式的控件保持当前外观。";
+    }
+
+    private static void BakeCompositeTree(FrameworkElement element, RmtCommonStyles.StyleBranch branch)
+    {
+        if (element == null || branch == null) return;
+        RmtCommonStyles.BakeInstance(element, branch.Properties);
+        RmtCommonStyles.EnsureRegistered(element);
+        RmtCommonStyles.Entry live;
+        if (RmtCommonStyles.TryGetEntry(element, out live)) RmtCommonStyles.FreezeApplied(live);
+        var children = RmtCommonStyles.StyleChildren(element);
+        for (int i = 0; i < branch.Children.Count && i < children.Count; i++)
+            BakeCompositeTree(children[i], branch.Children[i]);
+    }
+
+    private RmtCommonStyles.StyleBranch FindSelectedBranch()
+    {
+        if (string.IsNullOrEmpty(selected)) return null;
+        foreach (var composite in RmtCommonStyles.Composites.Values)
+        {
+            var found = RmtCommonStyles.FindBranch(composite, selected);
+            if (found != null) return found;
+        }
+        return null;
+    }
+
+    private static void SyncBranchProperties(string key, Dictionary<string, string> values)
+    {
+        if (string.IsNullOrEmpty(key) || values == null) return;
+        foreach (var composite in RmtCommonStyles.Composites.Values)
+        {
+            var found = RmtCommonStyles.FindBranch(composite, key);
+            if (found != null)
+            {
+                found.Properties = new Dictionary<string, string>(values);
+                return;
+            }
+        }
     }
 
     private string PromptCategory()
@@ -1487,10 +2106,20 @@ internal sealed class RmtStyleEditor : Window
         return inspectRef == null ? null : inspectRef.Target as FrameworkElement;
     }
 
+    private FrameworkElement InspectedRoot()
+    {
+        return inspectRootRef == null ? null : inspectRootRef.Target as FrameworkElement;
+    }
+
     private bool LiveInspecting()
     {
         var target = Inspected();
         return target != null && selected == RmtCommonStyles.StyleKeyPublic(target);
+    }
+
+    private bool LocatingSelectedWindow()
+    {
+        return Inspected() is Window && LiveInspecting();
     }
 
     internal void PreviewHierarchyTarget(FrameworkElement target)
@@ -1501,16 +2130,161 @@ internal sealed class RmtStyleEditor : Window
     internal void AcceptHierarchyTarget(FrameworkElement target)
     {
         if (target == null) return;
+        inspectRootRef = new WeakReference(target);
         inspectRef = new WeakReference(target);
         selected = RmtCommonStyles.StyleKeyPublic(target);
         RmtCommonStyles.EnsureRegistered(target);
+        foreach (var child in CollectDescendants(target))
+            RmtCommonStyles.EnsureRegistered(child);
         ClearHighlight();
         if (mainTabs != null) mainTabs.SelectedIndex = 0;
         Populate();
         SelectCatalog(selected, false, false, true);
+        ShowPickedHierarchy(target);
         Render();
         status.Text = "已定位 " + target.GetType().Name + (string.IsNullOrEmpty(target.Name) ? "" : " / " + target.Name) + "。";
         Activate();
+    }
+
+    internal void AcceptPickedControl(FrameworkElement target)
+    {
+        AcceptHierarchyTarget(ResolvePickedControl(target) ?? target);
+    }
+
+    private static FrameworkElement ResolvePickedControl(FrameworkElement hit)
+    {
+        if (hit == null) return null;
+        if (hit is Window) return hit;
+        if (IsWindowChromeElement(hit))
+        {
+            var window = Window.GetWindow(hit);
+            return window != null && !RmtCommonStyles.IsEditorWindow(window) ? window : hit;
+        }
+        FrameworkElement current = hit;
+        while (current != null && !(current is Window))
+        {
+            if (IsConcretePick(current)) return current;
+            current = (LogicalTreeHelper.GetParent(current) ?? VisualTreeHelper.GetParent(current)) as FrameworkElement;
+        }
+        return hit;
+    }
+
+    private static bool IsConcretePick(FrameworkElement element)
+    {
+        if (element == null || element is Window || element is Panel || element is Viewbox) return false;
+        if (element.TemplatedParent is Control && !(element.TemplatedParent is ContentPresenter)) return false;
+        return element is Control || element is TextBlock || element is Image;
+    }
+
+    private void ToggleControlPick()
+    {
+        if (picking) CancelControlPick();
+        else StartControlPick();
+    }
+
+    private void StartControlPick()
+    {
+        picking = true;
+        pickHover = null;
+        Mouse.OverrideCursor = Cursors.Cross;
+        if (cmdLocate != null) cmdLocate.Content = "取消定位";
+        status.Text = "在软件界面上悬停要定位的控件，按 Esc 确认；点「取消定位」放弃。";
+        HookPickWindows();
+    }
+
+    private void CancelControlPick()
+    {
+        StopControlPick();
+        status.Text = "已取消控件定位。";
+    }
+
+    internal void FinishControlPick()
+    {
+        var target = pickHover;
+        StopControlPick();
+        if (target != null) AcceptPickedControl(target);
+        else status.Text = "已退出控件定位。";
+    }
+
+    private void StopControlPick()
+    {
+        picking = false;
+        pickHover = null;
+        Mouse.OverrideCursor = null;
+        if (cmdLocate != null) cmdLocate.Content = "控件定位";
+        UnhookPickWindows();
+        ClearHighlight();
+    }
+
+    private void HookPickWindows()
+    {
+        UnhookPickWindows();
+        var windows = new List<Window>();
+        if (Application.Current != null)
+            foreach (Window window in Application.Current.Windows) windows.Add(window);
+        if (source != null && !windows.Contains(source)) windows.Add(source);
+        foreach (Window window in windows)
+        {
+            if (window == null || window == this || window is RmtControlTreeWindow) continue;
+            window.PreviewMouseMove += PickMouseMove;
+            window.PreviewMouseLeftButtonDown += PickMouseDown;
+            window.PreviewKeyDown += PickKeyDown;
+            pickHooked.Add(window);
+        }
+    }
+
+    private void UnhookPickWindows()
+    {
+        foreach (Window window in pickHooked)
+        {
+            if (window == null) continue;
+            window.PreviewMouseMove -= PickMouseMove;
+            window.PreviewMouseLeftButtonDown -= PickMouseDown;
+            window.PreviewKeyDown -= PickKeyDown;
+        }
+        pickHooked.Clear();
+    }
+
+    private void PickMouseMove(object sender, MouseEventArgs args)
+    {
+        if (!picking) return;
+        var hit = HitPickable(sender as Window, args);
+        if (hit != null) pickHover = hit;
+        ShowHighlight(hit);
+    }
+
+    private void PickMouseDown(object sender, MouseButtonEventArgs args)
+    {
+        if (!picking) return;
+        args.Handled = true;
+    }
+
+    private void PickKeyDown(object sender, KeyEventArgs args)
+    {
+        if (!picking || args.Key != Key.Escape) return;
+        args.Handled = true;
+        FinishControlPick();
+    }
+
+    private FrameworkElement HitPickable(Window window, MouseEventArgs args)
+    {
+        if (window == null || window == this || RmtCommonStyles.IsEditorWindow(window)) return null;
+        HitTestResult result = VisualTreeHelper.HitTest(window, args.GetPosition(window));
+        if (result == null) return null;
+        DependencyObject current = result.VisualHit;
+        FrameworkElement innermost = null;
+        while (current != null)
+        {
+            var element = current as FrameworkElement;
+            if (element != null && RmtCommonStyles.IsPickable(element))
+            {
+                if (innermost == null) innermost = element;
+                if (IsConcretePick(element) || IsWindowChromeElement(element))
+                    return ResolvePickedControl(element);
+            }
+            current = VisualTreeHelper.GetParent(current);
+        }
+        return ResolvePickedControl(innermost);
     }
 
     private FrameworkElement HierarchySelectedElement()
@@ -1541,22 +2315,45 @@ internal sealed class RmtStyleEditor : Window
         }
     }
 
+    private void ShowPickedHierarchy(FrameworkElement root)
+    {
+        if (hierarchyTree == null || root == null) return;
+        hierarchyTree.Items.Clear();
+        var node = MakeHierarchyNode(root);
+        node.IsExpanded = true;
+        AttachShowParentMenu(node);
+        AddHierarchyChildren(node, root, new HashSet<DependencyObject>());
+        hierarchyTree.Items.Add(node);
+    }
+
+    private static List<FrameworkElement> CollectDescendants(FrameworkElement root)
+    {
+        var result = new List<FrameworkElement>();
+        if (root == null) return result;
+        var queue = new Queue<FrameworkElement>();
+        queue.Enqueue(root);
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+            if (current is ComboBox || current is ListBox) continue;
+            foreach (var child in RmtCommonStyles.StyleChildren(current))
+            {
+                result.Add(child);
+                queue.Enqueue(child);
+            }
+        }
+        return result;
+    }
+
     private static void AddHierarchyChildren(TreeViewItem parentItem, DependencyObject parent, HashSet<DependencyObject> visited)
     {
         if (parent == null || !visited.Add(parent)) return;
-        var children = LogicalTreeHelper.GetChildren(parent).OfType<DependencyObject>().ToList();
-        if (children.Count == 0 && parent is Visual)
-            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++) children.Add(VisualTreeHelper.GetChild(parent, i));
-        foreach (DependencyObject child in children)
+        foreach (var element in RmtCommonStyles.StyleChildren(parent))
         {
-            var element = child as FrameworkElement;
-            if (element == null) { AddHierarchyChildren(parentItem, child, visited); continue; }
-            if (element.TemplatedParent is Control && !(element.TemplatedParent is ContentPresenter)) continue;
-            if (element is ComboBoxItem || element is ListBoxItem || element is MenuItem) continue;
             var item = MakeHierarchyNode(element);
             parentItem.Items.Add(item);
             if (element is ComboBox || element is ListBox) continue;
-            AddHierarchyChildren(item, child, visited);
+            AddHierarchyChildren(item, element, visited);
         }
     }
 
@@ -1596,7 +2393,12 @@ internal sealed class RmtStyleEditor : Window
 
     private void EditorKeyDown(object sender, KeyEventArgs args)
     {
-        if (args.Key == Key.Escape) { ClearHighlight(); args.Handled = true; }
+        if (args.Key == Key.Escape)
+        {
+            if (picking) FinishControlPick();
+            else ClearHighlight();
+            args.Handled = true;
+        }
     }
 
     private RmtHighlightAdorner highlightAdorner;
@@ -1687,30 +2489,79 @@ internal sealed class RmtStyleEditor : Window
             foreach (TreeViewItem group in catalog.Items)
             {
                 if (!string.Equals(group.Header as string, "反射控件", StringComparison.Ordinal)) continue;
-                foreach (TreeViewItem leaf in group.Items)
-                    if ((leaf.Tag as string) == key)
-                    {
-                        leaf.IsSelected = true;
-                        leaf.BringIntoView();
-                        HighlightCatalogItem(leaf);
-                        return true;
-                    }
+                if (SelectCatalogLeaf(group, key)) return true;
             }
         }
         foreach (TreeViewItem group in catalog.Items)
         {
             if (templateOnly && string.Equals(group.Header as string, "反射控件", StringComparison.Ordinal)) continue;
             if (preferReflect && string.Equals(group.Header as string, "反射控件", StringComparison.Ordinal)) continue;
-            foreach (TreeViewItem leaf in group.Items)
-                if ((leaf.Tag as string) == key)
-                {
-                    leaf.IsSelected = true;
-                    leaf.BringIntoView();
-                    HighlightCatalogItem(leaf);
-                    return true;
-                }
+            if (SelectCatalogLeaf(group, key)) return true;
         }
         return false;
+    }
+
+    private bool SelectCatalogLeaf(TreeViewItem parent, string key)
+    {
+        foreach (TreeViewItem leaf in parent.Items.OfType<TreeViewItem>())
+        {
+            if ((leaf.Tag as string) == key)
+            {
+                leaf.IsSelected = true;
+                leaf.BringIntoView();
+                HighlightCatalogItem(leaf);
+                return true;
+            }
+            if (SelectCatalogLeaf(leaf, key)) return true;
+        }
+        return false;
+    }
+
+    private void CatalogRightButtonDown(object sender, MouseButtonEventArgs args)
+    {
+        var item = TreeItemFrom(args.OriginalSource as DependencyObject);
+        if (item == null || item.ContextMenu == null) return;
+        item.ContextMenu.PlacementTarget = item;
+        item.ContextMenu.IsOpen = true;
+        args.Handled = true;
+    }
+
+    private static TreeViewItem TreeItemFrom(DependencyObject source)
+    {
+        while (source != null)
+        {
+            var item = source as TreeViewItem;
+            if (item != null) return item;
+            source = VisualTreeHelper.GetParent(source);
+        }
+        return null;
+    }
+
+    private string NeighborCatalogKey(string key)
+    {
+        var keys = new List<string>();
+        CollectCatalogKeys(catalog, keys, true);
+        int index = keys.IndexOf(key);
+        if (index > 0) return keys[index - 1];
+        if (index >= 0 && index + 1 < keys.Count) return keys[index + 1];
+        foreach (string fallback in keys)
+            if (fallback != key && !fallback.StartsWith("#group:", StringComparison.Ordinal)) return fallback;
+        return RmtCommonStyles.HiddenStyles.Contains("通用/Button") ? null : "通用/Button";
+    }
+
+    private static void CollectCatalogKeys(ItemsControl parent, List<string> keys, bool skipReflect)
+    {
+        foreach (TreeViewItem item in parent.Items.OfType<TreeViewItem>())
+        {
+            string tag = item.Tag as string;
+            if (tag == "#group:反射控件")
+            {
+                if (!skipReflect) CollectCatalogKeys(item, keys, false);
+                continue;
+            }
+            if (!string.IsNullOrEmpty(tag) && !tag.StartsWith("#group:", StringComparison.Ordinal)) keys.Add(tag);
+            CollectCatalogKeys(item, keys, skipReflect);
+        }
     }
 
     private void HighlightCatalogItem(TreeViewItem leaf)
@@ -1772,14 +2623,29 @@ internal sealed class RmtStyleEditor : Window
     private void SetLeafSelectedVisual(TreeViewItem leaf, bool selected)
     {
         if (leaf == null) return;
-        leaf.Header = MakeLeafHeader(LeafText(leaf), selected);
+        var grid = leaf.Header as Grid;
+        if (grid != null)
+        {
+            var bg = grid.Children.OfType<Border>().FirstOrDefault();
+            var dot = grid.Children.OfType<Ellipse>().FirstOrDefault();
+            if (bg != null)
+                bg.Background = selected
+                    ? (TryFindResource("TabSelBg") as Brush
+                        ?? TryFindResource("ActionHoverBg") as Brush
+                        ?? new SolidColorBrush(Color.FromArgb(48, 255, 140, 0)))
+                    : Brushes.Transparent;
+            if (dot != null) dot.Visibility = selected ? Visibility.Visible : Visibility.Collapsed;
+        }
+        else
+            leaf.Header = MakeLeafHeader(LeafText(leaf), selected);
         leaf.BorderThickness = new Thickness(0);
         leaf.Padding = new Thickness(0);
+        leaf.Background = Brushes.Transparent;
     }
 
     private void AddPositionFields(FrameworkElement target)
     {
-        fields.Children.Add(new TextBlock { Text = "位置", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 12, 0, 6) });
+        fields.Children.Add(new TextBlock { Text = "位置", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 2, 0, 4) });
         var row = ThreePairGrid();
         Point initial = RmtCommonStyles.ReadAnchorPosition(target, target is Window ? "窗口" : "父级", "左上");
         positionX = PositionBox("PositionX", initial.X);
@@ -1946,28 +2812,39 @@ internal sealed class RmtStyleEditor : Window
         all.UnionWith(RmtCommonStyles.Values.Keys);
         all.UnionWith(RmtCommonStyles.CloneBases.Keys);
         var inspected = Inspected();
+        var inspectRoot = InspectedRoot() ?? inspected;
         if (inspected != null) all.Add(RmtCommonStyles.StyleKeyPublic(inspected));
+        if (inspectRoot != null) all.Add(RmtCommonStyles.StyleKeyPublic(inspectRoot));
+        bool preferInspect = inspected != null && RmtCommonStyles.StyleKeyPublic(inspected) == old;
         TreeViewItem firstLeaf = null;
         TreeViewItem reflectLeaf = null;
-        if (inspected != null)
+        if (inspectRoot != null)
         {
-            string inspectKey = RmtCommonStyles.StyleKeyPublic(inspected);
-            string inspectText = inspected.GetType().Name + (string.IsNullOrEmpty(inspected.Name) ? "" : " / " + inspected.Name);
-            if ((inspectText + inspectKey).IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
+            var inspectGroup = new TreeViewItem { Header = GroupTitle("反射控件"), Tag = "#group:反射控件", IsExpanded = true, FontWeight = FontWeights.SemiBold };
+            var rootLeaf = AddInspectLeaf(inspectGroup, inspectRoot, query, old, preferInspect ? inspected : null);
+            if (rootLeaf != null)
             {
-                var inspectGroup = new TreeViewItem { Header = "反射控件", IsExpanded = true, FontWeight = FontWeights.SemiBold };
-                var leaf = MakeLeaf(inspectText, inspectKey);
-                inspectGroup.Items.Add(leaf);
-                if (inspectKey == old) leaf.IsSelected = true;
                 catalog.Items.Add(inspectGroup);
-                firstLeaf = leaf;
-                reflectLeaf = leaf;
+                firstLeaf = rootLeaf;
+                if (preferInspect) reflectLeaf = rootLeaf;
             }
         }
-        var buttonGroup = new TreeViewItem { Header = "按钮", IsExpanded = true, FontWeight = FontWeights.SemiBold };
+        var compositeGroup = MakeStyleGroup("组合模版");
+        foreach (string key in all.Where(RmtCommonStyles.IsCompositeRoot).OrderBy(x => ButtonTitle(x)))
+        {
+            if (RmtCommonStyles.HiddenStyles.Contains(key)) continue;
+            var branch = RmtCommonStyles.Composites[key];
+            if (!BranchMatchesQuery(branch, query)) continue;
+            var leaf = MakeCompositeLeaf(branch, old, ref firstLeaf, reflectLeaf == null);
+            compositeGroup.Items.Add(leaf);
+        }
+        if (compositeGroup.Items.Count > 0 && !RmtCommonStyles.HiddenStyles.Contains("#group:组合模版")) catalog.Items.Add(compositeGroup);
+        var buttonGroup = MakeStyleGroup("按钮");
         int buttonNo = 0;
         foreach (string key in all.Where(IsButtonKey).OrderBy(ButtonOrder))
         {
+            if (RmtCommonStyles.HiddenStyles.Contains(key)) continue;
+            if (RmtCommonStyles.IsCompositeRoot(key) || RmtCommonStyles.IsCompositeChild(key)) continue;
             string text = key == "通用/Button" ? "按钮模版" : "按钮" + (++buttonNo) + " - " + ButtonTitle(key);
             if ((text + key).IndexOf(query, StringComparison.OrdinalIgnoreCase) < 0) continue;
             var leaf = MakeLeaf(text, key);
@@ -1976,11 +2853,13 @@ internal sealed class RmtStyleEditor : Window
             // Prefer the live reflected node when the style key also matches a template/named entry.
             if (key == old && reflectLeaf == null) leaf.IsSelected = true;
         }
-        if (buttonGroup.Items.Count > 0) catalog.Items.Add(buttonGroup);
-        var windowGroup = new TreeViewItem { Header = "窗口", IsExpanded = true, FontWeight = FontWeights.SemiBold };
+        if (buttonGroup.Items.Count > 0 && !RmtCommonStyles.HiddenStyles.Contains("#group:按钮")) catalog.Items.Add(buttonGroup);
+        var windowGroup = MakeStyleGroup("窗口");
         int windowNo = 0;
         foreach (string key in all.Where(RmtCommonStyles.IsWindowKey).OrderBy(WindowOrder))
         {
+            if (RmtCommonStyles.HiddenStyles.Contains(key)) continue;
+            if (RmtCommonStyles.IsCompositeRoot(key) || RmtCommonStyles.IsCompositeChild(key)) continue;
             string text = key == "通用/Window" ? "窗口模版" : "窗口" + (++windowNo) + " - " + ButtonTitle(key);
             if ((text + key).IndexOf(query, StringComparison.OrdinalIgnoreCase) < 0) continue;
             var leaf = MakeLeaf(text, key);
@@ -1988,13 +2867,210 @@ internal sealed class RmtStyleEditor : Window
             if (firstLeaf == null) firstLeaf = leaf;
             if (key == old && reflectLeaf == null) leaf.IsSelected = true;
         }
-        if (windowGroup.Items.Count > 0) catalog.Items.Add(windowGroup);
+        if (windowGroup.Items.Count > 0 && !RmtCommonStyles.HiddenStyles.Contains("#group:窗口")) catalog.Items.Add(windowGroup);
         if (catalog.SelectedItem == null && firstLeaf != null) firstLeaf.IsSelected = true;
         var current = catalog.SelectedItem as TreeViewItem;
         if (current != null) HighlightCatalogItem(current);
     }
 
+    private TreeViewItem AddInspectLeaf(TreeViewItem parent, FrameworkElement element, string query, string old, FrameworkElement selectedElement)
+    {
+        if (element == null) return null;
+        string key = RmtCommonStyles.StyleKeyPublic(element);
+        string text = element.GetType().Name + (string.IsNullOrEmpty(element.Name) ? "" : " / " + element.Name);
+        var leaf = MakeLeaf(text, key, false);
+        leaf.DataContext = new WeakReference(element);
+        leaf.IsExpanded = true;
+        bool visible = (text + key).IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
+        TreeViewItem first = visible ? leaf : null;
+        if (!(element is ComboBox || element is ListBox))
+        {
+            foreach (var child in RmtCommonStyles.StyleChildren(element))
+            {
+                var childLeaf = AddInspectLeaf(leaf, child, query, old, selectedElement);
+                if (childLeaf != null) { visible = true; if (first == null) first = childLeaf; }
+            }
+        }
+        if (!visible) return null;
+        if (ReferenceEquals(element, selectedElement) || (selectedElement == null && key == old && parent.Header as string == "反射控件"))
+            leaf.IsSelected = true;
+        if (IsReflectGroup(parent)) AttachShowParentMenu(leaf);
+        parent.Items.Add(leaf);
+        return first ?? leaf;
+    }
+
+    private static bool IsReflectGroup(TreeViewItem item)
+    {
+        return item != null && ((item.Tag as string) == "#group:反射控件" || (item.Header as string) == "反射控件");
+    }
+
+    private void AttachShowParentMenu(TreeViewItem leaf)
+    {
+        if (leaf == null) return;
+        if (leaf.ContextMenu == null) leaf.ContextMenu = new ContextMenu();
+        foreach (MenuItem existing in leaf.ContextMenu.Items.OfType<MenuItem>())
+            if ((existing.Header as string) == "显示父级") return;
+        var showParent = new MenuItem { Header = "显示父级" };
+        showParent.Click += delegate { ShowInspectParent(); };
+        leaf.ContextMenu.Items.Insert(0, showParent);
+    }
+
+    internal void ShowInspectParent()
+    {
+        var parent = InspectParent(InspectedRoot() ?? Inspected());
+        if (parent == null)
+        {
+            status.Text = "当前已是最顶层，没有可显示的父级。";
+            return;
+        }
+        AcceptHierarchyTarget(parent);
+    }
+
+    private static FrameworkElement InspectParent(FrameworkElement element)
+    {
+        if (element == null || element is Window) return null;
+        DependencyObject current = LogicalTreeHelper.GetParent(element);
+        if (current == null && element is Visual) current = VisualTreeHelper.GetParent(element);
+        while (current != null)
+        {
+            var fe = current as FrameworkElement;
+            if (fe != null && RmtCommonStyles.IsPickable(fe) && !RmtCommonStyles.IsEditorWindow(Window.GetWindow(fe)))
+                return fe;
+            DependencyObject next = LogicalTreeHelper.GetParent(current);
+            if (next == null && current is Visual) next = VisualTreeHelper.GetParent(current);
+            current = next;
+        }
+        return null;
+    }
+
+    private bool BranchMatchesQuery(RmtCommonStyles.StyleBranch branch, string query)
+    {
+        if (branch == null) return false;
+        if ((ButtonTitle(branch.Key) + branch.Key + (branch.Type ?? "")).IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+        foreach (var child in branch.Children)
+            if (BranchMatchesQuery(child, query)) return true;
+        return false;
+    }
+
+    private TreeViewItem MakeCompositeLeaf(RmtCommonStyles.StyleBranch branch, string old, ref TreeViewItem firstLeaf, bool canSelect)
+    {
+        string text = string.IsNullOrEmpty(branch.Path)
+            ? ButtonTitle(branch.Key)
+            : ((string.IsNullOrEmpty(branch.Type) ? "控件" : branch.Type) + (string.IsNullOrEmpty(branch.Path) ? "" : " · " + branch.Path));
+        var leaf = MakeLeaf(text, branch.Key);
+        leaf.IsExpanded = true;
+        if (firstLeaf == null) firstLeaf = leaf;
+        if (canSelect && branch.Key == old) leaf.IsSelected = true;
+        foreach (var child in branch.Children)
+            leaf.Items.Add(MakeCompositeLeaf(child, old, ref firstLeaf, canSelect));
+        return leaf;
+    }
+
+    private TreeViewItem MakeStyleGroup(string name)
+    {
+        var group = new TreeViewItem
+        {
+            Header = GroupTitle(name),
+            Tag = "#group:" + name,
+            IsExpanded = true,
+            FontWeight = FontWeights.SemiBold
+        };
+        var menu = new ContextMenu();
+        var rename = new MenuItem { Header = "重命名" };
+        rename.Click += delegate { BeginGroupRename(group, name); };
+        menu.Items.Add(rename);
+        var delete = new MenuItem { Header = "删除" };
+        delete.Click += delegate { DeleteCatalogGroup(name); };
+        menu.Items.Add(delete);
+        group.ContextMenu = menu;
+        return group;
+    }
+
+    private string GroupTitle(string name)
+    {
+        string custom;
+        return RmtCommonStyles.DisplayNames.TryGetValue("#group:" + name, out custom) && !string.IsNullOrWhiteSpace(custom) ? custom : name;
+    }
+
+    private void BeginGroupRename(TreeViewItem group, string name)
+    {
+        var edit = new TextBox { Text = GroupTitle(name), MinWidth = 120, Padding = new Thickness(3) };
+        bool done = false;
+        Action<bool> finish = accept =>
+        {
+            if (done) return; done = true;
+            string title = edit.Text.Trim();
+            if (accept && !string.IsNullOrEmpty(title))
+            {
+                RmtCommonStyles.DisplayNames["#group:" + name] = title;
+                dirty = true;
+            }
+            Populate();
+        };
+        edit.KeyDown += delegate(object sender, System.Windows.Input.KeyEventArgs args)
+        {
+            if (args.Key == System.Windows.Input.Key.Enter) { finish(true); args.Handled = true; }
+            else if (args.Key == System.Windows.Input.Key.Escape) { finish(false); args.Handled = true; }
+        };
+        edit.LostKeyboardFocus += delegate { finish(true); };
+        group.Header = edit;
+        Dispatcher.BeginInvoke(new Action(delegate { edit.Focus(); edit.SelectAll(); }));
+    }
+
+    private void DeleteCatalogGroup(string name)
+    {
+        var keys = new List<string>();
+        CollectCatalogKeys(catalog, keys, true);
+        var group = catalog.Items.OfType<TreeViewItem>().FirstOrDefault(x => (x.Tag as string) == "#group:" + name);
+        if (group != null)
+        {
+            keys.Clear();
+            CollectCatalogKeys(group, keys, false);
+        }
+        string neighbor = null;
+        foreach (string key in keys)
+        {
+            if (neighbor == null) neighbor = NeighborCatalogKey(key);
+            DeleteCatalogStyleSilent(key);
+        }
+        RmtCommonStyles.HiddenStyles.Add("#group:" + name);
+        selected = neighbor;
+        dirty = true;
+        Populate();
+        if (!SelectCatalog(selected, true, true)) SelectCatalog(selected, true);
+        Render();
+        status.Text = "已删除模版类别「" + GroupTitle(name) + "」。";
+    }
+
+    private void DeleteCatalogStyleSilent(string key)
+    {
+        if (!CanDeleteStyle(key)) return;
+        foreach (string item in RmtCommonStyles.StyleTreeKeys(key).ToArray())
+        {
+            Dictionary<string, string> values;
+            TryConfiguredValues(item, out values);
+            foreach (var entry in RmtCommonStyles.Live().ToArray())
+            {
+                if (entry.Key != item) continue;
+                var element = entry.Element.Target as FrameworkElement;
+                RmtCommonStyles.BakeInstance(element, values);
+                RmtCommonStyles.FreezeApplied(entry);
+                RmtCommonStyles.StyleBranch liveBranch;
+                if (RmtCommonStyles.Composites.TryGetValue(item, out liveBranch))
+                    BakeCompositeTree(element, liveBranch);
+            }
+            drafts.Remove(item);
+        }
+        RmtCommonStyles.RemoveStyleTree(key);
+        RmtCommonStyles.HiddenStyles.Add(key);
+    }
+
     private TreeViewItem MakeLeaf(string text, string key)
+    {
+        return MakeLeaf(text, key, true);
+    }
+
+    private TreeViewItem MakeLeaf(string text, string key, bool allowDelete)
     {
         var leaf = new TreeViewItem {
             Header = MakeLeafHeader(text, false), Tag = key, ToolTip = key, Padding = new Thickness(0),
@@ -2012,6 +3088,12 @@ internal sealed class RmtStyleEditor : Window
         var copy = new MenuItem { Header = "复制新增样式" };
         copy.Click += delegate { CopyStyle(key); };
         menu.Items.Add(copy);
+        if (allowDelete && CanDeleteStyle(key))
+        {
+            var delete = new MenuItem { Header = "删除" };
+            delete.Click += delegate { DeleteCatalogStyle(key); };
+            menu.Items.Add(delete);
+        }
         leaf.ContextMenu = menu;
         return leaf;
     }
@@ -2038,7 +3120,17 @@ internal sealed class RmtStyleEditor : Window
         Dispatcher.BeginInvoke(new Action(delegate { edit.Focus(); edit.SelectAll(); }));
     }
 
-    private static bool IsButtonKey(string key) { return ControlType(key) == "按钮"; }
+    private static bool IsButtonKey(string key)
+    {
+        if (string.IsNullOrEmpty(key) || key.StartsWith("特殊/", StringComparison.Ordinal)) return false;
+        if (RmtCommonStyles.IsWindowKey(key)) return false;
+        if (RmtCommonStyles.IsCompositeRoot(key) || RmtCommonStyles.IsCompositeChild(key)) return false;
+        if (key.StartsWith("样式/", StringComparison.Ordinal)
+            && (key.IndexOf("Btn", StringComparison.OrdinalIgnoreCase) >= 0
+                || key.IndexOf("Button", StringComparison.OrdinalIgnoreCase) >= 0))
+            return true;
+        return ControlType(key) == "按钮";
+    }
     private static int ButtonOrder(string key)
     {
         if (key == "通用/Button") return 0;
@@ -2072,7 +3164,9 @@ internal sealed class RmtStyleEditor : Window
     {
         string raw = key.StartsWith("通用/") ? key.Substring(3) : key;
         if (RmtCommonStyles.IsWindowKey(key) || raw == "Window") return "窗口";
-        if (raw.IndexOf("Button", StringComparison.OrdinalIgnoreCase) >= 0 || raw.StartsWith("Main.") || raw.StartsWith("Theme.")) return "按钮";
+        if (raw.IndexOf("Button", StringComparison.OrdinalIgnoreCase) >= 0
+            || raw.IndexOf("Btn", StringComparison.OrdinalIgnoreCase) >= 0
+            || raw.StartsWith("Main.") || raw.StartsWith("Theme.")) return "按钮";
         return "其它控件";
     }
     private string DisplayName(string key)
@@ -2087,20 +3181,40 @@ internal sealed class RmtStyleEditor : Window
 
     private void CopyStyle(string sourceName)
     {
-        if (string.IsNullOrEmpty(sourceName) || (!IsButtonKey(sourceName) && !RmtCommonStyles.IsWindowKey(sourceName)))
+        if (string.IsNullOrEmpty(sourceName) || (!IsButtonKey(sourceName) && !RmtCommonStyles.IsWindowKey(sourceName) && !RmtCommonStyles.IsCompositeRoot(sourceName)))
         {
             status.Text = "请选择一个控件样式后再复制。"; return;
         }
-        string family = RmtCommonStyles.IsWindowKey(sourceName) ? "Window" : "Button";
+        string family = RmtCommonStyles.IsWindowKey(sourceName) ? "Window" : (RmtCommonStyles.IsCompositeRoot(sourceName) ? (RmtCommonStyles.Composites[sourceName].Type ?? "Panel") + "Group" : "Button");
         int number = 1; string next;
-        do { next = family + number++; } while (RmtCommonStyles.Values.ContainsKey(next) || RmtCommonStyles.CloneBases.ContainsKey(next));
+        do { next = family + number++; } while (RmtCommonStyles.Values.ContainsKey(next) || RmtCommonStyles.CloneBases.ContainsKey(next) || RmtCommonStyles.Composites.ContainsKey(next));
         Dictionary<string, string> original;
         RmtCommonStyles.Values.TryGetValue(sourceName, out original);
         RmtCommonStyles.Values[next] = original == null ? new Dictionary<string, string>() : new Dictionary<string, string>(original);
         RmtCommonStyles.CloneBases[next] = sourceName;
-        if (IsButtonKey(next) || RmtCommonStyles.IsWindowKey(next)) RmtCommonStyles.DisplayNames[next] = ButtonTitle(sourceName) + "（副本）";
+        RmtCommonStyles.StyleBranch composite;
+        if (RmtCommonStyles.Composites.TryGetValue(sourceName, out composite))
+            RmtCommonStyles.Composites[next] = CopyCompositeWithKey(composite, sourceName, next);
+        if (IsButtonKey(next) || RmtCommonStyles.IsWindowKey(next) || RmtCommonStyles.IsCompositeRoot(next)) RmtCommonStyles.DisplayNames[next] = ButtonTitle(sourceName) + "（副本）";
         dirty = true; selected = next; Populate(); Render();
         status.Text = DisplayName(next) + " 已由「" + DisplayName(sourceName) + "」复制；可在右侧继续调整。";
+    }
+
+    private static RmtCommonStyles.StyleBranch CopyCompositeWithKey(RmtCommonStyles.StyleBranch source, string fromKey, string toKey)
+    {
+        var copy = RmtCommonStyles.CloneBranch(source);
+        RelocateBranchKeys(copy, fromKey, toKey);
+        return copy;
+    }
+
+    private static void RelocateBranchKeys(RmtCommonStyles.StyleBranch branch, string fromKey, string toKey)
+    {
+        if (branch == null) return;
+        if (branch.Key == fromKey) branch.Key = toKey;
+        else if (branch.Key != null && branch.Key.StartsWith(fromKey + "/", StringComparison.Ordinal))
+            branch.Key = toKey + branch.Key.Substring(fromKey.Length);
+        RmtCommonStyles.Values[branch.Key] = new Dictionary<string, string>(branch.Properties);
+        foreach (var child in branch.Children) RelocateBranchKeys(child, fromKey, toKey);
     }
 
     private void Render()
@@ -2114,17 +3228,21 @@ internal sealed class RmtStyleEditor : Window
         bool inspectMode = inspected != null && selected == RmtCommonStyles.StyleKeyPublic(inspected);
         if (RmtCommonStyles.IsWindowKey(selected))
         {
-            RenderWindow();
-            if (inspectMode)
-            {
-                AddTemplateSection(inspected);
-                AddPositionFields(inspected);
-            }
+            PrepareWindowSample();
+            if (inspectMode) AddTemplateSection(inspected);
+            AddPreviewOptions();
+            fields.Children.Add(new TextBlock { Text = inspectMode ? "重载属性（修改后立即作用到选中控件）" : "重载属性", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 10, 0, 6) });
+            AddWindowReloadFields();
+            if (inspectMode) AddPositionFields(inspected);
+            if (inspectMode) ShowHierarchyPreview(inspected);
+            else ShowWindowPreview();
             rendering = false;
             ArmInteraction(ticket);
             return;
         }
         Dictionary<string, string> values; TryConfiguredValues(selected, out values);
+        var compositeBranch = FindSelectedBranch();
+        if ((values == null || values.Count == 0) && compositeBranch != null) values = compositeBranch.Properties;
         string previewBase;
         RmtCommonStyles.CloneBases.TryGetValue(selected, out previewBase);
         string targetKey = previewBase ?? selected;
@@ -2134,7 +3252,7 @@ internal sealed class RmtStyleEditor : Window
         var entry = matches.FirstOrDefault();
         bool namedPreview = IsNamedButtonKey(targetKey);
         // Named styles must be previewed from a real registered target. A generic replacement is misleading for icon buttons and fixed layouts.
-        if (!inspectMode && entry == null && !targetKey.StartsWith("通用/") && !namedPreview)
+        if (!inspectMode && entry == null && !targetKey.StartsWith("通用/") && !namedPreview && compositeBranch == null)
         {
             preview.Children.Add(new TextBlock { Text = "对应目标控件尚未打开；打开它并点击“刷新实例”后，预览会直接复制目标样式、内容和尺寸。", TextWrapping = TextWrapping.Wrap });
             fields.Children.Add(new TextBlock { Text = "为避免错误预览，此命名样式在没有真实实例时不显示替代控件。", TextWrapping = TextWrapping.Wrap });
@@ -2146,10 +3264,14 @@ internal sealed class RmtStyleEditor : Window
         if (inspectMode) sample = inspected;
         else if (isTemplate) { sample = CreateSample("通用/Button"); ConfigureButtonTemplate(sample as Button); }
         else if (namedPreview) sample = CreateNamedPreviewSample(targetKey, entry);
+        else if (compositeBranch != null && (entry == null || RmtCommonStyles.IsCompositeRoot(selected) || RmtCommonStyles.IsCompositeChild(selected)))
+            sample = CreateSample("通用/" + (compositeBranch.Type ?? "Button")) ?? new Button();
         else if (entry == null) sample = CreateSample(targetKey);
         else sample = entry.Element.Target as FrameworkElement;
         if (!inspectMode && entry == null && sample != null && targetKey.StartsWith("样式/"))
             sample.Style = TryFindResource(targetKey.Substring(3)) as Style;
+        if (!inspectMode && entry == null && !isTemplate && !namedPreview && sample is Button && IsButtonKey(selected))
+            BindButtonChrome((Button)sample, "ActionHoverBg", "ActionPressBg");
         if (sample == null) { fields.Children.Add(new TextBlock { Text = "请先打开使用此样式的界面，再刷新目录。" }); rendering = false; ArmInteraction(ticket); return; }
         if (!inspectMode && entry != null && !namedPreview && !isTemplate)
             previewHintWidth = ((FrameworkElement)entry.Element.Target).ActualWidth;
@@ -2164,7 +3286,8 @@ internal sealed class RmtStyleEditor : Window
             if (property == "Width" || property == "Height" || property == "MinWidth" || property == "MinHeight" || property == "MaxWidth" || property == "MaxHeight") continue;
             var dp = RmtCommonStyles.Property(sample, property); if (dp == null) continue;
             bool bound = BindingOperations.IsDataBound(sample, dp);
-            string current = property == "RelativeFontSize" ? "0" : RmtCommonStyles.Text(RmtCommonStyles.DisplayValue(sample, property, dp));
+            object displayed = property == "RelativeFontSize" ? (object)0 : ResolveDisplayedValue(sample, property, dp);
+            string current = property == "RelativeFontSize" ? "0" : RmtCommonStyles.Text(displayed);
             Field(property, values != null && values.ContainsKey(property) ? values[property] : "", current, bound);
         }
         string sizeMode = SizeMode(values, sample);
@@ -2180,13 +3303,14 @@ internal sealed class RmtStyleEditor : Window
             AddSizeField("MinWidth", values); AddSizeField("MinHeight", values);
             AddSizeField("MaxWidth", values); AddSizeField("MaxHeight", values);
         }
+        if (inspectMode) AddPositionFields(inspected);
         if (sample.Style != null)
         {
-            try { fields.Children.Add(new Expander { Header = "样式模板 / 交互状态（只读来源）", Content = new TextBox { Text = System.Windows.Markup.XamlWriter.Save(sample.Style), IsReadOnly = true, TextWrapping = TextWrapping.Wrap, MaxHeight = 240, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } }); }
+            try { fields.Children.Add(new Expander { Header = "样式模板 / 交互状态（只读来源）", Margin = new Thickness(0, 8, 0, 0), Content = new TextBox { Text = System.Windows.Markup.XamlWriter.Save(sample.Style), IsReadOnly = true, TextWrapping = TextWrapping.Wrap, MaxHeight = 240, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } }); }
             catch { }
         }
-        if (inspectMode) AddPositionFields(inspected);
-        ShowPreview(sample);
+        if (inspectMode) ShowHierarchyPreview(inspected);
+        else ShowPreview(sample);
         rendering = false;
         ArmInteraction(ticket);
     }
@@ -2215,11 +3339,13 @@ internal sealed class RmtStyleEditor : Window
             catch { templateSample = target; }
         }
         if (templateKey == "通用/Button") ConfigureButtonTemplate(templateSample as Button);
+        bool windowTarget = target is Window || RmtCommonStyles.IsWindowKey(selected);
         Grid row = null;
         int pairIndex = 0;
         foreach (string property in RmtCommonStyles.Properties)
         {
             if (property == "SizeMode" || property == "Width" || property == "Height" || property == "MinWidth" || property == "MinHeight" || property == "MaxWidth" || property == "MaxHeight") continue;
+            if (windowTarget && !IsWindowReloadProperty(property)) continue;
             AddTemplateProperty(ref row, ref pairIndex, templateSample, template, property);
         }
         string sizeMode = SizeMode(template, templateSample);
@@ -2245,12 +3371,28 @@ internal sealed class RmtStyleEditor : Window
             AddTemplateProperty(ref row, ref pairIndex, templateSample, template, "MaxWidth");
             AddTemplateProperty(ref row, ref pairIndex, templateSample, template, "MaxHeight");
         }
+        if (windowTarget)
+        {
+            foreach (string chrome in RmtCommonStyles.WindowExtraProperties)
+            {
+                string shown = DefaultChrome(templateKey, chrome) ? "True" : "False";
+                if (template != null && template.ContainsKey(chrome)) shown = template[chrome];
+                AddTemplateProperty(ref row, ref pairIndex, templateSample, template, chrome, shown);
+            }
+        }
+    }
+
+    private static bool IsWindowReloadProperty(string name)
+    {
+        return name == "Background" || name == "CornerRadius" || name == "Padding" || name == "SizeMode"
+            || name == "Width" || name == "Height" || name == "MinWidth" || name == "MinHeight"
+            || name == "MaxWidth" || name == "MaxHeight" || RmtCommonStyles.IsWindowExtra(name);
     }
 
     private void AddTemplateProperty(ref Grid row, ref int pairIndex, FrameworkElement templateSample, Dictionary<string, string> template, string property, string explicitCurrent = null)
     {
         string current = explicitCurrent;
-        if (property != "SizeMode")
+        if (property != "SizeMode" && !RmtCommonStyles.IsWindowExtra(property))
         {
             var dp = RmtCommonStyles.Property(templateSample, property);
             if (dp == null) return;
@@ -2262,7 +3404,7 @@ internal sealed class RmtStyleEditor : Window
             }
             else
             {
-                current = RmtCommonStyles.Text(RmtCommonStyles.DisplayValue(templateSample, property, dp));
+                current = RmtCommonStyles.Text(ResolveDisplayedValue(templateSample, property, dp));
                 if ((property == "Width" || property == "Height") && (current == "NaN" || string.IsNullOrEmpty(current))) current = "Auto";
                 if ((property == "MaxWidth" || property == "MaxHeight") && (current == "Infinity" || current == "∞")) current = "无限";
             }
@@ -2310,10 +3452,8 @@ internal sealed class RmtStyleEditor : Window
         return string.IsNullOrEmpty(value) ? current : value;
     }
 
-    private void RenderWindow()
+    private void PrepareWindowSample()
     {
-        Dictionary<string, string> values;
-        TryConfiguredValues(selected, out values);
         string previewBase;
         RmtCommonStyles.CloneBases.TryGetValue(selected, out previewBase);
         string targetKey = previewBase ?? selected;
@@ -2322,6 +3462,15 @@ internal sealed class RmtStyleEditor : Window
         sample = (inspectedWindow is Window && selected == RmtCommonStyles.StyleKeyPublic(inspectedWindow))
             ? inspectedWindow
             : (matches.Count > 0 ? matches[0].Element.Target as FrameworkElement : new Window());
+    }
+
+    private void AddWindowReloadFields()
+    {
+        Dictionary<string, string> values;
+        TryConfiguredValues(selected, out values);
+        string previewBase;
+        RmtCommonStyles.CloneBases.TryGetValue(selected, out previewBase);
+        string targetKey = previewBase ?? selected;
         fields.Children.Add(new TextBlock { Text = "右上角交互按钮", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 4, 0, 6) });
         var chromeRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 10) };
         AddChromeCheck(chromeRow, "ShowMinimize", "最小化", values, DefaultChrome(targetKey, "ShowMinimize"));
@@ -2332,7 +3481,35 @@ internal sealed class RmtStyleEditor : Window
         propertyRow = null; propertyPair = 0;
         string pad = values != null && values.ContainsKey("Padding") ? values["Padding"] : CurrentWindowPadding();
         Field("Padding", values != null && values.ContainsKey("Padding") ? values["Padding"] : "", pad, false);
-        ShowWindowPreview();
+        string radius = values != null && values.ContainsKey("CornerRadius") ? values["CornerRadius"] : CurrentWindowCornerRadius();
+        Field("CornerRadius", values != null && values.ContainsKey("CornerRadius") ? values["CornerRadius"] : "", radius, false);
+        var bgDp = RmtCommonStyles.Property(sample, "Background");
+        string bgCurrent = bgDp == null ? "" : RmtCommonStyles.Text(RmtCommonStyles.DisplayValue(sample, "Background", bgDp));
+        Field("Background", values != null && values.ContainsKey("Background") ? values["Background"] : "", bgCurrent, bgDp != null && BindingOperations.IsDataBound(sample, bgDp));
+        if (!LocatingSelectedWindow()) return;
+        string sizeMode = SizeMode(values, sample);
+        Field("SizeMode", sizeMode, sizeMode, false);
+        if (sizeMode == "固定宽高" || sizeMode == "自适应高度")
+            AddSizeField("Width", values);
+        if (sizeMode == "固定宽高" || sizeMode == "自适应宽度")
+            AddSizeField("Height", values);
+        if (sizeMode == "自适应宽度") { AddSizeField("MinWidth", values); AddSizeField("MaxWidth", values); }
+        if (sizeMode == "自适应高度") { AddSizeField("MinHeight", values); AddSizeField("MaxHeight", values); }
+        if (sizeMode == "自适应宽高")
+        {
+            AddSizeField("MinWidth", values); AddSizeField("MinHeight", values);
+            AddSizeField("MaxWidth", values); AddSizeField("MaxHeight", values);
+        }
+    }
+
+    private string CurrentWindowCornerRadius()
+    {
+        var window = sample as Window;
+        if (window != null && window.Resources.Contains("WindowRadius"))
+            return RmtCommonStyles.Text(window.Resources["WindowRadius"]);
+        var resource = window == null ? null : window.TryFindResource("WindowRadius");
+        if (resource != null) return RmtCommonStyles.Text(resource);
+        return "0";
     }
 
     private static bool DefaultChrome(string key, string prop)
@@ -2374,14 +3551,15 @@ internal sealed class RmtStyleEditor : Window
     {
         preview.Children.Clear();
         bool min = ChromeOn("ShowMinimize"), max = ChromeOn("ShowMaximize"), pin = ChromeOn("ShowPin"), close = ChromeOn("ShowClose");
-        string pad = "0";
-        TextBox padBox;
-        if (inputs.TryGetValue("Padding", out padBox) && !string.IsNullOrWhiteSpace(padBox.Text)) pad = padBox.Text.Trim();
+        string pad = ComboTextOrDefault("Padding", CurrentWindowPadding());
+        CornerRadius previewRadius = SafeCornerRadius(ComboTextOrDefault("CornerRadius", CurrentWindowCornerRadius()));
+        Brush previewBg = PreviewWindowBackground();
         var frame = new Border
         {
             BorderBrush = TryFindResource("ControlBorder") as Brush ?? Brushes.Gray,
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(6),
+            CornerRadius = previewRadius,
+            Background = previewBg,
             Width = 360,
             Height = 150,
             SnapsToDevicePixels = true
@@ -2466,6 +3644,30 @@ internal sealed class RmtStyleEditor : Window
         catch { return new Thickness(0); }
     }
 
+    private static CornerRadius SafeCornerRadius(string value)
+    {
+        try { return (CornerRadius)RmtCommonStyles.ConvertValue(typeof(CornerRadius), value); }
+        catch { return new CornerRadius(6); }
+    }
+
+    private Brush PreviewWindowBackground()
+    {
+        ComboBox color;
+        if (colorInputs.TryGetValue("Background", out color))
+        {
+            var item = color.SelectedItem as ComboBoxItem;
+            string value = item == null ? "" : (item.Tag as string ?? "");
+            if (RmtCommonStyles.IsThemeColor(value))
+            {
+                var theme = TryFindResource(RmtCommonStyles.ThemeColorKey(value)) as Brush;
+                if (theme != null) return theme;
+            }
+        }
+        var control = sample as Control;
+        if (control != null && control.Background != null) return control.Background;
+        return TryFindResource("BgColor") as Brush ?? Brushes.White;
+    }
+
     private static string SizeMode(Dictionary<string, string> values, FrameworkElement element)
     {
         string value;
@@ -2504,9 +3706,7 @@ internal sealed class RmtStyleEditor : Window
         button.SetResourceReference(Control.BackgroundProperty, "ActionBg");
         button.SetResourceReference(Control.ForegroundProperty, "ActionText");
         button.SetResourceReference(Control.BorderBrushProperty, "ActionBg");
-        button.SetResourceReference(RmtCommonStyles.Property(button, "HoverBackground"), "ActionHoverBg");
-        if (TryFindResource("ActionPressBg") != null)
-            button.SetResourceReference(RmtCommonStyles.Property(button, "PressedBackground"), "ActionPressBg");
+        BindButtonChrome(button, "ActionHoverBg", "ActionPressBg");
         button.BorderThickness = new Thickness(1);
         button.Padding = new Thickness(10, 4, 10, 4);
         button.Height = 32;
@@ -2516,6 +3716,42 @@ internal sealed class RmtStyleEditor : Window
         button.HorizontalContentAlignment = HorizontalAlignment.Center;
         button.VerticalContentAlignment = VerticalAlignment.Center;
         button.Template = ThemeConfirmTemplate();
+    }
+
+    private string PressedResourceKey(string preferred)
+    {
+        if (!string.IsNullOrEmpty(preferred) && TryFindResource(preferred) != null) return preferred;
+        if (TryFindResource("ActionPressBg") != null) return "ActionPressBg";
+        if (TryFindResource("BtnPressBg") != null) return "BtnPressBg";
+        return "ActionHoverBg";
+    }
+
+    private void BindButtonChrome(Button button, string hoverKey, string pressPreferred)
+    {
+        if (button == null) return;
+        var hoverDp = RmtCommonStyles.Property(button, "HoverBackground");
+        var pressDp = RmtCommonStyles.Property(button, "PressedBackground");
+        string pressKey = PressedResourceKey(pressPreferred);
+        if (hoverDp != null)
+        {
+            var hover = TryFindResource(hoverKey) as Brush ?? RmtCommonStyles.FallbackButtonChrome("HoverBackground", this, source);
+            if (hover != null) button.SetValue(hoverDp, hover);
+            else if (!string.IsNullOrEmpty(hoverKey)) button.SetResourceReference(hoverDp, hoverKey);
+        }
+        if (pressDp != null)
+        {
+            var press = TryFindResource(pressKey) as Brush ?? RmtCommonStyles.FallbackButtonChrome("PressedBackground", this, source);
+            if (press != null) button.SetValue(pressDp, press);
+            else if (!string.IsNullOrEmpty(pressKey)) button.SetResourceReference(pressDp, pressKey);
+        }
+    }
+
+    private object ResolveDisplayedValue(FrameworkElement element, string name, DependencyProperty dp)
+    {
+        object displayed = RmtCommonStyles.DisplayValue(element, name, dp);
+        if (name != "HoverBackground" && name != "PressedBackground") return displayed;
+        if (RmtCommonStyles.IsVisibleBrush(displayed as Brush)) return displayed;
+        return RmtCommonStyles.FallbackButtonChrome(name, element, this, source);
     }
 
     private static bool IsNamedButtonKey(string key)
@@ -2555,9 +3791,7 @@ internal sealed class RmtStyleEditor : Window
             button.SetResourceReference(Control.BackgroundProperty, "ActionBg");
             button.SetResourceReference(Control.ForegroundProperty, "ActionText");
             button.SetResourceReference(Control.BorderBrushProperty, "ActionStroke");
-            button.SetResourceReference(RmtCommonStyles.Property(button, "HoverBackground"), "ActionHoverBg");
-            if (TryFindResource("ActionPressBg") != null)
-                button.SetResourceReference(RmtCommonStyles.Property(button, "PressedBackground"), "ActionPressBg");
+            BindButtonChrome(button, "ActionHoverBg", "ActionPressBg");
             button.BorderThickness = new Thickness(1);
             button.FontWeight = FontWeights.Bold;
             button.FontSize = RmtCommonStyles.ThemeFontSize(source);
@@ -2575,9 +3809,7 @@ internal sealed class RmtStyleEditor : Window
         button.SetResourceReference(Control.BackgroundProperty, "ControlBg");
         button.SetResourceReference(Control.ForegroundProperty, "TextMain");
         button.SetResourceReference(Control.BorderBrushProperty, "OutlineStroke");
-        button.SetResourceReference(RmtCommonStyles.Property(button, "HoverBackground"), "ControlBorder");
-        if (TryFindResource("BtnPressBg") != null)
-            button.SetResourceReference(RmtCommonStyles.Property(button, "PressedBackground"), "BtnPressBg");
+        BindButtonChrome(button, "ControlBorder", "BtnPressBg");
         button.BorderThickness = new Thickness(1.5);
         button.Padding = new Thickness(10, 0, 10, 0);
         button.Cursor = Cursors.Hand;
@@ -2623,25 +3855,139 @@ internal sealed class RmtStyleEditor : Window
 
     private string DefaultPreviewText()
     {
+        var inspected = Inspected();
+        if (inspected != null && selected == RmtCommonStyles.StyleKeyPublic(inspected))
+        {
+            string live = LivePreviewText(inspected);
+            if (!string.IsNullOrEmpty(live)) return live;
+        }
         var content = sample as ContentControl;
         string actual = content == null ? null : content.Content as string;
         if (!string.IsNullOrEmpty(actual)) return actual;
+        var block = sample as TextBlock;
+        if (block != null && !string.IsNullOrEmpty(block.Text)) return block.Text;
+        var box = sample as TextBox;
+        if (box != null && !string.IsNullOrEmpty(box.Text)) return box.Text;
+        var combo = sample as ComboBox;
+        if (combo != null)
+        {
+            if (!string.IsNullOrEmpty(combo.Text)) return combo.Text;
+            string selectedText = ComboItemText(combo.SelectedItem);
+            if (!string.IsNullOrEmpty(selectedText)) return selectedText;
+        }
         if (selected == "Theme.Confirm") return "确定";
         if (selected == "Main.Config") return "配置管理";
         if (selected == "Main.Save") return "应用并保存";
-        return "按钮";
+        return sample is Button ? "按钮" : "文本内容";
+    }
+
+    private static string ComboItemText(object item)
+    {
+        if (item == null) return "";
+        var box = item as ComboBoxItem;
+        if (box != null)
+        {
+            string content = box.Content as string;
+            return content ?? (box.Content == null ? "" : box.Content.ToString());
+        }
+        return item.ToString();
+    }
+
+    private static string ComboOptionsText(ComboBox combo)
+    {
+        if (combo == null) return "";
+        var parts = new List<string>();
+        foreach (object item in combo.Items)
+        {
+            string text = ComboItemText(item);
+            if (!string.IsNullOrEmpty(text)) parts.Add(text);
+        }
+        return string.Join(",", parts.ToArray());
+    }
+
+    private static string[] SplitComboOptions(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return new string[0];
+        var parts = new List<string>();
+        foreach (string part in text.Split(new[] { ',', '，' }))
+        {
+            string item = part.Trim();
+            if (item.Length > 0) parts.Add(item);
+        }
+        return parts.ToArray();
+    }
+
+    private void ApplyComboPreview(ComboBox combo, ComboBox original)
+    {
+        if (combo == null) return;
+        string[] options = previewOptions != null ? SplitComboOptions(previewOptions.Text) : new string[0];
+        if (options.Length == 0 && original != null) options = SplitComboOptions(ComboOptionsText(original));
+        if (options.Length == 0) options = new[] { "选项一", "选项二" };
+        combo.Items.Clear();
+        foreach (string option in options) combo.Items.Add(option);
+        string selectedText = previewContent != null ? previewContent.Text : "";
+        if (!string.IsNullOrEmpty(selectedText))
+        {
+            combo.Items.Remove(selectedText);
+            combo.Items.Insert(0, selectedText);
+            combo.SelectedIndex = 0;
+            if (combo.IsEditable) combo.Text = selectedText;
+        }
+        else if (combo.Items.Count > 0) combo.SelectedIndex = 0;
+        if (original != null) combo.MaxDropDownHeight = original.MaxDropDownHeight;
+        RmtCommonStyles.ApplyComboDropDown(combo);
+        RmtCommonStyles.ApplyCorners(combo);
+    }
+
+    private static string LivePreviewText(FrameworkElement element)
+    {
+        if (element == null) return "";
+        var block = element as TextBlock;
+        if (block != null && !string.IsNullOrEmpty(block.Text)) return block.Text;
+        var box = element as TextBox;
+        if (box != null && !string.IsNullOrEmpty(box.Text)) return box.Text;
+        var content = element as ContentControl;
+        string text = content == null || content is Window ? null : content.Content as string;
+        if (!string.IsNullOrEmpty(text)) return text;
+        foreach (var child in RmtCommonStyles.StyleChildren(element))
+        {
+            string nested = LivePreviewText(child);
+            if (!string.IsNullOrEmpty(nested)) return nested;
+        }
+        return "";
     }
 
     private void AddPreviewOptions()
     {
-        if (!(sample is Button)) return;
+        previewContent = null;
+        previewOptions = null;
+        bool inspectMode = Inspected() != null && selected == RmtCommonStyles.StyleKeyPublic(Inspected());
+        if (!inspectMode && sample == null) return;
         var row = new Grid { Margin = new Thickness(0, 0, 0, 9) };
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(80) });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         row.Children.Add(new TextBlock { Text = "示例内容", VerticalAlignment = VerticalAlignment.Center, ToolTip = "仅影响右侧预览；可输入普通文本或符号。" });
         previewContent = new TextBox { Text = DefaultPreviewText(), Height = 42, Padding = new Thickness(5), ToolTip = "例如：保存、✓、⚙" };
-        previewContent.TextChanged += delegate { if (!rendering && sample != null) { preview.Children.Clear(); ShowPreview(sample); } };
+        previewContent.TextChanged += delegate { RefreshPreviewFromOptions(); };
         Grid.SetColumn(previewContent, 1); row.Children.Add(previewContent); fields.Children.Add(row);
+        if (sample is ComboBox || Inspected() is ComboBox)
+        {
+            var optionRow = new Grid { Margin = new Thickness(0, 0, 0, 9) };
+            optionRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(80) });
+            optionRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            optionRow.Children.Add(new TextBlock { Text = "选项内容", VerticalAlignment = VerticalAlignment.Center, ToolTip = "用逗号分隔下拉选项，仅影响右侧预览。" });
+            previewOptions = new TextBox { Text = ComboOptionsText((sample as ComboBox) ?? (Inspected() as ComboBox)), Height = 42, Padding = new Thickness(5), ToolTip = "例如：选项一,选项二,选项三" };
+            previewOptions.TextChanged += delegate { RefreshPreviewFromOptions(); };
+            Grid.SetColumn(previewOptions, 1); optionRow.Children.Add(previewOptions); fields.Children.Add(optionRow);
+        }
+    }
+
+    private void RefreshPreviewFromOptions()
+    {
+        if (rendering) return;
+        preview.Children.Clear();
+        if (LiveInspecting()) ShowHierarchyPreview(Inspected());
+        else if (sample != null) ShowPreview(sample);
     }
     private void ShowPreview(FrameworkElement original)
     {
@@ -2654,20 +4000,30 @@ internal sealed class RmtStyleEditor : Window
         var originalButton = original as Button;
         if (elementButton != null && originalButton != null && originalButton.Template != null)
             elementButton.Template = originalButton.Template;
+        var elementCombo = element as ComboBox;
+        var originalCombo = original as ComboBox;
+        if (elementCombo != null && originalCombo != null && originalCombo.Template != null)
+            elementCombo.Template = originalCombo.Template;
         foreach (string name in RmtCommonStyles.Properties)
+        {
+            if (RmtCommonStyles.IsColorProperty(name) && !HasPaintedBrush(original, name)) continue;
             CopyPreviewProperty(element, original, name);
+        }
         Dictionary<string, string> configured;
-        if (TryConfiguredValues(selected, out configured))
+        TryConfiguredValues(selected, out configured);
+        if (configured != null)
             foreach (var pair in configured)
                 ApplyPreviewValue(element, pair.Key, pair.Value);
         foreach (var input in colorInputs)
         {
+            if (!colorTouched.Contains(input.Key) && (configured == null || !configured.ContainsKey(input.Key))) continue;
             var item = input.Value.SelectedItem as ComboBoxItem;
             string value = item == null ? "" : (item.Tag as string ?? "");
             if (!string.IsNullOrEmpty(value)) ApplyPreviewValue(element, input.Key, value);
         }
         foreach (var input in presetInputs)
         {
+            if (!presetTouched.Contains(input.Key) && (configured == null || !configured.ContainsKey(input.Key))) continue;
             string value = ComboText(input.Value);
             if (!string.IsNullOrEmpty(value)) ApplyPreviewValue(element, input.Key, value);
         }
@@ -2678,9 +4034,12 @@ internal sealed class RmtStyleEditor : Window
             string actual = originalContent == null ? null : originalContent.Content as string;
             content.Content = previewContent != null && !string.IsNullOrEmpty(previewContent.Text) ? previewContent.Text : (!string.IsNullOrEmpty(actual) ? actual : PreviewTextFor(element));
         }
-        var text = element as TextBox; if (text != null) text.Text = "输入内容";
-        var block = element as TextBlock; if (block != null) block.Text = "文本内容";
-        var combo = element as ComboBox; if (combo != null) { combo.Items.Add("选项一"); combo.Items.Add("选项二"); combo.SelectedIndex = 0; }
+        var text = element as TextBox;
+        if (text != null) text.Text = PreviewOverrideText(original as TextBox != null ? ((TextBox)original).Text : "输入内容");
+        var block = element as TextBlock;
+        if (block != null) block.Text = PreviewOverrideText(original as TextBlock != null ? ((TextBlock)original).Text : "文本内容");
+        var combo = element as ComboBox;
+        if (combo != null) ApplyComboPreview(combo, original as ComboBox);
         var list = element as ListBox; if (list != null) { list.Items.Add("内容一"); list.Items.Add("内容二"); }
         var border = element as Border; if (border != null) border.Child = new TextBlock { Text = "内容框" };
         // Prefer the live control's rendered width so stretch sidebar buttons keep matching padding/size.
@@ -2698,6 +4057,250 @@ internal sealed class RmtStyleEditor : Window
         preview.Children.Add(host);
         element.ApplyTemplate();
         RmtCommonStyles.ApplyCorners(element as Control);
+    }
+
+    private string PreviewOverrideText(string fallback)
+    {
+        return previewContent != null && !string.IsNullOrEmpty(previewContent.Text) ? previewContent.Text : (fallback ?? "");
+    }
+
+    private static bool HasPaintedBrush(FrameworkElement element, string name)
+    {
+        var dp = RmtCommonStyles.Property(element, name);
+        if (element == null || dp == null) return false;
+        if (element.ReadLocalValue(dp) != DependencyProperty.UnsetValue) return true;
+        var brush = element.GetValue(dp) as SolidColorBrush;
+        return brush != null && brush.Color.A > 0 && !brush.Color.Equals(Colors.Transparent);
+    }
+
+    private void ShowHierarchyPreview(FrameworkElement original)
+    {
+        if (original == null) return;
+        FrameworkElement clone = ClonePreviewElement(original, 0);
+        if (clone == null) return;
+        ApplyPreviewTextOverride(clone, original);
+        var host = new Viewbox
+        {
+            Stretch = Stretch.Uniform,
+            StretchDirection = StretchDirection.DownOnly,
+            MaxWidth = 520,
+            MaxHeight = 220,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Child = clone
+        };
+        preview.Children.Add(host);
+    }
+
+    private void ApplyPreviewTextOverride(FrameworkElement clone, FrameworkElement original)
+    {
+        if (clone is ComboBox)
+        {
+            ApplyComboPreview((ComboBox)clone, original as ComboBox);
+            return;
+        }
+        if (clone == null || original == null || previewContent == null || string.IsNullOrEmpty(previewContent.Text)) return;
+        var block = clone as TextBlock;
+        if (block != null) { block.Text = previewContent.Text; return; }
+        var box = clone as TextBox;
+        if (box != null) { box.Text = previewContent.Text; return; }
+        var content = clone as ContentControl;
+        if (content != null && !(clone is Window) && ((original as ContentControl) != null) && ((ContentControl)original).Content is string)
+        {
+            content.Content = previewContent.Text;
+            return;
+        }
+        var cloneKids = RmtCommonStyles.StyleChildren(clone);
+        var originalKids = RmtCommonStyles.StyleChildren(original);
+        int count = Math.Min(cloneKids.Count, originalKids.Count);
+        for (int i = 0; i < count; i++)
+            ApplyPreviewTextOverride(cloneKids[i], originalKids[i]);
+    }
+
+    private FrameworkElement ClonePreviewElement(FrameworkElement src, int depth)
+    {
+        if (src == null || depth > 16 || src.Visibility == Visibility.Collapsed || IsWindowChromeElement(src)) return null;
+        var window = src as Window;
+        if (window != null) return CloneWindowPreview(window, depth);
+        FrameworkElement dest;
+        try { dest = Activator.CreateInstance(src.GetType()) as FrameworkElement; }
+        catch { dest = new Border(); }
+        if (dest == null) return null;
+        dest.Style = src.Style;
+        var srcButton = src as Button;
+        var destButton = dest as Button;
+        if (srcButton != null && destButton != null && srcButton.Template != null)
+            destButton.Template = srcButton.Template;
+        var srcCombo = src as ComboBox;
+        var destCombo = dest as ComboBox;
+        if (srcCombo != null && destCombo != null && srcCombo.Template != null)
+            destCombo.Template = srcCombo.Template;
+        dest.Margin = src.Margin;
+        dest.HorizontalAlignment = src.HorizontalAlignment;
+        dest.VerticalAlignment = src.VerticalAlignment;
+        dest.Opacity = src.Opacity;
+        dest.Visibility = src.Visibility;
+        dest.MinWidth = src.MinWidth;
+        dest.MinHeight = src.MinHeight;
+        if (!double.IsNaN(src.Width)) dest.Width = src.Width;
+        if (!double.IsNaN(src.Height)) dest.Height = src.Height;
+        foreach (string name in RmtCommonStyles.Properties)
+        {
+            if (RmtCommonStyles.IsColorProperty(name) && !HasPaintedBrush(src, name)) continue;
+            CopyPreviewProperty(dest, src, name);
+        }
+        dest.SnapsToDevicePixels = src.SnapsToDevicePixels;
+        var srcGrid = src as Grid;
+        var destGrid = dest as Grid;
+        if (srcGrid != null && destGrid != null)
+        {
+            foreach (ColumnDefinition column in srcGrid.ColumnDefinitions)
+                destGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = column.Width, MinWidth = column.MinWidth, MaxWidth = column.MaxWidth });
+            foreach (RowDefinition row in srcGrid.RowDefinitions)
+                destGrid.RowDefinitions.Add(new RowDefinition { Height = row.Height, MinHeight = row.MinHeight, MaxHeight = row.MaxHeight });
+        }
+        var srcText = src as TextBlock;
+        var destText = dest as TextBlock;
+        if (srcText != null && destText != null)
+        {
+            destText.Text = srcText.Text;
+            destText.TextWrapping = srcText.TextWrapping;
+            destText.TextAlignment = srcText.TextAlignment;
+            destText.FontSize = srcText.FontSize;
+            destText.FontWeight = srcText.FontWeight;
+            destText.Foreground = srcText.Foreground;
+        }
+        var srcBox = src as TextBox;
+        var destBox = dest as TextBox;
+        if (srcBox != null && destBox != null) destBox.Text = srcBox.Text;
+        var srcImage = src as Image;
+        var destImage = dest as Image;
+        if (srcImage != null && destImage != null) destImage.Source = srcImage.Source;
+        var srcContent = src as ContentControl;
+        var destContent = dest as ContentControl;
+        if (srcContent != null && destContent != null && !(src is ComboBox) && !(src is ListBox) && !(src is Window))
+        {
+            var nested = srcContent.Content as FrameworkElement;
+            if (nested != null) destContent.Content = ClonePreviewElement(nested, depth + 1);
+            else if (srcContent.Content is string) destContent.Content = srcContent.Content;
+        }
+        if (src is ComboBox || src is ListBox) return dest;
+        var srcBorder = src as Border;
+        var destBorder = dest as Border;
+        if (srcBorder != null && destBorder != null)
+        {
+            destBorder.CornerRadius = srcBorder.CornerRadius;
+            destBorder.Padding = srcBorder.Padding;
+            destBorder.BorderThickness = srcBorder.BorderThickness;
+            if (HasPaintedBrush(srcBorder, "Background")) destBorder.Background = srcBorder.Background;
+            destBorder.BorderBrush = srcBorder.BorderBrush;
+            var child = srcBorder.Child as FrameworkElement;
+            if (child != null) destBorder.Child = ClonePreviewElement(child, depth + 1);
+            return dest;
+        }
+        var srcView = src as Viewbox;
+        var destView = dest as Viewbox;
+        if (srcView != null && destView != null)
+        {
+            destView.Stretch = srcView.Stretch;
+            destView.StretchDirection = srcView.StretchDirection;
+            var child = srcView.Child as FrameworkElement;
+            if (child != null) destView.Child = ClonePreviewElement(child, depth + 1);
+            return dest;
+        }
+        var srcPanel = src as Panel;
+        var destPanel = dest as Panel;
+        if (srcPanel != null && destPanel != null)
+        {
+            if (HasPaintedBrush(srcPanel, "Background")) destPanel.Background = srcPanel.Background;
+            foreach (UIElement child in srcPanel.Children)
+            {
+                var fe = child as FrameworkElement;
+                if (fe == null) continue;
+                var cloned = ClonePreviewElement(fe, depth + 1);
+                if (cloned == null) continue;
+                destPanel.Children.Add(cloned);
+                CopyAttachedLayout(cloned, fe);
+            }
+        }
+        return dest;
+    }
+
+    private FrameworkElement CloneWindowPreview(Window src, int depth)
+    {
+        var frame = new Border
+        {
+            BorderBrush = TryFindResource("ControlBorder") as Brush ?? Brushes.Gray,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(6),
+            SnapsToDevicePixels = true,
+            Background = src.Background
+        };
+        var grid = new Grid();
+        grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(chromeButtonHeight) });
+        grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        var bar = new Grid { Background = TryFindResource("TitleBarColor") as Brush ?? Brushes.LightGray };
+        bar.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        bar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        bar.Children.Add(new TextBlock
+        {
+            Text = src.Title ?? "",
+            Foreground = TryFindResource("TitleBarForeground") as Brush ?? Brushes.Black,
+            FontWeight = FontWeights.Bold,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(12, 0, 0, 0)
+        });
+        var btns = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+        Grid.SetColumn(btns, 1);
+        if (FindVisibleNamed(src, "BtnMinimize") != null) btns.Children.Add(PreviewChromeGlyph("\uE921"));
+        if (FindVisibleNamed(src, "BtnMaximize") != null) btns.Children.Add(PreviewChromeGlyph("\uE922"));
+        if (FindVisibleNamed(src, "BtnPin") != null) btns.Children.Add(PreviewChromeGlyph("\uE840"));
+        if (FindVisibleNamed(src, "BtnWinClose") != null || FindVisibleNamed(src, "BtnClosePanel") != null || FindVisibleNamed(src, "BtnClose") != null)
+            btns.Children.Add(PreviewChromeGlyph("\uE8BB"));
+        bar.Children.Add(btns);
+        var content = RmtCommonStyles.WindowBody(src) ?? (src.Content as FrameworkElement);
+        var cloned = ClonePreviewElement(content, depth + 1);
+        if (cloned == null) cloned = new Border { Background = TryFindResource("BgColor") as Brush ?? Brushes.White };
+        Grid.SetRow(cloned, 1);
+        grid.Children.Add(bar);
+        grid.Children.Add(cloned);
+        frame.Child = grid;
+        double width = src.ActualWidth > 80 ? src.ActualWidth : (double.IsNaN(src.Width) ? 360 : src.Width);
+        double height = src.ActualHeight > 80 ? src.ActualHeight : (double.IsNaN(src.Height) ? 220 : src.Height);
+        frame.Width = Math.Min(520, Math.Max(220, width * 0.42));
+        frame.Height = Math.Min(220, Math.Max(120, height * 0.42));
+        return frame;
+    }
+
+    private static FrameworkElement FindNamed(Window window, string name)
+    {
+        return window == null ? null : window.FindName(name) as FrameworkElement;
+    }
+
+    private static FrameworkElement FindVisibleNamed(Window window, string name)
+    {
+        var element = FindNamed(window, name);
+        return element != null && element.Visibility == Visibility.Visible ? element : null;
+    }
+
+    private static bool IsWindowChromeElement(FrameworkElement element)
+    {
+        if (element == null || string.IsNullOrEmpty(element.Name)) return false;
+        string name = element.Name;
+        return name == "BtnMinimize" || name == "BtnMaximize" || name == "BtnPin"
+            || name == "BtnWinClose" || name == "BtnClosePanel" || name == "BtnClose"
+            || name == "BtnWinMin" || name == "BtnWinMax" || name == "BtnWinPin"
+            || name == "BtnMaximizeTxt" || name == "DragArea";
+    }
+
+    private static void CopyAttachedLayout(FrameworkElement dest, FrameworkElement src)
+    {
+        Grid.SetRow(dest, Grid.GetRow(src));
+        Grid.SetColumn(dest, Grid.GetColumn(src));
+        Grid.SetRowSpan(dest, Grid.GetRowSpan(src));
+        Grid.SetColumnSpan(dest, Grid.GetColumnSpan(src));
+        DockPanel.SetDock(dest, DockPanel.GetDock(src));
+        if (!double.IsNaN(Canvas.GetLeft(src))) Canvas.SetLeft(dest, Canvas.GetLeft(src));
+        if (!double.IsNaN(Canvas.GetTop(src))) Canvas.SetTop(dest, Canvas.GetTop(src));
     }
 
     private double SourceContentScale()
@@ -2725,6 +4328,8 @@ internal sealed class RmtStyleEditor : Window
             element.SetValue(dp, double.PositiveInfinity);
         else
             element.SetValue(dp, RmtCommonStyles.ConvertValue(dp.PropertyType, value));
+        if (name == "CornerRadius") RmtCommonStyles.ApplyCorners(element as Control);
+        if (name == "MaxDropDownHeight") RmtCommonStyles.ApplyComboDropDown(element as ComboBox);
     }
 
     private static void CopyPreviewProperty(FrameworkElement dest, FrameworkElement src, string name)
@@ -2771,7 +4376,17 @@ internal sealed class RmtStyleEditor : Window
         Grid.SetColumn(label, column); propertyRow.Children.Add(label);
         if (RmtCommonStyles.IsColorProperty(name))
         {
-            var combo = ThemeColorPicker(value, current, bound); combo.Margin = new Thickness(0, 0, PropertyColumnGap, 0);
+            Brush liveBrush = null;
+            if (sample != null)
+            {
+                var liveDp = RmtCommonStyles.Property(sample, name);
+                if (liveDp != null)
+                    liveBrush = ResolveDisplayedValue(sample, name, liveDp) as Brush;
+                if (!HasPaintedBrush(sample, name) && name != "HoverBackground" && name != "PressedBackground")
+                    liveBrush = null;
+            }
+            string preferredKey = name == "HoverBackground" ? "ActionHoverBg" : name == "PressedBackground" ? PressedResourceKey("ActionPressBg") : "";
+            var combo = ThemeColorPicker(value, current, bound, liveBrush, preferredKey); combo.Margin = new Thickness(0, 0, PropertyColumnGap, 0);
             combo.SelectionChanged += delegate { if (rendering || !interactionReady) return; colorTouched.Add(name); Commit(false); };
             Grid.SetColumn(combo, column + 1); propertyRow.Children.Add(combo); colorInputs[name] = combo;
         }
@@ -2794,7 +4409,7 @@ internal sealed class RmtStyleEditor : Window
             panel.Children.Add(slider); Grid.SetColumn(display, 1); panel.Children.Add(display);
             Grid.SetColumn(panel, column + 1); propertyRow.Children.Add(panel); sliderInputs[name] = slider;
         }
-        else if (IsPresetProperty(name) && !RmtCommonStyles.IsWindowKey(selected))
+        else if (IsPresetProperty(name))
         {
             var combo = PresetPicker(name, string.IsNullOrEmpty(value) ? current : value, bound);
             combo.Tag = string.IsNullOrEmpty(value) ? "inherit" : "override";
@@ -2826,7 +4441,7 @@ internal sealed class RmtStyleEditor : Window
             if (inherited) box.Foreground = Brushes.SlateGray;
             box.TextChanged += delegate { if (rendering || !interactionReady) return; if (!box.IsReadOnly) { box.Tag = "override"; box.Foreground = Brushes.Black; Commit(false); } };
             Grid.SetColumn(box, column + 1); propertyRow.Children.Add(box); inputs[name] = box;
-            if (!bound && (name == "Width" || name == "Height" || name == "MinWidth" || name == "MinHeight"))
+            if (!bound && (name == "Width" || name == "Height" || name == "MinWidth" || name == "MinHeight" || name == "MaxDropDownHeight"))
                 EnableNumberDrag(label, box);
         }
     }
@@ -2871,6 +4486,19 @@ internal sealed class RmtStyleEditor : Window
         var item = combo.SelectedItem as ComboBoxItem;
         if (item != null && item.Tag is string) return (string)item.Tag;
         return (combo.Text ?? "").Trim();
+    }
+
+    private string ComboTextOrDefault(string name, string fallback)
+    {
+        ComboBox preset;
+        if (presetInputs.TryGetValue(name, out preset))
+        {
+            string text = ComboText(preset);
+            if (!string.IsNullOrWhiteSpace(text)) return text;
+        }
+        TextBox box;
+        if (inputs.TryGetValue(name, out box) && !string.IsNullOrWhiteSpace(box.Text)) return box.Text.Trim();
+        return fallback ?? "";
     }
 
     private static bool IsOptionProperty(string name)
@@ -2923,10 +4551,13 @@ internal sealed class RmtStyleEditor : Window
         return combo;
     }
 
-    private ComboBox ThemeColorPicker(string value, string current, bool bound)
+    private ComboBox ThemeColorPicker(string value, string current, bool bound, Brush liveBrush, string preferredKey)
     {
         var combo = new ComboBox { IsEnabled = !bound, MinHeight = 28, Padding = new Thickness(4), ToolTip = "只能选择主题颜色序列；切换主题时会自动同步。" };
         string wanted = RmtCommonStyles.IsThemeColor(value) ? RmtCommonStyles.ThemeColorKey(value) : "";
+        var liveSolid = liveBrush as SolidColorBrush;
+        if (liveSolid == null || liveSolid.Color.A == 0)
+            liveSolid = ParseSolid(string.IsNullOrEmpty(value) ? current : value);
         for (int i = 0; i < RmtCommonStyles.ThemePaletteResources.Length; i++)
         {
             string key = RmtCommonStyles.ThemePaletteResources[i];
@@ -2939,10 +4570,66 @@ internal sealed class RmtStyleEditor : Window
             combo.Items.Add(item);
             // Existing literal values are migrated to their matching theme resource on the next save.
             string displayed = string.IsNullOrEmpty(value) ? current : value;
-            if (key == wanted || (string.IsNullOrEmpty(wanted) && hex == displayed)) combo.SelectedItem = item;
+            var themeSolid = brush as SolidColorBrush;
+            bool sameLive = liveSolid != null && themeSolid != null && liveSolid.Color == themeSolid.Color && liveSolid.Color.A > 0;
+            if (key == wanted || sameLive || (string.IsNullOrEmpty(wanted) && liveSolid != null && ColorTextEquals(hex, displayed))) combo.SelectedItem = item;
         }
-        if (combo.SelectedIndex < 0) combo.SelectedIndex = 0;
+        if (combo.SelectedIndex < 0 && liveSolid != null && liveSolid.Color.A > 0)
+            combo.SelectedIndex = ClosestPaletteIndex(liveSolid.Color);
+        if (combo.SelectedIndex < 0 && !string.IsNullOrEmpty(preferredKey))
+        {
+            for (int i = 0; i < combo.Items.Count; i++)
+            {
+                var item = combo.Items[i] as ComboBoxItem;
+                if (item != null && RmtCommonStyles.ThemeColorKey(item.Tag as string ?? "") == preferredKey)
+                {
+                    combo.SelectedIndex = i;
+                    break;
+                }
+            }
+            if (combo.SelectedIndex < 0)
+            {
+                var preferred = TryFindResource(preferredKey) as SolidColorBrush;
+                if (preferred != null && preferred.Color.A > 0)
+                    combo.SelectedIndex = ClosestPaletteIndex(preferred.Color);
+            }
+        }
+        if (combo.SelectedIndex < 0 && !string.IsNullOrEmpty(value)) combo.SelectedIndex = 0;
         return combo;
+    }
+
+    private int ClosestPaletteIndex(Color color)
+    {
+        int best = -1;
+        double bestScore = double.MaxValue;
+        for (int i = 0; i < RmtCommonStyles.ThemePaletteResources.Length; i++)
+        {
+            var themeSolid = TryFindResource(RmtCommonStyles.ThemePaletteResources[i]) as SolidColorBrush;
+            if (themeSolid == null) continue;
+            double score = ColorDistance(color, themeSolid.Color);
+            if (score < bestScore) { bestScore = score; best = i; }
+        }
+        return best;
+    }
+
+    private static SolidColorBrush ParseSolid(string value)
+    {
+        if (string.IsNullOrEmpty(value)) return null;
+        try { return RmtCommonStyles.ConvertValue(typeof(Brush), value) as SolidColorBrush; }
+        catch { return null; }
+    }
+
+    private static bool ColorTextEquals(string left, string right)
+    {
+        if (string.IsNullOrEmpty(left) || string.IsNullOrEmpty(right)) return false;
+        if (string.Equals(left, right, StringComparison.OrdinalIgnoreCase)) return true;
+        try
+        {
+            var a = RmtCommonStyles.ConvertValue(typeof(Brush), left) as SolidColorBrush;
+            var b = RmtCommonStyles.ConvertValue(typeof(Brush), right) as SolidColorBrush;
+            return a != null && b != null && a.Color == b.Color && a.Color.A > 0;
+        }
+        catch { return false; }
     }
 
     private bool CommitWindow(bool rerender)
@@ -2956,21 +4643,71 @@ internal sealed class RmtStyleEditor : Window
         {
             foreach (var check in chromeChecks)
                 next[check.Key] = check.Value.IsChecked == true ? "True" : "False";
-            TextBox padBox;
-            if (inputs.TryGetValue("Padding", out padBox))
+            foreach (var input in inputs)
             {
-                string value = padBox.Text.Trim();
-                if (string.IsNullOrEmpty(value) || (padBox.Tag as string) == "inherit") next.Remove("Padding");
+                if (input.Value.IsReadOnly) continue;
+                if ((input.Value.Tag as string) == "inherit" || string.IsNullOrWhiteSpace(input.Value.Text)) { next.Remove(input.Key); continue; }
+                string value = input.Value.Text.Trim();
+                Type type = input.Key == "CornerRadius" ? typeof(CornerRadius) : input.Key == "Padding" || input.Key == "Margin" ? typeof(Thickness) : typeof(double);
+                if (input.Key == "CornerRadius" || input.Key == "Padding" || input.Key == "Margin")
+                    RmtCommonStyles.ConvertValue(type, value);
+                else if (input.Key == "Width" || input.Key == "Height" || input.Key == "MinWidth" || input.Key == "MinHeight")
+                {
+                    if (value.Equals("Auto", StringComparison.OrdinalIgnoreCase)) { next[input.Key] = "Auto"; continue; }
+                    double number;
+                    if (!double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out number) || number < 0)
+                        throw new ArgumentException(input.Key + " 请输入非负数。");
+                }
+                next[input.Key] = value;
+            }
+            foreach (var input in dimensionInputs)
+            {
+                if (!dimensionTouched.Contains(input.Key)) continue;
+                string value = input.Value.Text.Trim();
+                if (string.IsNullOrEmpty(value)) { next.Remove(input.Key); continue; }
+                if (value == "无限") value = "Infinity";
+                next[input.Key] = value;
+            }
+            foreach (var input in presetInputs)
+            {
+                if (!input.Value.IsEnabled || (input.Value.Tag as string) == "inherit" && !presetTouched.Contains(input.Key)) continue;
+                if (!presetTouched.Contains(input.Key) && (input.Value.Tag as string) == "inherit") { next.Remove(input.Key); continue; }
+                string value = ComboText(input.Value);
+                if (string.IsNullOrWhiteSpace(value) || (input.Value.Tag as string) == "inherit") { next.Remove(input.Key); continue; }
+                if (input.Key == "CornerRadius") RmtCommonStyles.ConvertValue(typeof(CornerRadius), value);
+                else RmtCommonStyles.ConvertValue(typeof(Thickness), value);
+                next[input.Key] = value;
+            }
+            foreach (var input in colorInputs)
+            {
+                if (!input.Value.IsEnabled || !colorTouched.Contains(input.Key)) continue;
+                var item = input.Value.SelectedItem as ComboBoxItem;
+                string value = item == null ? "" : (item.Tag as string ?? "");
+                if (string.IsNullOrEmpty(value)) next.Remove(input.Key); else next[input.Key] = value;
+            }
+            ComboBox modeInput;
+            if (optionInputs.TryGetValue("SizeMode", out modeInput) && modeInput.SelectedItem is ComboBoxItem)
+            {
+                string mode = ((ComboBoxItem)modeInput.SelectedItem).Tag as string ?? "固定宽高";
+                next["SizeMode"] = mode;
+                if (mode == "自适应宽高") { next["Width"] = "Auto"; next["Height"] = "Auto"; }
+                else if (mode == "自适应宽度") { next["Width"] = "Auto"; next.Remove("MinHeight"); next.Remove("MaxHeight"); }
+                else if (mode == "自适应高度") { next["Height"] = "Auto"; next.Remove("MinWidth"); next.Remove("MaxWidth"); }
                 else
                 {
-                    RmtCommonStyles.ConvertValue(typeof(Thickness), value);
-                    next["Padding"] = value;
+                    string size;
+                    if (next.TryGetValue("Width", out size) && size == "Auto") next.Remove("Width");
+                    if (next.TryGetValue("Height", out size) && size == "Auto") next.Remove("Height");
+                    next.Remove("MinWidth"); next.Remove("MinHeight"); next.Remove("MaxWidth"); next.Remove("MaxHeight");
                 }
             }
             if (rerender) { RmtCommonStyles.Values[selected] = next; drafts.Remove(selected); }
             else drafts[selected] = next;
+            SyncBranchProperties(selected, next);
             dirty = true;
-            ShowWindowPreview();
+            preview.Children.Clear();
+            if (LiveInspecting()) ShowHierarchyPreview(Inspected());
+            else ShowWindowPreview();
             if (rerender) RmtCommonStyles.Refresh();
             else RefreshDraftTargets();
             status.Text = rerender ? "已应用到正式界面。" : "";
@@ -3072,12 +4809,13 @@ internal sealed class RmtStyleEditor : Window
             }
             if (rerender) { RmtCommonStyles.Values[selected] = next; drafts.Remove(selected); }
             else drafts[selected] = next;
+            SyncBranchProperties(selected, next);
             dirty = true;
-            // Edits are staged in the configuration dictionary.  Only this window's cloned
-            // target preview is redrawn; live application controls stay untouched until save.
-            preview.Children.Clear(); ShowPreview(sample);
             if (rerender) RmtCommonStyles.Refresh();
             else RefreshDraftTargets();
+            preview.Children.Clear();
+            if (LiveInspecting()) ShowHierarchyPreview(Inspected());
+            else ShowPreview(sample);
             status.Text = rerender ? "已应用到正式界面。" : ""; return true;
         }
         catch (Exception ex) { status.Text = "未应用：" + ex.Message; return false; }
