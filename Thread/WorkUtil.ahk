@@ -460,6 +460,11 @@
 ; 因此只允许空闲时调用——CF 事件（空闲分支）与 OnExecTask finally（忙时延后）双保险。
 ReloadWorkerConfig() {
     try {
+        ; CF 既用于宏表热重载，也用于“应用并保存”后的全局设置刷新。
+        ; 必须先重读 MainSettings，否则 KeyDownDownType/浮动/指令显示等 Worker 消费的
+        ; 设置会一直停留在启动快照，直到用户重启；配置方案名变化时也要同步重算文件路径。
+        LoadMainSetting()
+        InitWorkFilePath()
         ; Worker 侧 TomlUtil 缓存是启动快照，主进程保存不会失效它 → 必须先失效才能读到新内容
         TomlUtil_Invalidate()
         LoadCurMacroSetting()

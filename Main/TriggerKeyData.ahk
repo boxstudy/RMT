@@ -98,6 +98,24 @@ class TriggerKeyData {
         }
     }
 
+    ; 滚轮/亮度键是一次性脉冲，只会产生按下事件，没有可供状态机等待的松开事件。
+    ; 含这类键的组合键同样不能进入“先松开再触发”的锁定状态，否则首次触发后会永久失效。
+    IsOnlyDownKey() {
+        keyName := StrLower(this.Key)
+        if (InStr(keyName, "wheel") || InStr(keyName, "bright_"))
+            return true
+
+        if (!IsObject(MySoftData) || !MySoftData.HasProp("OnlyDownKeyMap"))
+            return false
+        for key in MySoftData.OnlyDownKeyMap {
+            if (StrLower(key) == "none")
+                continue
+            if (InStr(keyName, StrLower(key)))
+                return true
+        }
+        return false
+    }
+
     OnTriggerKeyDown() {
         this.UpdataArr()
 
@@ -106,8 +124,10 @@ class TriggerKeyData {
         isDblClick := (currentTime - this.LastKeyDownTime) <= this.DblClickInterval && this.LastKeyDownTime != 0
         this.LastKeyDownTime := currentTime
 
-        ; 连续触发关闭时：按下/开关/长按需先松开触发键才能再次触发
-        blockRetrigger := !MainSoftData.ContinuousTrigger && this.NeedReleaseBeforeRetrigger
+        ; 连续触发关闭时：按下/开关/长按需先松开触发键才能再次触发。
+        ; 滚轮等脉冲键没有松开事件，必须始终允许下一次独立脉冲。
+        isOnlyDownKey := this.IsOnlyDownKey()
+        blockRetrigger := !isOnlyDownKey && !MainSoftData.ContinuousTrigger && this.NeedReleaseBeforeRetrigger
 
         for index, value in this.DownArr {
             if (blockRetrigger)
@@ -139,7 +159,7 @@ class TriggerKeyData {
         if (!blockRetrigger)
             this.SetHoldTimeChecker()
 
-        if (!MainSoftData.ContinuousTrigger
+        if (!isOnlyDownKey && !MainSoftData.ContinuousTrigger
             && (this.DownArr.Length > 0 || this.TogArr.Length > 0 || this.HoldArr.Length > 0))
             this.NeedReleaseBeforeRetrigger := true
     }
@@ -201,7 +221,7 @@ class TriggerKeyData {
             if (MainSoftData.AutoLoosenModifier && SubStr(info.GetTK(), 1, 1) != "~")
                 LoosenModifyKey(info.GetTK())
             info.Action()
-            if (!MainSoftData.ContinuousTrigger)
+            if (!this.IsOnlyDownKey() && !MainSoftData.ContinuousTrigger)
                 this.NeedReleaseBeforeRetrigger := true
         }
     }
