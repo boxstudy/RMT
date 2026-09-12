@@ -33,31 +33,51 @@ class VoiceGui {
         if (item)
             curKeywords := item.VoiceKeywords
 
-        ; 复用已存在窗口则刷新（单实例模式）
-        if (this.hasGui && this.Gui != "") {
-            this._LoadToFields(curKeywords)
-            return
+        ; 复用已存在窗口则刷新（单实例模式）。引擎窗口被关闭/重启后，旧的
+        ; AHK 对象可能仍然存在；先校验 HWND，避免把 Update/Query 发到失效窗口。
+        if (this.hasGui && IsObject(this.Gui)) {
+            if (!this._CanReuseWindow()) {
+                this._OnClosed()
+            } else {
+                this._LoadToFields(curKeywords)
+                return
+            }
         }
 
-        mainGui := IsObject(MainSoftData.MyGui) ? MainSoftData.MyGui.Hwnd : ""
-        panel := XAML_Generator("StackPanel").Margin("16")
-        panel.Add("TextBlock").Text(GetLang("说出以下关键词即可触发该宏。支持多个关键词，用英文逗号 , 分隔。")).TextWrapping("Wrap").Margin("0,0,0,10")
-        panel.Add("TextBlock").Text(GetLang("唤醒关键词：")).Margin("0,0,0,6")
-        panel.Add("TextBox").Name("EdKeywords").Height(120).AcceptsReturn("True").TextWrapping("Wrap").VerticalScrollBarVisibility("Auto")
-        panel.Add("TextBlock").Text(GetLang("示例：开始攻击, 暂停, 保存进度（每个关键词之间用英文逗号分隔）")).TextWrapping("Wrap").Margin("0,8,0,12")
-        buttons := panel.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Right")
-        buttons.Add("Button").Name("BtnSure").Content(GetLang("确定")).Width(90).MinHeight(32).IsDefault("True").Margin("0,0,10,0")
-        buttons.Add("Button").Name("BtnCancel").Content(GetLang("取消")).Width(90).MinHeight(32).IsCancel("True")
-        this.ui := XamlWin.Create(GetLang("语音关键词"), panel, 480, 360)
-        this.ui.OnEvent("BtnSure", "Click", (*) => this.OnSureClick())
-        this.ui.OnEvent("BtnCancel", "Click", (*) => this.Cancel())
-        this.ui.OnEvent("Window", "Closing", (*) => this._OnClosed())
-        this.ui.Update("EdKeywords", "Text", curKeywords)
-        this.hasGui := true
-        if (XamlWin.Open(this.ui, "", mainGui))
-            this.Gui := {Hwnd: this.ui.wpfHwnd}
-        else
-            this.Cancel()
+        try {
+            mainGui := IsObject(MainSoftData.MyGui) ? MainSoftData.MyGui.Hwnd : ""
+            panel := XAML_Generator("StackPanel").Margin("16")
+            panel.Add("TextBlock").Text(GetLang("说出以下关键词即可触发该宏。支持多个关键词，用英文逗号 , 分隔。")).TextWrapping("Wrap").Margin("0,0,0,10")
+            panel.Add("TextBlock").Text(GetLang("唤醒关键词：")).Margin("0,0,0,6")
+            panel.Add("TextBox").Name("EdKeywords").Height(120).AcceptsReturn("True").TextWrapping("Wrap").VerticalScrollBarVisibility("Auto")
+            panel.Add("TextBlock").Text(GetLang("示例：开始攻击, 暂停, 保存进度（每个关键词之间用英文逗号分隔）")).TextWrapping("Wrap").Margin("0,8,0,12")
+            buttons := panel.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Right")
+            buttons.Add("Button").Name("BtnSure").Content(GetLang("确定")).Width(90).MinHeight(32).IsDefault("True").Margin("0,0,10,0")
+            buttons.Add("Button").Name("BtnCancel").Content(GetLang("取消")).Width(90).MinHeight(32).IsCancel("True")
+            ; 内容高度约 300 DIP；避免默认窗口在高缩放屏幕上留下大块底部空白。
+            this.ui := XamlWin.Create(GetLang("语音关键词"), panel, 480, 300)
+            this.ui.OnEvent("BtnSure", "Click", (*) => this.OnSureClick())
+            this.ui.OnEvent("BtnCancel", "Click", (*) => this.Cancel())
+            this.ui.OnEvent("Window", "Closing", (*) => this._OnClosed())
+            this.ui.OnEvent("Window", "Closed", (*) => this._OnClosed())
+            this.ui.Update("EdKeywords", "Text", curKeywords)
+            this.hasGui := true
+            if (XamlWin.Open(this.ui, "", mainGui))
+                this.Gui := {Hwnd: this.ui.wpfHwnd}
+            else
+                this.Cancel()
+        } catch as err {
+            ; 解析/XAML 引擎异常时释放可复用状态，下一次点击可重新创建窗口。
+            try RmtDialog._Trace("VoiceGui ShowGui failed: " err.Message)
+            this._OnClosed()
+        }
+    }
+
+    _CanReuseWindow() {
+        if (!this.hasGui || !IsObject(this.ui) || !this.ui.HasProp("wpfHwnd"))
+            return false
+        hwnd := this.ui.wpfHwnd
+        return hwnd && DllCall("user32\IsWindow", "Ptr", hwnd, "Int")
     }
 
     _LoadToFields(keywords) {

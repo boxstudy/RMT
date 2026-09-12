@@ -194,7 +194,16 @@ OnItemCustomEditTriggerStrInput(tableItem, index, *) {
 
 ; 语音触发设置（语音关键词配置窗口入口）
 OnItemVoiceTriggerSetting(tableItem, index, *) {
-    MyVoiceGui.ShowGui(tableItem, index)
+    ; 入口可能来自 VL 的延迟回调，也可能来自右键菜单；统一兜底，
+    ; 避免窗口已被引擎回收时异常沿事件线程冒泡到主界面。
+    try {
+        if (!IsSet(MyVoiceGui) || !IsObject(MyVoiceGui))
+            return
+        MyVoiceGui.ShowGui(tableItem, index)
+    } catch as err {
+        if (IsSet(RmtDialog))
+            try RmtDialog._Trace("VoiceTrigger failed idx=" index ": " err.Message)
+    }
 }
 
 ;编辑按键宏触发键

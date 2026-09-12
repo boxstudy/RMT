@@ -44,7 +44,7 @@ internal static class RmtCommonStyles
         "TextAlignment", "TextWrapping", "TextTrimming", "IsReadOnly", "AcceptsReturn", "MaxLength",
         "Orientation", "Stretch", "StretchDirection", "VerticalScrollBarVisibility", "HorizontalScrollBarVisibility",
         "Width", "Height", "MinWidth", "MinHeight", "MaxWidth", "MaxHeight",
-        "FontWeight", "RelativeFontSize", "Opacity", "HorizontalContentAlignment", "VerticalContentAlignment", "SizeMode"
+        "FontWeight", "RelativeFontSize", "Opacity", "HorizontalContentAlignment", "VerticalContentAlignment", "Spacing", "SizeMode"
     };
     internal static readonly string[] WindowExtraProperties = { "ShowMinimize", "ShowMaximize", "ShowPin", "ShowClose" };
     // Mirrors AppThemeUtil.ColorDefs order. These are the only colours GM-UI may assign.
@@ -83,6 +83,16 @@ internal static class RmtCommonStyles
     private static readonly DependencyProperty ControlPressedBackground = DependencyProperty.RegisterAttached(
         "CommonPressedBackground", typeof(Brush), typeof(RmtCommonStyles), new PropertyMetadata(null,
             (obj, args) => ApplyPressedBackground(obj as Control)));
+    private sealed class StackSpacingState
+    {
+        internal readonly Dictionary<FrameworkElement, Thickness> Original = new Dictionary<FrameworkElement, Thickness>();
+        internal readonly Dictionary<FrameworkElement, Thickness> Applied = new Dictionary<FrameworkElement, Thickness>();
+        internal bool Hooked, Applying;
+    }
+    private static readonly ConditionalWeakTable<StackPanel, StackSpacingState> stackSpacings = new ConditionalWeakTable<StackPanel, StackSpacingState>();
+    private static readonly DependencyProperty StackPanelSpacing = DependencyProperty.RegisterAttached(
+        "CommonStackPanelSpacing", typeof(double), typeof(RmtCommonStyles), new PropertyMetadata(0.0,
+            (obj, args) => ApplyStackPanelSpacing(obj as StackPanel)));
     internal static string LoadError = "";
 
     internal static void Configure(Window window, string options)
@@ -268,6 +278,7 @@ internal static class RmtCommonStyles
         var window = fe as Window;
         if (window != null)
         {
+            ApplyWindowLayoutSize(window, layout);
             if (layout.TryGetValue("Left", out value))
             {
                 try { window.Left = (double)ConvertValue(typeof(double), value); } catch { }
@@ -295,9 +306,13 @@ internal static class RmtCommonStyles
         var window = target as Window;
         if (window != null)
         {
+            ApplyWindowLayoutSize(window, layout);
+            window.UpdateLayout();
             Rect area = SystemParameters.WorkArea;
-            window.Left = area.Left + area.Width * ax + x - window.ActualWidth * ax;
-            window.Top = area.Top + area.Height * ay + y - window.ActualHeight * ay;
+            double width = double.IsNaN(window.ActualWidth) || window.ActualWidth <= 0 ? window.Width : window.ActualWidth;
+            double height = double.IsNaN(window.ActualHeight) || window.ActualHeight <= 0 ? window.Height : window.ActualHeight;
+            window.Left = area.Left + area.Width * ax + x - width * ax;
+            window.Top = area.Top + area.Height * ay + y - height * ay;
             window.UpdateLayout();
             return;
         }
@@ -339,6 +354,57 @@ internal static class RmtCommonStyles
         parent.UpdateLayout();
     }
 
+    private static void ApplyWindowLayoutSize(Window window, Dictionary<string, string> layout)
+    {
+        if (window == null || layout == null) return;
+        string value;
+        double size;
+        bool resized = false;
+        if (layout.TryGetValue("Width", out value))
+        {
+            if (value.Equals("Auto", StringComparison.OrdinalIgnoreCase)) { window.Width = double.NaN; resized = true; }
+            else if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out size) && size > 0) { window.Width = size; resized = true; }
+        }
+        if (layout.TryGetValue("Height", out value))
+        {
+            if (value.Equals("Auto", StringComparison.OrdinalIgnoreCase)) { window.Height = double.NaN; resized = true; }
+            else if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out size) && size > 0) { window.Height = size; resized = true; }
+        }
+        if (resized) NormalizeWindowContentForResize(window);
+    }
+
+    private static void NormalizeWindowContentForResize(Window window)
+    {
+        if (window == null) return;
+        var root = window.Content as FrameworkElement;
+        if (root == null) return;
+        // EngineHost wraps ordinary window roots in a uniform Viewbox so manually resizing a
+        // window used to scale the entire design surface.  A size written by control-locate is
+        // an instance viewport override, so unwrap that host wrapper and keep the original
+        // controls at their declared font sizes.  A user-authored Viewbox with another stretch
+        // mode remains untouched.
+        var hostBox = root as Viewbox;
+        if (hostBox != null && hostBox.Stretch == Stretch.Uniform
+            && hostBox.StretchDirection == StretchDirection.Both
+            && hostBox.Child is FrameworkElement)
+        {
+            root = (FrameworkElement)hostBox.Child;
+            // Release both the logical and visual parent before installing this root as
+            // Window.Content. Keeping Viewbox.Child attached corrupts layout during Loaded.
+            hostBox.Child = null;
+            root.SetCurrentValue(FrameworkElement.WidthProperty, double.NaN);
+            root.SetCurrentValue(FrameworkElement.HeightProperty, double.NaN);
+            root.HorizontalAlignment = HorizontalAlignment.Stretch;
+            root.VerticalAlignment = VerticalAlignment.Stretch;
+            window.Content = root;
+            return;
+        }
+        root.SetCurrentValue(FrameworkElement.WidthProperty, double.NaN);
+        root.SetCurrentValue(FrameworkElement.HeightProperty, double.NaN);
+        root.HorizontalAlignment = HorizontalAlignment.Stretch;
+        root.VerticalAlignment = VerticalAlignment.Stretch;
+    }
+
     internal static Point ReadAnchorPosition(FrameworkElement target, string anchorName, string anchorKind)
     {
         if (target == null) return new Point(0, 0);
@@ -378,9 +444,74 @@ internal static class RmtCommonStyles
         if (name == "CornerRadius" && fe is Control) return ControlCornerRadius;
         if (name == "HoverBackground" && fe is Control) return ControlHoverBackground;
         if (name == "PressedBackground" && fe is Control) return ControlPressedBackground;
+        if (name == "Spacing" && fe is StackPanel) return StackPanelSpacing;
         if (name == "RelativeFontSize") return System.Windows.Documents.TextElement.FontSizeProperty;
         var descriptor = DependencyPropertyDescriptor.FromName(name, fe.GetType(), fe.GetType());
         return descriptor == null || descriptor.IsReadOnly ? null : descriptor.DependencyProperty;
+    }
+
+    private static void ApplyStackPanelSpacing(StackPanel panel)
+    {
+        if (panel == null) return;
+        StackSpacingState state = stackSpacings.GetValue(panel, p => new StackSpacingState());
+        if (!state.Hooked)
+        {
+            state.Hooked = true;
+            panel.LayoutUpdated += delegate { ApplyStackPanelSpacing(panel); };
+        }
+        if (state.Applying) return;
+        state.Applying = true;
+        try
+        {
+            double spacing = 0;
+            object value = panel.GetValue(StackPanelSpacing);
+            if (value is double && !double.IsNaN((double)value) && !double.IsInfinity((double)value)) spacing = Math.Max(0, (double)value);
+            var live = new HashSet<FrameworkElement>();
+            int index = 0;
+            foreach (UIElement element in panel.Children)
+            {
+                var child = element as FrameworkElement;
+                if (child == null) { index++; continue; }
+                live.Add(child);
+                Thickness original;
+                if (!state.Original.TryGetValue(child, out original))
+                {
+                    original = child.Margin;
+                    state.Original[child] = original;
+                }
+                else
+                {
+                    Thickness applied;
+                    if (state.Applied.TryGetValue(child, out applied) && child.Margin != applied)
+                    {
+                        original = child.Margin;
+                        state.Original[child] = original;
+                        state.Applied.Remove(child);
+                    }
+                }
+                if (spacing <= 0)
+                {
+                    if (child.Margin != original) child.SetCurrentValue(FrameworkElement.MarginProperty, original);
+                }
+                else
+                {
+                    double add = index == 0 ? 0 : spacing;
+                    Thickness desired = panel.Orientation == Orientation.Horizontal
+                        ? new Thickness(original.Left + add, original.Top, original.Right, original.Bottom)
+                        : new Thickness(original.Left, original.Top + add, original.Right, original.Bottom);
+                    if (child.Margin != desired) child.SetCurrentValue(FrameworkElement.MarginProperty, desired);
+                    state.Applied[child] = desired;
+                }
+                index++;
+            }
+            foreach (var child in state.Original.Keys.Where(x => !live.Contains(x)).ToArray())
+            {
+                state.Original.Remove(child);
+                state.Applied.Remove(child);
+            }
+            if (spacing <= 0) state.Applied.Clear();
+        }
+        finally { state.Applying = false; }
     }
 
     internal static List<Entry> Live()
@@ -472,7 +603,12 @@ internal static class RmtCommonStyles
         }
         foreach (var pair in desired)
         {
-            if (fe is Window && (pair.Key == "Padding" || IsWindowExtra(pair.Key))) continue;
+            // Window dimensions are instance layout, not a shared style.  Keeping them out of
+            // the common Window override prevents resizing one auxiliary window from changing
+            // every other window (including the main surface).
+            if (fe is Window && (pair.Key == "Padding" || IsWindowExtra(pair.Key)
+                || pair.Key == "Width" || pair.Key == "Height" || pair.Key == "MinWidth" || pair.Key == "MinHeight"
+                || pair.Key == "MaxWidth" || pair.Key == "MaxHeight" || pair.Key == "SizeMode")) continue;
             if (entry.Frozen.Contains(pair.Key) && !instanceKeys.Contains(pair.Key)) continue;
             var dp = Property(fe, pair.Key);
             if (dp == null || BindingOperations.IsDataBound(fe, dp)) continue;
@@ -1166,7 +1302,8 @@ internal static class RmtCommonStyles
                 {
                     if (name == "SizeMode" || IsWindowExtra(name)) { properties[name] = value; continue; }
                     if (IsColorProperty(name) && IsThemeColor(value)) { properties[name] = value; continue; }
-                    var dp = name == "Color" ? null : Property(new Button(), name);
+                    var probe = name == "Spacing" ? (FrameworkElement)new StackPanel() : new Button();
+                    var dp = name == "Color" ? null : Property(probe, name);
                     object converted = ConvertValue(dp == null ? typeof(Brush) : dp.PropertyType, value);
                     if (dp != null && !dp.IsValidValue(converted)) throw new ArgumentException(name + " 值无效");
                     properties[name] = value;
@@ -1360,7 +1497,7 @@ internal sealed class RmtStyleEditor : Window
     private readonly Dictionary<string, ComboBox> dimensionInputs = new Dictionary<string, ComboBox>();
     private readonly Dictionary<string, ComboBox> presetInputs = new Dictionary<string, ComboBox>();
     private readonly Dictionary<string, Dictionary<string, string>> drafts = new Dictionary<string, Dictionary<string, string>>();
-    private sealed class PositionOriginal { internal bool IsWindow, IsCanvas; internal double X, Y; internal Thickness Margin; }
+    private sealed class PositionOriginal { internal bool IsWindow, IsCanvas; internal double X, Y, Width, Height; internal Thickness Margin; }
     private readonly Dictionary<FrameworkElement, PositionOriginal> positionOriginals = new Dictionary<FrameworkElement, PositionOriginal>();
     private readonly Dictionary<string, CheckBox> chromeChecks = new Dictionary<string, CheckBox>();
     private TextBox previewContent;
@@ -1402,7 +1539,7 @@ internal sealed class RmtStyleEditor : Window
         {"IsEditable", "允许编辑"}, {"SelectedIndex", "选中序号"}, {"Orientation", "排列方向"},
         {"Stretch", "拉伸方式"}, {"StretchDirection", "拉伸方向"},
         {"VerticalScrollBarVisibility", "纵向滚动条"}, {"HorizontalScrollBarVisibility", "横向滚动条"},
-        {"SizeMode", "宽高类型"}, {"Color", "颜色"},
+        {"Spacing", "子项间距"}, {"SizeMode", "宽高类型"}, {"Color", "颜色"},
         {"ShowMinimize", "最小化"}, {"ShowMaximize", "最大化"}, {"ShowPin", "置顶"}, {"ShowClose", "关闭"}
     };
     private string selected;
@@ -2776,6 +2913,36 @@ internal sealed class RmtStyleEditor : Window
         return new TextBox { Name = name, Text = value.ToString("0.##", CultureInfo.InvariantCulture), Height = 28, MinHeight = 28, Padding = new Thickness(2, 0, 2, 0), VerticalContentAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, PropertyColumnGap, 0) };
     }
 
+    private static double WindowDimension(Window window, bool width)
+    {
+        if (window == null) return 0;
+        double value = width ? window.Width : window.Height;
+        if (double.IsNaN(value) || value <= 0) value = width ? window.ActualWidth : window.ActualHeight;
+        if (double.IsNaN(value) || value <= 0) value = width ? window.RenderSize.Width : window.RenderSize.Height;
+        return value > 0 ? value : (width ? 1 : 1);
+    }
+
+    private static string WindowLayoutDimension(Window window, bool width)
+    {
+        if (window == null) return "Auto";
+        double value = width ? window.Width : window.Height;
+        if (double.IsNaN(value)) return "Auto";
+        return WindowDimension(window, width).ToString(CultureInfo.InvariantCulture);
+    }
+
+    private static void ApplyWindowDimension(Window window, string value, bool width)
+    {
+        if (window == null || string.IsNullOrWhiteSpace(value)) return;
+        if (value.Equals("Auto", StringComparison.OrdinalIgnoreCase))
+        {
+            if (width) window.Width = double.NaN; else window.Height = double.NaN;
+            return;
+        }
+        double number;
+        if (!double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out number) || number <= 0) return;
+        if (width) window.Width = number; else window.Height = number;
+    }
+
     private void RefreshPositionValues()
     {
         var target = Inspected();
@@ -2839,6 +3006,7 @@ internal sealed class RmtStyleEditor : Window
         if (!double.TryParse(positionX.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out left)
             || !double.TryParse(positionY.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out top))
         { status.Text = "位置X、位置Y请输入数字。"; return false; }
+        var window = target as Window;
         string id = RmtCommonStyles.LayoutId(target);
         if (persist && id == "") { status.Text = "该控件没有稳定名称，位置无法永久保存。请先给控件命名。"; return false; }
         var layout = new Dictionary<string, string> {
@@ -2847,6 +3015,11 @@ internal sealed class RmtStyleEditor : Window
             { "PositionX", left.ToString(CultureInfo.InvariantCulture) },
             { "PositionY", top.ToString(CultureInfo.InvariantCulture) }
         };
+        if (window != null)
+        {
+            layout["Width"] = WindowLayoutDimension(window, true);
+            layout["Height"] = WindowLayoutDimension(window, false);
+        }
         CapturePosition(target);
         RmtCommonStyles.ApplyAnchorLayout(target, layout);
         if (persist)
@@ -2866,6 +3039,7 @@ internal sealed class RmtStyleEditor : Window
         if (window != null)
         {
             original.IsWindow = true; original.X = window.Left; original.Y = window.Top;
+            original.Width = window.Width; original.Height = window.Height;
         }
         else if ((LogicalTreeHelper.GetParent(target) ?? VisualTreeHelper.GetParent(target)) is Canvas)
         {
@@ -2878,7 +3052,12 @@ internal sealed class RmtStyleEditor : Window
     {
         PositionOriginal original;
         if (target == null || !positionOriginals.TryGetValue(target, out original)) return;
-        if (original.IsWindow) { ((Window)target).Left = original.X; ((Window)target).Top = original.Y; }
+        if (original.IsWindow)
+        {
+            var window = (Window)target;
+            window.Left = original.X; window.Top = original.Y;
+            window.Width = original.Width; window.Height = original.Height;
+        }
         else if (original.IsCanvas) { Canvas.SetLeft(target, original.X); Canvas.SetTop(target, original.Y); }
         else target.Margin = original.Margin;
         positionOriginals.Remove(target);
@@ -3479,6 +3658,7 @@ internal sealed class RmtStyleEditor : Window
     private static bool ShouldShowProperty(FrameworkElement sample, string name)
     {
         if (sample == null || string.IsNullOrEmpty(name)) return false;
+        if (name == "Spacing") return sample is StackPanel;
         if (name == "HoverBackground" || name == "PressedBackground") return sample is Button;
         if (name == "MaxDropDownHeight") return sample is ComboBox;
         return true;
@@ -3570,6 +3750,19 @@ internal sealed class RmtStyleEditor : Window
     {
         Dictionary<string, string> values;
         TryConfiguredValues(selected, out values);
+        bool locatedWindow = LocatingSelectedWindow();
+        Dictionary<string, string> displayValues = values;
+        if (locatedWindow)
+        {
+            // A located window displays its live instance dimensions.  Older configurations
+            // may still contain Width/Height under the shared Window key; do not surface those
+            // stale values or accidentally reapply them when another reload field is edited.
+            displayValues = values == null ? new Dictionary<string, string>() : new Dictionary<string, string>(values);
+            displayValues.Remove("Width"); displayValues.Remove("Height");
+            displayValues.Remove("MinWidth"); displayValues.Remove("MinHeight");
+            displayValues.Remove("MaxWidth"); displayValues.Remove("MaxHeight");
+            displayValues.Remove("SizeMode");
+        }
         string previewBase;
         RmtCommonStyles.CloneBases.TryGetValue(selected, out previewBase);
         string targetKey = previewBase ?? selected;
@@ -3588,19 +3781,22 @@ internal sealed class RmtStyleEditor : Window
         var bgDp = RmtCommonStyles.Property(sample, "Background");
         string bgCurrent = bgDp == null ? "" : RmtCommonStyles.Text(RmtCommonStyles.DisplayValue(sample, "Background", bgDp));
         Field("Background", values != null && values.ContainsKey("Background") ? values["Background"] : "", bgCurrent, bgDp != null && BindingOperations.IsDataBound(sample, bgDp));
-        if (!LocatingSelectedWindow()) return;
-        string sizeMode = SizeMode(values, sample);
-        Field("SizeMode", sizeMode, sizeMode, false);
-        if (sizeMode == "固定宽高" || sizeMode == "自适应高度")
-            AddSizeField("Width", values);
-        if (sizeMode == "固定宽高" || sizeMode == "自适应宽度")
-            AddSizeField("Height", values);
-        if (sizeMode == "自适应宽度") { AddSizeField("MinWidth", values); AddSizeField("MaxWidth", values); }
-        if (sizeMode == "自适应高度") { AddSizeField("MinHeight", values); AddSizeField("MaxHeight", values); }
-        if (sizeMode == "自适应宽高")
+        if (locatedWindow)
         {
-            AddSizeField("MinWidth", values); AddSizeField("MinHeight", values);
-            AddSizeField("MaxWidth", values); AddSizeField("MaxHeight", values);
+            // Keep the legacy size-mode controls available for existing GM-UI users.  When
+            // this is a concrete window, CommitWindow routes the resulting dimensions into
+            // that window's Layout entry instead of the shared Window style.
+            string sizeMode = SizeMode(displayValues, sample);
+            Field("SizeMode", sizeMode, sizeMode, false);
+            if (sizeMode == "固定宽高" || sizeMode == "自适应高度") AddSizeField("Width", displayValues);
+            if (sizeMode == "固定宽高" || sizeMode == "自适应宽度") AddSizeField("Height", displayValues);
+            if (sizeMode == "自适应宽度") { AddSizeField("MinWidth", displayValues); AddSizeField("MaxWidth", displayValues); }
+            if (sizeMode == "自适应高度") { AddSizeField("MinHeight", displayValues); AddSizeField("MaxHeight", displayValues); }
+            if (sizeMode == "自适应宽高")
+            {
+                AddSizeField("MinWidth", displayValues); AddSizeField("MinHeight", displayValues);
+                AddSizeField("MaxWidth", displayValues); AddSizeField("MaxHeight", displayValues);
+            }
         }
     }
 
@@ -4543,7 +4739,7 @@ internal sealed class RmtStyleEditor : Window
             if (inherited) box.Foreground = Brushes.SlateGray;
             box.TextChanged += delegate { if (rendering || !interactionReady) return; if (!box.IsReadOnly) { box.Tag = "override"; box.Foreground = Brushes.Black; Commit(false); } };
             Grid.SetColumn(box, column + 1); propertyRow.Children.Add(box); inputs[name] = box;
-            if (!bound && (name == "Width" || name == "Height" || name == "MinWidth" || name == "MinHeight" || name == "MaxDropDownHeight" || name == "MaxLength"))
+            if (!bound && (name == "Width" || name == "Height" || name == "MinWidth" || name == "MinHeight" || name == "MaxDropDownHeight" || name == "MaxLength" || name == "Spacing"))
                 EnableNumberDrag(label, box);
         }
     }
@@ -4750,6 +4946,15 @@ internal sealed class RmtStyleEditor : Window
         Dictionary<string, string> saved;
         TryConfiguredValues(selected, out saved);
         var next = saved == null ? new Dictionary<string, string>() : new Dictionary<string, string>(saved);
+        bool locatedWindow = LocatingSelectedWindow();
+        if (locatedWindow)
+        {
+            // Dimensions for a reflected Window are instance layout values.  Start from the
+            // live window instead of any legacy shared Width/Height entries, then add only the
+            // fields the user actually changed below.
+            next.Remove("Width"); next.Remove("Height"); next.Remove("MinWidth"); next.Remove("MinHeight");
+            next.Remove("MaxWidth"); next.Remove("MaxHeight"); next.Remove("SizeMode");
+        }
         try
         {
             foreach (var check in chromeChecks)
@@ -4811,6 +5016,29 @@ internal sealed class RmtStyleEditor : Window
                     if (next.TryGetValue("Height", out size) && size == "Auto") next.Remove("Height");
                     next.Remove("MinWidth"); next.Remove("MinHeight"); next.Remove("MaxWidth"); next.Remove("MaxHeight");
                 }
+            }
+            if (locatedWindow)
+            {
+                // Width/Height are edited in the reload-property section only.  Apply those
+                // values to the concrete Window before capturing its anchor layout, then strip
+                // all size keys from the shared Window style so another window cannot inherit
+                // this instance-specific resize.
+                var concreteWindow = Inspected() as Window;
+                string widthText, heightText;
+                if (concreteWindow != null)
+                {
+                    // Capture before applying the reload dimensions so Reset can restore the
+                    // exact pre-edit window size as well as its position.
+                    CapturePosition(concreteWindow);
+                    if (next.TryGetValue("Width", out widthText)) ApplyWindowDimension(concreteWindow, widthText, true);
+                    if (next.TryGetValue("Height", out heightText)) ApplyWindowDimension(concreteWindow, heightText, false);
+                    concreteWindow.UpdateLayout();
+                }
+                if (!ApplyInspectedPosition(false)) return false;
+                // A concrete window's dimensions belong to its Layout entry.  Never write
+                // them back to the shared Window style while editing through control locate.
+                next.Remove("Width"); next.Remove("Height"); next.Remove("MinWidth"); next.Remove("MinHeight");
+                next.Remove("MaxWidth"); next.Remove("MaxHeight"); next.Remove("SizeMode");
             }
             if (rerender) { RmtCommonStyles.Values[selected] = next; drafts.Remove(selected); }
             else drafts[selected] = next;

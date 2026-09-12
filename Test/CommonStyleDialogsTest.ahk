@@ -1,5 +1,6 @@
 #Requires AutoHotkey v2.0
 #SingleInstance Off
+#Warn All, Off
 #Include ..\Plugins\AHK-XAML\lib\XAML_Generator.ahk
 #Include ..\Main\Util\XamlWin.ahk
 #Include ..\Gui\VoiceGui.ahk

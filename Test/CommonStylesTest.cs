@@ -16,6 +16,43 @@ class CommonStylesTest
 {
     static void Check(bool value, string message) { if (!value) throw new Exception(message); Console.WriteLine("PASS " + message); }
     static void Pump() { var frame = new DispatcherFrame(); var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) }; timer.Tick += delegate { timer.Stop(); frame.Continue = false; }; timer.Start(); Dispatcher.PushFrame(frame); }
+    static void CheckRestoredWindowLayout()
+    {
+        const string key = "Window:Restored voice keywords";
+        RmtCommonStyles.Layouts[key] = new Dictionary<string, string> {
+            { "AnchorObject", "窗口" }, { "AnchorType", "左上" },
+            { "PositionX", "20" }, { "PositionY", "30" },
+            { "Width", "701.33" }, { "Height", "526" }
+        };
+        try
+        {
+            for (int i = 0; i < 2; i++)
+            {
+                var input = new TextBox { Text = "开始,暂停", FontSize = 15 };
+                var root = new Grid { Width = 480, Height = 300 };
+                root.Children.Add(input);
+                var hostBox = new Viewbox { Stretch = Stretch.Uniform, StretchDirection = StretchDirection.Both, Child = root };
+                var dialog = new Window { Title = "Restored voice keywords", Width = 480, Height = 300,
+                    ShowInTaskbar = false, Opacity = 0, Content = hostBox };
+                try
+                {
+                    // Configure has already installed the global Loaded handler. Showing the
+                    // dialog must restore its saved viewport through the real registration path.
+                    dialog.Show(); Pump();
+                    Check(ReferenceEquals(dialog.Content, root) && hostBox.Child == null,
+                        "restored window detaches the Viewbox child before reparenting");
+                    Check(Math.Abs(dialog.Width - 701.33) < .01 && dialog.Height == 526,
+                        "restored window keeps the saved dimensions");
+                    Check(double.IsNaN(root.Width) && double.IsNaN(root.Height) && input.FontSize == 15 && input.Text == "开始,暂停",
+                        "restored window keeps editable content and its declared font size");
+                    RmtCommonStyles.ApplyLayout(dialog); Pump();
+                    Check(ReferenceEquals(dialog.Content, root), "restoring the same window layout twice is safe");
+                }
+                finally { dialog.Close(); }
+            }
+        }
+        finally { RmtCommonStyles.Layouts.Remove(key); }
+    }
     static IEnumerable<TreeViewItem> FlattenTree(TreeViewItem item)
     {
         yield return item;
@@ -107,6 +144,7 @@ class CommonStylesTest
             bool release = args.Length > 0 && args[0] == "release";
             RmtCommonStyles.Configure(window, path + (release ? "|0" : "|1"));
             window.Show(); Pump();
+            CheckRestoredWindowLayout();
             var mainSizeBefore = window.RenderSize;
             var mainContentBefore = ((StackPanel)window.Content).RenderSize;
             var mainSecondBefore = (Button)window.FindName("Second");
@@ -287,11 +325,15 @@ class CommonStylesTest
             Check(hierarchyPreview != null && hierarchyPreview.Children.OfType<Button>().Count() == 2, "hierarchy preview clones the full subtree not a single control");
             var boxOptions = (Dictionary<string, ComboBox>)typeof(RmtStyleEditor).GetField("optionInputs", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
             var boxColors = (Dictionary<string, ComboBox>)typeof(RmtStyleEditor).GetField("colorInputs", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
+            var boxInputs = (Dictionary<string, TextBox>)typeof(RmtStyleEditor).GetField("inputs", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
             Check(boxOptions.ContainsKey("Orientation") && boxOptions.ContainsKey("HorizontalAlignment"), "panel exposes orientation and alignment");
+            Check(boxInputs.ContainsKey("Spacing"), "stack panel exposes child spacing");
             Check(!boxOptions.ContainsKey("TextAlignment") && !boxOptions.ContainsKey("Stretch"), "panel hides text and image-only properties");
             Check(!boxColors.ContainsKey("HoverBackground") && !boxColors.ContainsKey("PressedBackground"), "panel hides button chrome properties");
             var boxTemplate = SectionValues(fieldsPanel, "模版属性", "重载属性");
-            Check(boxTemplate.ContainsKey("排列方向") && boxTemplate.ContainsKey("控件水平对齐") && !boxTemplate.ContainsKey("文本对齐"), "panel template lists layout properties");
+            Check(boxTemplate.ContainsKey("排列方向") && boxTemplate.ContainsKey("控件水平对齐") && boxTemplate.ContainsKey("子项间距") && !boxTemplate.ContainsKey("文本对齐"), "panel template lists layout properties");
+            boxInputs["Spacing"].Text = "6"; Pump();
+            Check(Math.Abs(childB.Margin.Top - 6) < .1, "stack panel spacing applies between vertical children");
             var bareLabel = new TextBlock { Name = "BareLabel", Text = "颜色14：" };
             ((StackPanel)window.Content).Children.Add(bareLabel); Pump();
             editor.AcceptHierarchyTarget(bareLabel); Pump();
@@ -369,6 +411,17 @@ class CommonStylesTest
             Check(templateAt >= 0 && reloadAt > templateAt, "window reload properties stay below template properties");
             var windowOptions = (Dictionary<string, ComboBox>)typeof(RmtStyleEditor).GetField("optionInputs", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
             Check(windowOptions.ContainsKey("SizeMode"), "window inspect can reload size mode");
+            var windowInputs = (Dictionary<string, TextBox>)typeof(RmtStyleEditor).GetField("inputs", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
+            Check(windowInputs.ContainsKey("Width") && windowInputs.ContainsKey("Height"), "window reload exposes width and height");
+            Check(typeof(RmtStyleEditor).GetField("positionWidth", BindingFlags.Instance | BindingFlags.NonPublic) == null
+                && typeof(RmtStyleEditor).GetField("positionHeight", BindingFlags.Instance | BindingFlags.NonPublic) == null,
+                "window position section does not duplicate width and height");
+            double windowWidthBeforeLocate = window.Width, windowHeightBeforeLocate = window.Height;
+            windowInputs["Width"].Text = (windowWidthBeforeLocate + 40).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            windowInputs["Height"].Text = (windowHeightBeforeLocate + 30).ToString(System.Globalization.CultureInfo.InvariantCulture); Pump();
+            Check(Math.Abs(window.Width - windowWidthBeforeLocate - 40) < .5 && Math.Abs(window.Height - windowHeightBeforeLocate - 30) < .5, "window locate edits dimensions without scaling through content");
+            ((Button)editorRoot.FindName("CmdItemReset")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Pump();
+            Check(Math.Abs(window.Width - windowWidthBeforeLocate) < .5 && Math.Abs(window.Height - windowHeightBeforeLocate) < .5, "window locate reset restores dimensions");
             var firstButton = (Button)window.FindName("First");
             typeof(RmtStyleEditor).GetField("picking", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(editor, true);
             typeof(RmtStyleEditor).GetField("pickHover", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(editor, firstButton);
