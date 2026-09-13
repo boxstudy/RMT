@@ -11,7 +11,7 @@ SetWorkingDir(A_ScriptDir "\..")
 
 ; Exercise the real cross-process window lifecycle without loading user macros.
 global XAML_ENGINE_BUILD_LOCATION := "lib/dep"
-global XAML_FORCE_DYNAMIC_COMPILE := false
+global XAML_FORCE_DYNAMIC_COMPILE := true
 global XAML_ENABLE_DEVTOOLS := false
 global MainSoftData := {FontType: "Microsoft YaHei UI", FontSize: 15, Theme: "RMT_Light", MyGui: ""}
 global TestTable := {Index: 1, ID: "voice-test", Items: [{VoiceKeywords: "开始,暂停"}]}
@@ -66,6 +66,16 @@ RunVoiceProbe(*) {
             throw Error("voice window did not open; elapsed=" (A_TickCount - start))
         if (!DllCall("user32\IsWindow", "Ptr", TestMain.wpfHwnd))
             throw Error("parent window was destroyed")
+        fontValues := MyVoiceGui.ui.Query("Window>FontSize", "EdKeywords>FontSize")
+        if (fontValues.Count != 2 || Abs(Number(fontValues["Window>FontSize"]) - 15) > 0.01 || Abs(Number(fontValues["EdKeywords>FontSize"]) - 15) > 0.01)
+            throw Error("voice font does not match theme: " JoinValues(fontValues))
+        layoutValues := MyVoiceGui.ui.Query("Window>ActualWidth", "Window>ActualHeight", "RmtDialogRoot>ActualWidth", "RmtDialogRoot>ActualHeight")
+        if (Abs(Number(layoutValues["Window>ActualWidth"]) - Number(layoutValues["RmtDialogRoot>ActualWidth"])) > 1
+            || Abs(Number(layoutValues["Window>ActualHeight"]) - Number(layoutValues["RmtDialogRoot>ActualHeight"])) > 1)
+            throw Error("voice fluid root does not fill the window: " JoinValues(layoutValues))
+        strokes := MyVoiceGui.ui.Query("EdKeywords>BorderThickness", "BtnSure>BorderThickness", "BtnCancel>BorderThickness")
+        if (strokes.Count != 3 || !InStr(strokes["EdKeywords>BorderThickness"], "1.25") || !InStr(strokes["BtnSure>BorderThickness"], "1.25") || !InStr(strokes["BtnCancel>BorderThickness"], "1.25"))
+            throw Error("voice border thickness mismatch: " JoinValues(strokes))
         FileAppend("PASS voice window opened, parent still alive`n", "*")
         MyVoiceGui.Cancel()
         TestMain.Update("Window", "Close", "")
@@ -74,4 +84,11 @@ RunVoiceProbe(*) {
         FileAppend("FAIL " err.Message " @ " err.Line "`n", "*")
         ExitApp(1)
     }
+}
+
+JoinValues(values) {
+    text := ""
+    for key, value in values
+        text .= (text = "" ? "" : " | ") key "=" value
+    return text
 }

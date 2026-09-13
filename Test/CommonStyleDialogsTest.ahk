@@ -21,6 +21,8 @@ class XAMLHost {
         TestHosts.Push(this)
     }
     static FontSize() => 15
+    static VisualFontSizeDeclared(extra := 0) => 15 + extra
+    static FormatFontSize(value) => value
     static GetMainViewboxScale() => 1
     static AddTitleBar(main, title, height) => main.Add("TextBlock").Grid_Row(0).Text(title).Height(height)
     OnEvent(*) {

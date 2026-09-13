@@ -1,6 +1,7 @@
 // Compile with CommonStyles.cs and WPF references. Run in a separate STA process.
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -19,7 +20,7 @@ class CommonStylesTest
     static void CheckRestoredWindowLayout()
     {
         const string key = "Window:Restored voice keywords";
-        RmtCommonStyles.Layouts[key] = new Dictionary<string, string> {
+        var savedLayout = new Dictionary<string, string> {
             { "AnchorObject", "窗口" }, { "AnchorType", "左上" },
             { "PositionX", "20" }, { "PositionY", "30" },
             { "Width", "701.33" }, { "Height", "526" }
@@ -32,21 +33,33 @@ class CommonStylesTest
                 var root = new Grid { Width = 480, Height = 300 };
                 root.Children.Add(input);
                 var hostBox = new Viewbox { Stretch = Stretch.Uniform, StretchDirection = StretchDirection.Both, Child = root };
-                var dialog = new Window { Title = "Restored voice keywords", Width = 480, Height = 300,
+                // Start above the 480x300 design size to model the main window's Viewbox scale.
+                var dialog = new Window { Title = "Restored voice keywords", Width = 720, Height = 450,
                     ShowInTaskbar = false, Opacity = 0, Content = hostBox };
                 try
                 {
-                    // Configure has already installed the global Loaded handler. Showing the
-                    // dialog must restore its saved viewport through the real registration path.
+                    RmtCommonStyles.Layouts.Remove(key);
                     dialog.Show(); Pump();
-                    Check(ReferenceEquals(dialog.Content, root) && hostBox.Child == null,
-                        "restored window detaches the Viewbox child before reparenting");
+                    double initialVisualScale = RmtCommonStyles.WindowContentVisualScale(dialog);
+                    Check(initialVisualScale > 1.1, "test dialog starts with a main-window-like visual font scale");
+                    RmtCommonStyles.Layouts[key] = new Dictionary<string, string>(savedLayout);
+                    RmtCommonStyles.ApplyLayout(dialog); Pump();
+                    Check(ReferenceEquals(dialog.Content, hostBox) && ReferenceEquals(hostBox.Child, root),
+                        "restored window keeps the Viewbox host so fonts stay scaled");
                     Check(Math.Abs(dialog.Width - 701.33) < .01 && dialog.Height == 526,
                         "restored window keeps the saved dimensions");
-                    Check(double.IsNaN(root.Width) && double.IsNaN(root.Height) && input.FontSize == 15 && input.Text == "开始,暂停",
-                        "restored window keeps editable content and its declared font size");
+                    Check(input.FontSize == 15 && input.Text == "开始,暂停",
+                        "restored window keeps editable content and declared font size");
+                    double restoredRatio = root.Width / root.Height;
+                    double viewportRatio = hostBox.ActualWidth / hostBox.ActualHeight;
+                    Check(root.Width > 0 && root.Height > 0 && hostBox.ActualWidth > 0 && hostBox.ActualHeight > 0
+                        && Math.Abs(restoredRatio - viewportRatio) < .02,
+                        "restored window retargets design size to fill the new viewport");
+                    Check(Math.Abs(RmtCommonStyles.WindowContentVisualScale(dialog) - initialVisualScale) < .02,
+                        "restored window keeps its pre-resize visual font scale");
                     RmtCommonStyles.ApplyLayout(dialog); Pump();
-                    Check(ReferenceEquals(dialog.Content, root), "restoring the same window layout twice is safe");
+                    Check(ReferenceEquals(dialog.Content, hostBox) && ReferenceEquals(hostBox.Child, root),
+                        "restoring the same window layout twice keeps the Viewbox host");
                 }
                 finally { dialog.Close(); }
             }
@@ -328,6 +341,9 @@ class CommonStylesTest
             var boxInputs = (Dictionary<string, TextBox>)typeof(RmtStyleEditor).GetField("inputs", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
             Check(boxOptions.ContainsKey("Orientation") && boxOptions.ContainsKey("HorizontalAlignment"), "panel exposes orientation and alignment");
             Check(boxInputs.ContainsKey("Spacing"), "stack panel exposes child spacing");
+            Check(boxInputs["Spacing"].Padding.Left == 2 && boxInputs["Spacing"].Padding.Top == 0
+                && boxInputs["Spacing"].Height == 28 && boxInputs["Spacing"].VerticalContentAlignment == VerticalAlignment.Center,
+                "stack panel spacing input matches compact numeric field chrome");
             Check(!boxOptions.ContainsKey("TextAlignment") && !boxOptions.ContainsKey("Stretch"), "panel hides text and image-only properties");
             Check(!boxColors.ContainsKey("HoverBackground") && !boxColors.ContainsKey("PressedBackground"), "panel hides button chrome properties");
             var boxTemplate = SectionValues(fieldsPanel, "模版属性", "重载属性");
@@ -361,6 +377,36 @@ class CommonStylesTest
             fieldsPanel = (StackPanel)typeof(RmtStyleEditor).GetField("fields", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
             var inputTemplate = SectionValues(fieldsPanel, "模版属性", "重载属性");
             Check(inputTemplate.ContainsKey("只读") && inputTemplate.ContainsKey("允许换行") && inputTemplate.ContainsKey("最大长度") && !inputTemplate.ContainsKey("悬停背景"), "text box template lists edit properties");
+            RmtCommonStyles.Values.Remove("通用/TextBox");
+            var siblingInput = new TextBox { Name = "SiblingInput", Text = "unchanged" };
+            ((StackPanel)window.Content).Children.Add(siblingInput); RmtCommonStyles.EnsureRegistered(siblingInput); Pump();
+            double siblingFontBefore = siblingInput.FontSize;
+            var inputSliders = (Dictionary<string, Slider>)typeof(RmtStyleEditor).GetField("sliderInputs", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
+            inputSliders["RelativeFontSize"].Value = 2; Pump();
+            Check(Math.Abs(inputBox.FontSize - (RmtCommonStyles.ThemeFontSize(inputBox) + 2)) < .01
+                && Math.Abs(siblingInput.FontSize - siblingFontBefore) < .01,
+                "reflected font preview changes only the located text box");
+            typeof(RmtStyleEditor).GetMethod("ApplyReloadToTemplate", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(editor, null); Pump();
+            Check(!RmtCommonStyles.Values.ContainsKey("通用/TextBox"), "apply-to-template does not create a shared TextBox style from a reflected control");
+            var applyStatus = (TextBlock)typeof(RmtStyleEditor).GetField("status", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
+            Check(applyStatus.Text.IndexOf("没有独立模版", StringComparison.Ordinal) >= 0, "apply-to-template explains that reflected text boxes need an explicit template");
+            ((Button)editorRoot.FindName("CmdItemApply")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Pump();
+            string inputLayoutId = RmtCommonStyles.LayoutId(inputBox);
+            Check(!string.IsNullOrEmpty(inputLayoutId) && RmtCommonStyles.InstanceStyles.ContainsKey(inputLayoutId), "apply persists reflected text box edits as instance styles");
+            Check(!RmtCommonStyles.Values.ContainsKey("通用/TextBox"), "apply does not paint shared TextBox styles onto the main window");
+            string relativeFont;
+            Check(RmtCommonStyles.InstanceStyles[inputLayoutId].TryGetValue("RelativeFontSize", out relativeFont)
+                && Math.Abs(double.Parse(relativeFont, CultureInfo.InvariantCulture) - 2) < .01,
+                "applied reflected font size is stored on the located instance");
+            var inputParent = (StackPanel)inputBox.Parent;
+            int inputIndex = inputParent.Children.IndexOf(inputBox);
+            inputParent.Children.Remove(inputBox);
+            var reopenedInput = new TextBox { Name = "Input", Text = "reopened" };
+            inputParent.Children.Insert(inputIndex, reopenedInput); RmtCommonStyles.EnsureRegistered(reopenedInput); RmtCommonStyles.Refresh(); Pump();
+            Check(RmtCommonStyles.LayoutId(reopenedInput) == inputLayoutId
+                && Math.Abs(reopenedInput.FontSize - (RmtCommonStyles.ThemeFontSize(reopenedInput) + 2)) < .01,
+                "recreated located control restores its instance font adjustment");
+            inputParent.Children.Remove(siblingInput);
             var picture = new Image { Name = "Picture", Stretch = Stretch.Uniform, Width = 32, Height = 32 };
             ((StackPanel)window.Content).Children.Add(picture); Pump();
             editor.AcceptHierarchyTarget(picture); Pump();

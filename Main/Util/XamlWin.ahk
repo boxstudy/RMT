@@ -18,20 +18,28 @@
 
 class XamlWin {
     ; Small business dialogs share the same chrome, theme and GM-UI registration.
-    static Create(title, content, width, height) {
-        main := XAML_Generator("Grid").Background("{DynamicResource BgColor}")
-            .TextElement_FontFamily(MainSoftData.FontType).TextElement_FontSize(XAMLHost.FontSize())
-        main.Rows("30", "*")
-        XAMLHost.AddTitleBar(main, title, "30")
+    static Create(title, content, width, height, fluidContent := false) {
+        visualScale := fluidContent ? XAMLHost.GetMainViewboxScale() : 1
+        bodyFont := fluidContent ? XAMLHost.VisualFontSizeDeclared() : XAMLHost.FontSize()
+        titleHeight := fluidContent ? XAMLHost.FormatFontSize(30 * visualScale) : "30"
+        main := XAML_Generator("Grid").Name("RmtDialogRoot").Background("{DynamicResource BgColor}")
+            .TextElement_FontFamily(MainSoftData.FontType).TextElement_FontSize(bodyFont)
+        main.Rows(titleHeight, "*")
+        chrome := XAMLHost.AddTitleBar(main, title, titleHeight)
+        if (fluidContent) {
+            try chrome.Title.FontSize(XAMLHost.VisualFontSizeDeclared(2))
+        }
         body := main.Add("Border").Grid_Row(1)
         body._Children.Push(content)
         content._Parent := body
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", "30")
         ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()))
         safeTitle := StrReplace(StrReplace(StrReplace(title, "&", "&amp;"), '"', "&quot;"), "<", "&lt;")
-        scale := XAMLHost.GetMainViewboxScale()
-        ui.xaml := StrReplace(ui.xaml, 'Width="940" Height="700"', 'Title="' safeTitle '" ShowInTaskbar="False" Width="' Round(width * scale) '" Height="' Round(height * scale) '" Opacity="0"')
-        ui.xaml := StrReplace(ui.xaml, "%resources%", "")
+        ; Emit design DIP sizes. ApplyDialogVisualScale enlarges the window and pins the root
+        ; so EngineHost's Viewbox matches the main UI. Pre-multiplying here would double-scale.
+        ui.xaml := StrReplace(ui.xaml, 'Width="940" Height="700"', 'Title="' safeTitle '" ShowInTaskbar="False" Width="' Round(width * visualScale) '" Height="' Round(height * visualScale) '" Opacity="0"')
+        resources := fluidContent ? '<Boolean xmlns="clr-namespace:System;assembly=mscorlib" x:Key="RmtFluidDialogLayout">True</Boolean>' : ""
+        ui.xaml := StrReplace(ui.xaml, "%resources%", resources)
         ui.OnEvent("BtnClosePanel", "Click", (*) => ui.Update("Window", "Close", ""))
         ui.OnEvent("Window", "LoadedHwnd", (*) => XamlWin.OnLoadTheme(ui))
         return ui

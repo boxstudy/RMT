@@ -357,6 +357,7 @@ internal static class RmtCommonStyles
     private static void ApplyWindowLayoutSize(Window window, Dictionary<string, string> layout)
     {
         if (window == null || layout == null) return;
+        double visualScale = WindowContentVisualScale(window);
         string value;
         double size;
         bool resized = false;
@@ -370,39 +371,79 @@ internal static class RmtCommonStyles
             if (value.Equals("Auto", StringComparison.OrdinalIgnoreCase)) { window.Height = double.NaN; resized = true; }
             else if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out size) && size > 0) { window.Height = size; resized = true; }
         }
-        if (resized) NormalizeWindowContentForResize(window);
+        if (resized) NormalizeWindowContentForResize(window, visualScale);
     }
 
-    private static void NormalizeWindowContentForResize(Window window)
+    internal static double WindowContentVisualScale(Window window)
+    {
+        if (window == null) return double.NaN;
+        window.UpdateLayout();
+        var hostBox = window.Content as Viewbox;
+        var child = hostBox == null ? null : hostBox.Child as FrameworkElement;
+        if (hostBox == null || child == null) return double.NaN;
+        double hostW = hostBox.ActualWidth > 1 ? hostBox.ActualWidth : window.Width;
+        double hostH = hostBox.ActualHeight > 1 ? hostBox.ActualHeight : window.Height;
+        double designW = child.ActualWidth > 1 ? child.ActualWidth : child.Width;
+        double designH = child.ActualHeight > 1 ? child.ActualHeight : child.Height;
+        double scale = double.NaN;
+        if (hostW > 1 && designW > 1) scale = hostW / designW;
+        if (hostH > 1 && designH > 1)
+        {
+            double heightScale = hostH / designH;
+            scale = double.IsNaN(scale) ? heightScale : Math.Min(scale, heightScale);
+        }
+        if (double.IsNaN(scale)) return scale;
+        return Math.Max(0.2, Math.Min(4, scale));
+    }
+
+    internal static void NormalizeWindowContentForResize(Window window, double visualScale = double.NaN)
     {
         if (window == null) return;
+        window.UpdateLayout();
         var root = window.Content as FrameworkElement;
         if (root == null) return;
-        // EngineHost wraps ordinary window roots in a uniform Viewbox so manually resizing a
-        // window used to scale the entire design surface.  A size written by control-locate is
-        // an instance viewport override, so unwrap that host wrapper and keep the original
-        // controls at their declared font sizes.  A user-authored Viewbox with another stretch
-        // mode remains untouched.
+        // EngineHost wraps dialog roots in a uniform Viewbox so open-time fonts match the main
+        // UI. Keep that host when GM-UI changes the viewport: retarget the design surface to
+        // the new window aspect at the current visual density so the title/content fill the
+        // window without letterboxing and without dropping back to unscaled DIP fonts.
         var hostBox = root as Viewbox;
         if (hostBox != null && hostBox.Stretch == Stretch.Uniform
             && hostBox.StretchDirection == StretchDirection.Both
             && hostBox.Child is FrameworkElement)
         {
-            root = (FrameworkElement)hostBox.Child;
-            // Release both the logical and visual parent before installing this root as
-            // Window.Content. Keeping Viewbox.Child attached corrupts layout during Loaded.
-            hostBox.Child = null;
-            root.SetCurrentValue(FrameworkElement.WidthProperty, double.NaN);
-            root.SetCurrentValue(FrameworkElement.HeightProperty, double.NaN);
-            root.HorizontalAlignment = HorizontalAlignment.Stretch;
-            root.VerticalAlignment = VerticalAlignment.Stretch;
-            window.Content = root;
+            RetargetViewboxDesignSize(window, hostBox, (FrameworkElement)hostBox.Child, visualScale);
             return;
         }
         root.SetCurrentValue(FrameworkElement.WidthProperty, double.NaN);
         root.SetCurrentValue(FrameworkElement.HeightProperty, double.NaN);
         root.HorizontalAlignment = HorizontalAlignment.Stretch;
         root.VerticalAlignment = VerticalAlignment.Stretch;
+    }
+
+    private static void RetargetViewboxDesignSize(Window window, Viewbox hostBox, FrameworkElement child, double visualScale)
+    {
+        if (window == null || hostBox == null || child == null) return;
+        double viewportW = hostBox.ActualWidth > 1 ? hostBox.ActualWidth : (window.ActualWidth > 1 ? window.ActualWidth : window.Width);
+        double viewportH = hostBox.ActualHeight > 1 ? hostBox.ActualHeight : (window.ActualHeight > 1 ? window.ActualHeight : window.Height);
+        if (double.IsNaN(viewportW) || viewportW <= 1 || double.IsNaN(viewportH) || viewportH <= 1) return;
+        double designW = child.ActualWidth > 1 ? child.ActualWidth : child.Width;
+        double designH = child.ActualHeight > 1 ? child.ActualHeight : child.Height;
+        double scale = visualScale;
+        if (double.IsNaN(scale) || scale <= 0)
+        {
+            scale = 1;
+            if (designW > 1 && designH > 1 && hostBox.ActualWidth > 1 && hostBox.ActualHeight > 1)
+                scale = Math.Min(hostBox.ActualWidth / designW, hostBox.ActualHeight / designH);
+            else if (designW > 1)
+                scale = viewportW / designW;
+        }
+        if (scale < 0.2) scale = 0.2;
+        if (scale > 4) scale = 4;
+        child.SetCurrentValue(FrameworkElement.WidthProperty, viewportW / scale);
+        child.SetCurrentValue(FrameworkElement.HeightProperty, viewportH / scale);
+        child.HorizontalAlignment = HorizontalAlignment.Stretch;
+        child.VerticalAlignment = VerticalAlignment.Stretch;
+        hostBox.UpdateLayout();
     }
 
     internal static Point ReadAnchorPosition(FrameworkElement target, string anchorName, string anchorKind)
@@ -933,6 +974,19 @@ internal static class RmtCommonStyles
             if (hadSaved) Values[key] = saved;
             else Values.Remove(key);
         }
+    }
+
+    internal static void PreviewInstance(FrameworkElement element, Dictionary<string, string> values)
+    {
+        EnsureRegistered(element);
+        Entry entry;
+        if (!entries.TryGetValue(element, out entry)) return;
+        string id = LayoutId(element);
+        Dictionary<string, string> saved;
+        bool hadSaved = InstanceStyles.TryGetValue(id, out saved);
+        InstanceStyles.Remove(id);
+        try { Apply(entry, values); }
+        finally { if (hadSaved) InstanceStyles[id] = saved; }
     }
 
     internal static void ApplyCorners(Control control)
@@ -1497,6 +1551,8 @@ internal sealed class RmtStyleEditor : Window
     private readonly Dictionary<string, ComboBox> dimensionInputs = new Dictionary<string, ComboBox>();
     private readonly Dictionary<string, ComboBox> presetInputs = new Dictionary<string, ComboBox>();
     private readonly Dictionary<string, Dictionary<string, string>> drafts = new Dictionary<string, Dictionary<string, string>>();
+    private readonly Dictionary<FrameworkElement, Dictionary<string, string>> instanceDrafts = new Dictionary<FrameworkElement, Dictionary<string, string>>();
+    private bool inspectingSelection;
     private sealed class PositionOriginal { internal bool IsWindow, IsCanvas; internal double X, Y, Width, Height; internal Thickness Margin; }
     private readonly Dictionary<FrameworkElement, PositionOriginal> positionOriginals = new Dictionary<FrameworkElement, PositionOriginal>();
     private readonly Dictionary<string, CheckBox> chromeChecks = new Dictionary<string, CheckBox>();
@@ -1761,6 +1817,7 @@ internal sealed class RmtStyleEditor : Window
                 return;
             }
             selected = key;
+            inspectingSelection = inspect != null;
             if (inspect != null) inspectRef = weak;
             HighlightCatalogItem(item);
             Render();
@@ -1915,6 +1972,7 @@ internal sealed class RmtStyleEditor : Window
     private void Restore()
     {
         drafts.Clear();
+        instanceDrafts.Clear();
         RestoreAllPositions();
         RmtCommonStyles.Values.Clear(); foreach (var item in snapshot) RmtCommonStyles.Values[item.Key] = new Dictionary<string, string>(item.Value);
         RmtCommonStyles.Layouts.Clear(); foreach (var item in layoutSnapshot) RmtCommonStyles.Layouts[item.Key] = new Dictionary<string, string>(item.Value);
@@ -1929,17 +1987,21 @@ internal sealed class RmtStyleEditor : Window
     private void ResetCurrent()
     {
         if (string.IsNullOrEmpty(selected)) return;
-        drafts.Remove(selected);
-        Dictionary<string, string> original;
-        if (snapshot.TryGetValue(selected, out original)) RmtCommonStyles.Values[selected] = new Dictionary<string, string>(original);
-        else RmtCommonStyles.Values.Remove(selected);
-        string clone;
-        if (cloneSnapshot.TryGetValue(selected, out clone)) RmtCommonStyles.CloneBases[selected] = clone;
-        else RmtCommonStyles.CloneBases.Remove(selected);
-        string display;
-        if (displaySnapshot.TryGetValue(selected, out display)) RmtCommonStyles.DisplayNames[selected] = display;
-        else RmtCommonStyles.DisplayNames.Remove(selected);
-        var target = Inspected();
+        var target = LiveInspecting() ? Inspected() : null;
+        if (target != null) instanceDrafts.Remove(target);
+        else
+        {
+            drafts.Remove(selected);
+            Dictionary<string, string> original;
+            if (snapshot.TryGetValue(selected, out original)) RmtCommonStyles.Values[selected] = new Dictionary<string, string>(original);
+            else RmtCommonStyles.Values.Remove(selected);
+            string clone;
+            if (cloneSnapshot.TryGetValue(selected, out clone)) RmtCommonStyles.CloneBases[selected] = clone;
+            else RmtCommonStyles.CloneBases.Remove(selected);
+            string display;
+            if (displaySnapshot.TryGetValue(selected, out display)) RmtCommonStyles.DisplayNames[selected] = display;
+            else RmtCommonStyles.DisplayNames.Remove(selected);
+        }
         if (target != null)
         {
             string id = RmtCommonStyles.LayoutId(target);
@@ -1962,13 +2024,13 @@ internal sealed class RmtStyleEditor : Window
             target.UpdateLayout();
         }
         Render();
-        dirty = drafts.Count > 0;
+        dirty = drafts.Count > 0 || instanceDrafts.Count > 0;
         status.Text = "当前控件的重载属性已恢复到调整前。";
     }
 
     private void ApplyCurrent()
     {
-        if (!Commit(true) || !ApplyInspectedPosition(true)) return;
+        if (!Commit(true)) return;
         try
         {
             RmtCommonStyles.Save();
@@ -1981,7 +2043,7 @@ internal sealed class RmtStyleEditor : Window
             hiddenSnapshot = new HashSet<string>(RmtCommonStyles.HiddenStyles);
             var target = Inspected();
             if (target != null) positionOriginals.Remove(target);
-            dirty = drafts.Count > 0;
+            dirty = drafts.Count > 0 || instanceDrafts.Count > 0;
             status.Text = "当前样式已永久应用。";
         }
         catch (Exception ex) { status.Text = ex.Message; }
@@ -2030,6 +2092,45 @@ internal sealed class RmtStyleEditor : Window
         return RmtCommonStyles.Values.TryGetValue(key, out values);
     }
 
+    private bool TryEditingValues(out Dictionary<string, string> values)
+    {
+        if (!LiveInspecting()) return TryConfiguredValues(selected, out values);
+        var target = Inspected();
+        if (instanceDrafts.TryGetValue(target, out values)) return true;
+        return RmtCommonStyles.InstanceStyles.TryGetValue(RmtCommonStyles.LayoutId(target), out values);
+    }
+
+    private bool StoreEdits(Dictionary<string, string> next, bool persist)
+    {
+        if (LiveInspecting())
+        {
+            var target = Inspected();
+            if (persist)
+            {
+                // Capture the edited size/position before Refresh reapplies the old layout.
+                if (!ApplyInspectedPosition(true)) return false;
+                RmtCommonStyles.InstanceStyles[RmtCommonStyles.LayoutId(target)] = next;
+                instanceDrafts.Remove(target);
+                RmtCommonStyles.Refresh();
+            }
+            else
+            {
+                instanceDrafts[target] = next;
+                RmtCommonStyles.PreviewInstance(target, next);
+            }
+        }
+        else
+        {
+            if (persist) { RmtCommonStyles.Values[selected] = next; drafts.Remove(selected); }
+            else drafts[selected] = next;
+            SyncBranchProperties(selected, next);
+            if (persist) RmtCommonStyles.Refresh();
+            else RefreshDraftTargets();
+        }
+        dirty = true;
+        return true;
+    }
+
     private void FindTemplate()
     {
         string template = TemplateKey();
@@ -2059,14 +2160,27 @@ internal sealed class RmtStyleEditor : Window
             MessageBox.Show(this, "当前控件还没有可应用的模版。", "GM-UI", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
+        // Implicit 通用/{Type} keys other than Button/Window are not catalog templates.
+        // Writing them would repaint every live control of that type (e.g. main-window fold fields).
+        if (LiveInspecting() && IsImplicitSharedTypeTemplate(template) && template != "通用/Button" && template != "通用/Window")
+        {
+            status.Text = "当前反射控件没有独立模版。请点「应用」只保存到该控件，或先「添加新模版」再应用到模版。";
+            return;
+        }
         Dictionary<string, string> current;
-        TryConfiguredValues(selected, out current);
+        TryEditingValues(out current);
         RmtCommonStyles.Values[template] = current == null ? new Dictionary<string, string>() : new Dictionary<string, string>(current);
         SyncBranchProperties(template, RmtCommonStyles.Values[template]);
         drafts.Remove(template);
         dirty = true;
         RmtCommonStyles.Refresh();
         status.Text = "已将重载属性应用到模版：" + DisplayName(template) + "。";
+    }
+
+    private static bool IsImplicitSharedTypeTemplate(string key)
+    {
+        return !string.IsNullOrEmpty(key) && key.StartsWith("通用/", StringComparison.Ordinal)
+            && !RmtCommonStyles.CloneBases.ContainsKey(key);
     }
 
     private void AddToTemplate()
@@ -2257,7 +2371,7 @@ internal sealed class RmtStyleEditor : Window
     private bool LiveInspecting()
     {
         var target = Inspected();
-        return target != null && selected == RmtCommonStyles.StyleKeyPublic(target);
+        return inspectingSelection && target != null && selected == RmtCommonStyles.StyleKeyPublic(target);
     }
 
     private bool LocatingSelectedWindow()
@@ -2275,6 +2389,7 @@ internal sealed class RmtStyleEditor : Window
         if (target == null) return;
         inspectRootRef = new WeakReference(target);
         inspectRef = new WeakReference(target);
+        inspectingSelection = true;
         selected = RmtCommonStyles.StyleKeyPublic(target);
         RmtCommonStyles.EnsureRegistered(target);
         foreach (var child in CollectDescendants(target))
@@ -2933,14 +3048,17 @@ internal sealed class RmtStyleEditor : Window
     private static void ApplyWindowDimension(Window window, string value, bool width)
     {
         if (window == null || string.IsNullOrWhiteSpace(value)) return;
+        double visualScale = RmtCommonStyles.WindowContentVisualScale(window);
         if (value.Equals("Auto", StringComparison.OrdinalIgnoreCase))
         {
             if (width) window.Width = double.NaN; else window.Height = double.NaN;
+            RmtCommonStyles.NormalizeWindowContentForResize(window, visualScale);
             return;
         }
         double number;
         if (!double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out number) || number <= 0) return;
         if (width) window.Width = number; else window.Height = number;
+        RmtCommonStyles.NormalizeWindowContentForResize(window, visualScale);
     }
 
     private void RefreshPositionValues()
@@ -3000,6 +3118,7 @@ internal sealed class RmtStyleEditor : Window
 
     private bool ApplyInspectedPosition(bool persist)
     {
+        if (!LiveInspecting()) return true;
         var target = Inspected();
         if (target == null || positionX == null || positionY == null) return true;
         double left, top;
@@ -3496,7 +3615,7 @@ internal sealed class RmtStyleEditor : Window
         fields.Children.Clear(); preview.Children.Clear(); inputs.Clear(); colorInputs.Clear(); optionInputs.Clear(); sliderInputs.Clear(); dimensionInputs.Clear(); presetInputs.Clear(); chromeChecks.Clear(); colorTouched.Clear(); sliderTouched.Clear(); dimensionTouched.Clear(); presetTouched.Clear(); optionTouched.Clear(); propertyRow = null; propertyPair = 0; sample = null;
         if (selected == null) { rendering = false; ArmInteraction(ticket); return; }
         var inspected = Inspected();
-        bool inspectMode = inspected != null && selected == RmtCommonStyles.StyleKeyPublic(inspected);
+        bool inspectMode = LiveInspecting();
         if (RmtCommonStyles.IsWindowKey(selected))
         {
             PrepareWindowSample();
@@ -3511,7 +3630,7 @@ internal sealed class RmtStyleEditor : Window
             ArmInteraction(ticket);
             return;
         }
-        Dictionary<string, string> values; TryConfiguredValues(selected, out values);
+        Dictionary<string, string> values; TryEditingValues(out values);
         var compositeBranch = FindSelectedBranch();
         if ((values == null || values.Count == 0) && compositeBranch != null) values = compositeBranch.Properties;
         string previewBase;
@@ -3749,7 +3868,7 @@ internal sealed class RmtStyleEditor : Window
     private void AddWindowReloadFields()
     {
         Dictionary<string, string> values;
-        TryConfiguredValues(selected, out values);
+        TryEditingValues(out values);
         bool locatedWindow = LocatingSelectedWindow();
         Dictionary<string, string> displayValues = values;
         if (locatedWindow)
@@ -4308,7 +4427,7 @@ internal sealed class RmtStyleEditor : Window
             CopyPreviewProperty(element, original, name);
         }
         Dictionary<string, string> configured;
-        TryConfiguredValues(selected, out configured);
+        TryEditingValues(out configured);
         if (configured != null)
             foreach (var pair in configured)
                 ApplyPreviewValue(element, pair.Key, pair.Value);
@@ -4734,7 +4853,8 @@ internal sealed class RmtStyleEditor : Window
         {
             bool inherited = string.IsNullOrEmpty(value);
             bool compactPad = name == "CornerRadius" || name == "BorderThickness" || name == "Margin" || name == "Padding"
-                || name == "Width" || name == "Height" || name == "MinWidth" || name == "MinHeight";
+                || name == "Width" || name == "Height" || name == "MinWidth" || name == "MinHeight"
+                || name == "MaxDropDownHeight" || name == "MaxLength" || name == "Spacing";
             var box = new TextBox { Text = inherited ? current : value, IsReadOnly = bound, Padding = compactPad ? new Thickness(2, 0, 2, 0) : new Thickness(5), Height = 28, MinHeight = 28, VerticalContentAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, PropertyColumnGap, 0), ToolTip = inherited ? "显示当前继承值；修改后立即覆盖并应用。" : "当前覆盖值", Tag = inherited ? "inherit" : "override" };
             if (inherited) box.Foreground = Brushes.SlateGray;
             box.TextChanged += delegate { if (rendering || !interactionReady) return; if (!box.IsReadOnly) { box.Tag = "override"; box.Foreground = Brushes.Black; Commit(false); } };
@@ -4944,7 +5064,7 @@ internal sealed class RmtStyleEditor : Window
         if (applying) return false;
         applying = true;
         Dictionary<string, string> saved;
-        TryConfiguredValues(selected, out saved);
+        TryEditingValues(out saved);
         var next = saved == null ? new Dictionary<string, string>() : new Dictionary<string, string>(saved);
         bool locatedWindow = LocatingSelectedWindow();
         if (locatedWindow)
@@ -5040,15 +5160,10 @@ internal sealed class RmtStyleEditor : Window
                 next.Remove("Width"); next.Remove("Height"); next.Remove("MinWidth"); next.Remove("MinHeight");
                 next.Remove("MaxWidth"); next.Remove("MaxHeight"); next.Remove("SizeMode");
             }
-            if (rerender) { RmtCommonStyles.Values[selected] = next; drafts.Remove(selected); }
-            else drafts[selected] = next;
-            SyncBranchProperties(selected, next);
-            dirty = true;
+            if (!StoreEdits(next, rerender)) return false;
             preview.Children.Clear();
             if (LiveInspecting()) ShowHierarchyPreview(Inspected());
             else ShowWindowPreview();
-            if (rerender) RmtCommonStyles.Refresh();
-            else RefreshDraftTargets();
             status.Text = rerender ? "已应用到正式界面。" : "";
             return true;
         }
@@ -5066,7 +5181,7 @@ internal sealed class RmtStyleEditor : Window
         if (RmtCommonStyles.IsWindowKey(selected)) return CommitWindow(rerender);
         applying = true;
         Dictionary<string, string> saved;
-        TryConfiguredValues(selected, out saved);
+        TryEditingValues(out saved);
         var next = saved == null ? new Dictionary<string, string>() : new Dictionary<string, string>(saved);
         try
         {
@@ -5146,12 +5261,7 @@ internal sealed class RmtStyleEditor : Window
                 if (next.TryGetValue("Height", out size) && size == "Auto") next.Remove("Height");
                 next.Remove("MinWidth"); next.Remove("MinHeight"); next.Remove("MaxWidth"); next.Remove("MaxHeight");
             }
-            if (rerender) { RmtCommonStyles.Values[selected] = next; drafts.Remove(selected); }
-            else drafts[selected] = next;
-            SyncBranchProperties(selected, next);
-            dirty = true;
-            if (rerender) RmtCommonStyles.Refresh();
-            else RefreshDraftTargets();
+            if (!StoreEdits(next, rerender)) return false;
             preview.Children.Clear();
             if (LiveInspecting()) ShowHierarchyPreview(Inspected());
             else ShowPreview(sample);

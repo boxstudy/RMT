@@ -398,7 +398,8 @@ public partial class AhkWpfEngine
             try
             {
                 var rootContent = win.Content as FrameworkElement;
-                if (rootContent != null && !(rootContent is System.Windows.Controls.Viewbox)
+                bool fluidDialogLayout = win.Resources["RmtFluidDialogLayout"] is bool && (bool)win.Resources["RmtFluidDialogLayout"];
+                if (!fluidDialogLayout && rootContent != null && !(rootContent is System.Windows.Controls.Viewbox)
                     && !double.IsNaN(win.Width))
                 {
                     if (double.IsNaN(rootContent.Width))
