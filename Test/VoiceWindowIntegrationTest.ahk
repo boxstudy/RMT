@@ -1,6 +1,7 @@
 #Requires AutoHotkey v2.0
 #SingleInstance Off
 #Warn All, Off
+Persistent true
 #Include ..\Plugins\AHK-XAML\lib\XAML_Host.ahk
 #Include ..\Plugins\AHK-XAML\lib\XAML_Generator.ahk
 #Include ..\Main\Util\XamlWin.ahk
@@ -10,9 +11,10 @@
 SetWorkingDir(A_ScriptDir "\..")
 
 ; Exercise the real cross-process window lifecycle without loading user macros.
-global XAML_ENGINE_BUILD_LOCATION := "lib/dep"
+global XAML_ENGINE_BUILD_LOCATION := "temp"
 global XAML_FORCE_DYNAMIC_COMPILE := true
 global XAML_ENABLE_DEVTOOLS := false
+global XAML_ENABLE_TRACING := false
 global MainSoftData := {FontType: "Microsoft YaHei UI", FontSize: 15, Theme: "RMT_Light", MyGui: ""}
 global TestTable := {Index: 1, ID: "voice-test", Items: [{VoiceKeywords: "开始,暂停"}]}
 global MyVoiceGui := VoiceGui()
@@ -72,7 +74,12 @@ RunVoiceProbe(*) {
         layoutValues := MyVoiceGui.ui.Query("Window>ActualWidth", "Window>ActualHeight", "RmtDialogRoot>ActualWidth", "RmtDialogRoot>ActualHeight")
         if (Abs(Number(layoutValues["Window>ActualWidth"]) - Number(layoutValues["RmtDialogRoot>ActualWidth"])) > 1
             || Abs(Number(layoutValues["Window>ActualHeight"]) - Number(layoutValues["RmtDialogRoot>ActualHeight"])) > 1)
-            throw Error("voice fluid root does not fill the window: " JoinValues(layoutValues))
+            throw Error("voice dialog root does not fill the restored window: " JoinValues(layoutValues))
+        chromeValues := MyVoiceGui.ui.Query("DialogTitle>FontSize", "BtnClosePanel>Width", "BtnClosePanel>Height", "VoiceKeywordActions>Uid")
+        if (chromeValues.Count != 4 || Abs(Number(chromeValues["DialogTitle>FontSize"]) - 17) > 0.01
+            || Abs(Number(chromeValues["BtnClosePanel>Width"]) - 46) > 0.01 || Abs(Number(chromeValues["BtnClosePanel>Height"]) - 30) > 0.01
+            || chromeValues["VoiceKeywordActions>Uid"] != "ahk:Voice.Keywords.Actions")
+            throw Error("voice chrome or persistent action id mismatch: " JoinValues(chromeValues))
         strokes := MyVoiceGui.ui.Query("EdKeywords>BorderThickness", "BtnSure>BorderThickness", "BtnCancel>BorderThickness")
         if (strokes.Count != 3 || !InStr(strokes["EdKeywords>BorderThickness"], "1.25") || !InStr(strokes["BtnSure>BorderThickness"], "1.25") || !InStr(strokes["BtnCancel>BorderThickness"], "1.25"))
             throw Error("voice border thickness mismatch: " JoinValues(strokes))

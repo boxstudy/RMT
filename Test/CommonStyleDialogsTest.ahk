@@ -24,7 +24,12 @@ class XAMLHost {
     static VisualFontSizeDeclared(extra := 0) => 15 + extra
     static FormatFontSize(value) => value
     static GetMainViewboxScale() => 1
-    static AddTitleBar(main, title, height) => main.Add("TextBlock").Grid_Row(0).Text(title).Height(height)
+    static AddTitleBar(main, title, height, closeName := "", titleName := "", *) {
+        titleText := main.Add("TextBlock").Grid_Row(0).Text(title).Height(height)
+        if (titleName != "")
+            titleText.Name(titleName)
+        return {Title: titleText}
+    }
     OnEvent(*) {
     }
     Update(name, property, value) {
@@ -71,6 +76,9 @@ try {
     Assert(table.ui.rows.Length == 2, "table rows generated")
     voice := VoiceGui()
     voice.ShowGui(MySoftData.TableInfo[1], 1)
+    Assert(InStr(voice.ui.xaml, 'Name="VoiceKeywordActions"') && InStr(voice.ui.xaml, 'Uid="ahk:Voice.Keywords.Actions"'), "voice action panel has a stable production instance id")
+    Assert(InStr(voice.ui.xaml, 'Name="DialogTitle"') && !InStr(voice.ui.xaml, "RmtFluidDialogLayout"), "voice window uses standard dialog title and scaling")
+    Assert(voice.ui.ownerHwnd == A_ScriptHwnd, "dialog owner is assigned before show")
     Assert(voice._ReadFields() == "你好,保存", "voice keywords read and normalized")
     voice._LoadToFields("测试, , 第二项")
     Assert(voice._ReadFields() == "测试,第二项", "voice reuse refreshes input")

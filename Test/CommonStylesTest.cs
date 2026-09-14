@@ -240,6 +240,25 @@ class CommonStylesTest
             Check(buttonSample != null && buttonSample.Template != null && previewButton != null && previewButton.Template != null && actionBg != null && previewBg != null && previewBg.Color == actionBg.Color, "button template preview uses ActionBg chrome matching override colors");
             var buttonColors = (Dictionary<string, ComboBox>)typeof(RmtStyleEditor).GetField("colorInputs", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
             Check(buttonColors.ContainsKey("PressedBackground") && buttonColors["PressedBackground"].SelectedItem != null, "button template pressed background has a concrete theme value");
+            var foregroundPicker = buttonColors["Foreground"];
+            var originalForeground = (foregroundPicker.SelectedItem as ComboBoxItem).Tag as string;
+            var changedForeground = foregroundPicker.Items.Cast<ComboBoxItem>().First(item =>
+            {
+                string candidate = item.Tag as string;
+                if (candidate == originalForeground) return false;
+                var brush = editor.TryFindResource(RmtCommonStyles.ThemeColorKey(candidate)) as SolidColorBrush;
+                var live = buttonSample.Foreground as SolidColorBrush;
+                return brush != null && live != null && brush.Color != live.Color;
+            });
+            string expectedForeground = changedForeground.Tag as string;
+            foregroundPicker.SelectedItem = changedForeground; Pump();
+            ((Button)editorRoot.FindName("CmdItemApply")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Pump();
+            selectedField.SetValue(editor, "Theme.Confirm"); renderMethod.Invoke(editor, null); Pump();
+            selectedField.SetValue(editor, selection); renderMethod.Invoke(editor, null); Pump();
+            buttonColors = (Dictionary<string, ComboBox>)typeof(RmtStyleEditor).GetField("colorInputs", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
+            Check(RmtCommonStyles.Values[selection]["Foreground"] == expectedForeground
+                && ((buttonColors["Foreground"].SelectedItem as ComboBoxItem).Tag as string) == expectedForeground,
+                "button template foreground remains saved after switching templates");
             selectedField.SetValue(editor, "Main.Config"); renderMethod.Invoke(editor, null); Pump();
             var configSample = (Button)typeof(RmtStyleEditor).GetField("sample", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
             var configPreview = ((StackPanel)typeof(RmtStyleEditor).GetField("preview", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor)).Children.OfType<Border>().Select(host => host.Child).OfType<Button>().FirstOrDefault();
@@ -357,6 +376,32 @@ class CommonStylesTest
             var alignPick = boxOptions["ChildAlignment"].Items.Cast<ComboBoxItem>().First(x => (x.Tag as string) == "Center");
             boxOptions["ChildAlignment"].SelectedItem = alignPick; Pump();
             Check(childA.HorizontalAlignment == HorizontalAlignment.Center && childB.HorizontalAlignment == HorizontalAlignment.Center, "stack panel child alignment centers children");
+            var voiceActions = new StackPanel { Name = "VoiceKeywordActions", Uid = "ahk:Voice.Keywords.Actions", Orientation = Orientation.Horizontal };
+            var voiceSure = new Button { Content = "确定", Width = 90, Margin = new Thickness(0, 0, 10, 0) };
+            var voiceCancel = new Button { Content = "取消", Width = 90 };
+            voiceActions.Children.Add(voiceSure); voiceActions.Children.Add(voiceCancel);
+            ((StackPanel)window.Content).Children.Add(voiceActions); Pump();
+            editor.AcceptHierarchyTarget(voiceActions); Pump();
+            var voiceInputs = (Dictionary<string, TextBox>)typeof(RmtStyleEditor).GetField("inputs", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
+            var voiceOptions = (Dictionary<string, ComboBox>)typeof(RmtStyleEditor).GetField("optionInputs", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
+            voiceInputs["Spacing"].Text = "150"; Pump();
+            voiceOptions["ChildAlignment"].SelectedItem = voiceOptions["ChildAlignment"].Items.Cast<ComboBoxItem>().First(x => (x.Tag as string) == "Center"); Pump();
+            ((Button)editorRoot.FindName("CmdItemApply")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Pump();
+            string voiceActionsId = RmtCommonStyles.LayoutId(voiceActions);
+            Check(voiceActionsId == "ahk:Voice.Keywords.Actions" && RmtCommonStyles.InstanceStyles.ContainsKey(voiceActionsId), "voice action panel adjustments persist under a stable instance id");
+            RmtCommonStyles.Save();
+            RmtCommonStyles.InstanceStyles.Remove(voiceActionsId);
+            typeof(RmtCommonStyles).GetMethod("Load", BindingFlags.NonPublic | BindingFlags.Static).Invoke(null, null);
+            ((StackPanel)window.Content).Children.Remove(voiceActions);
+            var reopenedVoiceActions = new StackPanel { Name = "VoiceKeywordActions", Uid = voiceActionsId, Orientation = Orientation.Horizontal };
+            var reopenedSure = new Button { Content = "确定", Width = 90, Margin = new Thickness(0, 0, 10, 0) };
+            var reopenedCancel = new Button { Content = "取消", Width = 90 };
+            reopenedVoiceActions.Children.Add(reopenedSure); reopenedVoiceActions.Children.Add(reopenedCancel);
+            ((StackPanel)window.Content).Children.Add(reopenedVoiceActions); RmtCommonStyles.EnsureRegistered(reopenedVoiceActions); Pump();
+            Check(reopenedVoiceActions.HorizontalAlignment == HorizontalAlignment.Center
+                && reopenedSure.HorizontalAlignment == HorizontalAlignment.Center && reopenedCancel.HorizontalAlignment == HorizontalAlignment.Center
+                && Math.Abs(reopenedCancel.Margin.Left - 150) < .1,
+                "voice action panel alignment and spacing restore after configuration reload");
             var bareLabel = new TextBlock { Name = "BareLabel", Text = "颜色14：" };
             ((StackPanel)window.Content).Children.Add(bareLabel); Pump();
             editor.AcceptHierarchyTarget(bareLabel); Pump();
@@ -550,7 +595,10 @@ class CommonStylesTest
             RmtCommonStyles.CloneBases["ButtonTemplate1"] = "通用/Button";
             RmtCommonStyles.DisplayNames["ButtonTemplate1"] = "测试删除模版";
             RmtCommonStyles.Refresh();
-            Check(Math.Abs(kept.Width - 77) < .1, "named template applies before delete");
+            Check(Math.Abs(kept.Width - 40) < .1, "saving a named template does not alter a matching live control");
+            RmtCommonStyles.InstanceStyles[RmtCommonStyles.LayoutId(kept)] = new Dictionary<string, string>(RmtCommonStyles.Values["ButtonTemplate1"]);
+            RmtCommonStyles.Refresh();
+            Check(Math.Abs(kept.Width - 77) < .1, "explicitly applying a template changes only the selected instance");
             editor.DeleteCatalogStyle("ButtonTemplate1"); Pump();
             Check(!RmtCommonStyles.Values.ContainsKey("ButtonTemplate1"), "deleted template is removed from the catalog store");
             var afterDelete = catalog.SelectedItem as TreeViewItem;
@@ -565,12 +613,23 @@ class CommonStylesTest
             RmtCommonStyles.Values["样式/RmtItemEditBtn"] = new Dictionary<string, string> { { "Width", "88" } };
             RmtCommonStyles.Values["通用/TextBox"] = new Dictionary<string, string> { { "RelativeFontSize", "2" } };
             RmtCommonStyles.Refresh();
-            Check(b.Width == 123, "button template applies to named instances as base");
-            Check(a.Width == 88, "named style overrides button template");
+            Check(double.IsNaN(b.Width) && a.Width == 64, "button template definitions do not repaint existing controls");
             Check(special.Width == 31, "explicit exception retained");
             Check(input.FontSize == 19 && BindingOperations.IsDataBound(input, TextBox.FontSizeProperty), "data binding retained");
             var dynamic = new Button(); ((StackPanel)window.Content).Children.Add(dynamic); Pump();
-            Check(dynamic.Width == 123, "button template applies to new instances");
+            Check(double.IsNaN(dynamic.Width), "button templates do not affect newly created controls");
+            editor.AcceptHierarchyTarget(b); Pump();
+            editor.ApplyReloadFromTemplate("通用/Button"); Pump();
+            ((Button)editorRoot.FindName("CmdItemApply")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Pump();
+            Check(b.Width == 123 && a.Width == 64 && double.IsNaN(dynamic.Width), "applying the common button template changes only the selected control");
+            Check(RmtCommonStyles.InstanceStyles.ContainsKey(RmtCommonStyles.LayoutId(b)), "applied common button template is persisted as an instance style");
+            RmtCommonStyles.Values["通用/Button"]["Width"] = "124"; RmtCommonStyles.Refresh();
+            Check(b.Width == 123 && a.Width == 64 && double.IsNaN(dynamic.Width), "later template edits do not change previously applied controls");
+            RmtCommonStyles.Values["通用/Button"]["Width"] = "123";
+            editor.AcceptHierarchyTarget(a); Pump();
+            editor.ApplyReloadFromTemplate("样式/RmtItemEditBtn"); Pump();
+            ((Button)editorRoot.FindName("CmdItemApply")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Pump();
+            Check(a.Width == 88 && b.Width == 123 && double.IsNaN(dynamic.Width), "applying a named template remains isolated to its selected control");
             ((ItemsControl)window.FindName("Virtual")).Items.Add("row"); Pump();
             Check(RmtCommonStyles.Live().Count(x => x.Key == "样式/RmtItemEditBtn") >= 2, "DataTemplate row registered");
             var styled = (Button)XamlReader.Parse("<Button xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml'><Button.Style><Style TargetType='Button'><Setter Property='Background' Value='#00000000'/><Setter Property='BorderBrush' Value='#FF223344'/><Setter Property='BorderThickness' Value='1'/><Setter Property='Template'><Setter.Value><ControlTemplate TargetType='Button'><Border x:Name='StyledBd' Background='{TemplateBinding Background}' BorderBrush='{TemplateBinding BorderBrush}' BorderThickness='{TemplateBinding BorderThickness}' CornerRadius='3'><Grid><Rectangle Width='8' Height='8' Fill='Orange'/></Grid></Border></ControlTemplate></Setter.Value></Setter></Style></Button.Style></Button>");
@@ -591,10 +650,13 @@ class CommonStylesTest
             RmtCommonStyles.Values["通用/Button"].Remove("HoverBackground");
             RmtCommonStyles.Values["通用/Button"].Remove("PressedBackground");
             RmtCommonStyles.Refresh();
-            RmtCommonStyles.Values["样式/RmtItemEditBtn"]["Background"] = "#FF123456"; RmtCommonStyles.Refresh();
+            RmtCommonStyles.InstanceStyles[RmtCommonStyles.LayoutId(a)]["Background"] = "#FF123456"; RmtCommonStyles.Refresh();
             Check(((SolidColorBrush)a.Background).Color == Color.FromRgb(18,52,86), "local resource override applied");
             window.Resources["ActionBg"] = Brushes.Blue; RmtCommonStyles.ThemeChanged(window, "ActionBg"); Pump();
             RmtCommonStyles.Values.Remove("样式/RmtItemEditBtn"); RmtCommonStyles.Values.Remove("通用/Button"); RmtCommonStyles.Refresh();
+            RmtCommonStyles.InstanceStyles.Remove(RmtCommonStyles.LayoutId(a));
+            RmtCommonStyles.InstanceStyles.Remove(RmtCommonStyles.LayoutId(b));
+            RmtCommonStyles.Refresh();
             Check(a.Width == 64 && double.IsNaN(b.Width), "restore style and unset local values");
             Check(((SolidColorBrush)a.Background).Color == Colors.Blue, "reset resolves latest dynamic resource");
             window.Resources["ActionBg"] = Brushes.Blue; Pump();
@@ -628,14 +690,17 @@ class CommonStylesTest
             var apply = typeof(RmtStyleEditor).GetMethod("Apply", BindingFlags.Instance | BindingFlags.NonPublic);
             Check(!editorInputs.ContainsKey("Cursor") && !editorOptions.ContainsKey("IsEnabled") && !editorOptions.ContainsKey("Visibility"), "reload properties remain on the compact template property set");
             Check(editorPresets.ContainsKey("Padding") && sliders.ContainsKey("RelativeFontSize"), "compact reload properties keep the original editable controls");
+            double templateEditFontBefore = b.FontSize;
+            Thickness templateEditPaddingBefore = b.Padding;
             editorPresets["Padding"].Text = "7,7,7,7";
             editorPresets["Padding"].RaiseEvent(new TextChangedEventArgs(TextBox.TextChangedEvent, UndoAction.None));
-            Check(b.Padding.Left == 7 && b.Padding.Bottom == 7, "text property edit automatically refreshes control");
+            Check(b.Padding == templateEditPaddingBefore, "editing a template padding does not refresh a matching control");
             sliders["RelativeFontSize"].Value = 3;
-            Check(b.FontSize == window.FontSize + 3, "editor automatically refreshes edited control");
+            Check(b.FontSize == templateEditFontBefore, "editing a template font does not refresh a matching control");
             var later = new Button { Uid = "gm:Main.Config", Content = "later" }; ((StackPanel)window.Content).Children.Add(later); Pump();
             Check(later.FontSize != window.FontSize + 3 && later.Padding.Left != 7, "automatic draft refresh does not affect later controls");
-            Check((bool)apply.Invoke(editor, null) && b.FontSize == window.FontSize + 3, "editor applies relative font preview");
+            Check((bool)apply.Invoke(editor, null) && b.FontSize == templateEditFontBefore && b.Padding == templateEditPaddingBefore,
+                "saving a template keeps all matching controls unchanged");
             editor.Close(); Check(b.FontSize > 0, "closing restores a valid saved style state");
             other.Close(); window.Close();
             File.Delete(path); File.Delete(path + ".bak");

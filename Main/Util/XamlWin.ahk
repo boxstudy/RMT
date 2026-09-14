@@ -25,7 +25,7 @@ class XamlWin {
         main := XAML_Generator("Grid").Name("RmtDialogRoot").Background("{DynamicResource BgColor}")
             .TextElement_FontFamily(MainSoftData.FontType).TextElement_FontSize(bodyFont)
         main.Rows(titleHeight, "*")
-        chrome := XAMLHost.AddTitleBar(main, title, titleHeight)
+        chrome := XAMLHost.AddTitleBar(main, title, titleHeight, "BtnClosePanel", "DialogTitle")
         if (fluidContent) {
             try chrome.Title.FontSize(XAMLHost.VisualFontSizeDeclared(2))
         }
@@ -95,6 +95,10 @@ class XamlWin {
             } catch {
             }
         }
+        ; Set the native owner in CREATE_WINDOW, before the hidden window is shown.
+        ; Applying it after reveal changes z-order/activation and produces visible flashes.
+        if (ownerHwnd != "")
+            ui.ownerHwnd := ownerHwnd
         ui.Show()
         return XamlWin.WaitHwnd(ui, ownerHwnd, activate)
     }
@@ -104,9 +108,15 @@ class XamlWin {
             return false
         loop 40 {
             if (ui.HasProp("wpfHwnd") && ui.wpfHwnd) {
-                if (ownerHwnd != "")
+                ; Compatibility fallback for callers that showed the host themselves.
+                if (ownerHwnd != "" && (!ui.HasProp("ownerHwnd") || String(ui.ownerHwnd) != String(ownerHwnd)))
                     try ui.Update("Window", "NativeOwner", String(ownerHwnd))
-                XamlWin.Reveal(ui)
+                ; Opaque XamlWin dialogs are already revealed once, after their complete
+                ; update queue and font pass, by the LoadedHwnd handler.
+                autoReveal := InStr(ui.xaml, 'Opacity="0"') && !InStr(ui.xaml, 'AllowsTransparency="True"')
+                skipReveal := ui.HasOwnProp("_skipAutoReveal") && ui._skipAutoReveal
+                if (!autoReveal && !skipReveal)
+                    XamlWin.Reveal(ui)
                 if (activate)
                     try WinActivate("ahk_id " ui.wpfHwnd)
                 return true

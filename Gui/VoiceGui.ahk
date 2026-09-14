@@ -46,8 +46,7 @@ class VoiceGui {
 
         try {
             mainGui := IsObject(MainSoftData.MyGui) ? MainSoftData.MyGui.Hwnd : ""
-            visualScale := XAMLHost.GetMainViewboxScale()
-            strokeWidth := XAMLHost.FormatFontSize(1.25 * visualScale)
+            strokeWidth := "1.25"
             panel := XAML_Generator("Grid").Margin("16")
             panel.Rows("Auto", "Auto", "*", "Auto", "Auto")
             panel.Add("TextBlock").Grid_Row(0).Text(GetLang("说出以下关键词即可触发该宏。支持多个关键词，用英文逗号 , 分隔。")).TextWrapping("Wrap").Margin("0,0,0,10")
@@ -60,7 +59,10 @@ class VoiceGui {
                 .SnapsToDevicePixels("True").UseLayoutRounding("False")
             ed.InjectResources(this._FieldStrokeStyle("TextBox"))
             panel.Add("TextBlock").Grid_Row(3).Text(GetLang("示例：开始攻击, 暂停, 保存进度（每个关键词之间用英文逗号分隔）")).TextWrapping("Wrap").Margin("0,8,0,12")
-            buttons := panel.Add("StackPanel").Grid_Row(4).Orientation("Horizontal").HorizontalAlignment("Right")
+            ; A stable Uid is required for GM-UI instance properties to survive a restart.
+            ; Automatic source-line Uids are disabled in production and must not be relied on.
+            buttons := panel.Add("StackPanel").Name("VoiceKeywordActions").Uid("ahk:Voice.Keywords.Actions")
+                .Grid_Row(4).Orientation("Horizontal").HorizontalAlignment("Right")
             btnSure := buttons.Add("Button").Name("BtnSure").Content(GetLang("确定")).Width(90).MinHeight(32)
                 .BorderBrush("{DynamicResource OutlineStroke}").BorderThickness(strokeWidth)
                 .SnapsToDevicePixels("True").UseLayoutRounding("False")
@@ -71,9 +73,10 @@ class VoiceGui {
                 .SnapsToDevicePixels("True").UseLayoutRounding("False")
                 .IsCancel("True")
             btnCancel.InjectResources(this._FieldStrokeStyle("Button"))
-            ; Fluid layout fills GM-UI-restored dimensions. XamlWin bakes the main
-            ; visual scale into fonts instead of letterboxing the whole dialog.
-            this.ui := XamlWin.Create(GetLang("语音关键词"), panel, 480, 340, true)
+            ; Use the same Viewbox/chrome scaling path as every other business dialog.
+            ; The former fluid-only path made this title bar a different visual size and
+            ; caused several visible relayouts while restoring the saved window geometry.
+            this.ui := XamlWin.Create(GetLang("语音关键词"), panel, 480, 340)
             this.ui.OnEvent("BtnSure", "Click", (*) => this.OnSureClick())
             this.ui.OnEvent("BtnCancel", "Click", (*) => this.Cancel())
             this.ui.OnEvent("Window", "Closing", (*) => this._OnClosed())

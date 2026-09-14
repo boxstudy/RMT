@@ -381,7 +381,23 @@ internal static class RmtCommonStyles
             if (value.Equals("Auto", StringComparison.OrdinalIgnoreCase)) { window.Height = double.NaN; resized = true; }
             else if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out size) && size > 0) { window.Height = size; resized = true; }
         }
-        if (resized) NormalizeWindowContentForResize(window, visualScale);
+        if (resized)
+        {
+            NormalizeWindowContentForResize(window, visualScale);
+            if (!window.IsLoaded)
+            {
+                // Before Show(), WPF still reports the Viewbox's old viewport size. Retarget
+                // once more during Loaded so a saved GM-UI window size fills the real viewport
+                // before LoadedHwnd lets the AHK host reveal the window.
+                RoutedEventHandler loaded = null;
+                loaded = delegate
+                {
+                    window.Loaded -= loaded;
+                    NormalizeWindowContentForResize(window, visualScale);
+                };
+                window.Loaded += loaded;
+            }
+        }
     }
 
     internal static double WindowContentVisualScale(Window window)
@@ -433,8 +449,13 @@ internal static class RmtCommonStyles
     private static void RetargetViewboxDesignSize(Window window, Viewbox hostBox, FrameworkElement child, double visualScale)
     {
         if (window == null || hostBox == null || child == null) return;
-        double viewportW = hostBox.ActualWidth > 1 ? hostBox.ActualWidth : (window.ActualWidth > 1 ? window.ActualWidth : window.Width);
-        double viewportH = hostBox.ActualHeight > 1 ? hostBox.ActualHeight : (window.ActualHeight > 1 ? window.ActualHeight : window.Height);
+        // Width/Height already contain the restored GM-UI target while the pre-show Viewbox
+        // can still report its original design viewport. Prefer the explicit target so the
+        // first visible frame cannot be letterboxed and then relaid out.
+        double viewportW = !window.IsLoaded && !double.IsNaN(window.Width) && window.Width > 1 ? window.Width
+            : (hostBox.ActualWidth > 1 ? hostBox.ActualWidth : (window.ActualWidth > 1 ? window.ActualWidth : window.Width));
+        double viewportH = !window.IsLoaded && !double.IsNaN(window.Height) && window.Height > 1 ? window.Height
+            : (hostBox.ActualHeight > 1 ? hostBox.ActualHeight : (window.ActualHeight > 1 ? window.ActualHeight : window.Height));
         if (double.IsNaN(viewportW) || viewportW <= 1 || double.IsNaN(viewportH) || viewportH <= 1) return;
         double designW = child.ActualWidth > 1 ? child.ActualWidth : child.Width;
         double designH = child.ActualHeight > 1 ? child.ActualHeight : child.Height;
@@ -675,13 +696,11 @@ internal static class RmtCommonStyles
         }
         var desired = new Dictionary<string, string>();
         var instanceKeys = new HashSet<string>();
-        Dictionary<string, string> common, specific, instance;
-        // Explicit exceptions opt out of shared overrides but remain editable in the catalog.
-        string commonKey = "通用/" + fe.GetType().Name;
-        if (!entry.Key.StartsWith("特殊/") && Values.TryGetValue(commonKey, out common))
-            foreach (var pair in common) desired[pair.Key] = pair.Value;
-        if (Values.TryGetValue(entry.Key, out specific))
-            foreach (var pair in specific) desired[pair.Key] = pair.Value;
+        Dictionary<string, string> instance;
+        // Values contains reusable template definitions. Templates are deliberately inert:
+        // editing or saving one must never repaint every live control that happens to share
+        // its type/style key. A control changes only after the user explicitly applies a
+        // template to that located instance, which stores a copy in InstanceStyles.
         string layoutId = LayoutId(fe);
         if (layoutId != "" && InstanceStyles.TryGetValue(layoutId, out instance))
             foreach (var pair in instance) { desired[pair.Key] = pair.Value; instanceKeys.Add(pair.Key); }
@@ -739,8 +758,6 @@ internal static class RmtCommonStyles
         if (fe is Control) ApplyCorners((Control)fe);
         if (fe is ComboBox) ApplyComboDropDown((ComboBox)fe);
         if (fe is Window) ApplyWindowChrome((Window)fe, entry, desired);
-        StyleBranch composite;
-        if (overlay == null && Composites.TryGetValue(entry.Key, out composite)) ApplyCompositeChildren(fe, composite);
     }
 
     internal static List<FrameworkElement> StyleChildren(DependencyObject parent)
@@ -2223,8 +2240,8 @@ internal sealed class RmtStyleEditor : Window
             if (persist) { RmtCommonStyles.Values[selected] = next; drafts.Remove(selected); }
             else drafts[selected] = next;
             SyncBranchProperties(selected, next);
-            if (persist) RmtCommonStyles.Refresh();
-            else RefreshDraftTargets();
+            // Template edits update only the detached editor preview. They are copied onto a
+            // live control exclusively through ApplyReloadFromTemplate/instance editing.
         }
         dirty = true;
         return true;
@@ -2273,7 +2290,6 @@ internal sealed class RmtStyleEditor : Window
         SyncBranchProperties(template, RmtCommonStyles.Values[template]);
         drafts.Remove(template);
         dirty = true;
-        RmtCommonStyles.Refresh();
         status.Text = "已将重载属性应用到模版：" + DisplayName(template) + "。";
     }
 
@@ -2374,22 +2390,7 @@ internal sealed class RmtStyleEditor : Window
             status.Text = "内置模版不能删除。";
             return;
         }
-        foreach (string item in RmtCommonStyles.StyleTreeKeys(key).ToArray())
-        {
-            Dictionary<string, string> values;
-            TryConfiguredValues(item, out values);
-            foreach (var entry in RmtCommonStyles.Live().ToArray())
-            {
-                if (entry.Key != item) continue;
-                var element = entry.Element.Target as FrameworkElement;
-                RmtCommonStyles.BakeInstance(element, values);
-                RmtCommonStyles.FreezeApplied(entry);
-                RmtCommonStyles.StyleBranch liveBranch;
-                if (RmtCommonStyles.Composites.TryGetValue(item, out liveBranch))
-                    BakeCompositeTree(element, liveBranch);
-            }
-            drafts.Remove(item);
-        }
+        foreach (string item in RmtCommonStyles.StyleTreeKeys(key).ToArray()) drafts.Remove(item);
         string neighbor = NeighborCatalogKey(key);
         RmtCommonStyles.RemoveStyleTree(key);
         RmtCommonStyles.HiddenStyles.Add(key);
@@ -2404,7 +2405,7 @@ internal sealed class RmtStyleEditor : Window
         }
         if (catalog.SelectedItem == null) SelectCatalog("通用/Button", true, true);
         Render();
-        status.Text = "已删除模版，已使用该样式的控件保持当前外观。";
+        status.Text = "已删除模版；已单独应用到控件的实例样式不受影响。";
     }
 
     private static void BakeCompositeTree(FrameworkElement element, RmtCommonStyles.StyleBranch branch)
@@ -3537,22 +3538,7 @@ internal sealed class RmtStyleEditor : Window
     private void DeleteCatalogStyleSilent(string key)
     {
         if (!CanDeleteStyle(key)) return;
-        foreach (string item in RmtCommonStyles.StyleTreeKeys(key).ToArray())
-        {
-            Dictionary<string, string> values;
-            TryConfiguredValues(item, out values);
-            foreach (var entry in RmtCommonStyles.Live().ToArray())
-            {
-                if (entry.Key != item) continue;
-                var element = entry.Element.Target as FrameworkElement;
-                RmtCommonStyles.BakeInstance(element, values);
-                RmtCommonStyles.FreezeApplied(entry);
-                RmtCommonStyles.StyleBranch liveBranch;
-                if (RmtCommonStyles.Composites.TryGetValue(item, out liveBranch))
-                    BakeCompositeTree(element, liveBranch);
-            }
-            drafts.Remove(item);
-        }
+        foreach (string item in RmtCommonStyles.StyleTreeKeys(key).ToArray()) drafts.Remove(item);
         RmtCommonStyles.RemoveStyleTree(key);
         RmtCommonStyles.HiddenStyles.Add(key);
     }
@@ -5184,6 +5170,7 @@ internal sealed class RmtStyleEditor : Window
     {
         var combo = new ComboBox { IsEnabled = !bound, MinHeight = 28, Padding = new Thickness(4), ToolTip = "只能选择主题颜色序列；切换主题时会自动同步。" };
         string wanted = RmtCommonStyles.IsThemeColor(value) ? RmtCommonStyles.ThemeColorKey(value) : "";
+        bool hasConfiguredTheme = !string.IsNullOrEmpty(wanted);
         var liveSolid = liveBrush as SolidColorBrush;
         if (liveSolid == null || liveSolid.Color.A == 0)
             liveSolid = ParseSolid(string.IsNullOrEmpty(value) ? current : value);
@@ -5201,7 +5188,11 @@ internal sealed class RmtStyleEditor : Window
             string displayed = string.IsNullOrEmpty(value) ? current : value;
             var themeSolid = brush as SolidColorBrush;
             bool sameLive = liveSolid != null && themeSolid != null && liveSolid.Color == themeSolid.Color && liveSolid.Color.A > 0;
-            if (key == wanted || sameLive || (string.IsNullOrEmpty(wanted) && liveSolid != null && ColorTextEquals(hex, displayed))) combo.SelectedItem = item;
+            // A persisted theme resource is authoritative. The live brush can still reflect
+            // the previous template while the editor is switching selections, so allowing it
+            // to match as well can overwrite the saved selection later in this loop.
+            if (key == wanted || (!hasConfiguredTheme && (sameLive || (liveSolid != null && ColorTextEquals(hex, displayed)))))
+                combo.SelectedItem = item;
         }
         if (combo.SelectedIndex < 0 && liveSolid != null && liveSolid.Color.A > 0)
             combo.SelectedIndex = ClosestPaletteIndex(liveSolid.Color);
