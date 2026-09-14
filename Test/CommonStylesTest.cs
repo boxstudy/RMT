@@ -179,10 +179,10 @@ class CommonStylesTest
             var closeGlyph = (TextBlock)editorRoot.FindName("CloseGlyph");
             var pinGlyph = (TextBlock)editorRoot.FindName("PinGlyph");
             var mainTabs = (TabControl)editorRoot.FindName("MainTabs");
-            Check(mainTabs != null && mainTabs.Items.Count == 2 && mainTabs.SelectedIndex == 0 && ((TabItem)mainTabs.Items[0]).Header as string == "样式管理" && ((TabItem)mainTabs.Items[1]).Header as string == "控件反射", "GM-UI tabs default to style management");
-            Check(mainTabs.Margin.Top == 2 && ((DockPanel)editorRoot.FindName("StylesContent")).Margin.Top == 2 && ((DockPanel)editorRoot.FindName("ReflectContent")).Margin.Top == 5, "tab and content vertical offsets");
+            Check(mainTabs != null && mainTabs.Items.Count == 3 && mainTabs.SelectedIndex == 0 && ((TabItem)mainTabs.Items[0]).Header as string == "控件调整" && ((TabItem)mainTabs.Items[1]).Header as string == "模版列表" && ((TabItem)mainTabs.Items[2]).Header as string == "窗口层级", "GM-UI tabs default to control adjustment");
+            Check(mainTabs.Margin.Top == 2 && ((DockPanel)editorRoot.FindName("StylesContent")).Margin.Top == 2 && ((DockPanel)editorRoot.FindName("TemplatesContent")).Margin.Top == 2 && ((DockPanel)editorRoot.FindName("ReflectContent")).Margin.Top == 5, "tab and content vertical offsets");
             Check(!WalkLogical((DependencyObject)editorRoot.FindName("StylesContent")).OfType<TextBlock>().Any(t => t.Text == "属性名 / 属性值（每行三组）"), "property section caption removed");
-            Check(mainTabs.Style != null && ((TabItem)mainTabs.Items[0]).Style != null && ((TabItem)mainTabs.Items[0]).Tag as string == "first" && ((TabItem)mainTabs.Items[1]).Tag as string == "last", "GM-UI tabs use main-window-like tab chrome");
+            Check(mainTabs.Style != null && ((TabItem)mainTabs.Items[0]).Style != null && ((TabItem)mainTabs.Items[0]).Tag as string == "first" && ((TabItem)mainTabs.Items[2]).Tag as string == "last", "GM-UI tabs use main-window-like tab chrome");
             var tabTemplate = (ControlTemplate)((Setter)((TabItem)mainTabs.Items[0]).Style.Setters.OfType<Setter>().First(s => s.Property == Control.TemplateProperty)).Value;
             string expectedFont = Math.Max(12, RmtCommonStyles.ThemeFontSize(window) + 2).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
             Check(XamlWriter.Save(tabTemplate).IndexOf("FontSize=\"" + expectedFont + "\"", StringComparison.Ordinal) >= 0, "tab header font size is theme plus two");
@@ -206,7 +206,7 @@ class CommonStylesTest
             fontCombo.Template = (ControlTemplate)XamlReader.Parse(@"<ControlTemplate xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' TargetType='ComboBox'><Grid><ToggleButton><ToggleButton.Template><ControlTemplate TargetType='ToggleButton'><Border Background='White' BorderBrush='Gray' BorderThickness='1' CornerRadius='4'/></ControlTemplate></ToggleButton.Template></ToggleButton><Popup><Border MaxHeight='350' CornerRadius='4'/></Popup></Grid></ControlTemplate>");
             fontCombo.Items.Add("宋体"); fontCombo.Items.Add("黑体"); fontCombo.SelectedIndex = 0;
             ((StackPanel)window.Content).Children.Add(fontCombo); Pump();
-            mainTabs.SelectedIndex = 1; Pump();
+            mainTabs.SelectedIndex = 2; Pump();
             var hierarchyTree = (TreeView)editorRoot.FindName("HierarchyTree");
             Check(hierarchyTree != null && hierarchyTree.Items.Count > 0, "control reflector tab shows window hierarchy");
             var hierarchyRoot = (TreeViewItem)hierarchyTree.Items[0];
@@ -217,7 +217,7 @@ class CommonStylesTest
                 var child = (TreeViewItem)hierarchyRoot.Items[0];
                 child.IsExpanded = true;
                 mainTabs.SelectedIndex = 0; Pump();
-                mainTabs.SelectedIndex = 1; Pump();
+                mainTabs.SelectedIndex = 2; Pump();
                 Check(ReferenceEquals(hierarchyTree.Items[0], hierarchyRoot) && child.IsExpanded, "switching tabs preserves hierarchy expansion");
             }
             var comboNode = hierarchyRoot.Items.OfType<TreeViewItem>().SelectMany(FlattenTree).FirstOrDefault(x => (x.Header as string ?? "").StartsWith("ComboBox"));
@@ -258,6 +258,7 @@ class CommonStylesTest
             Check(windowPresets.ContainsKey("Padding") && windowPresets.ContainsKey("CornerRadius") && windowPresets["Padding"].IsEditable && windowColors.ContainsKey("Background") && windowColors["Background"].Items.Count == 14, "window padding radius and background use the same pickers as button templates");
             selectedField.SetValue(editor, selection); renderMethod.Invoke(editor, null);
             var catalog = (TreeView)typeof(RmtStyleEditor).GetField("catalog", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
+            var adjustCatalog = (TreeView)typeof(RmtStyleEditor).GetField("adjustCatalog", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
             var windowGroup = catalog.Items.OfType<TreeViewItem>().First(g => (g.Header as string) == "窗口" || (g.Tag as string) == "#group:窗口");
             var buttonGroupMenu = catalog.Items.OfType<TreeViewItem>().First(g => (g.Header as string) == "按钮" || (g.Tag as string) == "#group:按钮");
             Check(windowGroup.ContextMenu != null && windowGroup.ContextMenu.Items.OfType<MenuItem>().Any(x => (x.Header as string) == "删除")
@@ -271,9 +272,9 @@ class CommonStylesTest
             Check(true, "all catalog previews render");
             var a = (Button)window.FindName("First"); var b = (Button)window.FindName("Second");
             editor.AcceptHierarchyTarget(b); Pump();
-            var reflectGroup = catalog.Items.OfType<TreeViewItem>().First(g => (g.Header as string) == "反射控件");
+            var reflectGroup = adjustCatalog.Items.OfType<TreeViewItem>().First(g => (g.Header as string) == "反射控件");
             var reflectLeaf = reflectGroup.Items.OfType<TreeViewItem>().First();
-            Check(reflectLeaf.IsSelected && ReferenceEquals(catalog.SelectedItem, reflectLeaf), "locate selects reflected control not its template");
+            Check(reflectLeaf.IsSelected && ReferenceEquals(adjustCatalog.SelectedItem, reflectLeaf), "locate selects reflected control not its template");
             var positionX = (TextBox)typeof(RmtStyleEditor).GetField("positionX", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
             var positionY = (TextBox)typeof(RmtStyleEditor).GetField("positionY", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
             var fieldsPanel = (StackPanel)typeof(RmtStyleEditor).GetField("fields", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
@@ -282,6 +283,8 @@ class CommonStylesTest
             var reflectedColors = (Dictionary<string, ComboBox>)typeof(RmtStyleEditor).GetField("colorInputs", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
             Check(reflectedColors["Background"].Items.Cast<ComboBoxItem>().All(x => Convert.ToString(x.Content).IndexOf("继承当前颜色", StringComparison.Ordinal) < 0), "reflected inherited colors show their concrete value");
             Check(reflectedColors["Background"].Items.Count == 14 && reflectedColors["Background"].Items.Cast<ComboBoxItem>().All(x => (x.Tag as string ?? "").StartsWith("$Theme:")), "color properties contain only colors 1 through 14");
+            var reloadList = fieldsPanel.Children.OfType<DockPanel>().SelectMany(p => p.Children.OfType<StackPanel>()).SelectMany(p => p.Children.OfType<ComboBox>()).FirstOrDefault(c => c.Name == "ReloadList");
+            Check(reloadList != null && reloadList.Items.Cast<ComboBoxItem>().Any(x => (x.Tag as string) == "通用/Button") && reloadList.Items.Cast<ComboBoxItem>().Any(x => (x.Tag as string) == "样式/RmtItemEditBtn"), "located button shows button templates in the reload list");
             var positionLabel = fieldsPanel.Children.OfType<Grid>().SelectMany(g => g.Children.OfType<TextBlock>()).First(t => t.Text == "位置X");
             Check(positionLabel.Cursor == System.Windows.Input.Cursors.SizeWE, "position labels support drag adjustment");
             int positionHeadingAt = -1, styleTemplateAt = -1;
@@ -309,14 +312,14 @@ class CommonStylesTest
             typeof(RmtStyleEditor).GetMethod("FindTemplate", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(editor, null); Pump();
             var templateLeaf = (TreeViewItem)catalog.SelectedItem;
             var templateHeader = templateLeaf == null ? null : templateLeaf.Header as Grid;
-            Check(templateLeaf != null && (templateLeaf.Tag as string) == "通用/Button" && templateHeader != null && templateHeader.Children.OfType<System.Windows.Shapes.Ellipse>().Any(e => e.Visibility == Visibility.Visible), "find template frames selected template");
+            Check(templateLeaf != null && (templateLeaf.Tag as string) == "通用/Button" && templateHeader != null && templateHeader.Children.OfType<System.Windows.Shapes.Ellipse>().Any(e => e.Visibility == Visibility.Visible) && mainTabs.SelectedIndex == 1, "find template frames selected template");
             var inspectAfterFind = (WeakReference)typeof(RmtStyleEditor).GetField("inspectRef", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
             Check(inspectAfterFind != null && ReferenceEquals(inspectAfterFind.Target, b), "find template keeps reflected control reference");
-            Check(catalog.Items.OfType<TreeViewItem>().Any(g => (g.Header as string) == "反射控件"), "reflected control catalog group remains after find template");
+            Check(adjustCatalog.Items.OfType<TreeViewItem>().Any(g => (g.Header as string) == "反射控件"), "reflected control catalog group remains after find template");
             typeof(RmtStyleEditor).GetMethod("ApplyReloadToTemplate", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(editor, null); Pump();
             Check(RmtCommonStyles.Values.ContainsKey("通用/Button"), "apply reload properties to template");
             var defaultMenu = defaultLeaf.ContextMenu;
-            Check(defaultMenu != null && defaultMenu.Items.OfType<MenuItem>().Any(x => (x.Header as string) == "删除"), "button template provides delete command");
+            Check(defaultMenu != null && defaultMenu.Items.OfType<MenuItem>().Any(x => (x.Header as string) == "删除") && defaultMenu.Items.OfType<MenuItem>().Any(x => (x.Header as string) == "新增模版"), "button template provides delete command");
             var buttonGroup = catalog.Items.OfType<TreeViewItem>().First(g => (g.Header as string) == "按钮");
             var buttonOne = buttonGroup.Items.OfType<TreeViewItem>().FirstOrDefault(x => (x.Tag as string) == "样式/RmtItemEditBtn");
             var buttonTwo = buttonGroup.Items.OfType<TreeViewItem>().FirstOrDefault(x => (x.Tag as string) == "样式/RmtItemPrimaryBtn");
@@ -330,7 +333,7 @@ class CommonStylesTest
             box.Children.Add(childA); box.Children.Add(childB);
             ((StackPanel)window.Content).Children.Add(box); Pump();
             editor.AcceptHierarchyTarget(box); Pump();
-            reflectGroup = catalog.Items.OfType<TreeViewItem>().First(g => (g.Header as string) == "反射控件");
+            reflectGroup = adjustCatalog.Items.OfType<TreeViewItem>().First(g => (g.Header as string) == "反射控件");
             reflectLeaf = reflectGroup.Items.OfType<TreeViewItem>().First();
             Check(reflectLeaf.Items.Count == 2, "locating a parent syncs child hierarchy into style management");
             Check(fieldsPanel.Children.OfType<Grid>().SelectMany(g => g.Children.OfType<TextBlock>()).Any(t => t.Text == "示例内容"), "hierarchy target shows sample content field");
@@ -339,7 +342,7 @@ class CommonStylesTest
             var boxOptions = (Dictionary<string, ComboBox>)typeof(RmtStyleEditor).GetField("optionInputs", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
             var boxColors = (Dictionary<string, ComboBox>)typeof(RmtStyleEditor).GetField("colorInputs", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
             var boxInputs = (Dictionary<string, TextBox>)typeof(RmtStyleEditor).GetField("inputs", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
-            Check(boxOptions.ContainsKey("Orientation") && boxOptions.ContainsKey("HorizontalAlignment"), "panel exposes orientation and alignment");
+            Check(boxOptions.ContainsKey("Orientation") && boxOptions.ContainsKey("HorizontalAlignment") && boxOptions.ContainsKey("ChildAlignment"), "panel exposes orientation and alignment");
             Check(boxInputs.ContainsKey("Spacing"), "stack panel exposes child spacing");
             Check(boxInputs["Spacing"].Padding.Left == 2 && boxInputs["Spacing"].Padding.Top == 0
                 && boxInputs["Spacing"].Height == 28 && boxInputs["Spacing"].VerticalContentAlignment == VerticalAlignment.Center,
@@ -347,9 +350,13 @@ class CommonStylesTest
             Check(!boxOptions.ContainsKey("TextAlignment") && !boxOptions.ContainsKey("Stretch"), "panel hides text and image-only properties");
             Check(!boxColors.ContainsKey("HoverBackground") && !boxColors.ContainsKey("PressedBackground"), "panel hides button chrome properties");
             var boxTemplate = SectionValues(fieldsPanel, "模版属性", "重载属性");
-            Check(boxTemplate.ContainsKey("排列方向") && boxTemplate.ContainsKey("控件水平对齐") && boxTemplate.ContainsKey("子项间距") && !boxTemplate.ContainsKey("文本对齐"), "panel template lists layout properties");
+            Check(boxTemplate.ContainsKey("排列方向") && boxTemplate.ContainsKey("控件水平对齐") && boxTemplate.ContainsKey("子项间距") && boxTemplate.ContainsKey("内容对齐") && !boxTemplate.ContainsKey("文本对齐"), "panel template lists layout properties");
             boxInputs["Spacing"].Text = "6"; Pump();
             Check(Math.Abs(childB.Margin.Top - 6) < .1, "stack panel spacing applies between vertical children");
+            typeof(RmtStyleEditor).GetField("interactionReady", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(editor, true);
+            var alignPick = boxOptions["ChildAlignment"].Items.Cast<ComboBoxItem>().First(x => (x.Tag as string) == "Center");
+            boxOptions["ChildAlignment"].SelectedItem = alignPick; Pump();
+            Check(childA.HorizontalAlignment == HorizontalAlignment.Center && childB.HorizontalAlignment == HorizontalAlignment.Center, "stack panel child alignment centers children");
             var bareLabel = new TextBlock { Name = "BareLabel", Text = "颜色14：" };
             ((StackPanel)window.Content).Children.Add(bareLabel); Pump();
             editor.AcceptHierarchyTarget(bareLabel); Pump();
@@ -366,6 +373,7 @@ class CommonStylesTest
             Check(!labelOptions.ContainsKey("IsReadOnly") && !labelOptions.ContainsKey("Orientation"), "text block hides text-box and panel-only properties");
             var labelTemplate = SectionValues(fieldsPanel, "模版属性", "重载属性");
             Check(labelTemplate.ContainsKey("文本对齐") && labelTemplate.ContainsKey("文本换行") && labelTemplate.ContainsKey("文本裁剪") && !labelTemplate.ContainsKey("悬停背景"), "text block template lists text properties");
+            Check(!fieldsPanel.Children.OfType<DockPanel>().SelectMany(p => p.Children.OfType<StackPanel>()).SelectMany(p => p.Children.OfType<ComboBox>()).Any(c => c.Name == "ReloadList"), "text block hides reload list when no matching template exists");
             var inputBox = (TextBox)window.FindName("Input");
             editor.AcceptHierarchyTarget(inputBox); Pump();
             var inputColors = (Dictionary<string, ComboBox>)typeof(RmtStyleEditor).GetField("colorInputs", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
@@ -475,7 +483,7 @@ class CommonStylesTest
             typeof(RmtStyleEditor).GetMethod("PickMouseDown", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(editor, new object[] { editor, clickArgs });
             Pump();
             var firstRoot = (WeakReference)typeof(RmtStyleEditor).GetField("inspectRootRef", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
-            reflectGroup = catalog.Items.OfType<TreeViewItem>().First(g => (g.Header as string) == "反射控件" || (g.Tag as string) == "#group:反射控件");
+            reflectGroup = adjustCatalog.Items.OfType<TreeViewItem>().First(g => (g.Header as string) == "反射控件" || (g.Tag as string) == "#group:反射控件");
             reflectLeaf = reflectGroup.Items.OfType<TreeViewItem>().First();
             var pickedHierarchy = (TreeView)editorRoot.FindName("HierarchyTree");
             Check(clickArgs.Handled && firstRoot != null && ReferenceEquals(firstRoot.Target, firstButton), "left click confirms the hovered locate target");
@@ -485,7 +493,7 @@ class CommonStylesTest
             Check(reflectLeaf.ContextMenu != null && reflectLeaf.ContextMenu.Items.OfType<MenuItem>().Any(x => (x.Header as string) == "显示父级"), "reflect root offers show parent");
             editor.ShowInspectParent(); Pump();
             var parentRoot = (WeakReference)typeof(RmtStyleEditor).GetField("inspectRootRef", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
-            reflectGroup = catalog.Items.OfType<TreeViewItem>().First(g => (g.Header as string) == "反射控件" || (g.Tag as string) == "#group:反射控件");
+            reflectGroup = adjustCatalog.Items.OfType<TreeViewItem>().First(g => (g.Header as string) == "反射控件" || (g.Tag as string) == "#group:反射控件");
             reflectLeaf = reflectGroup.Items.OfType<TreeViewItem>().First();
             Check(parentRoot != null && parentRoot.Target is Panel && ((Panel)parentRoot.Target).Children.Contains(firstButton), "show parent promotes the reflect root to the container");
             Check(FlattenTree(reflectLeaf).Any(x => { var weak = x.DataContext as WeakReference; return weak != null && ReferenceEquals(weak.Target, firstButton); }), "parent hierarchy still contains the original button");
@@ -526,7 +534,7 @@ class CommonStylesTest
             var pickedRoot = (WeakReference)typeof(RmtStyleEditor).GetField("inspectRootRef", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
             var pickedRef = (WeakReference)typeof(RmtStyleEditor).GetField("inspectRef", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
             Check(pickedRoot != null && ReferenceEquals(pickedRoot.Target, box) && pickedRef != null && ReferenceEquals(pickedRef.Target, box), "control pick shows the selected control not its parent");
-            reflectGroup = catalog.Items.OfType<TreeViewItem>().First(g => (g.Header as string) == "反射控件" || (g.Tag as string) == "#group:反射控件");
+            reflectGroup = adjustCatalog.Items.OfType<TreeViewItem>().First(g => (g.Header as string) == "反射控件" || (g.Tag as string) == "#group:反射控件");
             reflectLeaf = reflectGroup.Items.OfType<TreeViewItem>().First();
             Check(reflectLeaf.Items.Count == 2, "control pick lists the selected control and its children");
             editor.AcceptHierarchyTarget(box); Pump();
