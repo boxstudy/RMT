@@ -113,6 +113,8 @@ class VirtualListHost {
             . US . (isImageConfig ? "1" : "0")                    ; 菜单宏/UI宏：图片配置按钮 + 隐藏触发类型
             . US . (configImagePath != "" ? "1" : "0")           ; 图片是否已配置且可读取
             . US . this._Esc(StrReplace(configImagePath, "\", "/"))
+            . US . (CheckIsTimingMacroTable(t) ? "1" : "0")      ; 定时宏：时钟/秒表配置按钮
+            . US . (HasTimingConfig(item) ? "1" : "0")
         this._ui.Update("FoldList_" t, "VL_ROW", val)
     }
 
@@ -182,6 +184,8 @@ class VirtualListHost {
                     . US . (isImageConfig ? "1" : "0")                    ; 菜单宏/UI宏图片配置标志
                     . US . (configImagePath != "" ? "1" : "0")           ; 图片是否已配置且可读取
                     . US . this._Esc(StrReplace(configImagePath, "\", "/"))
+                    . US . (CheckIsTimingMacroTable(t) ? "1" : "0")      ; 定时宏：时钟/秒表配置按钮
+                    . US . (HasTimingConfig(item) ? "1" : "0")
                     . RS
             }
         }
@@ -201,7 +205,9 @@ class VirtualListHost {
             ; §23 网络宏：触发键列显示「复制链接」，点击/右键=直接复制开启 URL
             return item.ID == "" ? GetLang("编辑") : GetLang("复制链接")
         }
-        tkStr := isTiming ? GetLang("定时") : FormatHotkeyDisplay(MySoftData.FormatJoyTriggerKey(item.TK))
+        if (isTiming)
+            return ""
+        tkStr := FormatHotkeyDisplay(MySoftData.FormatJoyTriggerKey(item.TK))
         if (tkStr == "" && CheckIsNormalTable(t))
             return ""
         return tkStr == "" ? GetLang("编辑") : tkStr

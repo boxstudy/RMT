@@ -668,6 +668,8 @@ class MainWin {
         ; 备注右缘到前台左缘：备注右侧 Margin 8 + 此前台左移 157
         this._foldFrontShift := 157
         this._itemToolbarShift := 200
+        ; 宏页签无触发键/触发类型：相对原「宏编辑器」列左移，并与模块前台保持固定间距
+        this._subMacroEditShift := 210
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
         tmp := StrReplace(tmp, "%resources%", tabStyle . tabItemStyle . tabSelBgRes . stateBtnStyle . defaultBtnStyle . sidebarBtnStyle . iconBtnStyle . foldRowStyles . this._BuildVListTemplates())
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", "")
@@ -4475,6 +4477,31 @@ class MainWin {
             . '</Viewbox>'
     }
 
+    ; 定时宏「宏配置」：未编辑=时钟 E121；已保存=秒表 E916
+    _BuildTimingConfigBtnInnerXaml(vlMode, t := 0, i := 0, configured := false) {
+        clock := '&#xE121;'
+        timer := '&#xE916;'
+        font := ' FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource TextMain}"'
+        if (vlMode) {
+            return '<Grid ClipToBounds="False" IsHitTestVisible="False">'
+                . '<TextBlock Text="' clock '"' font '>'
+                . '<TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Visible"/>'
+                . '<Style.Triggers><DataTrigger Binding="{Binding HasTimingConfig}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers>'
+                . '</Style></TextBlock.Style></TextBlock>'
+                . '<TextBlock Text="' timer '"' font '>'
+                . '<TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/>'
+                . '<Style.Triggers><DataTrigger Binding="{Binding HasTimingConfig}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>'
+                . '</Style></TextBlock.Style></TextBlock>'
+                . '</Grid>'
+        }
+        emptyVis := configured ? "Collapsed" : "Visible"
+        setVis := configured ? "Visible" : "Collapsed"
+        return '<Grid ClipToBounds="False" IsHitTestVisible="False">'
+            . '<TextBlock Name="TimingCfgEmpty_' t '_' i '" Text="' clock '" Visibility="' emptyVis '"' font '/>'
+            . '<TextBlock Name="TimingCfgSet_' t '_' i '" Text="' timer '" Visibility="' setVis '"' font '/>'
+            . '</Grid>'
+    }
+
     ; 菜单宏/界面宏的“触发键”位置实际用于图片配置：未配置显示通用图片图标，
     ; 已配置则直接显示对应图片的缩略图。
     _BuildImageConfigBtnInnerXaml(vlMode, t := 0, i := 0, imagePath := "") {
@@ -4506,6 +4533,7 @@ class MainWin {
         return '<Grid>'
             . '<Grid Visibility="{Binding KeyInputVis}">' this._BuildTKBtnInnerXaml("", true) '</Grid>'
             . '<Grid Visibility="{Binding ImageConfigVis}">' this._BuildImageConfigBtnInnerXaml(true) '</Grid>'
+            . '<Grid Visibility="{Binding TimingConfigVis}">' this._BuildTimingConfigBtnInnerXaml(true) '</Grid>'
             . '</Grid>'
     }
 
@@ -4597,8 +4625,10 @@ class MainWin {
         } else if (isNetwork) {
             ; §23 网络宏：触发键列显示「复制链接」，点击/右键=直接复制开启 URL
             tkStr := item.ID == "" ? GetLang("编辑") : GetLang("复制链接")
+        } else if (isTiming) {
+            tkStr := ""
         } else {
-            tkStr := isTiming ? GetLang("定时") : FormatHotkeyDisplay(MySoftData.FormatJoyTriggerKey(item.TK))
+            tkStr := FormatHotkeyDisplay(MySoftData.FormatJoyTriggerKey(item.TK))
             tkStr := tkStr == "" ? GetLang("编辑") : tkStr
         }
         loopStr := item.LoopCount == "-1" ? GetLang("无限") : item.LoopCount
@@ -4617,18 +4647,19 @@ class MainWin {
             . '<Border Grid.Column="0" Name="Color_' t '_' i '" Width="12" Height="12" CornerRadius="6" Background="' colorHex '" VerticalAlignment="Center" HorizontalAlignment="Center"/>'
             . this._BuildSeqNoXaml(false, t, i, rowSel)
             . this._BuildItemRemarkFieldXaml(t, i, item.Remark, false)
-            . '<DockPanel Grid.Column="4" LastChildFill="True" HorizontalAlignment="Stretch" Margin="' ((isMenu || isUI) ? "45,0,-45,0" : "0") '">'
+            . '<DockPanel Grid.Column="4" LastChildFill="True" HorizontalAlignment="Stretch" Visibility="' (isSubMacro ? "Collapsed" : "Visible") '" Margin="' ((isMenu || isUI) ? "45,0,-45,0" : "0") '">'
             . (isNetwork ? '<Button Name="NetHelp_' t '_' i '" Style="{StaticResource RmtItemFieldBtn}" Width="24" Margin="0,0,2,0" Content="&#xE946;" ToolTip="' GetLang("网络触发说明") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"/>' : '')
-            . '<Button Name="TKBtn_' t '_' i '" Style="{StaticResource RmtItemFieldBtn}" Margin="0,0,4,0" ToolTip="' GetLang((isMenu || isUI) ? "编辑" : "触发键") '" IsEnabled="' (isSubMacro ? "False" : "True") '">' ((isMenu || isUI) ? this._BuildImageConfigBtnInnerXaml(false, t, i, this._GetItemConfigImagePath(t, item)) : this._BuildTKBtnInnerXaml(tkStr, false)) '</Button>'
+            . '<Button Name="TKBtn_' t '_' i '" Style="{StaticResource RmtItemFieldBtn}" Margin="0,0,4,0" ToolTip="' GetLang((isMenu || isUI) ? "编辑" : (isTiming ? "定时" : "触发键")) '" IsEnabled="' (isSubMacro ? "False" : "True") '">' ((isMenu || isUI) ? this._BuildImageConfigBtnInnerXaml(false, t, i, this._GetItemConfigImagePath(t, item)) : (isTiming ? this._BuildTimingConfigBtnInnerXaml(false, t, i, HasTimingConfig(item)) : this._BuildTKBtnInnerXaml(tkStr, false))) '</Button>'
             . '</DockPanel>'
-            . '<ComboBox Grid.Column="5" Name="TKType_' t '_' i '" Style="{StaticResource RmtItemCombo}" Margin="0" SelectedIndex="' tkTypeIdx '" IsEnabled="' (isNormal ? "True" : "False") '" Visibility="' ((isNetwork || isMenu || isUI) ? "Collapsed" : "Visible") '" ToolTip="' GetLang("触发类型") '">'
+            . '<ComboBox Grid.Column="5" Name="TKType_' t '_' i '" Style="{StaticResource RmtItemCombo}" Margin="0" SelectedIndex="' tkTypeIdx '" IsEnabled="' (isNormal ? "True" : "False") '" Visibility="' ((isSubMacro || isNetwork || isMenu || isUI) ? "Collapsed" : "Visible") '" ToolTip="' GetLang("触发类型") '">'
             . '<ComboBoxItem Content="' GetLang("按下") '"/><ComboBoxItem Content="' GetLang("松开") '"/><ComboBoxItem Content="' GetLang("松止") '"/><ComboBoxItem Content="' GetLang("开关") '"/><ComboBoxItem Content="' GetLang("长按") '"/><ComboBoxItem Content="' GetLang("双击") '"/>'
             . '</ComboBox>'
-            . this._BuildItemEditBtnXaml(t, i, item, false)
-            . '<ComboBox Grid.Column="8" Name="Loop_' t '_' i '" Style="{StaticResource RmtItemCombo}" Margin="0,0,4,0" IsEditable="True" IsEnabled="' (isMacro ? "True" : "False") '" ToolTip="' GetLang("循环次数") '">'
-            . '<ComboBoxItem Content="' GetLang("无限") '"/>'
-            . '</ComboBox>'
-            . '<Button Grid.Column="9" Name="Setting_' t '_' i '" Style="{StaticResource RmtItemPrimaryBtn}" Margin="0" Content="&#xE713;" ToolTip="' GetLang("设置") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14"/>'
+            . this._BuildItemEditGroupWrap(false, t
+                , this._BuildItemEditBtnXaml(t, i, item, false)
+                . '<ComboBox Grid.Column="1" Name="Loop_' t '_' i '" Style="{StaticResource RmtItemCombo}" Margin="0,0,4,0" IsEditable="True" IsEnabled="' (isMacro ? "True" : "False") '" ToolTip="' GetLang("循环次数") '">'
+                . '<ComboBoxItem Content="' GetLang("无限") '"/>'
+                . '</ComboBox>'
+                . '<Button Grid.Column="2" Name="Setting_' t '_' i '" Style="{StaticResource RmtItemPrimaryBtn}" Margin="0" Content="&#xE713;" ToolTip="' GetLang("设置") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14"/>')
             . '<StackPanel Grid.Column="11" Orientation="Horizontal" VerticalAlignment="Center">'
             . '<Button Name="Copy_' t '_' i '" Style="{StaticResource RmtFoldToolBtn}" Content="&#xE8C8;" ToolTip="' GetLang("复制") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"/>'
             . this._BuildItemForbidBtnXaml(t, i, item.Forbid, false)
@@ -4671,11 +4702,77 @@ class MainWin {
 
     _BuildItemEditBtnXaml(t, i, item, vlMode) {
         tip := GetLang("编辑")
-        col := ' Grid.Column="7"'
+        col := ' Grid.Column="0"'
         if (vlMode)
             return '<Button' col ' Tag="Edit" Style="{StaticResource RmtItemEditBtn}" ToolTip="' tip '">' this._BuildItemEditBtnInnerXaml(true) '</Button>'
         kind := GetMacroEditKind(item.Macro)
         return '<Button' col ' Name="Edit_' t '_' i '" Style="{StaticResource RmtItemEditBtn}" ToolTip="' tip '">' this._BuildItemEditBtnInnerXaml(false, t, i, kind) '</Button>'
+    }
+
+    ; 宏编辑器 / 循环次数 / 设置：原列宽不变。宏页签挂到模块「前台」同列，右侧压缩时一起动。
+    _BuildItemEditGroupWrap(vlMode, t, inner) {
+        body := this._BuildItemEditGroupBody(inner)
+        if (!vlMode) {
+            if (t > 0 && CheckIsSubMacroTable(t))
+                return this._BuildItemEditOverlayHost(body, "")
+            return this._BuildItemEditNormalHost(body, "")
+        }
+        return this._BuildItemEditNormalHost(body, this._EditGroupHostVis(true))
+            . this._BuildItemEditOverlayHost(body, this._EditGroupHostVis(false))
+    }
+
+    _BuildItemEditGroupBody(inner) {
+        L := this._ItemLayoutWide()
+        return '<Grid HorizontalAlignment="Left" VerticalAlignment="Stretch">'
+            . '<Grid.ColumnDefinitions>'
+            . '<ColumnDefinition Width="' L["edit"] '"/>'
+            . '<ColumnDefinition Width="' L["loop"] '"/>'
+            . '<ColumnDefinition Width="' L["setting"] '"/>'
+            . '</Grid.ColumnDefinitions>'
+            . inner
+            . '</Grid>'
+    }
+
+    _BuildItemEditNormalHost(body, visStyle) {
+        return '<Grid Grid.Column="7" Grid.ColumnSpan="3" HorizontalAlignment="Left" VerticalAlignment="Stretch">'
+            . visStyle
+            . body
+            . '</Grid>'
+    }
+
+    _BuildItemEditOverlayHost(body, visStyle) {
+        return '<Grid Grid.Column="0" Grid.ColumnSpan="13" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="' this._SubMacroOverlayMargin() '" ClipToBounds="False">'
+            . visStyle
+            . '<Grid.ColumnDefinitions>' this._BuildFoldLayoutColDefs() '</Grid.ColumnDefinitions>'
+            . '<Grid Grid.Column="2" HorizontalAlignment="Left" VerticalAlignment="Stretch" Margin="' this._SubMacroFrontOffset() ',0,0,0">'
+            . body
+            . '</Grid></Grid>'
+    }
+
+    ; 宏页签：Visible 当无触发键（TKBtnEnabled=False）；其它页签相反
+    _EditGroupHostVis(showWhenHasTK) {
+        defVis := showWhenHasTK ? "Visible" : "Collapsed"
+        altVis := showWhenHasTK ? "Collapsed" : "Visible"
+        return '<Grid.Style><Style TargetType="Grid"><Setter Property="Visibility" Value="' defVis '"/>'
+            . '<Style.Triggers><DataTrigger Binding="{Binding TKBtnEnabled}" Value="False">'
+            . '<Setter Property="Visibility" Value="' altVis '"/>'
+            . '</DataTrigger></Style.Triggers></Style></Grid.Style>'
+    }
+
+    ; 宏行内容区相对模块头内边距的差：把覆盖层原点对齐到模块头
+    _SubMacroOverlayMargin() {
+        itemPad := 4, foldPad := 8
+        return (foldPad - itemPad - this._ItemDragColW()) ",0,0,0"
+    }
+
+    ; 宽布局下「宏编辑器」相对模块前台左缘的间距；压缩时沿用此值，相对位置不变
+    _SubMacroFrontOffset() {
+        L := this._ItemLayoutWide()
+        itemLeft := 4 + this._ItemDragColW()
+        editLeft := itemLeft + L["color"] + L["seq"] + L["remark"] + L["spacerTK"] + L["tk"] + L["type"] + L["spacerEdit"]
+        remarkGroupW := 24 + 6 + this._foldFieldW
+        frontLeft := 8 + remarkGroupW + 8 + this._foldFrontShift
+        return editLeft - this._subMacroEditShift - frontLeft
     }
 
     _BuildItemForbidBtnXaml(t, i, forbidState, vlMode) {
@@ -4811,8 +4908,10 @@ class MainWin {
             ; 语音宏：触发键列显示唤醒词（无按键）
             tkStr := item.VoiceKeywords
             tkStr := tkStr == "" ? GetLang("编辑") : tkStr
+        } else if (isTiming) {
+            tkStr := ""
         } else {
-            tkStr := isTiming ? GetLang("定时") : FormatHotkeyDisplay(MySoftData.FormatJoyTriggerKey(item.TK))
+            tkStr := FormatHotkeyDisplay(MySoftData.FormatJoyTriggerKey(item.TK))
             tkStr := tkStr == "" ? GetLang("编辑") : tkStr
         }
         loopStr := item.LoopCount == "-1" ? GetLang("无限") : item.LoopCount
@@ -4828,6 +4927,10 @@ class MainWin {
             this.ui.Update("ImageCfgGlyph_" t "_" i, "Visibility", configured ? "Collapsed" : "Visible")
             this.ui.Update("ImageCfgThumb_" t "_" i, "Source", StrReplace(imagePath, "\", "/"))
             this.ui.Update("ImageCfgThumb_" t "_" i, "Visibility", configured ? "Visible" : "Collapsed")
+        } else if (isTiming) {
+            configured := HasTimingConfig(item)
+            this.ui.Update("TimingCfgEmpty_" t "_" i, "Visibility", configured ? "Collapsed" : "Visible")
+            this.ui.Update("TimingCfgSet_" t "_" i, "Visibility", configured ? "Visible" : "Collapsed")
         } else if (tkStr == "") {
             this.ui.Update("TKBtn_" t "_" i, "Content", Chr(0xE92E))
             this.ui.Update("TKBtn_" t "_" i, "FontFamily", "Segoe Fluent Icons, Segoe MDL2 Assets")
@@ -4903,20 +5006,28 @@ class MainWin {
             . this._BuildSeqNoXaml(true)
             . this._BuildItemRemarkFieldXaml(0, 0, "", true)
             . '<DockPanel Grid.Column="4" LastChildFill="True" HorizontalAlignment="Stretch">'
-            . '<DockPanel.Style><Style TargetType="DockPanel"><Setter Property="Margin" Value="0"/>'
-            . '<Style.Triggers><DataTrigger Binding="{Binding ImageConfigVis}" Value="Visible"><Setter Property="Margin" Value="45,0,-45,0"/></DataTrigger></Style.Triggers>'
-            . '</Style></DockPanel.Style>'
+            . '<DockPanel.Style><Style TargetType="DockPanel"><Setter Property="Margin" Value="0"/><Setter Property="Visibility" Value="Visible"/>'
+            . '<Style.Triggers>'
+            . '<DataTrigger Binding="{Binding ImageConfigVis}" Value="Visible"><Setter Property="Margin" Value="45,0,-45,0"/></DataTrigger>'
+            . '<DataTrigger Binding="{Binding TKBtnEnabled}" Value="False"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger>'
+            . '</Style.Triggers></Style></DockPanel.Style>'
             . '<Button Tag="NetHelp" Visibility="{Binding NetHelpVis}" Style="{StaticResource RmtItemFieldBtn}" Width="24" Margin="0,0,2,0" Content="&#xE946;" ToolTip="' GetLang("网络触发说明") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"/>'
             . '<Button Tag="TKBtn" IsEnabled="{Binding TKBtnEnabled}" Style="{StaticResource RmtItemFieldBtn}" Margin="0,0,4,0" ToolTip="' GetLang("编辑") '">' this._BuildVirtualItemConfigBtnInnerXaml() '</Button>'
             . '</DockPanel>'
-            . '<ComboBox Grid.Column="5" Tag="TKType" Visibility="{Binding NetTypeVis}" SelectedIndex="{Binding TKType}" IsEnabled="{Binding TKTypeEnabled}" Style="{StaticResource RmtItemCombo}" Margin="0" ToolTip="' GetLang("触发类型") '">'
+            . '<ComboBox Grid.Column="5" Tag="TKType" SelectedIndex="{Binding TKType}" IsEnabled="{Binding TKTypeEnabled}" ToolTip="' GetLang("触发类型") '">'
+            . '<ComboBox.Style><Style TargetType="ComboBox" BasedOn="{StaticResource RmtItemCombo}"><Setter Property="Margin" Value="0"/><Setter Property="Visibility" Value="Visible"/>'
+            . '<Style.Triggers>'
+            . '<DataTrigger Binding="{Binding NetTypeVis}" Value="Collapsed"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger>'
+            . '<DataTrigger Binding="{Binding TKBtnEnabled}" Value="False"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger>'
+            . '</Style.Triggers></Style></ComboBox.Style>'
             . '<ComboBoxItem Content="' GetLang("按下") '"/><ComboBoxItem Content="' GetLang("松开") '"/><ComboBoxItem Content="' GetLang("松止") '"/><ComboBoxItem Content="' GetLang("开关") '"/><ComboBoxItem Content="' GetLang("长按") '"/><ComboBoxItem Content="' GetLang("双击") '"/>'
             . '</ComboBox>'
-            . this._BuildItemEditBtnXaml(0, 0, "", true)
-            . '<ComboBox Grid.Column="8" Tag="Loop" Text="{Binding LoopText}" IsEditable="True" IsEnabled="{Binding LoopEnabled}" Style="{StaticResource RmtItemCombo}" Margin="0,0,4,0" ToolTip="' GetLang("循环次数") '">'
-            . '<ComboBoxItem Content="' GetLang("无限") '"/>'
-            . '</ComboBox>'
-            . '<Button Grid.Column="9" Tag="Setting" Style="{StaticResource RmtItemPrimaryBtn}" Margin="0" Content="&#xE713;" ToolTip="' GetLang("设置") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14"/>'
+            . this._BuildItemEditGroupWrap(true, 0
+                , this._BuildItemEditBtnXaml(0, 0, "", true)
+                . '<ComboBox Grid.Column="1" Tag="Loop" Text="{Binding LoopText}" IsEditable="True" IsEnabled="{Binding LoopEnabled}" Style="{StaticResource RmtItemCombo}" Margin="0,0,4,0" ToolTip="' GetLang("循环次数") '">'
+                . '<ComboBoxItem Content="' GetLang("无限") '"/>'
+                . '</ComboBox>'
+                . '<Button Grid.Column="2" Tag="Setting" Style="{StaticResource RmtItemPrimaryBtn}" Margin="0" Content="&#xE713;" ToolTip="' GetLang("设置") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14"/>')
             . '<StackPanel Grid.Column="11" Orientation="Horizontal" VerticalAlignment="Center">'
             . '<Button Tag="Copy" Style="{StaticResource RmtFoldToolBtn}" Content="&#xE8C8;" ToolTip="' GetLang("复制") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"/>'
             . this._BuildItemForbidBtnXaml(0, 0, false, true)

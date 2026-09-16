@@ -72,6 +72,13 @@ class CommonStylesTest
         foreach (TreeViewItem child in item.Items.OfType<TreeViewItem>())
             foreach (var nested in FlattenTree(child)) yield return nested;
     }
+    static bool SameValues(Dictionary<string, string> left, Dictionary<string, string> right)
+    {
+        if (left == null || right == null || left.Count != right.Count) return false;
+        foreach (var pair in left)
+            if (!right.ContainsKey(pair.Key) || right[pair.Key] != pair.Value) return false;
+        return true;
+    }
     static IEnumerable<DependencyObject> WalkLogical(DependencyObject root)
     {
         yield return root;
@@ -182,6 +189,8 @@ class CommonStylesTest
             Check(mainTabs != null && mainTabs.Items.Count == 3 && mainTabs.SelectedIndex == 0 && ((TabItem)mainTabs.Items[0]).Header as string == "控件调整" && ((TabItem)mainTabs.Items[1]).Header as string == "模版列表" && ((TabItem)mainTabs.Items[2]).Header as string == "窗口层级", "GM-UI tabs default to control adjustment");
             Check(mainTabs.Margin.Top == 2 && ((DockPanel)editorRoot.FindName("StylesContent")).Margin.Top == 2 && ((DockPanel)editorRoot.FindName("TemplatesContent")).Margin.Top == 2 && ((DockPanel)editorRoot.FindName("ReflectContent")).Margin.Top == 5, "tab and content vertical offsets");
             Check(!WalkLogical((DependencyObject)editorRoot.FindName("StylesContent")).OfType<TextBlock>().Any(t => t.Text == "属性名 / 属性值（每行三组）"), "property section caption removed");
+            var previewBox = WalkLogical(editorRoot).OfType<GroupBox>().First(g => (g.Header as string) == "目标样式预览");
+            Check(previewBox.Height == 200 && previewBox.MinHeight == 200 && previewBox.MaxHeight == 200, "target style preview is 200px tall");
             Check(mainTabs.Style != null && ((TabItem)mainTabs.Items[0]).Style != null && ((TabItem)mainTabs.Items[0]).Tag as string == "first" && ((TabItem)mainTabs.Items[2]).Tag as string == "last", "GM-UI tabs use main-window-like tab chrome");
             var tabTemplate = (ControlTemplate)((Setter)((TabItem)mainTabs.Items[0]).Style.Setters.OfType<Setter>().First(s => s.Property == Control.TemplateProperty)).Value;
             string expectedFont = Math.Max(12, RmtCommonStyles.ThemeFontSize(window) + 2).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
@@ -304,6 +313,17 @@ class CommonStylesTest
             Check(reflectedColors["Background"].Items.Count == 14 && reflectedColors["Background"].Items.Cast<ComboBoxItem>().All(x => (x.Tag as string ?? "").StartsWith("$Theme:")), "color properties contain only colors 1 through 14");
             var reloadList = fieldsPanel.Children.OfType<DockPanel>().SelectMany(p => p.Children.OfType<StackPanel>()).SelectMany(p => p.Children.OfType<ComboBox>()).FirstOrDefault(c => c.Name == "ReloadList");
             Check(reloadList != null && reloadList.Items.Cast<ComboBoxItem>().Any(x => (x.Tag as string) == "通用/Button") && reloadList.Items.Cast<ComboBoxItem>().Any(x => (x.Tag as string) == "样式/RmtItemEditBtn"), "located button shows button templates in the reload list");
+            var reloadActions = fieldsPanel.Children.OfType<DockPanel>().SelectMany(p => p.Children.OfType<StackPanel>()).FirstOrDefault(p => p.Children.OfType<ComboBox>().Any(c => c.Name == "ReloadList"));
+            Check(reloadActions != null && reloadActions.Margin.Right >= 200, "reload list sits left of the editor edge");
+            var inspectPreview = (StackPanel)typeof(RmtStyleEditor).GetField("preview", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
+            Check(WalkLogical(inspectPreview).OfType<TextBlock>().Any(t => t.Text == "控件样式") && WalkLogical(inspectPreview).OfType<TextBlock>().Any(t => t.Text == "重载样式"), "located button preview splits control and reload styles");
+            Check(!WalkLogical(inspectPreview).OfType<Viewbox>().Any(), "control style preview stays 1:1 without Viewbox shrink");
+            typeof(RmtStyleEditor).GetField("interactionReady", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(editor, true);
+            var reloadBeforeSwitch = SectionValues(fieldsPanel, "重载属性", "不会出现的结束标记");
+            double locatedWidthBeforeSwitch = b.Width;
+            reloadList.SelectedItem = reloadList.Items.Cast<ComboBoxItem>().First(x => (x.Tag as string) == "样式/RmtItemEditBtn"); Pump();
+            Check(SameValues(reloadBeforeSwitch, SectionValues(fieldsPanel, "重载属性", "不会出现的结束标记")) && ((double.IsNaN(locatedWidthBeforeSwitch) && double.IsNaN(b.Width)) || b.Width == locatedWidthBeforeSwitch), "changing reload list does not refresh reload properties or the live control");
+            reloadList.SelectedItem = reloadList.Items.Cast<ComboBoxItem>().First(x => (x.Tag as string) == "通用/Button"); Pump();
             var positionLabel = fieldsPanel.Children.OfType<Grid>().SelectMany(g => g.Children.OfType<TextBlock>()).First(t => t.Text == "位置X");
             Check(positionLabel.Cursor == System.Windows.Input.Cursors.SizeWE, "position labels support drag adjustment");
             int positionHeadingAt = -1, styleTemplateAt = -1;
@@ -356,7 +376,7 @@ class CommonStylesTest
             reflectLeaf = reflectGroup.Items.OfType<TreeViewItem>().First();
             Check(reflectLeaf.Items.Count == 2, "locating a parent syncs child hierarchy into style management");
             Check(fieldsPanel.Children.OfType<Grid>().SelectMany(g => g.Children.OfType<TextBlock>()).Any(t => t.Text == "示例内容"), "hierarchy target shows sample content field");
-            var hierarchyPreview = ((StackPanel)typeof(RmtStyleEditor).GetField("preview", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor)).Children.OfType<Viewbox>().Select(v => v.Child).OfType<StackPanel>().FirstOrDefault();
+            var hierarchyPreview = WalkLogical((StackPanel)typeof(RmtStyleEditor).GetField("preview", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor)).OfType<StackPanel>().FirstOrDefault(s => s.Children.OfType<Button>().Count() == 2);
             Check(hierarchyPreview != null && hierarchyPreview.Children.OfType<Button>().Count() == 2, "hierarchy preview clones the full subtree not a single control");
             var boxOptions = (Dictionary<string, ComboBox>)typeof(RmtStyleEditor).GetField("optionInputs", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
             var boxColors = (Dictionary<string, ComboBox>)typeof(RmtStyleEditor).GetField("colorInputs", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
@@ -388,7 +408,7 @@ class CommonStylesTest
             voiceOptions["ChildAlignment"].SelectedItem = voiceOptions["ChildAlignment"].Items.Cast<ComboBoxItem>().First(x => (x.Tag as string) == "Center"); Pump();
             ((Button)editorRoot.FindName("CmdItemApply")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Pump();
             string voiceActionsId = RmtCommonStyles.LayoutId(voiceActions);
-            Check(voiceActionsId == "ahk:Voice.Keywords.Actions" && RmtCommonStyles.InstanceStyles.ContainsKey(voiceActionsId), "voice action panel adjustments persist under a stable instance id");
+            Check(voiceActionsId == "ahk:Voice.Keywords.Actions" && RmtCommonStyles.StyleBindings.ContainsKey(voiceActionsId) && RmtCommonStyles.InstanceStyles.ContainsKey(voiceActionsId), "voice action panel adjustments persist under a stable instance id");
             RmtCommonStyles.Save();
             RmtCommonStyles.InstanceStyles.Remove(voiceActionsId);
             typeof(RmtCommonStyles).GetMethod("Load", BindingFlags.NonPublic | BindingFlags.Static).Invoke(null, null);
@@ -409,7 +429,7 @@ class CommonStylesTest
             Check(fieldsPanel.Children.OfType<Grid>().SelectMany(g => g.Children.OfType<TextBlock>()).Any(t => t.Text == "示例内容"), "text target shows sample content field");
             var labelColors = (Dictionary<string, ComboBox>)typeof(RmtStyleEditor).GetField("colorInputs", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
             Check(labelColors["Background"].SelectedItem == null, "unpainted label background stays unselected instead of color 1");
-            var labelPreview = ((StackPanel)typeof(RmtStyleEditor).GetField("preview", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor)).Children.OfType<Viewbox>().Select(v => v.Child).OfType<TextBlock>().FirstOrDefault();
+            var labelPreview = WalkLogical((StackPanel)typeof(RmtStyleEditor).GetField("preview", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor)).OfType<TextBlock>().FirstOrDefault(t => t.Text == "颜色14：");
             var labelBg = labelPreview == null ? null : labelPreview.Background as SolidColorBrush;
             Check(labelPreview != null && (labelPreview.Background == null || (labelBg != null && labelBg.Color.A == 0)), "unpainted label preview has no background");
             var labelOptions = (Dictionary<string, ComboBox>)typeof(RmtStyleEditor).GetField("optionInputs", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
@@ -419,6 +439,8 @@ class CommonStylesTest
             var labelTemplate = SectionValues(fieldsPanel, "模版属性", "重载属性");
             Check(labelTemplate.ContainsKey("文本对齐") && labelTemplate.ContainsKey("文本换行") && labelTemplate.ContainsKey("文本裁剪") && !labelTemplate.ContainsKey("悬停背景"), "text block template lists text properties");
             Check(!fieldsPanel.Children.OfType<DockPanel>().SelectMany(p => p.Children.OfType<StackPanel>()).SelectMany(p => p.Children.OfType<ComboBox>()).Any(c => c.Name == "ReloadList"), "text block hides reload list when no matching template exists");
+            var labelPreviewHost = (StackPanel)typeof(RmtStyleEditor).GetField("preview", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
+            Check(WalkLogical(labelPreviewHost).OfType<TextBlock>().Any(t => t.Text == "控件样式") && !WalkLogical(labelPreviewHost).OfType<TextBlock>().Any(t => t.Text == "重载样式"), "text block preview keeps the control column and hides reload style");
             var inputBox = (TextBox)window.FindName("Input");
             editor.AcceptHierarchyTarget(inputBox); Pump();
             var inputColors = (Dictionary<string, ComboBox>)typeof(RmtStyleEditor).GetField("colorInputs", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
@@ -495,7 +517,7 @@ class CommonStylesTest
             editor.AcceptHierarchyTarget(window); Pump();
             fieldsPanel = (StackPanel)typeof(RmtStyleEditor).GetField("fields", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
             Check(fieldsPanel.Children.OfType<Grid>().SelectMany(g => g.Children.OfType<TextBlock>()).Any(t => t.Text == "示例内容"), "window target shows sample content field");
-            var windowClone = ((StackPanel)typeof(RmtStyleEditor).GetField("preview", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor)).Children.OfType<Viewbox>().Select(v => v.Child).OfType<Border>().FirstOrDefault();
+            var windowClone = WalkLogical((StackPanel)typeof(RmtStyleEditor).GetField("preview", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor)).OfType<Border>().FirstOrDefault(frame => frame.Child is Grid && ((Grid)frame.Child).RowDefinitions.Count >= 2);
             var windowContentClone = windowClone == null ? null : ((Grid)windowClone.Child).Children.OfType<FrameworkElement>().FirstOrDefault(x => Grid.GetRow(x) == 1) as StackPanel;
             Check(windowClone != null && windowContentClone != null && windowContentClone.Children.OfType<Button>().Any(), "window hierarchy preview clones the full window content");
             Check(!windowContentClone.Children.OfType<Button>().Any(x => x.Name == "BtnMaximize" || x.Name == "BtnClose"), "window preview omits title-bar chrome controls that are cloned separately");
@@ -619,17 +641,40 @@ class CommonStylesTest
             var dynamic = new Button(); ((StackPanel)window.Content).Children.Add(dynamic); Pump();
             Check(double.IsNaN(dynamic.Width), "button templates do not affect newly created controls");
             editor.AcceptHierarchyTarget(b); Pump();
-            editor.ApplyReloadFromTemplate("通用/Button"); Pump();
+            fieldsPanel = (StackPanel)typeof(RmtStyleEditor).GetField("fields", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
+            reloadList = fieldsPanel.Children.OfType<DockPanel>().SelectMany(p => p.Children.OfType<StackPanel>()).SelectMany(p => p.Children.OfType<ComboBox>()).FirstOrDefault(c => c.Name == "ReloadList");
+            typeof(RmtStyleEditor).GetField("interactionReady", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(editor, true);
+            var reloadBeforeApply = SectionValues(fieldsPanel, "重载属性", "不会出现的结束标记");
+            reloadList.SelectedItem = reloadList.Items.Cast<ComboBoxItem>().First(x => (x.Tag as string) == "样式/RmtItemEditBtn"); Pump();
+            Check(SameValues(reloadBeforeApply, SectionValues(fieldsPanel, "重载属性", "不会出现的结束标记")) && double.IsNaN(b.Width), "switching to another template only updates the reload style preview");
+            reloadList.SelectedItem = reloadList.Items.Cast<ComboBoxItem>().First(x => (x.Tag as string) == "通用/Button"); Pump();
+            var applyReload = fieldsPanel.Children.OfType<DockPanel>().SelectMany(p => p.Children.OfType<StackPanel>()).SelectMany(p => p.Children.OfType<Button>()).First(x => x.Name == "CmdApplyReloadList");
+            applyReload.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Pump();
+            Check(b.Width == 123 && a.Width == 64 && double.IsNaN(dynamic.Width), "applying reload list updates the located control immediately");
+            var previewHost = (StackPanel)typeof(RmtStyleEditor).GetField("preview", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
+            var previewApplied = WalkLogical(previewHost).OfType<Button>().FirstOrDefault(x => !double.IsNaN(x.Width) && Math.Abs(x.Width - 123) < .1);
+            Check(previewApplied != null, "applying reload list refreshes the target style preview");
+            var appliedInputs = (Dictionary<string, TextBox>)typeof(RmtStyleEditor).GetField("inputs", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
+            Check(appliedInputs.ContainsKey("Width") && appliedInputs["Width"].Text == "123", "applying reload list refreshes reload properties");
             ((Button)editorRoot.FindName("CmdItemApply")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Pump();
             Check(b.Width == 123 && a.Width == 64 && double.IsNaN(dynamic.Width), "applying the common button template changes only the selected control");
-            Check(RmtCommonStyles.InstanceStyles.ContainsKey(RmtCommonStyles.LayoutId(b)), "applied common button template is persisted as an instance style");
+            Check(RmtCommonStyles.BoundStyleKey(RmtCommonStyles.LayoutId(b)) == "通用/Button", "applying a template binds the control to that shared style");
             RmtCommonStyles.Values["通用/Button"]["Width"] = "124"; RmtCommonStyles.Refresh();
-            Check(b.Width == 123 && a.Width == 64 && double.IsNaN(dynamic.Width), "later template edits do not change previously applied controls");
-            RmtCommonStyles.Values["通用/Button"]["Width"] = "123";
+            Check(b.Width == 124 && a.Width == 64 && double.IsNaN(dynamic.Width), "shared template edits update every bound control");
+            RmtCommonStyles.Values["通用/Button"]["Width"] = "123"; RmtCommonStyles.Refresh();
+            var forked = new Dictionary<string, string>(RmtCommonStyles.Values["通用/Button"]);
+            forked["Width"] = "150";
+            string forkedKey = RmtCommonStyles.AssignControlStyle(b, forked);
+            RmtCommonStyles.Refresh();
+            Check(b.Width == 150 && RmtCommonStyles.IsInstanceStyle(forkedKey) && RmtCommonStyles.StyleRefCount("通用/Button") == 0, "editing one shared control forks an instance style");
+            string merged = RmtCommonStyles.AssignControlStyle(b, RmtCommonStyles.Values["通用/Button"]);
+            RmtCommonStyles.Refresh();
+            Check(merged == "通用/Button" && !RmtCommonStyles.Values.ContainsKey(forkedKey), "identical styles merge and unused instance styles are deleted");
             editor.AcceptHierarchyTarget(a); Pump();
             editor.ApplyReloadFromTemplate("样式/RmtItemEditBtn"); Pump();
             ((Button)editorRoot.FindName("CmdItemApply")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Pump();
             Check(a.Width == 88 && b.Width == 123 && double.IsNaN(dynamic.Width), "applying a named template remains isolated to its selected control");
+            Check(RmtCommonStyles.BoundStyleKey(RmtCommonStyles.LayoutId(a)) == "样式/RmtItemEditBtn" && RmtCommonStyles.BoundStyleKey(RmtCommonStyles.LayoutId(b)) == "通用/Button", "two controls keep independent shared style references");
             ((ItemsControl)window.FindName("Virtual")).Items.Add("row"); Pump();
             Check(RmtCommonStyles.Live().Count(x => x.Key == "样式/RmtItemEditBtn") >= 2, "DataTemplate row registered");
             var styled = (Button)XamlReader.Parse("<Button xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml'><Button.Style><Style TargetType='Button'><Setter Property='Background' Value='#00000000'/><Setter Property='BorderBrush' Value='#FF223344'/><Setter Property='BorderThickness' Value='1'/><Setter Property='Template'><Setter.Value><ControlTemplate TargetType='Button'><Border x:Name='StyledBd' Background='{TemplateBinding Background}' BorderBrush='{TemplateBinding BorderBrush}' BorderThickness='{TemplateBinding BorderThickness}' CornerRadius='3'><Grid><Rectangle Width='8' Height='8' Fill='Orange'/></Grid></Border></ControlTemplate></Setter.Value></Setter></Style></Button.Style></Button>");
@@ -650,12 +695,17 @@ class CommonStylesTest
             RmtCommonStyles.Values["通用/Button"].Remove("HoverBackground");
             RmtCommonStyles.Values["通用/Button"].Remove("PressedBackground");
             RmtCommonStyles.Refresh();
-            RmtCommonStyles.InstanceStyles[RmtCommonStyles.LayoutId(a)]["Background"] = "#FF123456"; RmtCommonStyles.Refresh();
+            var aOverride = new Dictionary<string, string>(RmtCommonStyles.Values["样式/RmtItemEditBtn"]);
+            aOverride["Background"] = "#FF123456";
+            RmtCommonStyles.AssignControlStyle(a, aOverride); RmtCommonStyles.Refresh();
             Check(((SolidColorBrush)a.Background).Color == Color.FromRgb(18,52,86), "local resource override applied");
             window.Resources["ActionBg"] = Brushes.Blue; RmtCommonStyles.ThemeChanged(window, "ActionBg"); Pump();
             RmtCommonStyles.Values.Remove("样式/RmtItemEditBtn"); RmtCommonStyles.Values.Remove("通用/Button"); RmtCommonStyles.Refresh();
+            RmtCommonStyles.StyleBindings.Remove(RmtCommonStyles.LayoutId(a));
+            RmtCommonStyles.StyleBindings.Remove(RmtCommonStyles.LayoutId(b));
             RmtCommonStyles.InstanceStyles.Remove(RmtCommonStyles.LayoutId(a));
             RmtCommonStyles.InstanceStyles.Remove(RmtCommonStyles.LayoutId(b));
+            RmtCommonStyles.CollectUnusedInstances();
             RmtCommonStyles.Refresh();
             Check(a.Width == 64 && double.IsNaN(b.Width), "restore style and unset local values");
             Check(((SolidColorBrush)a.Background).Color == Colors.Blue, "reset resolves latest dynamic resource");

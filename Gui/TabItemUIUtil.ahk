@@ -235,7 +235,7 @@ OnItemEditTiming(tableItem, index, *) {
         SerialStr := GetCMDSerialStr("Timing")
         item.TimingSerial := SerialStr
     }
-    MyTimingGui.ShowGui(SerialStr)
+    MyTimingGui.ShowGui(SerialStr, tableItem, index)
 }
 
 OnItemEditMacroSetting(tableItem, index, *) {
@@ -567,7 +567,23 @@ OnItemNetworkHelp(tableItem, index, *) {
     item := tableItem.Items[index]
     if (!item || item.ID == "")
         return
-    NetworkShowHelpDialog(item.ID)
+    try NetworkShowHelpDialog(item.ID)
+    catch as err {
+        try RmtDialog._Trace("NetworkHelp failed: " err.Message)
+        try RmtDialog.Info(GetLang("无法打开网络触发说明") "`n" err.Message)
+    }
+}
+
+; 主窗口 HWND 可能在引擎重启后失效；失效句柄不能当 Owner，否则 CreateWindowEx 会崩引擎。
+NetworkResolveOwnerHwnd() {
+    hwnd := 0
+    try {
+        if (IsSet(MyMainWin) && IsObject(MyMainWin) && IsObject(MyMainWin.ui) && MyMainWin.ui.wpfHwnd)
+            hwnd := Integer(MyMainWin.ui.wpfHwnd)
+    }
+    if (hwnd && !DllCall("user32\IsWindow", "Ptr", hwnd, "Int"))
+        hwnd := 0
+    return hwnd
 }
 
 ; 网络触发说明弹窗。macroID 为空 = 通用模式（设置页入口，URL 用 {条目ID} 占位）；
@@ -579,11 +595,7 @@ NetworkShowHelpDialog(macroID := "") {
     urlBase := "http://127.0.0.1:" port "/macro/" idPart
     urlOn := isItem ? NetworkGetTriggerUrl(macroID, "on") : ""
     urlOff := isItem ? NetworkGetTriggerUrl(macroID, "off") : ""
-    owner := 0
-    try {
-        if (IsSet(MyMainWin) && IsObject(MyMainWin) && IsObject(MyMainWin.ui) && MyMainWin.ui.wpfHwnd)
-            owner := MyMainWin.ui.wpfHwnd
-    }
+    owner := NetworkResolveOwnerHwnd()
     try XAMLHost.EnsureDaemonHealthy()
 
     titleHeight := "36"
@@ -686,7 +698,7 @@ NetworkShowHelpDialog(macroID := "") {
         ui.OnEvent("BtnEx" n, "Click", OnItemNetworkCopyClipboardEx.Bind(ex))
 
     if (!XamlWin.Open(ui, "", owner))
-        throw Error("网络触发说明弹窗打开失败")
+        throw Error(GetLang("网络触发说明弹窗打开失败"))
     ownerDisabled := false
     while (resultObj.Button == "" && WinExist("ahk_id " ui.wpfHwnd)) {
         if (ui.wpfHwnd && owner && !ownerDisabled) {
@@ -715,11 +727,7 @@ OnItemNetworkCopyClipboardEx(text, *) {
 ; ============================================================
 NetworkShowSettingDialog() {
     global MainSoftData
-    owner := 0
-    try {
-        if (IsSet(MyMainWin) && IsObject(MyMainWin) && IsObject(MyMainWin.ui) && MyMainWin.ui.wpfHwnd)
-            owner := MyMainWin.ui.wpfHwnd
-    }
+    owner := NetworkResolveOwnerHwnd()
     try XAMLHost.EnsureDaemonHealthy()
 
     titleHeight := "36"

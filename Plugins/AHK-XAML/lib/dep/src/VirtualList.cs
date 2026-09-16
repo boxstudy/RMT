@@ -494,6 +494,8 @@ public class VirtualListHost
             dr.ImageConfigVis = sr.ImageConfigVis;
             dr.HasConfigImage = sr.HasConfigImage;
             dr.ConfigImagePath = sr.ConfigImagePath;
+            dr.TimingConfigVis = sr.TimingConfigVis;
+            dr.HasTimingConfig = sr.HasTimingConfig;
             FillSelMark(dr);
             return;
         }
@@ -538,15 +540,8 @@ public class VirtualListHost
         if (f.Length > 6) r.ColorHex = f[6];
         if (f.Length > 7) r.SeqNo = f[7];
         if (f.Length > 8) r.EditKind = f[8];
-        // 扩展位：f[9]=网络宏，f[10]=菜单宏/UI宏图片配置列，f[11]=已配置图片，f[12]=缩略图路径。
-        bool isNetRow = f.Length > 9 && f[9] == "1";
-        bool isImageConfigRow = f.Length > 10 && f[10] == "1";
-        r.NetHelpVis = isNetRow ? "Visible" : "Collapsed";
-        r.NetTypeVis = (isNetRow || isImageConfigRow) ? "Collapsed" : "Visible";
-        r.KeyInputVis = isImageConfigRow ? "Collapsed" : "Visible";
-        r.ImageConfigVis = isImageConfigRow ? "Visible" : "Collapsed";
-        r.HasConfigImage = f.Length > 11 && f[11] == "1";
-        r.ConfigImagePath = f.Length > 12 ? f[12] : "";
+        // 扩展位：f[9]=网络宏，f[10]=菜单宏/UI宏图片配置列，f[11]=已配置图片，f[12]=缩略图路径，f[13]=定时宏，f[14]=已保存定时。
+        ApplyRowConfigFlags(r, f);
     }
 
     private void SetFold(string val)
@@ -1176,17 +1171,25 @@ public class VirtualListHost
         r.ColorHex = f.Length > 6 ? f[6] : "";
         r.SeqNo = f.Length > 7 ? f[7] : "";
         r.EditKind = f.Length > 8 ? f[8] : "0";
-        // 扩展位：网络宏显示说明并隐藏类型；菜单宏/UI宏显示图片状态并隐藏类型。
+        // 扩展位：网络宏显示说明并隐藏类型；菜单宏/UI宏显示图片状态并隐藏类型；定时宏显示时钟/秒表。
+        ApplyRowConfigFlags(r, f);
+        FillSelMark(r);
+        return r;
+    }
+
+    private static void ApplyRowConfigFlags(VListRow r, string[] f)
+    {
         bool isNetRow = f.Length > 9 && f[9] == "1";
         bool isImageConfigRow = f.Length > 10 && f[10] == "1";
+        bool isTimingRow = f.Length > 13 && f[13] == "1";
         r.NetHelpVis = isNetRow ? "Visible" : "Collapsed";
         r.NetTypeVis = (isNetRow || isImageConfigRow) ? "Collapsed" : "Visible";
-        r.KeyInputVis = isImageConfigRow ? "Collapsed" : "Visible";
+        r.KeyInputVis = (isImageConfigRow || isTimingRow) ? "Collapsed" : "Visible";
         r.ImageConfigVis = isImageConfigRow ? "Visible" : "Collapsed";
         r.HasConfigImage = f.Length > 11 && f[11] == "1";
         r.ConfigImagePath = f.Length > 12 ? f[12] : "";
-        FillSelMark(r);
-        return r;
+        r.TimingConfigVis = isTimingRow ? "Visible" : "Collapsed";
+        r.HasTimingConfig = f.Length > 14 && f[14] == "1";
     }
 
     private static void FillSelMark(VListRow r)
@@ -1275,6 +1278,8 @@ public class VListRow : VLItem
     public string ImageConfigVis { get; set; }
     public bool HasConfigImage { get { return _HasConfigImage; } set { Set(ref _HasConfigImage, value, "HasConfigImage"); } } private bool _HasConfigImage;
     public string ConfigImagePath { get { return _ConfigImagePath; } set { Set(ref _ConfigImagePath, value, "ConfigImagePath"); } } private string _ConfigImagePath;
+    public string TimingConfigVis { get; set; }
+    public bool HasTimingConfig { get { return _HasTimingConfig; } set { Set(ref _HasTimingConfig, value, "HasTimingConfig"); } } private bool _HasTimingConfig;
 }
 
 public class VListFold : VLItem
