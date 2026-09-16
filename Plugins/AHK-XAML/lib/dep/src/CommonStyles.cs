@@ -1832,6 +1832,7 @@ internal sealed class RmtStyleEditor : Window
     private readonly HashSet<string> optionTouched = new HashSet<string>();
     private Grid propertyRow;
     private int propertyPair;
+    private Panel templateRows;
     private TreeViewItem catalogHighlight;
     private bool rendering, applying;
     private bool interactionReady;
@@ -1940,7 +1941,7 @@ internal sealed class RmtStyleEditor : Window
             <Border Grid.Column='0' BorderBrush='{DynamicResource Win_GroupStroke}' BorderThickness='1' CornerRadius='5' Padding='10'><DockPanel><TextBox x:Name='AdjustSearch' DockPanel.Dock='Top' MinHeight='30' Margin='0,0,0,8' ToolTip='搜索已定位控件'/><TreeView x:Name='AdjustCatalog'/></DockPanel></Border>
             <Border x:Name='AdjustEditorSlot' Grid.Column='2'>
               <DockPanel x:Name='EditorHost'>
-                <GroupBox DockPanel.Dock='Top' Header='目标样式预览' Height='200' MinHeight='200' MaxHeight='200' Margin='0,0,0,10' Padding='8'><StackPanel x:Name='Preview'/></GroupBox>
+                <Border x:Name='PreviewHost' DockPanel.Dock='Top' Height='200' MinHeight='200' MaxHeight='200' Margin='0,0,0,10' Padding='8' BorderBrush='{DynamicResource Win_GroupStroke}' BorderThickness='1.5' CornerRadius='5'><StackPanel x:Name='Preview'/></Border>
                 <StackPanel DockPanel.Dock='Bottom' Orientation='Horizontal' HorizontalAlignment='Right' Margin='0,10,0,0'>
                   <Button x:Name='CmdLocateControl' Content='控件定位' Padding='10,5' Margin='0,0,8,0'/>
                   <Button x:Name='CmdItemReset' Content='重置' Padding='10,5' Margin='0,0,8,0'/>
@@ -2083,9 +2084,14 @@ internal sealed class RmtStyleEditor : Window
         {
             if (HierarchySelectedElement() != null) { AcceptHierarchySelected(); args.Handled = true; }
         };
-        mainTabs.SelectionChanged += delegate
+        mainTabs.SelectionChanged += delegate(object sender, SelectionChangedEventArgs args)
         {
-            if (mainTabs.SelectedIndex == 0) MoveEditorTo(adjustEditorSlot);
+            if (!ReferenceEquals(args.Source, mainTabs)) return;
+            if (mainTabs.SelectedIndex == 0)
+            {
+                MoveEditorTo(adjustEditorSlot);
+                RestoreInspectedEditor();
+            }
             else if (mainTabs.SelectedIndex == 1) MoveEditorTo(templateEditorSlot);
             // Keep expansion state across tab switches; only build the tree on first visit.
             if (mainTabs.SelectedIndex == 2 && hierarchyTree != null && hierarchyTree.Items.Count == 0)
@@ -2114,15 +2120,31 @@ internal sealed class RmtStyleEditor : Window
         if (key.StartsWith("#group:", StringComparison.Ordinal)) return;
         var weak = item.DataContext as WeakReference;
         var inspect = weak == null ? null : weak.Target as FrameworkElement;
-        if (key == selected && ((inspect == null && Inspected() == null) || ReferenceEquals(inspect, Inspected())))
+        bool inspectMode = inspect != null;
+        if (key == selected && inspectingSelection == inspectMode && ((inspect == null && Inspected() == null) || ReferenceEquals(inspect, Inspected())))
         {
             HighlightCatalogItem(item);
             return;
         }
         selected = key;
-        inspectingSelection = inspect != null;
+        inspectingSelection = inspectMode;
         if (inspect != null) inspectRef = weak;
         HighlightCatalogItem(item);
+        Render();
+    }
+
+    private void RestoreInspectedEditor()
+    {
+        var item = adjustCatalog == null ? null : adjustCatalog.SelectedItem as TreeViewItem;
+        if (item != null && item.Tag is string && !((string)item.Tag).StartsWith("#group:", StringComparison.Ordinal))
+        {
+            OnCatalogItemSelected(item);
+            return;
+        }
+        var inspected = Inspected();
+        if (inspected == null) return;
+        inspectingSelection = true;
+        selected = RmtCommonStyles.StyleKeyPublic(inspected);
         Render();
     }
 
@@ -3870,7 +3892,7 @@ internal sealed class RmtStyleEditor : Window
         rendering = true;
         interactionReady = false;
         int ticket = ++renderTicket;
-        fields.Children.Clear(); preview.Children.Clear(); inputs.Clear(); colorInputs.Clear(); optionInputs.Clear(); sliderInputs.Clear(); dimensionInputs.Clear(); presetInputs.Clear(); chromeChecks.Clear(); colorTouched.Clear(); sliderTouched.Clear(); dimensionTouched.Clear(); presetTouched.Clear(); optionTouched.Clear(); propertyRow = null; propertyPair = 0; sample = null;
+        fields.Children.Clear(); preview.Children.Clear(); inputs.Clear(); colorInputs.Clear(); optionInputs.Clear(); sliderInputs.Clear(); dimensionInputs.Clear(); presetInputs.Clear(); chromeChecks.Clear(); colorTouched.Clear(); sliderTouched.Clear(); dimensionTouched.Clear(); presetTouched.Clear(); optionTouched.Clear(); propertyRow = null; propertyPair = 0; templateRows = null; sample = null;
         if (selected == null) { rendering = false; ArmInteraction(ticket); return; }
         var inspected = Inspected();
         bool inspectMode = LiveInspecting();
@@ -3980,7 +4002,16 @@ internal sealed class RmtStyleEditor : Window
             templateKey = cloneBase;
         Dictionary<string, string> template;
         TryConfiguredValues(templateKey, out template);
-        fields.Children.Add(new TextBlock { Text = "模版属性（" + templateKey + "，只读）", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 8, 0, 6) });
+        var templateBody = new StackPanel();
+        fields.Children.Add(new Expander
+        {
+            Header = "模版属性（" + templateKey + "，只读）",
+            IsExpanded = false,
+            FontWeight = FontWeights.SemiBold,
+            Margin = new Thickness(0, 8, 0, 6),
+            Content = templateBody
+        });
+        templateRows = templateBody;
         FrameworkElement templateSample = CreateSample(templateKey);
         if (templateSample == null)
         {
@@ -4030,6 +4061,7 @@ internal sealed class RmtStyleEditor : Window
                 AddTemplateProperty(ref row, ref pairIndex, templateSample, template, chrome, shown);
             }
         }
+        templateRows = null;
     }
 
     private void AddReloadHeading(bool inspectMode, FrameworkElement target)
@@ -4038,11 +4070,11 @@ internal sealed class RmtStyleEditor : Window
         var templates = inspectMode ? ListReloadTemplates(target) : new List<string>();
         if (templates.Count == 0)
         {
-            fields.Children.Add(new TextBlock { Text = title, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 10, 0, 6) });
+            fields.Children.Add(new TextBlock { Text = title, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 6) });
             return;
         }
         fields.Children.Add(new TextBlock { Text = title, Height = 0, Margin = new Thickness(0), Visibility = Visibility.Collapsed });
-        var row = new DockPanel { Margin = new Thickness(0, 10, 0, 6), LastChildFill = true };
+        var row = new DockPanel { Margin = new Thickness(0, 0, 0, 6), LastChildFill = true };
         var actions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 200, 0) };
         DockPanel.SetDock(actions, Dock.Right);
         actions.Children.Add(new TextBlock { Text = "重载列表", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) });
@@ -4155,6 +4187,7 @@ internal sealed class RmtStyleEditor : Window
             foreach (var pair in branch.Properties) result[pair.Key] = pair.Value;
         if (result.Count == 0)
             CollectLocalStyleProperties(CreateRawTemplateSample(templateKey), result);
+        NormalizeRelativeFontSize(result);
         return RmtCommonStyles.SanitizeStyle(result);
     }
 
@@ -4167,7 +4200,7 @@ internal sealed class RmtStyleEditor : Window
         return sample;
     }
 
-    private static void CollectLocalStyleProperties(FrameworkElement sample, Dictionary<string, string> result)
+    private void CollectLocalStyleProperties(FrameworkElement sample, Dictionary<string, string> result)
     {
         if (sample == null || result == null) return;
         foreach (string name in RmtCommonStyles.Properties)
@@ -4175,8 +4208,28 @@ internal sealed class RmtStyleEditor : Window
             if (name == "SizeMode" || name == "Margin") continue;
             var dp = RmtCommonStyles.Property(sample, name);
             if (dp == null || sample.ReadLocalValue(dp) == DependencyProperty.UnsetValue) continue;
+            if (name == "RelativeFontSize")
+            {
+                double actual = (double)sample.GetValue(dp);
+                double offset = actual - RmtCommonStyles.ThemeFontSize(source);
+                if (Math.Abs(offset) < 0.01) continue;
+                result[name] = offset.ToString("0.##", CultureInfo.InvariantCulture);
+                continue;
+            }
             result[name] = RmtCommonStyles.Text(sample.GetValue(dp));
         }
+    }
+
+    private void NormalizeRelativeFontSize(Dictionary<string, string> result)
+    {
+        string text;
+        if (result == null || !result.TryGetValue("RelativeFontSize", out text)) return;
+        double number;
+        if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out number)) return;
+        if (number > 8 || number < -8)
+            number = number - RmtCommonStyles.ThemeFontSize(source);
+        if (Math.Abs(number) < 0.01) result.Remove("RelativeFontSize");
+        else result["RelativeFontSize"] = number.ToString("0.##", CultureInfo.InvariantCulture);
     }
 
     private void MergeConfiguredValues(Dictionary<string, string> result, string key)
@@ -4225,7 +4278,7 @@ internal sealed class RmtStyleEditor : Window
         if (row == null || pairIndex == 3)
         {
             row = ThreePairGrid();
-            fields.Children.Add(row);
+            (templateRows ?? (Panel)fields).Children.Add(row);
             pairIndex = 0;
         }
         string configured = template != null && template.ContainsKey(property) ? template[property] : "";
@@ -4919,8 +4972,21 @@ internal sealed class RmtStyleEditor : Window
         grid.Children.Add(left);
         if (showReload)
         {
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            var split = new Border
+            {
+                Width = 1.5,
+                Margin = new Thickness(8, 0, 8, 0),
+                Background = TryFindResource("Win_GroupStroke") as Brush
+                    ?? TryFindResource("OutlineStroke") as Brush
+                    ?? TryFindResource("ControlBorder") as Brush
+                    ?? Brushes.Gray,
+                VerticalAlignment = VerticalAlignment.Stretch,
+                SnapsToDevicePixels = true
+            };
+            Grid.SetColumn(split, 1);
+            grid.Children.Add(split);
             string key = reloadListKey;
             if (string.IsNullOrEmpty(key)) key = templates[0];
             var right = PreviewColumn("重载样式", BuildReloadStylePreview(key, original));
@@ -4937,30 +5003,44 @@ internal sealed class RmtStyleEditor : Window
         {
             Text = title,
             FontWeight = FontWeights.SemiBold,
-            Margin = new Thickness(0, 0, 0, 4)
+            Margin = new Thickness(0, 0, 0, 6)
         };
         DockPanel.SetDock(header, Dock.Top);
         panel.Children.Add(header);
         panel.Children.Add(HostPreview(content));
-        return panel;
+        return new Border
+        {
+            BorderBrush = TryFindResource("Win_GroupStroke") as Brush
+                ?? TryFindResource("OutlineStroke") as Brush
+                ?? TryFindResource("ControlBorder") as Brush
+                ?? Brushes.Gray,
+            BorderThickness = new Thickness(1.5),
+            CornerRadius = new CornerRadius(5),
+            Padding = new Thickness(8),
+            SnapsToDevicePixels = true,
+            Child = panel
+        };
     }
 
     private UIElement HostPreview(FrameworkElement element)
     {
         if (element == null || element is Window)
-            return new TextBlock { Text = "无预览", Opacity = 0.5, Margin = new Thickness(0, 4, 0, 0) };
+            return new TextBlock { Text = "无预览", Opacity = 0.5, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+        element.HorizontalAlignment = HorizontalAlignment.Center;
+        element.VerticalAlignment = VerticalAlignment.Center;
+        var host = new Border
+        {
+            Child = element,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            Background = Brushes.Transparent
+        };
         double scale = SourceContentScale();
         if (Math.Abs(scale - 1) > 0.01)
-            element.LayoutTransform = new ScaleTransform(scale, scale);
-        return new ScrollViewer
-        {
-            HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-            BorderThickness = new Thickness(0),
-            Padding = new Thickness(0),
-            Focusable = false,
-            Content = element
-        };
+            host.LayoutTransform = new ScaleTransform(scale, scale);
+        var stage = new Grid { ClipToBounds = true };
+        stage.Children.Add(host);
+        return stage;
     }
 
     private FrameworkElement BuildControlStylePreview(FrameworkElement original)
@@ -5016,6 +5096,8 @@ internal sealed class RmtStyleEditor : Window
             block.Text = PreviewOverrideText(located as TextBlock != null ? ((TextBlock)located).Text : "文本内容");
         var combo = element as ComboBox;
         if (combo != null) ApplyComboPreview(combo, located as ComboBox);
+        element.HorizontalAlignment = HorizontalAlignment.Center;
+        element.VerticalAlignment = VerticalAlignment.Center;
         return element;
     }
 

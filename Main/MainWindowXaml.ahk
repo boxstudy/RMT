@@ -4623,7 +4623,7 @@ class MainWin {
             tkStr := item.VoiceKeywords
             tkStr := tkStr == "" ? GetLang("编辑") : tkStr
         } else if (isNetwork) {
-            ; §23 网络宏：触发键列显示「复制链接」，点击/右键=直接复制开启 URL
+            ; §23 网络宏：触发键列显示「复制链接」，点击/右键=直接复制单次 URL
             tkStr := item.ID == "" ? GetLang("编辑") : GetLang("复制链接")
         } else if (isTiming) {
             tkStr := ""
@@ -4812,7 +4812,7 @@ class MainWin {
         if (isUI)
             editTK := OnUIMacroSettingClick
         else if (isNetwork)
-            editTK := (*) => OnItemNetworkCopyUrl(tableItem, i, "on")   ; §23 网络宏：触发键列点击 → 直接复制开启 URL
+            editTK := (*) => OnItemNetworkCopyUrl(tableItem, i)   ; §23 网络宏：触发键列点击 → 直接复制单次 URL
         else if (GetTableSymbol(t) == "Voice")
             ; 与虚拟列表路径一致：离开 XAML 点击回调后再创建语音编辑窗口。
             editTK := ObjBindMethod(this, "_DeferVoiceTrigger")
@@ -4822,8 +4822,8 @@ class MainWin {
 
         this._Bind("SeqBtn_" t "_" i, "Click", ObjBindMethod(this, "SelectSideTreeItem", t, i))
         this._Bind("TKBtn_" t "_" i, "Click", editTK.Bind(tableItem, i))
-        ; §23 网络宏：右键同为直接复制开启 URL；其余表保持自定义触发串
-        this._Bind("TKBtn_" t "_" i, "MouseRightButtonUp", isNetwork ? ((*) => OnItemNetworkCopyUrl(tableItem, i, "on")) : OnItemCustomEditTriggerStr.Bind(tableItem, i))
+        ; §23 网络宏：右键同为直接复制单次 URL；其余表保持自定义触发串
+        this._Bind("TKBtn_" t "_" i, "MouseRightButtonUp", isNetwork ? ((*) => OnItemNetworkCopyUrl(tableItem, i)) : OnItemCustomEditTriggerStr.Bind(tableItem, i))
         ; §23 网络宏：触发键左侧「?」按钮 → 网络触发说明弹窗（仅网络表行存在该按钮）
         if (isNetwork)
             this._Bind("NetHelp_" t "_" i, "Click", OnItemNetworkHelp.Bind(tableItem, i))

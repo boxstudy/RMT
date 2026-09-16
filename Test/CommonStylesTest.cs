@@ -101,17 +101,35 @@ class CommonStylesTest
         }
         return "";
     }
+    static IEnumerable<UIElement> FlattenFields(Panel panel)
+    {
+        foreach (UIElement child in panel.Children)
+        {
+            yield return child;
+            var expander = child as Expander;
+            var inner = expander == null ? null : expander.Content as Panel;
+            if (inner == null) continue;
+            foreach (UIElement nested in inner.Children) yield return nested;
+        }
+    }
+    static string FieldHeading(UIElement child)
+    {
+        var heading = child as TextBlock;
+        if (heading != null) return heading.Text ?? "";
+        var expander = child as Expander;
+        return expander == null ? null : expander.Header as string;
+    }
     static Dictionary<string, string> SectionValues(StackPanel panel, string start, string end)
     {
         var result = new Dictionary<string, string>();
         bool active = false;
-        foreach (UIElement child in panel.Children)
+        foreach (UIElement child in FlattenFields(panel))
         {
-            var heading = child as TextBlock;
+            string heading = FieldHeading(child);
             if (heading != null)
             {
-                if ((heading.Text ?? "").StartsWith(start)) { active = true; continue; }
-                if (active && (heading.Text ?? "").StartsWith(end)) break;
+                if (heading.StartsWith(start)) { active = true; continue; }
+                if (active && heading.StartsWith(end)) break;
             }
             var row = active ? child as Grid : null;
             if (row == null) continue;
@@ -127,13 +145,13 @@ class CommonStylesTest
     static bool SectionInputsDimmed(StackPanel panel, string start, string end)
     {
         bool active = false, found = false;
-        foreach (UIElement child in panel.Children)
+        foreach (UIElement child in FlattenFields(panel))
         {
-            var heading = child as TextBlock;
+            string heading = FieldHeading(child);
             if (heading != null)
             {
-                if ((heading.Text ?? "").StartsWith(start)) { active = true; continue; }
-                if (active && (heading.Text ?? "").StartsWith(end)) break;
+                if (heading.StartsWith(start)) { active = true; continue; }
+                if (active && heading.StartsWith(end)) break;
             }
             var row = active ? child as Grid : null;
             if (row == null) continue;
@@ -189,8 +207,8 @@ class CommonStylesTest
             Check(mainTabs != null && mainTabs.Items.Count == 3 && mainTabs.SelectedIndex == 0 && ((TabItem)mainTabs.Items[0]).Header as string == "控件调整" && ((TabItem)mainTabs.Items[1]).Header as string == "模版列表" && ((TabItem)mainTabs.Items[2]).Header as string == "窗口层级", "GM-UI tabs default to control adjustment");
             Check(mainTabs.Margin.Top == 2 && ((DockPanel)editorRoot.FindName("StylesContent")).Margin.Top == 2 && ((DockPanel)editorRoot.FindName("TemplatesContent")).Margin.Top == 2 && ((DockPanel)editorRoot.FindName("ReflectContent")).Margin.Top == 5, "tab and content vertical offsets");
             Check(!WalkLogical((DependencyObject)editorRoot.FindName("StylesContent")).OfType<TextBlock>().Any(t => t.Text == "属性名 / 属性值（每行三组）"), "property section caption removed");
-            var previewBox = WalkLogical(editorRoot).OfType<GroupBox>().First(g => (g.Header as string) == "目标样式预览");
-            Check(previewBox.Height == 200 && previewBox.MinHeight == 200 && previewBox.MaxHeight == 200, "target style preview is 200px tall");
+            var previewBox = (Border)editorRoot.FindName("PreviewHost");
+            Check(previewBox != null && previewBox.Height == 200 && previewBox.BorderThickness.Left == 1.5 && previewBox.BorderThickness.Top == 1.5, "target style preview uses a 200px 1.5px wrap border");
             Check(mainTabs.Style != null && ((TabItem)mainTabs.Items[0]).Style != null && ((TabItem)mainTabs.Items[0]).Tag as string == "first" && ((TabItem)mainTabs.Items[2]).Tag as string == "last", "GM-UI tabs use main-window-like tab chrome");
             var tabTemplate = (ControlTemplate)((Setter)((TabItem)mainTabs.Items[0]).Style.Setters.OfType<Setter>().First(s => s.Property == Control.TemplateProperty)).Value;
             string expectedFont = Math.Max(12, RmtCommonStyles.ThemeFontSize(window) + 2).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
@@ -315,15 +333,36 @@ class CommonStylesTest
             Check(reloadList != null && reloadList.Items.Cast<ComboBoxItem>().Any(x => (x.Tag as string) == "通用/Button") && reloadList.Items.Cast<ComboBoxItem>().Any(x => (x.Tag as string) == "样式/RmtItemEditBtn"), "located button shows button templates in the reload list");
             var reloadActions = fieldsPanel.Children.OfType<DockPanel>().SelectMany(p => p.Children.OfType<StackPanel>()).FirstOrDefault(p => p.Children.OfType<ComboBox>().Any(c => c.Name == "ReloadList"));
             Check(reloadActions != null && reloadActions.Margin.Right >= 200, "reload list sits left of the editor edge");
+            var reloadRow = fieldsPanel.Children.OfType<DockPanel>().FirstOrDefault(p => p.Children.OfType<StackPanel>().Any(s => s.Children.OfType<ComboBox>().Any(c => c.Name == "ReloadList")));
+            Check(reloadRow != null && reloadRow.Margin.Top == 0, "reload properties sit closer to template properties");
             var inspectPreview = (StackPanel)typeof(RmtStyleEditor).GetField("preview", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
             Check(WalkLogical(inspectPreview).OfType<TextBlock>().Any(t => t.Text == "控件样式") && WalkLogical(inspectPreview).OfType<TextBlock>().Any(t => t.Text == "重载样式"), "located button preview splits control and reload styles");
             Check(!WalkLogical(inspectPreview).OfType<Viewbox>().Any(), "control style preview stays 1:1 without Viewbox shrink");
+            Check(WalkLogical(inspectPreview).OfType<Border>().Any(frame => Math.Abs(frame.Width - 1.5) < 0.01 && frame.VerticalAlignment == VerticalAlignment.Stretch), "reload style column is separated by a 1.5px divider");
+            var reloadPreviewCol = WalkLogical(inspectPreview).OfType<DockPanel>().FirstOrDefault(p => p.Children.OfType<TextBlock>().Any(t => t.Text == "重载样式"));
+            var reloadPreviewBtn = reloadPreviewCol == null ? null : WalkLogical(reloadPreviewCol).OfType<Button>().FirstOrDefault();
+            Check(reloadPreviewBtn != null && reloadPreviewBtn.HorizontalAlignment == HorizontalAlignment.Center && reloadPreviewBtn.VerticalAlignment == VerticalAlignment.Center, "reload style preview stays centered at its natural size");
+            Check(WalkLogical(inspectPreview).OfType<Border>().Count(frame => Math.Abs(frame.BorderThickness.Left - 1.5) < 0.01 && frame.Child is DockPanel) == 2, "control and reload style columns use 1.5px wrap borders");
+            var templateExpander = fieldsPanel.Children.OfType<Expander>().FirstOrDefault(e => (e.Header as string ?? "").StartsWith("模版属性"));
+            Check(templateExpander != null && templateExpander.IsExpanded == false, "template properties start collapsed");
             typeof(RmtStyleEditor).GetField("interactionReady", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(editor, true);
             var reloadBeforeSwitch = SectionValues(fieldsPanel, "重载属性", "不会出现的结束标记");
             double locatedWidthBeforeSwitch = b.Width;
             reloadList.SelectedItem = reloadList.Items.Cast<ComboBoxItem>().First(x => (x.Tag as string) == "样式/RmtItemEditBtn"); Pump();
             Check(SameValues(reloadBeforeSwitch, SectionValues(fieldsPanel, "重载属性", "不会出现的结束标记")) && ((double.IsNaN(locatedWidthBeforeSwitch) && double.IsNaN(b.Width)) || b.Width == locatedWidthBeforeSwitch), "changing reload list does not refresh reload properties or the live control");
             reloadList.SelectedItem = reloadList.Items.Cast<ComboBoxItem>().First(x => (x.Tag as string) == "通用/Button"); Pump();
+            mainTabs.SelectedIndex = 1; Pump();
+            var namedTemplateLeaf = catalog.Items.OfType<TreeViewItem>().SelectMany(g => g.Items.OfType<TreeViewItem>()).First(x => (x.Tag as string) == "样式/RmtItemEditBtn");
+            namedTemplateLeaf.IsSelected = true; Pump();
+            Check(!WalkLogical((StackPanel)typeof(RmtStyleEditor).GetField("preview", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor)).OfType<TextBlock>().Any(t => t.Text == "控件样式"), "template list selection shows the catalog sample instead of the located preview");
+            mainTabs.SelectedIndex = 0; Pump();
+            Check(WalkLogical((StackPanel)typeof(RmtStyleEditor).GetField("preview", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor)).OfType<TextBlock>().Any(t => t.Text == "控件样式"), "returning to control adjustment restores the located style preview");
+            var restoredInspect = (WeakReference)typeof(RmtStyleEditor).GetField("inspectRef", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
+            Check(restoredInspect != null && ReferenceEquals(restoredInspect.Target, b), "returning to control adjustment keeps the located control");
+            fieldsPanel = (StackPanel)typeof(RmtStyleEditor).GetField("fields", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
+            positionX = (TextBox)typeof(RmtStyleEditor).GetField("positionX", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
+            positionY = (TextBox)typeof(RmtStyleEditor).GetField("positionY", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
+            typeof(RmtStyleEditor).GetField("interactionReady", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(editor, true);
             var positionLabel = fieldsPanel.Children.OfType<Grid>().SelectMany(g => g.Children.OfType<TextBlock>()).First(t => t.Text == "位置X");
             Check(positionLabel.Cursor == System.Windows.Input.Cursors.SizeWE, "position labels support drag adjustment");
             int positionHeadingAt = -1, styleTemplateAt = -1;
@@ -526,7 +565,7 @@ class CommonStylesTest
             Check(previewChrome != null && previewChrome.Children.Count == 1, "window preview only shows visible title-bar buttons");
             var inspectLabels = fieldsPanel.Children.OfType<Grid>().SelectMany(g => g.Children.OfType<TextBlock>()).Select(t => t.Text).ToList();
             Check(!inspectLabels.Contains("悬停背景") && !inspectLabels.Contains("按住背景") && !inspectLabels.Contains("文字颜色"), "window template properties stay within the reload property set");
-            var inspectHeadings = fieldsPanel.Children.OfType<TextBlock>().Select(t => t.Text).ToList();
+            var inspectHeadings = fieldsPanel.Children.Cast<UIElement>().Select(FieldHeading).Where(t => !string.IsNullOrEmpty(t)).ToList();
             int templateAt = inspectHeadings.FindIndex(t => (t ?? "").StartsWith("模版属性"));
             int reloadAt = inspectHeadings.FindIndex(t => (t ?? "").StartsWith("重载属性"));
             Check(templateAt >= 0 && reloadAt > templateAt, "window reload properties stay below template properties");
@@ -568,10 +607,10 @@ class CommonStylesTest
             editor.AcceptHierarchyTarget(fontCombo); Pump();
             fieldsPanel = (StackPanel)typeof(RmtStyleEditor).GetField("fields", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
             var comboOrder = new List<string>();
-            foreach (UIElement child in fieldsPanel.Children)
+            foreach (UIElement child in FlattenFields(fieldsPanel))
             {
-                var heading = child as TextBlock;
-                if (heading != null) { comboOrder.Add(heading.Text ?? ""); continue; }
+                string heading = FieldHeading(child);
+                if (!string.IsNullOrEmpty(heading)) { comboOrder.Add(heading); continue; }
                 var grid = child as Grid;
                 if (grid == null) continue;
                 foreach (var label in grid.Children.OfType<TextBlock>())
@@ -631,6 +670,18 @@ class CommonStylesTest
             var input = (TextBox)window.FindName("Input"); input.SetBinding(TextBox.FontSizeProperty, new Binding("Tag") { Source = input }); input.Tag = 19.0;
             var other = new Window { Content = new Button { Content = "other" }, Width = 300, Height = 200, Opacity = 0.01, ShowInTaskbar = false };
             RmtCommonStyles.Configure(other, path + "|1"); other.Show(); Pump();
+            var fontProbe = new Button { Name = "FontProbe", Content = "确定" };
+            ((StackPanel)window.Content).Children.Add(fontProbe); Pump();
+            Dictionary<string, string> savedButtonTemplate;
+            if (RmtCommonStyles.Values.TryGetValue("通用/Button", out savedButtonTemplate))
+                savedButtonTemplate = new Dictionary<string, string>(savedButtonTemplate);
+            else savedButtonTemplate = null;
+            RmtCommonStyles.Values.Remove("通用/Button");
+            editor.AcceptHierarchyTarget(fontProbe); Pump();
+            editor.ApplyReloadFromTemplate("通用/Button"); Pump();
+            var probeSliders = (Dictionary<string, Slider>)typeof(RmtStyleEditor).GetField("sliderInputs", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
+            Check(probeSliders.ContainsKey("RelativeFontSize") && Math.Abs(probeSliders["RelativeFontSize"].Value) < .01, "applying the button template keeps relative font size at 0");
+            if (savedButtonTemplate != null) RmtCommonStyles.Values["通用/Button"] = savedButtonTemplate;
             RmtCommonStyles.Values["通用/Button"] = new Dictionary<string, string> { { "Width", "123" }, { "Padding", "4,5,6,7" } };
             RmtCommonStyles.Values["样式/RmtItemEditBtn"] = new Dictionary<string, string> { { "Width", "88" } };
             RmtCommonStyles.Values["通用/TextBox"] = new Dictionary<string, string> { { "RelativeFontSize", "2" } };

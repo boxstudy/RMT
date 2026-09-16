@@ -202,7 +202,7 @@ class VirtualListHost {
             return tkStr == "" ? GetLang("编辑") : tkStr
         }
         if (GetTableSymbol(t) == "Network") {
-            ; §23 网络宏：触发键列显示「复制链接」，点击/右键=直接复制开启 URL
+            ; §23 网络宏：触发键列显示「复制链接」，点击/右键=直接复制单次 URL
             return item.ID == "" ? GetLang("编辑") : GetLang("复制链接")
         }
         if (isTiming)
@@ -268,9 +268,9 @@ class VirtualListHost {
             switch action {
                 case "TKBtn": this._EditTK(tableItem, idx, event)
                 case "TKBtnR":
-                    ; §23 网络宏：右键触发键列 = 直接复制开启 URL；其余表保持自定义触发串
+                    ; §23 网络宏：右键触发键列 = 直接复制单次 URL；其余表保持自定义触发串
                     if (GetTableSymbol(t) == "Network")
-                        OnItemNetworkCopyUrl(tableItem, idx, "on", event)
+                        OnItemNetworkCopyUrl(tableItem, idx, "", event)
                     else
                         OnItemCustomEditTriggerStr(tableItem, idx, event)
                 case "NetHelp":
@@ -318,7 +318,7 @@ class VirtualListHost {
             ; 避免在桥接事件回调中同步创建第二个引擎窗口导致宿主直接退出。
             this._DeferDialog("VoiceTrigger", OnItemVoiceTriggerSetting.Bind(tableItem, i))
         else if (GetTableSymbol(t) == "Network")
-            OnItemNetworkCopyUrl(tableItem, i, "on", event)   ; §23 网络宏：触发键列点击 = 直接复制开启 URL
+            OnItemNetworkCopyUrl(tableItem, i, "", event)   ; §23 网络宏：触发键列点击 = 直接复制单次 URL
         else
             OnItemEditTriggerKey(tableItem, i, event)
     }
