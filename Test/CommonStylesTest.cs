@@ -219,9 +219,8 @@ class CommonStylesTest
             Check(((TextBlock)editorRoot.FindName("MinGlyph")).Text == "\uE921" && ((TextBlock)editorRoot.FindName("MaxGlyph")).Text == "\uE922", "minimize and maximize glyphs match window chrome");
             Check(closeGlyph.Text == "\uE8BB" && closeGlyph.FontFamily.Source == "Segoe Fluent Icons, Segoe MDL2 Assets" && closeGlyph.FontSize >= Math.Max(15, window.FontSize) && closeGlyph.FontWeight == FontWeights.Bold, "close glyph matches scaled bold main window chrome");
             Check(pinGlyph.FontSize == closeGlyph.FontSize && pinGlyph.FontWeight == closeGlyph.FontWeight, "pin glyph uses the same scaled bold chrome style");
-            Check(editorRoot.FindName("CmdLocateControl") is Button && ((Button)editorRoot.FindName("CmdLocateControl")).Content as string == "控件定位" && editorRoot.FindName("CmdItemReset") is Button && editorRoot.FindName("CmdItemRefresh") == null && editorRoot.FindName("CmdItemApply") is Button && editorRoot.FindName("CmdFindTemplate") is Button && editorRoot.FindName("CmdApplyTemplate") is Button && editorRoot.FindName("CmdAddTemplate") is Button, "item action bar exists without manual refresh");
-            Check(((Button)editorRoot.FindName("CmdAddTemplate")).Content as string == "添加新模版", "add template button renamed");
-            Check(((Button)editorRoot.FindName("CmdApplyTemplate")).Content as string == "应用到模版", "apply to template button exists");
+            Check(editorRoot.FindName("CmdLocateControl") is Button && ((Button)editorRoot.FindName("CmdLocateControl")).Content as string == "控件定位" && editorRoot.FindName("CmdItemReset") is Button && editorRoot.FindName("CmdItemRefresh") == null && editorRoot.FindName("CmdItemApply") == null && editorRoot.FindName("CmdFindTemplate") is Button && editorRoot.FindName("CmdApplyTemplate") == null && editorRoot.FindName("CmdAddTemplate") is Button, "item action bar uses automatic application");
+            Check(((Button)editorRoot.FindName("CmdAddTemplate")).Content as string == "新增模版", "add template button renamed");
             var buttonOneField = typeof(RmtStyleEditor).GetField("selected", BindingFlags.Instance | BindingFlags.NonPublic);
             var renderButtonOne = typeof(RmtStyleEditor).GetMethod("Render", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
             string previousSelection = (string)buttonOneField.GetValue(editor);
@@ -279,7 +278,7 @@ class CommonStylesTest
             });
             string expectedForeground = changedForeground.Tag as string;
             foregroundPicker.SelectedItem = changedForeground; Pump();
-            ((Button)editorRoot.FindName("CmdItemApply")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Pump();
+            typeof(RmtStyleEditor).GetMethod("Apply", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(editor, null); Pump();
             selectedField.SetValue(editor, "Theme.Confirm"); renderMethod.Invoke(editor, null); Pump();
             selectedField.SetValue(editor, selection); renderMethod.Invoke(editor, null); Pump();
             buttonColors = (Dictionary<string, ComboBox>)typeof(RmtStyleEditor).GetField("colorInputs", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
@@ -445,7 +444,10 @@ class CommonStylesTest
             var voiceOptions = (Dictionary<string, ComboBox>)typeof(RmtStyleEditor).GetField("optionInputs", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
             voiceInputs["Spacing"].Text = "150"; Pump();
             voiceOptions["ChildAlignment"].SelectedItem = voiceOptions["ChildAlignment"].Items.Cast<ComboBoxItem>().First(x => (x.Tag as string) == "Center"); Pump();
-            ((Button)editorRoot.FindName("CmdItemApply")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Pump();
+            Check(voiceActions.HorizontalAlignment == HorizontalAlignment.Center && !RmtCommonStyles.Layouts.ContainsKey(RmtCommonStyles.LayoutId(voiceActions)), "voice action style alignment is not pinned by an automatic position layout");
+            var voicePreview = (StackPanel)typeof(RmtStyleEditor).GetField("preview", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
+            Check(WalkLogical(voicePreview).OfType<ScrollViewer>().Any() && WalkLogical(voicePreview).OfType<Button>().Count() >= 2, "oversized action panel preview keeps its buttons in a scrollable area");
+            typeof(RmtStyleEditor).GetMethod("Apply", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(editor, null); Pump();
             string voiceActionsId = RmtCommonStyles.LayoutId(voiceActions);
             Check(voiceActionsId == "ahk:Voice.Keywords.Actions" && RmtCommonStyles.StyleBindings.ContainsKey(voiceActionsId) && RmtCommonStyles.InstanceStyles.ContainsKey(voiceActionsId), "voice action panel adjustments persist under a stable instance id");
             RmtCommonStyles.Save();
@@ -504,7 +506,7 @@ class CommonStylesTest
             Check(!RmtCommonStyles.Values.ContainsKey("通用/TextBox"), "apply-to-template does not create a shared TextBox style from a reflected control");
             var applyStatus = (TextBlock)typeof(RmtStyleEditor).GetField("status", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
             Check(applyStatus.Text.IndexOf("没有独立模版", StringComparison.Ordinal) >= 0, "apply-to-template explains that reflected text boxes need an explicit template");
-            ((Button)editorRoot.FindName("CmdItemApply")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Pump();
+            typeof(RmtStyleEditor).GetMethod("Apply", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(editor, null); Pump();
             string inputLayoutId = RmtCommonStyles.LayoutId(inputBox);
             Check(!string.IsNullOrEmpty(inputLayoutId) && RmtCommonStyles.InstanceStyles.ContainsKey(inputLayoutId), "apply persists reflected text box edits as instance styles");
             Check(!RmtCommonStyles.Values.ContainsKey("通用/TextBox"), "apply does not paint shared TextBox styles onto the main window");
@@ -604,6 +606,18 @@ class CommonStylesTest
             Check(parentRoot != null && parentRoot.Target is Panel && ((Panel)parentRoot.Target).Children.Contains(firstButton), "show parent promotes the reflect root to the container");
             Check(FlattenTree(reflectLeaf).Any(x => { var weak = x.DataContext as WeakReference; return weak != null && ReferenceEquals(weak.Target, firstButton); }), "parent hierarchy still contains the original button");
             Check(!reflectLeaf.Items.OfType<TreeViewItem>().SelectMany(x => (x.ContextMenu == null ? new MenuItem[0] : x.ContextMenu.Items.OfType<MenuItem>())).Any(x => (x.Header as string) == "显示父级"), "only the reflect root offers show parent");
+            var unnamedSibling = new Button { Width = 30, Content = "sibling" };
+            ((Panel)parentRoot.Target).Children.Add(unnamedSibling); Pump();
+            editor.AcceptHierarchyTarget(firstButton); Pump();
+            editor.ShowInspectParent(); Pump();
+            reflectGroup = adjustCatalog.Items.OfType<TreeViewItem>().First(g => (g.Tag as string) == "#group:反射控件");
+            var siblingLeaf = FlattenTree(reflectGroup).First(x => { var weak = x.DataContext as WeakReference; return weak != null && ReferenceEquals(weak.Target, unnamedSibling); });
+            siblingLeaf.IsSelected = true; Pump();
+            Check(ReferenceEquals(typeof(RmtStyleEditor).GetMethod("Inspected", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(editor, null), unnamedSibling), "sibling selection targets the sibling instance");
+            typeof(RmtStyleEditor).GetMethod("StoreEdits", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(editor, new object[] { new Dictionary<string, string> { { "Width", "54" } }, true }); Pump();
+            Check(Math.Abs(unnamedSibling.Width - 54) < .1 && RmtCommonStyles.LayoutId(unnamedSibling) != "", "unnamed sibling selected after showing parent applies edits immediately: width=" + unnamedSibling.Width + " id=" + RmtCommonStyles.LayoutId(unnamedSibling));
+            ((Button)editorRoot.FindName("CmdItemReset")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Pump();
+            ((Panel)parentRoot.Target).Children.Remove(unnamedSibling); Pump();
             editor.AcceptHierarchyTarget(fontCombo); Pump();
             fieldsPanel = (StackPanel)typeof(RmtStyleEditor).GetField("fields", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
             var comboOrder = new List<string>();
@@ -707,7 +721,7 @@ class CommonStylesTest
             Check(previewApplied != null, "applying reload list refreshes the target style preview");
             var appliedInputs = (Dictionary<string, TextBox>)typeof(RmtStyleEditor).GetField("inputs", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
             Check(appliedInputs.ContainsKey("Width") && appliedInputs["Width"].Text == "123", "applying reload list refreshes reload properties");
-            ((Button)editorRoot.FindName("CmdItemApply")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Pump();
+            // Located controls are saved when the reload list action runs.
             Check(b.Width == 123 && a.Width == 64 && double.IsNaN(dynamic.Width), "applying the common button template changes only the selected control");
             Check(RmtCommonStyles.BoundStyleKey(RmtCommonStyles.LayoutId(b)) == "通用/Button", "applying a template binds the control to that shared style");
             RmtCommonStyles.Values["通用/Button"]["Width"] = "124"; RmtCommonStyles.Refresh();
@@ -723,7 +737,7 @@ class CommonStylesTest
             Check(merged == "通用/Button" && !RmtCommonStyles.Values.ContainsKey(forkedKey), "identical styles merge and unused instance styles are deleted");
             editor.AcceptHierarchyTarget(a); Pump();
             editor.ApplyReloadFromTemplate("样式/RmtItemEditBtn"); Pump();
-            ((Button)editorRoot.FindName("CmdItemApply")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Pump();
+            // Applying a named template is immediate for the located control.
             Check(a.Width == 88 && b.Width == 123 && double.IsNaN(dynamic.Width), "applying a named template remains isolated to its selected control");
             Check(RmtCommonStyles.BoundStyleKey(RmtCommonStyles.LayoutId(a)) == "样式/RmtItemEditBtn" && RmtCommonStyles.BoundStyleKey(RmtCommonStyles.LayoutId(b)) == "通用/Button", "two controls keep independent shared style references");
             ((ItemsControl)window.FindName("Virtual")).Items.Add("row"); Pump();

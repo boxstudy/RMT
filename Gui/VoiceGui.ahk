@@ -46,7 +46,7 @@ class VoiceGui {
 
         try {
             mainGui := IsObject(MainSoftData.MyGui) ? MainSoftData.MyGui.Hwnd : ""
-            strokeWidth := "1.25"
+            strokeWidth := "1"
             panel := XAML_Generator("Grid").Margin("16")
             panel.Rows("Auto", "Auto", "*", "Auto", "Auto")
             panel.Add("TextBlock").Grid_Row(0).Text(GetLang("说出以下关键词即可触发该宏。支持多个关键词，用英文逗号 , 分隔。")).TextWrapping("Wrap").Margin("0,0,0,10")

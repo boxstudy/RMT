@@ -101,6 +101,7 @@ internal static class RmtCommonStyles
     private sealed class StackAlignState
     {
         internal readonly Dictionary<FrameworkElement, HorizontalAlignment> Original = new Dictionary<FrameworkElement, HorizontalAlignment>();
+        internal readonly Dictionary<FrameworkElement, VerticalAlignment> OriginalVertical = new Dictionary<FrameworkElement, VerticalAlignment>();
         internal HorizontalAlignment PanelOriginal = HorizontalAlignment.Stretch;
         internal bool Hooked, Applying, CapturedPanel;
     }
@@ -173,7 +174,7 @@ internal static class RmtCommonStyles
     private static string StyleKey(FrameworkElement fe)
     {
         // A copied GM-UI style is attached declaratively with Uid="gm:Button1" (or TextBox1, ComboBox1...).
-        if (!string.IsNullOrEmpty(fe.Uid) && fe.Uid.StartsWith("gm:")) return fe.Uid.Substring(3);
+        if (!string.IsNullOrEmpty(fe.Uid) && fe.Uid.StartsWith("gm:") && !fe.Uid.StartsWith("gm:auto.")) return fe.Uid.Substring(3);
         if (!string.IsNullOrEmpty(fe.Uid) && fe.Uid.StartsWith("gm-exception:")) return "特殊/" + fe.Uid.Substring(13);
         if (fe.Name == "BtnMinimize" || fe.Name == "BtnMaximize" || fe.Name == "BtnPin" || fe.Name == "BtnWinClose" || fe.Name == "BtnClosePanel")
             return "特殊/窗口标题栏/" + fe.Name;
@@ -271,9 +272,8 @@ internal static class RmtCommonStyles
     {
         string id = LayoutId(fe);
         if (id != "" || fe == null) return id;
-        int number = 1;
         string uid;
-        do { uid = "gm:auto." + fe.GetType().Name + number++; }
+        do { uid = "gm:auto." + fe.GetType().Name + "." + Guid.NewGuid().ToString("N"); }
         while (StyleBindings.ContainsKey(uid) || InstanceStyles.ContainsKey(uid));
         fe.Uid = uid;
         return uid;
@@ -833,10 +833,18 @@ internal static class RmtCommonStyles
                 state.PanelOriginal = panel.HorizontalAlignment;
                 state.CapturedPanel = true;
             }
+            // ChildAlignment positions the group on the axis that can move it in
+            // its parent. A horizontal StackPanel uses HorizontalAlignment;
+            // a vertical StackPanel uses child HorizontalAlignment.
             if (panel.Orientation == Orientation.Horizontal)
             {
                 if (panel.HorizontalAlignment != align)
                     panel.SetCurrentValue(FrameworkElement.HorizontalAlignmentProperty, align);
+                if (state.CapturedPanel && panel.VerticalAlignment != VerticalAlignment.Top
+                    && panel.VerticalAlignment != VerticalAlignment.Center
+                    && panel.VerticalAlignment != VerticalAlignment.Bottom
+                    && panel.VerticalAlignment != VerticalAlignment.Stretch)
+                    panel.SetCurrentValue(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Stretch);
             }
             else if (state.CapturedPanel && panel.HorizontalAlignment != state.PanelOriginal)
                 panel.SetCurrentValue(FrameworkElement.HorizontalAlignmentProperty, state.PanelOriginal);
@@ -847,11 +855,22 @@ internal static class RmtCommonStyles
                 if (child == null) continue;
                 live.Add(child);
                 if (!state.Original.ContainsKey(child)) state.Original[child] = child.HorizontalAlignment;
-                if (child.HorizontalAlignment != align)
+                if (!state.OriginalVertical.ContainsKey(child)) state.OriginalVertical[child] = child.VerticalAlignment;
+                if (panel.Orientation == Orientation.Horizontal)
+                {
+                    if (child.HorizontalAlignment != align)
+                        child.SetCurrentValue(FrameworkElement.HorizontalAlignmentProperty, align);
+                    if (child.VerticalAlignment != VerticalAlignment.Center)
+                        child.SetCurrentValue(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Center);
+                }
+                else if (child.HorizontalAlignment != align)
                     child.SetCurrentValue(FrameworkElement.HorizontalAlignmentProperty, align);
             }
             foreach (var child in state.Original.Keys.Where(x => !live.Contains(x)).ToArray())
+            {
                 state.Original.Remove(child);
+                state.OriginalVertical.Remove(child);
+            }
         }
         finally { state.Applying = false; }
     }
@@ -1881,6 +1900,7 @@ internal sealed class RmtStyleEditor : Window
     private const double PickInnerBand = 0.80;
     private TextBox positionX, positionY;
     private bool positionUpdating;
+    private bool positionEdited;
     private double chromeButtonWidth = 46, chromeButtonHeight = 30, chromeGlyphSize = 15;
     private FontWeight chromeGlyphWeight = FontWeights.Bold;
     private FrameworkElement highlightTarget;
@@ -1945,10 +1965,8 @@ internal sealed class RmtStyleEditor : Window
                 <StackPanel DockPanel.Dock='Bottom' Orientation='Horizontal' HorizontalAlignment='Right' Margin='0,10,0,0'>
                   <Button x:Name='CmdLocateControl' Content='控件定位' Padding='10,5' Margin='0,0,8,0'/>
                   <Button x:Name='CmdItemReset' Content='重置' Padding='10,5' Margin='0,0,8,0'/>
-                  <Button x:Name='CmdItemApply' Content='应用' Padding='10,5' Margin='0,0,8,0'/>
                   <Button x:Name='CmdFindTemplate' Content='查找模版' Padding='10,5' Margin='0,0,8,0'/>
-                  <Button x:Name='CmdApplyTemplate' Content='应用到模版' Padding='10,5' Margin='0,0,8,0'/>
-                  <Button x:Name='CmdAddTemplate' Content='添加新模版' Padding='10,5'/>
+                  <Button x:Name='CmdAddTemplate' Content='新增模版' Padding='10,5'/>
                 </StackPanel>
                 <ScrollViewer VerticalScrollBarVisibility='Auto'><StackPanel x:Name='Fields'/></ScrollViewer>
               </DockPanel>
@@ -2073,9 +2091,7 @@ internal sealed class RmtStyleEditor : Window
         cmdLocate = (Button)root.FindName("CmdLocateControl");
         cmdLocate.Click += delegate { ToggleControlPick(); };
         ((Button)root.FindName("CmdItemReset")).Click += delegate { ResetCurrent(); };
-        ((Button)root.FindName("CmdItemApply")).Click += delegate { ApplyCurrent(); };
         ((Button)root.FindName("CmdFindTemplate")).Click += delegate { FindTemplate(); };
-        ((Button)root.FindName("CmdApplyTemplate")).Click += delegate { ApplyReloadToTemplate(); };
         ((Button)root.FindName("CmdAddTemplate")).Click += delegate { AddToTemplate(); };
         ((Button)root.FindName("CmdHierarchyRefresh")).Click += delegate { RefreshHierarchyTree(); };
         ((Button)root.FindName("CmdHierarchyLocate")).Click += delegate { AcceptHierarchySelected(); };
@@ -2128,7 +2144,15 @@ internal sealed class RmtStyleEditor : Window
         }
         selected = key;
         inspectingSelection = inspectMode;
-        if (inspect != null) inspectRef = weak;
+        positionEdited = false;
+        if (inspect != null)
+        {
+            inspectRef = weak;
+            // Sibling nodes selected after "显示父级" do not pass through
+            // AcceptHierarchyTarget. Give them the same persistent identity.
+            RmtCommonStyles.EnsureLayoutId(inspect);
+            RmtCommonStyles.EnsureRegistered(inspect);
+        }
         HighlightCatalogItem(item);
         Render();
     }
@@ -2362,7 +2386,10 @@ internal sealed class RmtStyleEditor : Window
             Dictionary<string, string> layout;
             if (layoutSnapshot.TryGetValue(id, out layout)) RmtCommonStyles.ApplyAnchorLayout(target, layout);
             target.UpdateLayout();
+            try { RmtCommonStyles.Save(); }
+            catch (Exception ex) { status.Text = ex.Message; return; }
         }
+        positionEdited = false;
         Render();
         dirty = drafts.Count > 0 || instanceDrafts.Count > 0;
         status.Text = "当前控件的重载属性已恢复到调整前。";
@@ -2421,19 +2448,23 @@ internal sealed class RmtStyleEditor : Window
         if (LiveInspecting())
         {
             var target = Inspected();
-            if (persist)
+            // Located controls apply every valid change immediately. Keep the opening
+            // snapshot intact so ResetCurrent can restore the pre-edit values.
+            if ((positionEdited || target is Window) && !ApplyInspectedPosition(true)) return false;
+            // Older edits saved an anchor even when only a style field changed. Such an
+            // anchor pins a horizontal StackPanel at its old X and defeats alignment.
+            if (!positionEdited && target is StackPanel && next.ContainsKey("ChildAlignment"))
             {
-                // Capture the edited size/position before Refresh reapplies the old layout.
-                if (!ApplyInspectedPosition(true)) return false;
-                RmtCommonStyles.AssignControlStyle(target, next);
-                instanceDrafts.Remove(target);
-                RmtCommonStyles.Refresh();
+                string id = RmtCommonStyles.LayoutId(target);
+                PositionOriginal original;
+                if (positionOriginals.TryGetValue(target, out original)) target.Margin = original.Margin;
+                RmtCommonStyles.Layouts.Remove(id);
             }
-            else
-            {
-                instanceDrafts[target] = next;
-                RmtCommonStyles.PreviewInstance(target, next);
-            }
+            RmtCommonStyles.AssignControlStyle(target, next);
+            instanceDrafts.Remove(target);
+            RmtCommonStyles.Refresh();
+            RmtCommonStyles.Save();
+            dirty = drafts.Count > 0 || instanceDrafts.Count > 0;
         }
         else
         {
@@ -2446,7 +2477,7 @@ internal sealed class RmtStyleEditor : Window
             else drafts[selected] = next;
             SyncBranchProperties(selected, next);
         }
-        dirty = true;
+        if (!LiveInspecting()) dirty = true;
         return true;
     }
 
@@ -2683,6 +2714,7 @@ internal sealed class RmtStyleEditor : Window
     internal void AcceptHierarchyTarget(FrameworkElement target)
     {
         if (target == null) return;
+        positionEdited = false;
         inspectRootRef = new WeakReference(target);
         inspectRef = new WeakReference(target);
         inspectingSelection = true;
@@ -3369,7 +3401,10 @@ internal sealed class RmtStyleEditor : Window
     private void PreviewPosition()
     {
         if (rendering || positionUpdating) return;
-        ApplyInspectedPosition(false);
+        if (!ApplyInspectedPosition(true)) return;
+        positionEdited = true;
+        try { RmtCommonStyles.Save(); }
+        catch (Exception ex) { status.Text = ex.Message; }
     }
 
     private void EnableNumberDrag(TextBlock label, TextBox box)
@@ -3438,7 +3473,6 @@ internal sealed class RmtStyleEditor : Window
         if (persist)
         {
             RmtCommonStyles.Layouts[id] = layout;
-            positionOriginals.Remove(target);
         }
         else dirty = true;
         return true;
@@ -4168,7 +4202,7 @@ internal sealed class RmtStyleEditor : Window
         selected = RmtCommonStyles.StyleKeyPublic(target);
         reloadListKey = templateKey;
         Dictionary<string, string> source = CaptureTemplateReloadValues(templateKey);
-        StoreEdits(new Dictionary<string, string>(source), true);
+        if (!StoreEdits(new Dictionary<string, string>(source), true)) return;
         target.UpdateLayout();
         Render();
         status.Text = "已应用「" + DisplayName(templateKey) + "」的重载属性。";
@@ -5026,18 +5060,21 @@ internal sealed class RmtStyleEditor : Window
     {
         if (element == null || element is Window)
             return new TextBlock { Text = "无预览", Opacity = 0.5, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-        element.HorizontalAlignment = HorizontalAlignment.Center;
-        element.VerticalAlignment = VerticalAlignment.Center;
+        bool panelPreview = element is Panel;
+        element.HorizontalAlignment = panelPreview ? HorizontalAlignment.Left : HorizontalAlignment.Center;
+        element.VerticalAlignment = panelPreview ? VerticalAlignment.Top : VerticalAlignment.Center;
         var host = new Border
         {
             Child = element,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = panelPreview ? HorizontalAlignment.Left : HorizontalAlignment.Center,
+            VerticalAlignment = panelPreview ? VerticalAlignment.Top : VerticalAlignment.Center,
             Background = Brushes.Transparent
         };
         double scale = SourceContentScale();
         if (Math.Abs(scale - 1) > 0.01)
             host.LayoutTransform = new ScaleTransform(scale, scale);
+        if (panelPreview)
+            return new ScrollViewer { Content = host, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
         var stage = new Grid { ClipToBounds = true };
         stage.Children.Add(host);
         return stage;
