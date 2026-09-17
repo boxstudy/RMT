@@ -60,11 +60,40 @@ class CommonStylesTest
                     RmtCommonStyles.ApplyLayout(dialog); Pump();
                     Check(ReferenceEquals(dialog.Content, hostBox) && ReferenceEquals(hostBox.Child, root),
                         "restoring the same window layout twice keeps the Viewbox host");
+                    CheckLiveWindowResizeFillsViewport(dialog, hostBox, root, input, initialVisualScale);
                 }
                 finally { dialog.Close(); }
             }
         }
         finally { RmtCommonStyles.Layouts.Remove(key); }
+    }
+    static void CheckLiveWindowResizeFillsViewport(Window dialog, Viewbox hostBox, Grid root, TextBox input, double visualScale)
+    {
+        double chromeW, chromeH;
+        RmtCommonStyles.GetWindowChromeInset(dialog, out chromeW, out chromeH);
+        double wider = dialog.Width + 80;
+        dialog.Width = wider;
+        RmtCommonStyles.NormalizeWindowContentForResize(dialog, visualScale, chromeW, chromeH); Pump();
+        Check(Math.Abs(root.Width / root.Height - hostBox.ActualWidth / hostBox.ActualHeight) < .02
+            && input.FontSize == 15,
+            "increasing window width retargets design size without side letterboxing");
+        double taller = dialog.Height + 90;
+        dialog.Height = taller;
+        RmtCommonStyles.NormalizeWindowContentForResize(dialog, visualScale, chromeW, chromeH); Pump();
+        Check(Math.Abs(root.Width / root.Height - hostBox.ActualWidth / hostBox.ActualHeight) < .02,
+            "increasing window height keeps the title filling the top of the window");
+        var titleAt = root.TranslatePoint(new Point(0, 0), hostBox);
+        Check(titleAt.Y < 4 && titleAt.X < 4, "taller window pins chrome to the top-left instead of centering it");
+        dialog.Height = Math.Max(200, taller - 160);
+        RmtCommonStyles.NormalizeWindowContentForResize(dialog, visualScale, chromeW, chromeH); Pump();
+        Check(Math.Abs(root.Width / root.Height - hostBox.ActualWidth / hostBox.ActualHeight) < .02,
+            "decreasing window height does not add left and right content margins");
+        var shortAt = root.TranslatePoint(new Point(0, 0), hostBox);
+        Check(shortAt.X < 4 && shortAt.Y < 4, "shorter window keeps chrome covering the window edges");
+        dialog.Width = Math.Max(240, wider - 140);
+        RmtCommonStyles.NormalizeWindowContentForResize(dialog, visualScale, chromeW, chromeH); Pump();
+        Check(Math.Abs(root.Width / root.Height - hostBox.ActualWidth / hostBox.ActualHeight) < .02,
+            "decreasing window width keeps the design filling the viewport");
     }
     static IEnumerable<TreeViewItem> FlattenTree(TreeViewItem item)
     {
@@ -463,6 +492,17 @@ class CommonStylesTest
                 && reopenedSure.HorizontalAlignment == HorizontalAlignment.Center && reopenedCancel.HorizontalAlignment == HorizontalAlignment.Center
                 && Math.Abs(reopenedCancel.Margin.Left - 150) < .1,
                 "voice action panel alignment and spacing restore after configuration reload");
+            reopenedSure.Name = "BtnSure";
+            Check(RmtCommonStyles.IsFlowLayoutChild(reopenedSure) && RmtCommonStyles.IsFlowLayoutChild(reopenedVoiceActions), "voice action buttons stay in flow layout");
+            string sureLayoutId = RmtCommonStyles.LayoutId(reopenedSure);
+            RmtCommonStyles.Layouts[sureLayoutId] = new Dictionary<string, string> {
+                { "AnchorObject", "父级" }, { "AnchorType", "左上" },
+                { "PositionX", "0" }, { "PositionY", "0" }
+            };
+            RmtCommonStyles.ApplyLayout(reopenedSure); Pump();
+            Check(reopenedSure.Width == 90 && reopenedSure.ActualWidth >= 80,
+                "saved button coordinates do not collapse flow action buttons");
+            RmtCommonStyles.Layouts.Remove(sureLayoutId);
             var bareLabel = new TextBlock { Name = "BareLabel", Text = "颜色14：" };
             ((StackPanel)window.Content).Children.Add(bareLabel); Pump();
             editor.AcceptHierarchyTarget(bareLabel); Pump();
@@ -482,6 +522,21 @@ class CommonStylesTest
             Check(!fieldsPanel.Children.OfType<DockPanel>().SelectMany(p => p.Children.OfType<StackPanel>()).SelectMany(p => p.Children.OfType<ComboBox>()).Any(c => c.Name == "ReloadList"), "text block hides reload list when no matching template exists");
             var labelPreviewHost = (StackPanel)typeof(RmtStyleEditor).GetField("preview", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
             Check(WalkLogical(labelPreviewHost).OfType<TextBlock>().Any(t => t.Text == "控件样式") && !WalkLogical(labelPreviewHost).OfType<TextBlock>().Any(t => t.Text == "重载样式"), "text block preview keeps the control column and hides reload style");
+            typeof(RmtStyleEditor).GetField("interactionReady", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(editor, true);
+            var labelSliders = (Dictionary<string, Slider>)typeof(RmtStyleEditor).GetField("sliderInputs", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
+            labelSliders["RelativeFontSize"].Value = 3; Pump();
+            Check(Math.Abs(bareLabel.FontSize - (RmtCommonStyles.ThemeFontSize(bareLabel) + 3)) < .01,
+                "located text block relative font size applies to the live control");
+            var example = new TextBlock { Name = "LblExample", Uid = "ahk:Voice.Keywords.Example", Text = "示例：开始攻击, 暂停, 保存进度", TextWrapping = TextWrapping.Wrap };
+            var exampleHost = new Grid { Width = 400, Height = 60 };
+            exampleHost.Children.Add(example);
+            ((StackPanel)window.Content).Children.Add(new Viewbox { Stretch = Stretch.Uniform, StretchDirection = StretchDirection.Both, Child = exampleHost }); Pump();
+            editor.AcceptHierarchyTarget(example); Pump();
+            typeof(RmtStyleEditor).GetField("interactionReady", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(editor, true);
+            var exampleSliders = (Dictionary<string, Slider>)typeof(RmtStyleEditor).GetField("sliderInputs", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
+            exampleSliders["RelativeFontSize"].Value = 4; Pump();
+            Check(Math.Abs(example.FontSize - (RmtCommonStyles.ThemeFontSize(example) + 4)) < .01,
+                "located voice example text relative font size survives Viewbox layout");
             var inputBox = (TextBox)window.FindName("Input");
             editor.AcceptHierarchyTarget(inputBox); Pump();
             var inputColors = (Dictionary<string, ComboBox>)typeof(RmtStyleEditor).GetField("colorInputs", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
@@ -489,6 +544,26 @@ class CommonStylesTest
             var inputBoxes = (Dictionary<string, TextBox>)typeof(RmtStyleEditor).GetField("inputs", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
             Check(inputOptions.ContainsKey("IsReadOnly") && inputOptions.ContainsKey("AcceptsReturn") && inputOptions.ContainsKey("TextWrapping") && inputOptions.ContainsKey("VerticalScrollBarVisibility"), "text box exposes edit and wrap properties");
             Check(inputBoxes.ContainsKey("MaxLength"), "text box exposes max length");
+            var keywordHost = new Grid { Name = "KeywordHost", Width = 300, Height = 220 };
+            keywordHost.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            var keywordBox = new TextBox { Name = "EdKeywords", MinHeight = 80, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Top, Text = "你好" };
+            Grid.SetRow(keywordBox, 0);
+            keywordHost.Children.Add(keywordBox);
+            ((StackPanel)window.Content).Children.Add(keywordHost); Pump();
+            editor.AcceptHierarchyTarget(keywordBox); Pump();
+            typeof(RmtStyleEditor).GetField("interactionReady", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(editor, true);
+            var keywordInputs = (Dictionary<string, TextBox>)typeof(RmtStyleEditor).GetField("inputs", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
+            Check(keywordInputs.ContainsKey("MinHeight"), "located keyword box exposes min height");
+            keywordInputs["MinHeight"].Text = "140"; Pump();
+            Check(Math.Abs(keywordBox.MinHeight - 140) < .01 && keywordBox.ActualHeight >= 130 && keywordBox.ActualHeight < 180,
+                "located keyword min height resizes the live text box");
+            var keywordPreview = WalkLogical((StackPanel)typeof(RmtStyleEditor).GetField("preview", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor)).OfType<TextBox>().FirstOrDefault();
+            Check(keywordPreview != null && Math.Abs(keywordPreview.MinHeight - 140) < .01 && keywordPreview.ActualHeight < 180,
+                "control style preview resizes with the keyword min height");
+            editor.AcceptHierarchyTarget(inputBox); Pump();
+            inputBoxes = (Dictionary<string, TextBox>)typeof(RmtStyleEditor).GetField("inputs", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
+            inputColors = (Dictionary<string, ComboBox>)typeof(RmtStyleEditor).GetField("colorInputs", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
+            inputOptions = (Dictionary<string, ComboBox>)typeof(RmtStyleEditor).GetField("optionInputs", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
             Check(!inputColors.ContainsKey("HoverBackground") && !inputOptions.ContainsKey("TextTrimming") && !inputOptions.ContainsKey("Orientation"), "text box hides button, trim, and panel-only properties");
             fieldsPanel = (StackPanel)typeof(RmtStyleEditor).GetField("fields", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
             var inputTemplate = SectionValues(fieldsPanel, "模版属性", "重载属性");

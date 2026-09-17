@@ -49,26 +49,26 @@ class VoiceGui {
             strokeWidth := "1"
             panel := XAML_Generator("Grid").Margin("16")
             panel.Rows("Auto", "Auto", "*", "Auto", "Auto")
-            panel.Add("TextBlock").Grid_Row(0).Text(GetLang("说出以下关键词即可触发该宏。支持多个关键词，用英文逗号 , 分隔。")).TextWrapping("Wrap").Margin("0,0,0,10")
-            panel.Add("TextBlock").Grid_Row(1).Text(GetLang("唤醒关键词：")).Margin("0,0,0,6")
+            panel.Add("TextBlock").Name("LblHint").Uid("ahk:Voice.Keywords.Hint").Grid_Row(0).Text(GetLang("说出以下关键词即可触发该宏。支持多个关键词，用英文逗号 , 分隔。")).TextWrapping("Wrap").Margin("0,0,0,10")
+            panel.Add("TextBlock").Name("LblKeywords").Uid("ahk:Voice.Keywords.Label").Grid_Row(1).Text(GetLang("唤醒关键词：")).Margin("0,0,0,6")
             ; Match main fold-field stroke weight: 1.25 DIP, no Aliased edge mode
             ; (default TextBox/Button templates look hairline-thin at 125% DPI).
-            ed := panel.Add("TextBox").Name("EdKeywords").Grid_Row(2).MinHeight(120).AcceptsReturn("True").TextWrapping("Wrap")
-                .VerticalScrollBarVisibility("Auto").VerticalAlignment("Stretch")
+            ed := panel.Add("TextBox").Name("EdKeywords").Grid_Row(2).MinHeight(80).AcceptsReturn("True").TextWrapping("Wrap")
+                .VerticalScrollBarVisibility("Auto").VerticalAlignment("Top")
                 .BorderBrush("{DynamicResource InputStroke}").BorderThickness(strokeWidth)
                 .SnapsToDevicePixels("True").UseLayoutRounding("False")
             ed.InjectResources(this._FieldStrokeStyle("TextBox"))
-            panel.Add("TextBlock").Grid_Row(3).Text(GetLang("示例：开始攻击, 暂停, 保存进度（每个关键词之间用英文逗号分隔）")).TextWrapping("Wrap").Margin("0,8,0,12")
+            panel.Add("TextBlock").Name("LblExample").Uid("ahk:Voice.Keywords.Example").Grid_Row(3).Text(GetLang("示例：开始攻击, 暂停, 保存进度（每个关键词之间用英文逗号分隔）")).TextWrapping("Wrap").Margin("0,8,0,12")
             ; A stable Uid is required for GM-UI instance properties to survive a restart.
             ; Automatic source-line Uids are disabled in production and must not be relied on.
             buttons := panel.Add("StackPanel").Name("VoiceKeywordActions").Uid("ahk:Voice.Keywords.Actions")
                 .Grid_Row(4).Orientation("Horizontal").HorizontalAlignment("Right")
-            btnSure := buttons.Add("Button").Name("BtnSure").Content(GetLang("确定")).Width(90).MinHeight(32)
+            btnSure := buttons.Add("Button").Name("BtnSure").Content(GetLang("确定")).Width(90).MinWidth(90).MinHeight(32)
                 .BorderBrush("{DynamicResource OutlineStroke}").BorderThickness(strokeWidth)
                 .SnapsToDevicePixels("True").UseLayoutRounding("False")
                 .IsDefault("True").Margin("0,0,10,0")
             btnSure.InjectResources(this._FieldStrokeStyle("Button"))
-            btnCancel := buttons.Add("Button").Name("BtnCancel").Content(GetLang("取消")).Width(90).MinHeight(32)
+            btnCancel := buttons.Add("Button").Name("BtnCancel").Content(GetLang("取消")).Width(90).MinWidth(90).MinHeight(32)
                 .BorderBrush("{DynamicResource OutlineStroke}").BorderThickness(strokeWidth)
                 .SnapsToDevicePixels("True").UseLayoutRounding("False")
                 .IsCancel("True")

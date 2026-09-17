@@ -487,8 +487,19 @@ internal static class RmtCommonStyles
         SyncBoundInstance(layoutId);
     }
 
+    internal static bool IsFlowLayoutChild(FrameworkElement fe)
+    {
+        if (fe == null || fe is Window) return false;
+        var parent = (LogicalTreeHelper.GetParent(fe) ?? VisualParent(fe)) as FrameworkElement;
+        if (parent is StackPanel || parent is WrapPanel) return true;
+        // Pinning a StackPanel in a Grid to an old X/Y fights Auto rows and
+        // collapses children after a sibling (like the keyword box) changes height.
+        return fe is StackPanel && parent is Grid;
+    }
+
     internal static void ApplyLayout(FrameworkElement fe)
     {
+        if (IsFlowLayoutChild(fe)) return;
         string id = LayoutId(fe);
         Dictionary<string, string> layout;
         if (id == "" || !Layouts.TryGetValue(id, out layout)) return;
@@ -593,6 +604,8 @@ internal static class RmtCommonStyles
     {
         if (window == null || layout == null) return;
         double visualScale = WindowContentVisualScale(window);
+        double chromeW, chromeH;
+        GetWindowChromeInset(window, out chromeW, out chromeH);
         string value;
         double size;
         bool resized = false;
@@ -608,7 +621,7 @@ internal static class RmtCommonStyles
         }
         if (resized)
         {
-            NormalizeWindowContentForResize(window, visualScale);
+            NormalizeWindowContentForResize(window, visualScale, chromeW, chromeH);
             if (!window.IsLoaded)
             {
                 // Before Show(), WPF still reports the Viewbox's old viewport size. Retarget
@@ -618,7 +631,7 @@ internal static class RmtCommonStyles
                 loaded = delegate
                 {
                     window.Loaded -= loaded;
-                    NormalizeWindowContentForResize(window, visualScale);
+                    NormalizeWindowContentForResize(window, visualScale, chromeW, chromeH);
                 };
                 window.Loaded += loaded;
             }
@@ -647,7 +660,21 @@ internal static class RmtCommonStyles
         return Math.Max(0.2, Math.Min(4, scale));
     }
 
-    internal static void NormalizeWindowContentForResize(Window window, double visualScale = double.NaN)
+    internal static void GetWindowChromeInset(Window window, out double chromeW, out double chromeH)
+    {
+        chromeW = 0;
+        chromeH = 0;
+        if (window == null) return;
+        var hostBox = window.Content as Viewbox;
+        if (hostBox == null) return;
+        window.UpdateLayout();
+        if (!double.IsNaN(window.Width) && window.Width > 1 && hostBox.ActualWidth > 1)
+            chromeW = Math.Max(0, window.Width - hostBox.ActualWidth);
+        if (!double.IsNaN(window.Height) && window.Height > 1 && hostBox.ActualHeight > 1)
+            chromeH = Math.Max(0, window.Height - hostBox.ActualHeight);
+    }
+
+    internal static void NormalizeWindowContentForResize(Window window, double visualScale = double.NaN, double chromeW = 0, double chromeH = 0)
     {
         if (window == null) return;
         window.UpdateLayout();
@@ -655,14 +682,14 @@ internal static class RmtCommonStyles
         if (root == null) return;
         // EngineHost wraps dialog roots in a uniform Viewbox so open-time fonts match the main
         // UI. Keep that host when GM-UI changes the viewport: retarget the design surface to
-        // the new window aspect at the current visual density so the title/content fill the
-        // window without letterboxing and without dropping back to unscaled DIP fonts.
+        // the new window aspect at the current visual density so the title stays at the top
+        // and extra width/height grows the window instead of letterboxing the chrome.
         var hostBox = root as Viewbox;
         if (hostBox != null && hostBox.Stretch == Stretch.Uniform
             && hostBox.StretchDirection == StretchDirection.Both
             && hostBox.Child is FrameworkElement)
         {
-            RetargetViewboxDesignSize(window, hostBox, (FrameworkElement)hostBox.Child, visualScale);
+            RetargetViewboxDesignSize(window, hostBox, (FrameworkElement)hostBox.Child, visualScale, chromeW, chromeH);
             return;
         }
         root.SetCurrentValue(FrameworkElement.WidthProperty, double.NaN);
@@ -671,23 +698,34 @@ internal static class RmtCommonStyles
         root.VerticalAlignment = VerticalAlignment.Stretch;
     }
 
-    private static void RetargetViewboxDesignSize(Window window, Viewbox hostBox, FrameworkElement child, double visualScale)
+    private static double AssignedWindowSize(Window window, bool width)
+    {
+        if (window == null) return 0;
+        double assigned = width ? window.Width : window.Height;
+        if (!double.IsNaN(assigned) && assigned > 1) return assigned;
+        double actual = width ? window.ActualWidth : window.ActualHeight;
+        if (actual > 1) return actual;
+        var hostBox = window.Content as Viewbox;
+        if (hostBox == null) return 0;
+        double host = width ? hostBox.ActualWidth : hostBox.ActualHeight;
+        return host > 1 ? host : 0;
+    }
+
+    private static void RetargetViewboxDesignSize(Window window, Viewbox hostBox, FrameworkElement child, double visualScale, double chromeW, double chromeH)
     {
         if (window == null || hostBox == null || child == null) return;
-        // Width/Height already contain the restored GM-UI target while the pre-show Viewbox
-        // can still report its original design viewport. Prefer the explicit target so the
-        // first visible frame cannot be letterboxed and then relaid out.
-        double viewportW = !window.IsLoaded && !double.IsNaN(window.Width) && window.Width > 1 ? window.Width
-            : (hostBox.ActualWidth > 1 ? hostBox.ActualWidth : (window.ActualWidth > 1 ? window.ActualWidth : window.Width));
-        double viewportH = !window.IsLoaded && !double.IsNaN(window.Height) && window.Height > 1 ? window.Height
-            : (hostBox.ActualHeight > 1 ? hostBox.ActualHeight : (window.ActualHeight > 1 ? window.ActualHeight : window.Height));
-        if (double.IsNaN(viewportW) || viewportW <= 1 || double.IsNaN(viewportH) || viewportH <= 1) return;
-        double designW = child.ActualWidth > 1 ? child.ActualWidth : child.Width;
-        double designH = child.ActualHeight > 1 ? child.ActualHeight : child.Height;
+        window.UpdateLayout();
+        double viewportW = AssignedWindowSize(window, true) - Math.Max(0, chromeW);
+        double viewportH = AssignedWindowSize(window, false) - Math.Max(0, chromeH);
+        if (hostBox.ActualWidth > 1 && Math.Abs(hostBox.ActualWidth - viewportW) <= 2) viewportW = hostBox.ActualWidth;
+        if (hostBox.ActualHeight > 1 && Math.Abs(hostBox.ActualHeight - viewportH) <= 2) viewportH = hostBox.ActualHeight;
+        if (viewportW <= 1 || viewportH <= 1) return;
         double scale = visualScale;
         if (double.IsNaN(scale) || scale <= 0)
         {
             scale = 1;
+            double designW = child.ActualWidth > 1 ? child.ActualWidth : child.Width;
+            double designH = child.ActualHeight > 1 ? child.ActualHeight : child.Height;
             if (designW > 1 && designH > 1 && hostBox.ActualWidth > 1 && hostBox.ActualHeight > 1)
                 scale = Math.Min(hostBox.ActualWidth / designW, hostBox.ActualHeight / designH);
             else if (designW > 1)
@@ -695,10 +733,19 @@ internal static class RmtCommonStyles
         }
         if (scale < 0.2) scale = 0.2;
         if (scale > 4) scale = 4;
-        child.SetCurrentValue(FrameworkElement.WidthProperty, viewportW / scale);
-        child.SetCurrentValue(FrameworkElement.HeightProperty, viewportH / scale);
+        Thickness margin = child.Margin;
+        double innerW = viewportW / scale - margin.Left - margin.Right;
+        double innerH = viewportH / scale - margin.Top - margin.Bottom;
+        if (innerW < 1) innerW = 1;
+        if (innerH < 1) innerH = 1;
+        // Local XAML Width/Height on the dialog root would ignore SetCurrentValue and keep the
+        // original aspect, which is what pushed the title off the top and added side margins.
+        child.SetValue(FrameworkElement.WidthProperty, innerW);
+        child.SetValue(FrameworkElement.HeightProperty, innerH);
         child.HorizontalAlignment = HorizontalAlignment.Stretch;
         child.VerticalAlignment = VerticalAlignment.Stretch;
+        hostBox.HorizontalAlignment = HorizontalAlignment.Stretch;
+        hostBox.VerticalAlignment = VerticalAlignment.Stretch;
         hostBox.UpdateLayout();
     }
 
@@ -988,7 +1035,11 @@ internal static class RmtCommonStyles
                 if (IsColorProperty(pair.Key) && IsThemeColor(pair.Value))
                     fe.SetResourceReference(dp, ThemeColorKey(pair.Value));
                 else if (pair.Key == "RelativeFontSize")
-                    fe.SetCurrentValue(dp, ThemeFontSize(fe) + (double)ConvertValue(typeof(double), pair.Value));
+                {
+                    // TextBlock example labels inherit FontSize. SetCurrentValue is wiped on
+                    // the next Viewbox/layout pass, so the preview moved and the live text did not.
+                    fe.SetValue(dp, ThemeFontSize(fe) + (double)ConvertValue(typeof(double), pair.Value));
+                }
                 else
                     fe.SetCurrentValue(dp, ConvertValue(dp.PropertyType, pair.Value));
                 entry.Applied.Add(pair.Key);
@@ -3371,20 +3422,22 @@ internal sealed class RmtStyleEditor : Window
         return WindowDimension(window, width).ToString(CultureInfo.InvariantCulture);
     }
 
-    private static void ApplyWindowDimension(Window window, string value, bool width)
+    private static void ApplyWindowDimension(Window window, string value, bool width, bool normalize = true)
     {
         if (window == null || string.IsNullOrWhiteSpace(value)) return;
         double visualScale = RmtCommonStyles.WindowContentVisualScale(window);
+        double chromeW, chromeH;
+        RmtCommonStyles.GetWindowChromeInset(window, out chromeW, out chromeH);
         if (value.Equals("Auto", StringComparison.OrdinalIgnoreCase))
         {
             if (width) window.Width = double.NaN; else window.Height = double.NaN;
-            RmtCommonStyles.NormalizeWindowContentForResize(window, visualScale);
+            if (normalize) RmtCommonStyles.NormalizeWindowContentForResize(window, visualScale, chromeW, chromeH);
             return;
         }
         double number;
         if (!double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out number) || number <= 0) return;
         if (width) window.Width = number; else window.Height = number;
-        RmtCommonStyles.NormalizeWindowContentForResize(window, visualScale);
+        if (normalize) RmtCommonStyles.NormalizeWindowContentForResize(window, visualScale, chromeW, chromeH);
     }
 
     private void RefreshPositionValues()
@@ -3472,7 +3525,12 @@ internal sealed class RmtStyleEditor : Window
         RmtCommonStyles.ApplyAnchorLayout(target, layout);
         if (persist)
         {
-            RmtCommonStyles.Layouts[id] = layout;
+            // Stack/Wrap children and Grid-hosted StackPanels size from flow.
+            // Saving an anchor here is what collapsed 确定 after MinHeight 80.
+            if (id != "" && RmtCommonStyles.IsFlowLayoutChild(target))
+                RmtCommonStyles.Layouts.Remove(id);
+            else if (id != "")
+                RmtCommonStyles.Layouts[id] = layout;
         }
         else dirty = true;
         return true;
@@ -3502,8 +3560,12 @@ internal sealed class RmtStyleEditor : Window
         if (original.IsWindow)
         {
             var window = (Window)target;
+            double visualScale = RmtCommonStyles.WindowContentVisualScale(window);
+            double chromeW, chromeH;
+            RmtCommonStyles.GetWindowChromeInset(window, out chromeW, out chromeH);
             window.Left = original.X; window.Top = original.Y;
             window.Width = original.Width; window.Height = original.Height;
+            RmtCommonStyles.NormalizeWindowContentForResize(window, visualScale, chromeW, chromeH);
         }
         else if (original.IsCanvas) { Canvas.SetLeft(target, original.X); Canvas.SetTop(target, original.Y); }
         else target.Margin = original.Margin;
@@ -5144,8 +5206,13 @@ internal sealed class RmtStyleEditor : Window
         clone.Margin = new Thickness(0);
         clone.HorizontalAlignment = HorizontalAlignment.Left;
         clone.VerticalAlignment = VerticalAlignment.Top;
-        if (double.IsNaN(clone.Width) && original.ActualWidth > 1) clone.Width = original.ActualWidth;
-        if (double.IsNaN(clone.Height) && original.ActualHeight > 1) clone.Height = original.ActualHeight;
+        // Copy the live slot size only when that axis is not driven by MinWidth/MinHeight.
+        // A stretched Grid * row made the keyword box keep its old ActualHeight, so editing
+        // 最小高度 looked like a no-op in 控件样式.
+        if (double.IsNaN(clone.Width) && original.ActualWidth > 1 && !(original.MinWidth > 0 && double.IsNaN(original.Width)))
+            clone.Width = original.ActualWidth;
+        if (double.IsNaN(clone.Height) && original.ActualHeight > 1 && !(original.MinHeight > 0 && double.IsNaN(original.Height)))
+            clone.Height = original.ActualHeight;
     }
 
     private void ApplyPreviewTextOverride(FrameworkElement clone, FrameworkElement original)
@@ -5804,8 +5871,12 @@ internal sealed class RmtStyleEditor : Window
                     // Capture before applying the reload dimensions so Reset can restore the
                     // exact pre-edit window size as well as its position.
                     CapturePosition(concreteWindow);
-                    if (next.TryGetValue("Width", out widthText)) ApplyWindowDimension(concreteWindow, widthText, true);
-                    if (next.TryGetValue("Height", out heightText)) ApplyWindowDimension(concreteWindow, heightText, false);
+                    double visualScale = RmtCommonStyles.WindowContentVisualScale(concreteWindow);
+                    double chromeW, chromeH;
+                    RmtCommonStyles.GetWindowChromeInset(concreteWindow, out chromeW, out chromeH);
+                    if (next.TryGetValue("Width", out widthText)) ApplyWindowDimension(concreteWindow, widthText, true, false);
+                    if (next.TryGetValue("Height", out heightText)) ApplyWindowDimension(concreteWindow, heightText, false, false);
+                    RmtCommonStyles.NormalizeWindowContentForResize(concreteWindow, visualScale, chromeW, chromeH);
                     concreteWindow.UpdateLayout();
                 }
                 if (!ApplyInspectedPosition(false)) return false;
