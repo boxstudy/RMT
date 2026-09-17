@@ -358,14 +358,17 @@ class MainWin {
     }
 
     ; 按钮 hover/按下交互片段（hover=ControlBorder，按下=BtnPressBg 略深于 hover）
-    _RmtBtnInteractionTriggers(bd := "Bd") {
+    _RmtBtnInteractionTriggers(bd := "Bd", line := "") {
+        hoverLine := line != "" ? '<Setter TargetName="' line '" Property="Fill" Value="{DynamicResource Accent}"/>' : ""
         return '<Trigger Property="IsMouseOver" Value="True">'
             . '<Setter TargetName="' bd '" Property="Background" Value="{DynamicResource ControlBorder}"/>'
             . '<Setter TargetName="' bd '" Property="BorderBrush" Value="{DynamicResource Accent}"/>'
+            . hoverLine
             . '</Trigger>'
             . '<Trigger Property="IsPressed" Value="True">'
             . '<Setter TargetName="' bd '" Property="Background" Value="{DynamicResource BtnPressBg}"/>'
             . '<Setter TargetName="' bd '" Property="BorderBrush" Value="{DynamicResource Accent}"/>'
+            . hoverLine
             . '</Trigger>'
     }
 
@@ -4050,11 +4053,12 @@ class MainWin {
             . '<Setter Property="BorderBrush" Value="{DynamicResource ControlBorder}"/>'
             . '<Setter Property="BorderThickness" Value="1"/>'
             . '<Setter Property="Foreground" Value="{DynamicResource TextMain}"/>'
-            . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">'
+            . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Grid>'
             . '<Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3"' this._BorderSnap() '>'
             . '<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>'
-            . '</Border>'
-            . '<ControlTemplate.Triggers>' this._RmtBtnInteractionTriggers("Bd") '</ControlTemplate.Triggers>'
+            . '</Border><Rectangle x:Name="BottomLine" Height="1" VerticalAlignment="Bottom" Margin="3,0,3,0" Fill="{TemplateBinding BorderBrush}" IsHitTestVisible="False"/>'
+            . '</Grid>'
+            . '<ControlTemplate.Triggers>' this._RmtBtnInteractionTriggers("Bd", "BottomLine") '</ControlTemplate.Triggers>'
             . '</ControlTemplate></Setter.Value></Setter></Style>'
         primaryBtn := StrReplace(toolBtn, 'x:Key="RmtFoldToolBtn"', 'x:Key="RmtItemPrimaryBtn"')
         primaryBtn := StrReplace(primaryBtn, 'Width" Value="24"', 'Width" Value="48"')
@@ -4126,9 +4130,9 @@ class MainWin {
             . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Grid>'
             . '<Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3" Margin="0,0,0,1" Padding="{TemplateBinding Padding}"' this._BorderSnap() '>'
             . '<ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>'
-            . '</Border><Rectangle Height="1" VerticalAlignment="Bottom" Margin="3,0,3,1" Fill="{TemplateBinding BorderBrush}" IsHitTestVisible="False"/>'
+            . '</Border><Rectangle x:Name="BottomLine" Height="1" VerticalAlignment="Bottom" Margin="3,0,3,1" Fill="{TemplateBinding BorderBrush}" IsHitTestVisible="False"/>'
             . '</Grid>'
-            . '<ControlTemplate.Triggers>' this._RmtBtnInteractionTriggers("Bd") '</ControlTemplate.Triggers>'
+            . '<ControlTemplate.Triggers>' this._RmtBtnInteractionTriggers("Bd", "BottomLine") '</ControlTemplate.Triggers>'
             . '</ControlTemplate></Setter.Value></Setter></Style>'
         itemCombo := '<Style x:Key="RmtItemCombo" TargetType="ComboBox">'
             . '<Style.Resources><Style TargetType="TextBox">'

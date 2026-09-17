@@ -54,6 +54,7 @@ public class VirtualListHost
     private string _anchorId;
     private bool _suppressCommit;
     private bool _suppressChange; // 结构操作布局期：压制容器回收产生的伪 SelectionChanged/LostFocus
+    private bool _initialRelayoutQueued;
     private string _rowSelId = "";
     // §11 VL 拖拽：按下起点 + 是否已武装（交互控件上不启动）
     private Point _dragStartPoint;
@@ -270,6 +271,10 @@ public class VirtualListHost
             { VisualTree = lbiFactory };
             lbiStyle.Setters.Add(new System.Windows.Setter(System.Windows.Controls.ListBoxItem.TemplateProperty, lbiTemplate));
             _lb.ItemContainerStyle = lbiStyle;
+            // 首次 VL_INIT 通常发生在窗口 Show 前，ListBox 的实际视口尚未确定。
+            // 等 Loaded 后再做一轮重排，避免语音宏首帧沿用折叠前的行宽/行高；
+            // 用户折叠再展开之所以能恢复，正是因为那条路径会触发同样的 Reset。
+            _lb.Loaded += (s, e) => QueueInitialRelayout();
             // 吸顶折叠头 overlay（VLSticky_<t>）：惰性查找 + 复用 RmtFoldHeader 模板 + 同一套事件回传
             EnsureSticky();
         }
@@ -397,9 +402,7 @@ public class VirtualListHost
         ApplyReset(newItems, keepOff);
         ApplyRowSel();
         _stickyFold = null;
-        // 视口已落定则不再二次 Reset（ContextIdle 会在首帧之后重排，切页签时偶发抖动）
-        if (_lb.ActualHeight < 8)
-            _lb.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, new System.Action(() => Relayout()));
+        QueueInitialRelayout();
     }
 
     // 与折叠同一条显示路径：对现有对象再发一次 Reset，逼容器按已落定视口重测
@@ -411,6 +414,20 @@ public class VirtualListHost
         var snap = new System.Collections.Generic.List<object>(_items);
         MarkFoldRowFlags(snap);
         ApplyReset(snap, keepOff);
+    }
+
+    private void QueueInitialRelayout()
+    {
+        if (_lb == null || _items.Count == 0 || _initialRelayoutQueued)
+            return;
+        _initialRelayoutQueued = true;
+        _lb.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.ContextIdle, new System.Action(() =>
+        {
+            _initialRelayoutQueued = false;
+            if (_lb == null || !_lb.IsLoaded || _items.Count == 0)
+                return;
+            Relayout();
+        }));
     }
 
     private void ApplyReset(System.Collections.Generic.IList<object> newItems, double keepOff)

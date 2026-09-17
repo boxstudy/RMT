@@ -73,7 +73,15 @@ class CommonStylesTest
         RmtCommonStyles.GetWindowChromeInset(dialog, out chromeW, out chromeH);
         double wider = dialog.Width + 80;
         dialog.Width = wider;
-        RmtCommonStyles.NormalizeWindowContentForResize(dialog, visualScale, chromeW, chromeH); Pump();
+        RmtCommonStyles.NormalizeWindowContentForResize(dialog, visualScale, chromeW, chromeH);
+        // The editor saves the anchor immediately, before WPF processes the native resize.
+        RmtCommonStyles.ApplyAnchorLayout(dialog, new Dictionary<string, string> {
+            { "AnchorObject", "窗口" }, { "AnchorType", "左上" }, { "PositionX", "20" }, { "PositionY", "30" },
+            { "Width", dialog.Width.ToString(CultureInfo.InvariantCulture) }, { "Height", dialog.Height.ToString(CultureInfo.InvariantCulture) }
+        });
+        Pump();
+        Check(Math.Abs(RmtCommonStyles.WindowContentVisualScale(dialog) - visualScale) < .02,
+            "saving the anchor in the resize turn preserves the visual scale");
         Check(Math.Abs(root.Width / root.Height - hostBox.ActualWidth / hostBox.ActualHeight) < .02
             && input.FontSize == 15,
             "increasing window width retargets design size without side letterboxing");
@@ -100,6 +108,41 @@ class CommonStylesTest
         yield return item;
         foreach (TreeViewItem child in item.Items.OfType<TreeViewItem>())
             foreach (var nested in FlattenTree(child)) yield return nested;
+    }
+    static void CheckLocatedWindowResize(RmtStyleEditor editor)
+    {
+        var root = new Grid { Width = 480, Height = 300 };
+        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(30) });
+        root.RowDefinitions.Add(new RowDefinition());
+        var title = new Border { Background = Brushes.Gray };
+        var text = new TextBox { Margin = new Thickness(4), Text = "resize", FontSize = 15 };
+        Grid.SetRow(text, 1); root.Children.Add(title); root.Children.Add(text);
+        var box = new Viewbox { Child = root };
+        var dialog = new Window { Title = "Located resize", Content = box, Width = 720, Height = 450, MinWidth = 600, MinHeight = 320, Opacity = 0, ShowInTaskbar = false };
+        dialog.Show(); Pump();
+        try
+        {
+            editor.AcceptHierarchyTarget(dialog); Pump();
+            double scale = RmtCommonStyles.WindowContentVisualScale(dialog);
+            double top = dialog.Top, left = dialog.Left;
+            foreach (var change in new[] { new KeyValuePair<string, double>("Height", 540), new KeyValuePair<string, double>("Height", 390), new KeyValuePair<string, double>("Width", 760), new KeyValuePair<string, double>("Width", 680), new KeyValuePair<string, double>("Height", 250), new KeyValuePair<string, double>("Width", 520), new KeyValuePair<string, double>("Height", 500), new KeyValuePair<string, double>("Width", 740) })
+            {
+                var fields = (Dictionary<string, TextBox>)typeof(RmtStyleEditor).GetField("inputs", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(editor);
+                fields[change.Key].Text = change.Value.ToString(CultureInfo.InvariantCulture); Pump();
+                var origin = title.TranslatePoint(new Point(), box);
+                var end = title.TranslatePoint(new Point(title.ActualWidth, title.ActualHeight), box);
+                Check(Math.Abs(origin.X) < 2 && Math.Abs(origin.Y) < 2 && Math.Abs(end.X - box.ActualWidth) < 2,
+                    "located " + change.Key + "=" + change.Value + " keeps title at top and full width");
+                Check(Math.Abs((end.Y - origin.Y) - 30 * scale) < 2 && Math.Abs(RmtCommonStyles.WindowContentVisualScale(dialog) - scale) < .02,
+                    "located resize preserves title height and font scale");
+                var textLeft = text.TranslatePoint(new Point(), box).X;
+                var textRight = text.TranslatePoint(new Point(text.ActualWidth, 0), box).X;
+                Check(Math.Abs(textLeft - 4 * scale) < 2 && Math.Abs(box.ActualWidth - textRight - 4 * scale) < 2,
+                    "located resize preserves both content margins");
+                Check(Math.Abs(dialog.Top - top) < 2 && Math.Abs(dialog.Left - left) < 2, "located resize keeps window top-left fixed");
+            }
+        }
+        finally { dialog.Close(); }
     }
     static bool SameValues(Dictionary<string, string> left, Dictionary<string, string> right)
     {
@@ -660,6 +703,7 @@ class CommonStylesTest
             ((Button)editorRoot.FindName("CmdItemReset")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Pump();
             Check(Math.Abs(window.Width - windowWidthBeforeLocate) < .5 && Math.Abs(window.Height - windowHeightBeforeLocate) < .5, "window locate reset restores dimensions");
             var firstButton = (Button)window.FindName("First");
+            CheckLocatedWindowResize(editor);
             typeof(RmtStyleEditor).GetField("picking", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(editor, true);
             typeof(RmtStyleEditor).GetField("pickHover", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(editor, firstButton);
             var clickArgs = new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left) { RoutedEvent = UIElement.PreviewMouseLeftButtonDownEvent, Source = editor };

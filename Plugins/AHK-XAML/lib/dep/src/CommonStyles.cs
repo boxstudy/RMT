@@ -668,10 +668,12 @@ internal static class RmtCommonStyles
         var hostBox = window.Content as Viewbox;
         if (hostBox == null) return;
         window.UpdateLayout();
-        if (!double.IsNaN(window.Width) && window.Width > 1 && hostBox.ActualWidth > 1)
-            chromeW = Math.Max(0, window.Width - hostBox.ActualWidth);
-        if (!double.IsNaN(window.Height) && window.Height > 1 && hostBox.ActualHeight > 1)
-            chromeH = Math.Max(0, window.Height - hostBox.ActualHeight);
+        // Width/Height retain the requested value even when Min/Max constrain the HWND.
+        // Comparing that request with the viewport mistakes the size constraint for chrome.
+        if (window.ActualWidth > 1 && hostBox.ActualWidth > 1)
+            chromeW = Math.Max(0, window.ActualWidth - hostBox.ActualWidth);
+        if (window.ActualHeight > 1 && hostBox.ActualHeight > 1)
+            chromeH = Math.Max(0, window.ActualHeight - hostBox.ActualHeight);
     }
 
     internal static void NormalizeWindowContentForResize(Window window, double visualScale = double.NaN, double chromeW = 0, double chromeH = 0)
@@ -702,7 +704,14 @@ internal static class RmtCommonStyles
     {
         if (window == null) return 0;
         double assigned = width ? window.Width : window.Height;
-        if (!double.IsNaN(assigned) && assigned > 1) return assigned;
+        if (!double.IsNaN(assigned) && assigned > 1)
+        {
+            // The native resize can complete after this editor turn. Resolve constraints
+            // now rather than using either the unclamped request or the previous viewport.
+            double minimum = width ? window.MinWidth : window.MinHeight;
+            double maximum = width ? window.MaxWidth : window.MaxHeight;
+            return Math.Max(minimum, Math.Min(maximum, assigned));
+        }
         double actual = width ? window.ActualWidth : window.ActualHeight;
         if (actual > 1) return actual;
         var hostBox = window.Content as Viewbox;
