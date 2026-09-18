@@ -478,6 +478,7 @@ public partial class AhkWpfEngine
         {
             IntPtr hwndVal = new WindowInteropHelper(win).Handle;
             HwndSource.FromHwnd(hwndVal).AddHook(WndProc);
+            FillViewboxViewport();
             // Async: 避免 CREATE_WINDOW 的 SendMessage 与 LoadedHwnd 回调互相嵌套死锁
             SendToAhkAsync("EVENT|" + winId + "|Window|LoadedHwnd|" + hwndVal.ToString() + "\n");
             UpdateSnapState(win);
@@ -1043,6 +1044,7 @@ public partial class AhkWpfEngine
         {
             IntPtr hwnd = new WindowInteropHelper(win).Handle;
             HwndSource.FromHwnd(hwnd).AddHook(WndProc);
+            FillViewboxViewport();
             // Async: 避免 CREATE_WINDOW 的 SendMessage 与 LoadedHwnd 回调互相嵌套死锁
             SendToAhkAsync("EVENT|" + winId + "|Window|LoadedHwnd|" + hwnd.ToString() + "\n");
             UpdateSnapState(win);
@@ -1057,10 +1059,14 @@ public partial class AhkWpfEngine
             timer.Tick += (sender, args) =>
             {
                 timer.Stop();
-                bool keepTopmost = win.Topmost;
-                win.Topmost = true;
-                win.Topmost = false;
-                if (keepTopmost) win.Topmost = true;
+                // Popup dialogs are already revealed; flipping Topmost here flashes the chrome.
+                if (win.ShowInTaskbar)
+                {
+                    bool keepTopmost = win.Topmost;
+                    win.Topmost = true;
+                    win.Topmost = false;
+                    if (keepTopmost) win.Topmost = true;
+                }
                 // 揭盖前窗口处于 SW_HIDE 隐藏阶段：不激活（Activate 会把隐藏窗口重新显示成白壳）
                 if (!win.Resources.Contains("_NativeAlphaPending"))
                     win.Activate();
@@ -1186,6 +1192,18 @@ public partial class AhkWpfEngine
         {
             win.Resources["OriginalNativeOwner"] = oHwnd;
             new WindowInteropHelper(win).Owner = oHwnd;
+        }
+        catch { }
+    }
+
+    private void FillViewboxViewport()
+    {
+        if (win == null) return;
+        try
+        {
+            double chromeW, chromeH;
+            RmtCommonStyles.GetWindowChromeInset(win, out chromeW, out chromeH);
+            RmtCommonStyles.NormalizeWindowContentForResize(win, RmtCommonStyles.WindowContentVisualScale(win), chromeW, chromeH);
         }
         catch { }
     }

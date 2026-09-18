@@ -688,7 +688,7 @@ NetworkShowHelpDialog(macroID := "") {
         exRow := panel.Add("Grid").Margin("0,0,0,0")
         exRow.Cols("*", "Auto")
         exRow.Add("TextBlock").Grid_Column(0).Text(ex.text).Foreground("{DynamicResource Accent}")
-            .VerticalAlignment("Center").TextWrapping("Wrap")
+            .FontSize(XAMLHost.FontSize(-2)).VerticalAlignment("Center").TextWrapping("Wrap")
         exRow.Add("Button").Grid_Column(1).Name("BtnEx" exIdx).Content(GetLang("复制"))
             .Width(56).Height(24).MinHeight(24).Margin("8,0,0,0").Cursor("Hand")
     }

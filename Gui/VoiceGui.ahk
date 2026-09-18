@@ -17,7 +17,10 @@ class VoiceGui {
         this.tableItem := ""
         this.index := 0
         this.SureBtnAction := ""
-        this.edKeywords := { Value: "" }
+        this.keywords := []
+        this._nextChipId := 0
+        this._rec := false
+        this._sttTick := ObjBindMethod(this, "_PollStt")
     }
 
     ; ShowGui(tableItem, index)
@@ -27,14 +30,11 @@ class VoiceGui {
         this.tableItem := tableItem
         this.index := index
 
-        ; 读取当前关键词（对象字段，容错）
         curKeywords := ""
         item := tableItem.Items[index]
         if (item)
             curKeywords := item.VoiceKeywords
 
-        ; 复用已存在窗口则刷新（单实例模式）。引擎窗口被关闭/重启后，旧的
-        ; AHK 对象可能仍然存在；先校验 HWND，避免把 Update/Query 发到失效窗口。
         if (this.hasGui && IsObject(this.Gui)) {
             if (!this._CanReuseWindow()) {
                 this._OnClosed()
@@ -46,52 +46,150 @@ class VoiceGui {
 
         try {
             mainGui := IsObject(MainSoftData.MyGui) ? MainSoftData.MyGui.Hwnd : ""
-            strokeWidth := "1"
-            panel := XAML_Generator("Grid").Margin("16")
-            panel.Rows("Auto", "Auto", "*", "Auto", "Auto")
-            panel.Add("TextBlock").Name("LblHint").Uid("ahk:Voice.Keywords.Hint").Grid_Row(0).Text(GetLang("说出以下关键词即可触发该宏。支持多个关键词，用英文逗号 , 分隔。")).TextWrapping("Wrap").Margin("0,0,0,10")
-            panel.Add("TextBlock").Name("LblKeywords").Uid("ahk:Voice.Keywords.Label").Grid_Row(1).Text(GetLang("唤醒关键词：")).Margin("0,0,0,6")
-            ; Match main fold-field stroke weight: 1.25 DIP, no Aliased edge mode
-            ; (default TextBox/Button templates look hairline-thin at 125% DPI).
-            ed := panel.Add("TextBox").Name("EdKeywords").Grid_Row(2).MinHeight(80).AcceptsReturn("True").TextWrapping("Wrap")
-                .VerticalScrollBarVisibility("Auto").VerticalAlignment("Top")
-                .BorderBrush("{DynamicResource InputStroke}").BorderThickness(strokeWidth)
-                .SnapsToDevicePixels("True").UseLayoutRounding("False")
-            ed.InjectResources(this._FieldStrokeStyle("TextBox"))
-            panel.Add("TextBlock").Name("LblExample").Uid("ahk:Voice.Keywords.Example").Grid_Row(3).Text(GetLang("示例：开始攻击, 暂停, 保存进度（每个关键词之间用英文逗号分隔）")).TextWrapping("Wrap").Margin("0,8,0,12")
-            ; A stable Uid is required for GM-UI instance properties to survive a restart.
-            ; Automatic source-line Uids are disabled in production and must not be relied on.
-            buttons := panel.Add("StackPanel").Name("VoiceKeywordActions").Uid("ahk:Voice.Keywords.Actions")
-                .Grid_Row(4).Orientation("Horizontal").HorizontalAlignment("Right")
-            btnSure := buttons.Add("Button").Name("BtnSure").Content(GetLang("确定")).Width(90).MinWidth(90).MinHeight(32)
-                .BorderBrush("{DynamicResource OutlineStroke}").BorderThickness(strokeWidth)
-                .SnapsToDevicePixels("True").UseLayoutRounding("False")
-                .IsDefault("True").Margin("0,0,10,0")
-            btnSure.InjectResources(this._FieldStrokeStyle("Button"))
-            btnCancel := buttons.Add("Button").Name("BtnCancel").Content(GetLang("取消")).Width(90).MinWidth(90).MinHeight(32)
-                .BorderBrush("{DynamicResource OutlineStroke}").BorderThickness(strokeWidth)
-                .SnapsToDevicePixels("True").UseLayoutRounding("False")
-                .IsCancel("True")
-            btnCancel.InjectResources(this._FieldStrokeStyle("Button"))
-            ; Use the same Viewbox/chrome scaling path as every other business dialog.
-            ; The former fluid-only path made this title bar a different visual size and
-            ; caused several visible relayouts while restoring the saved window geometry.
-            this.ui := XamlWin.Create(GetLang("语音关键词"), panel, 480, 340)
+            this.keywords := this._ParseKeywords(curKeywords)
+            panel := this._BuildPanel()
+            this.ui := XamlWin.Create(GetLang("语音关键词"), panel, 460, 268)
             this.ui.OnEvent("BtnSure", "Click", (*) => this.OnSureClick())
-            this.ui.OnEvent("BtnCancel", "Click", (*) => this.Cancel())
+            this.ui.OnEvent("BtnKwAdd", "Click", (*) => this._OnAddClick())
+            this.ui.OnEvent("BtnKwMic", "Click", (*) => this._OnMicClick())
+            this.ui.OnEvent("EdKeywords", "KeyDown:Return", (*) => this._OnAddClick())
+            this.ui.OnEvent("EdKeywords", "TextChanged", (*) => this._SyncPlaceholder())
             this.ui.OnEvent("Window", "Closing", (*) => this._OnClosed())
             this.ui.OnEvent("Window", "Closed", (*) => this._OnClosed())
-            this.ui.Update("EdKeywords", "Text", curKeywords)
             this.hasGui := true
-            if (XamlWin.Open(this.ui, "", mainGui))
+            opened := XamlWin.Open(this.ui, (*) => this._RenderChips(), mainGui)
+            if (opened) {
                 this.Gui := {Hwnd: this.ui.wpfHwnd}
-            else
+                this._BindChipClicks()
+                this._SyncPlaceholder()
+            } else
                 this.Cancel()
         } catch as err {
-            ; 解析/XAML 引擎异常时释放可复用状态，下一次点击可重新创建窗口。
             try RmtDialog._Trace("VoiceGui ShowGui failed: " err.Message)
             this._OnClosed()
         }
+    }
+
+    _BuildPanel() {
+        lineH := 36
+        padL := 10
+        radius := 3
+        sendW := 24
+        addW := 26
+        fs := XAMLHost.FontSize()
+        panel := XAML_Generator("Grid").Margin("16,12,16,12")
+        panel.Rows("Auto", "Auto", "Auto", "Auto")
+        panel.InjectResources(this._InputStyles(lineH, radius, sendW, addW, fs))
+        panel.Add("TextBlock").Name("LblKeywords").Uid("ahk:Voice.Keywords.Label")
+            .Grid_Row(0).Text(GetLang("关键词：")).Foreground("{DynamicResource TextMain}")
+            .Margin("0,0,0,6").TextWrapping("Wrap")
+        chipBox := panel.Add("Border").Name("KwChipHost").Grid_Row(1)
+            .Height(80).MinHeight(80).MaxHeight(80).Padding("8,6,4,6")
+            .Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}")
+            .BorderThickness("1").CornerRadius(String(radius))
+            .SnapsToDevicePixels("True").UseLayoutRounding("False")
+        chipScroll := chipBox.Add("ScrollViewer").VerticalScrollBarVisibility("Auto")
+            .HorizontalScrollBarVisibility("Disabled").Background("Transparent").BorderThickness("0")
+        chipScroll.Add("WrapPanel").Name("KwChipPanel").Uid("ahk:Voice.Keywords.Chips")
+            .Orientation("Horizontal").HorizontalAlignment("Left")
+        chrome := panel.Add("Border").Name("KwInputHost").Grid_Row(2).Margin("0,10,0,0")
+            .Height(lineH).MinHeight(lineH).Padding(padL ",0,8,0")
+            .Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}")
+            .BorderThickness("1").CornerRadius(String(radius))
+            .SnapsToDevicePixels("True").UseLayoutRounding("False")
+        inner := chrome.Add("Grid")
+        inner.Add("TextBox").Name("EdKeywords").Style("{StaticResource KwChatBox}")
+            .HorizontalAlignment("Stretch").VerticalAlignment("Center")
+            .MinHeight(22)
+            .AcceptsReturn("False").TextWrapping("NoWrap")
+            .VerticalScrollBarVisibility("Hidden").HorizontalScrollBarVisibility("Disabled")
+            .VerticalContentAlignment("Center").Padding("0,2,62,2")
+            .FontSize(fs).Foreground("{DynamicResource InputText}")
+            .Background("Transparent").BorderThickness("0")
+        inner.Add("TextBlock").Name("EdKeywordsPh").Text(GetLang("请输入宏触发关键词"))
+            .IsHitTestVisible("False").VerticalAlignment("Center").HorizontalAlignment("Left")
+            .Margin("0,0,62,0").Padding("0,2,0,2").TextTrimming("CharacterEllipsis")
+            .Foreground("{DynamicResource TextSub}").Opacity("0.55").FontSize(fs)
+        btns := inner.Add("StackPanel").Orientation("Horizontal")
+            .HorizontalAlignment("Right").VerticalAlignment("Center")
+            .SetProp("Panel.ZIndex", "2")
+        btns.Add("Button").Name("BtnKwMic").Width(sendW).Height(sendW).MinHeight(sendW)
+            .Style("{StaticResource KwIconBtn}").Margin("0,0,4,0")
+            .Content(Chr(0xE720)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(11)
+            .Foreground("{DynamicResource TextSub}").ToolTip(GetLang("语音输入"))
+        btns.Add("Button").Name("BtnKwAdd").Width(addW).Height(addW).MinHeight(addW)
+            .Style("{StaticResource KwAddBtn}").Margin("0")
+            .Content("+").FontSize(16).FontWeight("Bold")
+            .Foreground("{DynamicResource TextMain}").ToolTip(GetLang("添加"))
+        btnSure := panel.Add("Button").Name("BtnSure").Uid("ahk:Voice.Keywords.Sure")
+            .Grid_Row(3).Content(GetLang("确定")).Width(90).MinWidth(90).MinHeight(32)
+            .HorizontalAlignment("Center").Margin("0,10,0,0")
+            .Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}")
+            .BorderBrush("{DynamicResource ActionStroke}").BorderThickness("1")
+            .SnapsToDevicePixels("True").UseLayoutRounding("False").IsDefault("True")
+        btnSure.InjectResources(this._FieldStrokeStyle("Button"))
+        return panel
+    }
+
+    _InputStyles(lineH, radius, sendW, addW, fs) {
+        chatBox := '<Style x:Key="KwChatBox" TargetType="TextBox">'
+            . '<Setter Property="FontSize" Value="' fs '"/>'
+            . '<Setter Property="MinHeight" Value="22"/>'
+            . '<Setter Property="Padding" Value="0,2,62,2"/>'
+            . '<Setter Property="TextWrapping" Value="NoWrap"/>'
+            . '<Setter Property="VerticalContentAlignment" Value="Center"/>'
+            . '<Setter Property="Foreground" Value="{DynamicResource InputText}"/>'
+            . '<Setter Property="Background" Value="Transparent"/>'
+            . '<Setter Property="BorderBrush" Value="Transparent"/>'
+            . '<Setter Property="BorderThickness" Value="0"/>'
+            . '<Setter Property="VerticalScrollBarVisibility" Value="Hidden"/>'
+            . '<Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>'
+            . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TextBox">'
+            . '<Border Background="{TemplateBinding Background}" BorderThickness="0">'
+            . '<ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalAlignment="Center" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden"/>'
+            . '</Border></ControlTemplate></Setter.Value></Setter></Style>'
+        iconBtn := '<Style x:Key="KwIconBtn" TargetType="Button">'
+            . '<Setter Property="Width" Value="' sendW '"/><Setter Property="Height" Value="' sendW '"/><Setter Property="MinHeight" Value="' sendW '"/>'
+            . '<Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0"/>'
+            . '<Setter Property="Cursor" Value="Hand"/>'
+            . '<Setter Property="Background" Value="Transparent"/>'
+            . '<Setter Property="BorderBrush" Value="Transparent"/>'
+            . '<Setter Property="BorderThickness" Value="0"/>'
+            . '<Setter Property="Foreground" Value="{DynamicResource TextSub}"/>'
+            . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">'
+            . '<Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="3" Width="' sendW '" Height="' sendW '">'
+            . '<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>'
+            . '</Border>'
+            . '<ControlTemplate.Triggers>'
+            . '<Trigger Property="IsMouseOver" Value="True">'
+            . '<Setter TargetName="Bd" Property="Background" Value="{DynamicResource EditHoverBg}"/>'
+            . '<Setter Property="Foreground" Value="{DynamicResource TextMain}"/>'
+            . '</Trigger>'
+            . '</ControlTemplate.Triggers>'
+            . '</ControlTemplate></Setter.Value></Setter></Style>'
+        addBtn := '<Style x:Key="KwAddBtn" TargetType="Button">'
+            . '<Setter Property="Width" Value="' addW '"/><Setter Property="Height" Value="' addW '"/><Setter Property="MinHeight" Value="' addW '"/>'
+            . '<Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0"/>'
+            . '<Setter Property="Cursor" Value="Hand"/>'
+            . '<Setter Property="Background" Value="{DynamicResource ControlBg}"/>'
+            . '<Setter Property="BorderBrush" Value="{DynamicResource InputStroke}"/>'
+            . '<Setter Property="BorderThickness" Value="1"/>'
+            . '<Setter Property="Foreground" Value="{DynamicResource TextMain}"/>'
+            . '<Setter Property="FontWeight" Value="Bold"/>'
+            . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">'
+            . '<Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"'
+            . ' BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3" Width="' addW '" Height="' addW '">'
+            . '<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>'
+            . '</Border>'
+            . '<ControlTemplate.Triggers>'
+            . '<Trigger Property="IsMouseOver" Value="True">'
+            . '<Setter TargetName="Bd" Property="Background" Value="{DynamicResource EditHoverBg}"/>'
+            . '<Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource ActionStroke}"/>'
+            . '<Setter Property="Foreground" Value="{DynamicResource ActionBg}"/>'
+            . '</Trigger>'
+            . '</ControlTemplate.Triggers>'
+            . '</ControlTemplate></Setter.Value></Setter></Style>'
+        return chatBox iconBtn addBtn
     }
 
     _CanReuseWindow() {
@@ -101,47 +199,246 @@ class VoiceGui {
         return hwnd && DllCall("user32\IsWindow", "Ptr", hwnd, "Int")
     }
 
-    ; Same stroke recipe as main fold fields: template Border without Aliased EdgeMode
-    ; so 1.5 DIP strokes stay visible at 125%/150% DPI.
     _FieldStrokeStyle(typeName) {
         return '<Style TargetType="' typeName '"><Setter Property="Template"><Setter.Value>'
             . '<ControlTemplate TargetType="' typeName '">'
             . '<Border x:Name="bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"'
             . ' BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3"'
             . ' Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True" UseLayoutRounding="False">'
-            . (typeName = "TextBox"
-                ? '<ScrollViewer x:Name="PART_ContentHost" Margin="0"/>'
-                : '<ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>')
+            . '<ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>'
             . '</Border>'
-            . (typeName = "Button"
-                ? '<ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True">'
-                    . '<Setter TargetName="bd" Property="Background" Value="{DynamicResource ActionHoverBg}"/>'
-                    . '<Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource ActionHoverStroke}"/>'
-                    . '</Trigger></ControlTemplate.Triggers>'
-                : '')
+            . '<ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True">'
+            . '<Setter TargetName="bd" Property="Background" Value="{DynamicResource ActionHoverBg}"/>'
+            . '<Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource ActionHoverStroke}"/>'
+            . '</Trigger></ControlTemplate.Triggers>'
             . '</ControlTemplate></Setter.Value></Setter></Style>'
     }
 
+    _ParseKeywords(keywords) {
+        keywords := Trim(keywords, "，, `t")
+        keywords := StrReplace(keywords, "，", ",")
+        parts := []
+        seen := Map()
+        for p in StrSplit(keywords, ",") {
+            p := Trim(p)
+            if (p == "" || seen.Has(p))
+                continue
+            seen[p] := true
+            this._nextChipId += 1
+            parts.Push({Id: this._nextChipId, Text: p})
+        }
+        return parts
+    }
+
     _LoadToFields(keywords) {
-        this.ui.Update("EdKeywords", "Text", keywords)
+        this.keywords := this._ParseKeywords(keywords)
+        try this.ui.Update("EdKeywords", "Text", "")
+        this._RenderChips()
+        this._BindChipClicks()
+        this._SyncPlaceholder()
         try WinActivate("ahk_id " this.ui.wpfHwnd)
     }
 
-    ; 收集界面值写回模型
+    _RenderChips() {
+        if (!IsObject(this.ui))
+            return
+        this.ui.Update("KwChipPanel", "ClearItems", "")
+        for item in this.keywords
+            this.ui.Update("KwChipPanel", "AddXamlItem", this._ChipXaml(item))
+    }
+
+    _ChipXaml(item) {
+        ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
+        del := "KwChipDel_" item.Id
+        return '<Border ' ns ' Name="KwChip_' item.Id '" Margin="0,0,8,8" Padding="10,6,22,6"'
+            . ' Background="{DynamicResource ControlBg}" BorderBrush="{DynamicResource InputStroke}"'
+            . ' BorderThickness="1" CornerRadius="3" MaxWidth="408" HorizontalAlignment="Left"'
+            . ' SnapsToDevicePixels="True" UseLayoutRounding="False">'
+            . '<Grid>'
+            . '<TextBlock Name="KwChipText_' item.Id '" Text="' this._XmlEsc(item.Text) '"'
+            . ' TextWrapping="Wrap" Foreground="{DynamicResource TextMain}"'
+            . ' VerticalAlignment="Center" Margin="0,0,4,0"/>'
+            . '<Button Name="' del '" Width="16" Height="16" Padding="0" Margin="0,-4,-10,0"'
+            . ' HorizontalAlignment="Right" VerticalAlignment="Top"'
+            . ' Background="Transparent" BorderThickness="0" Cursor="Hand" Focusable="False"'
+            . ' ToolTip="' this._XmlEsc(GetLang("删除")) '">'
+            . '<Button.Template><ControlTemplate TargetType="Button">'
+            . '<Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="8" Width="16" Height="16">'
+            . '<TextBlock Text="' Chr(0xE711) '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"'
+            . ' FontSize="8" Foreground="{DynamicResource TextSub}"'
+            . ' HorizontalAlignment="Center" VerticalAlignment="Center"/>'
+            . '</Border>'
+            . '<ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True">'
+            . '<Setter TargetName="Bd" Property="Background" Value="{DynamicResource ControlBorder}"/>'
+            . '</Trigger></ControlTemplate.Triggers>'
+            . '</ControlTemplate></Button.Template></Button>'
+            . '</Grid></Border>'
+    }
+
+    _BindChipClicks() {
+        if (!IsObject(this.ui) || !this.ui.HasProp("wpfHwnd") || !this.ui.wpfHwnd)
+            return
+        for item in this.keywords {
+            name := "KwChipDel_" item.Id
+            this.ui.OnEvent(name, "Click", this._OnChipDel.Bind(this, item.Id))
+            try this.ui.Update(name, "BindEvent", "Click")
+        }
+    }
+
+    _OnChipDel(id, *) {
+        next := []
+        for item in this.keywords {
+            if (item.Id != id)
+                next.Push(item)
+        }
+        this.keywords := next
+        this._RenderChips()
+        this._BindChipClicks()
+    }
+
+    _OnAddClick(*) {
+        text := ""
+        try text := Trim(this.ui.Query("EdKeywords"))
+        text := Trim(StrReplace(text, "，", ","))
+        if (InStr(text, ",")) {
+            for p in StrSplit(text, ",")
+                this._AddKeyword(Trim(p))
+        } else
+            this._AddKeyword(text)
+        try this.ui.Update("EdKeywords", "Text", "")
+        this._SyncPlaceholder()
+    }
+
+    _AddKeyword(text) {
+        text := Trim(text)
+        if (text == "")
+            return false
+        for item in this.keywords {
+            if (item.Text == text)
+                return false
+        }
+        this._nextChipId += 1
+        this.keywords.Push({Id: this._nextChipId, Text: text})
+        this._RenderChips()
+        this._BindChipClicks()
+        return true
+    }
+
+    _SyncPlaceholder() {
+        if (!IsObject(this.ui))
+            return
+        text := ""
+        try text := Trim(this.ui.Query("EdKeywords"))
+        try this.ui.Update("EdKeywordsPh", "Visibility", text == "" ? "Visible" : "Collapsed")
+    }
+
+    _OnMicClick(*) {
+        if (this._rec) {
+            this._StopRec()
+            return
+        }
+        if (!IsSet(InitSttEngine))
+            return
+        engine := InitSttEngine()
+        if (!IsObject(engine) || !engine.IsDllReady()) {
+            try Toast.Warning(GetLang("语音引擎未就绪"))
+            return
+        }
+        if (!engine.IsStreamReady()) {
+            try Toast.Warning(GetLang("识别模型未就绪，请先下载模型"))
+            return
+        }
+        if (!engine.StreamBegin()) {
+            try Toast.Error(GetLang("开始录音失败：") engine._ErrText(engine.StreamGetLastError()))
+            return
+        }
+        this._rec := true
+        try this.ui.Update("BtnKwMic", "Foreground", "{DynamicResource Accent}")
+        try this.ui.Update("BtnKwMic", "ToolTip", GetLang("停止录音"))
+        try this.ui.Update("EdKeywordsPh", "Text", GetLang("正在聆听…"))
+        try this.ui.Update("EdKeywordsPh", "Visibility", "Visible")
+        SetTimer(this._sttTick, 150)
+    }
+
+    _PollStt() {
+        if (!this._rec) {
+            SetTimer(this._sttTick, 0)
+            return
+        }
+        if (!IsSet(InitSttEngine))
+            return
+        engine := InitSttEngine()
+        live := ""
+        try live := engine.StreamPoll()
+        if (Trim(live) != "")
+            try this.ui.Update("EdKeywordsPh", "Text", live)
+    }
+
+    _StopRec() {
+        this._rec := false
+        SetTimer(this._sttTick, 0)
+        try this.ui.Update("BtnKwMic", "Foreground", "{DynamicResource TextSub}")
+        try this.ui.Update("BtnKwMic", "ToolTip", GetLang("语音输入"))
+        try this.ui.Update("EdKeywordsPh", "Text", GetLang("请输入宏触发关键词"))
+        if (!IsSet(InitSttEngine)) {
+            this._SyncPlaceholder()
+            return
+        }
+        engine := InitSttEngine()
+        if (!IsObject(engine)) {
+            this._SyncPlaceholder()
+            return
+        }
+        if (!engine.StreamEnd(0)) {
+            this._SyncPlaceholder()
+            return
+        }
+        loop 40 {
+            st := engine.StreamGetState()
+            if (st == 3 || st == 4)
+                break
+            Sleep(50)
+        }
+        result := Trim(engine.StreamGetResult())
+        if (result != "") {
+            cur := ""
+            try cur := this.ui.Query("EdKeywords")
+            this.ui.Update("EdKeywords", "Text", Trim(cur " " result))
+        }
+        this._SyncPlaceholder()
+    }
+
+    _XmlEsc(s) {
+        s := StrReplace(s, "&", "&amp;")
+        s := StrReplace(s, "<", "&lt;")
+        s := StrReplace(s, ">", "&gt;")
+        s := StrReplace(s, '"', "&quot;")
+        return s
+    }
+
     _ReadFields() {
-        keywords := Trim(this.ui.Query("EdKeywords"))
-        keywords := Trim(keywords, "，, ")
-        ; 统一关键词内分隔符为英文逗号（兼容中文逗号输入）
-        keywords := StrReplace(keywords, "，", ",")
-        ; 清理空项与多余空格
-        parts := []
-        for p in StrSplit(keywords, ",") {
-            p := Trim(p)
-            if (p != "")
-                parts.Push(p)
+        pending := ""
+        try pending := Trim(this.ui.Query("EdKeywords"))
+        pending := Trim(StrReplace(pending, "，", ","))
+        texts := []
+        seen := Map()
+        for item in this.keywords {
+            if (item.Text == "" || seen.Has(item.Text))
+                continue
+            seen[item.Text] := true
+            texts.Push(item.Text)
+        }
+        if (pending != "") {
+            for p in StrSplit(pending, ",") {
+                p := Trim(p)
+                if (p == "" || seen.Has(p))
+                    continue
+                seen[p] := true
+                texts.Push(p)
+            }
         }
         clean := ""
-        for i, p in parts {
+        for i, p in texts {
             if (i > 1)
                 clean .= ","
             clean .= p
@@ -149,7 +446,6 @@ class VoiceGui {
         return clean
     }
 
-    ; 写回表格模型（供语音引擎读取）
     _ApplyToModel(keywords) {
         global MyVoiceEngine, MyHotReloadBus
         tableItem := this.tableItem
@@ -158,9 +454,6 @@ class VoiceGui {
         if (!item)
             return
         item.VoiceKeywords := keywords
-        ; 启用/禁用由主界面「禁用」开关（Forbid）控制；此处仅保证该行语音字段有效
-
-        ; §18 热重载：广播「本行配置已变更」+ 即时落盘，VoiceEngine 订阅者空闲时重建关键词集（不阻塞 UI）
         HotReloadPublish(GetTableIndexByID(tableItem.ID), index)
     }
 
@@ -171,7 +464,6 @@ class VoiceGui {
     _DoSure() {
         keywords := this._ReadFields()
         this._ApplyToModel(keywords)
-        ; 刷新主界面表格，让关键词列立即显示新值
         if (IsSet(MyMainWin) && IsObject(MyMainWin))
             MyMainWin.RenderTab(this.tableItem)
         this.Cancel()
@@ -180,14 +472,19 @@ class VoiceGui {
     }
 
     Cancel(*) {
+        if (this._rec)
+            this._StopRec()
         if (IsObject(this.ui))
             this.ui.Update("Window", "Close", "")
         this._OnClosed()
     }
 
     _OnClosed() {
+        if (this._rec)
+            this._StopRec()
         this.hasGui := false
         this.Gui := ""
         this.ui := ""
+        this.keywords := []
     }
 }

@@ -388,6 +388,7 @@ class XAMLHost {
     ; 标题栏骨架（铬钮不进 DragArea）。titleIcon 画在标题文字左侧。返回 { Root, Drag, Btns }
     static AddTitleBarChrome(main, title, titleName := "", titleIcon := "", titleIconColor := "") {
         tb := main.Add("Grid").Grid_Row(0).Background("{DynamicResource TitleBarColor}")
+            .VerticalAlignment("Stretch").HorizontalAlignment("Stretch")
         tb.Cols("*", "Auto")
         drag := tb.Add("Border").Grid_Column(0).Background("{DynamicResource TitleBarColor}").Name("DragArea")
         row := drag.Add("StackPanel").Orientation("Horizontal").VerticalAlignment("Center").Margin("15,0,0,0")

@@ -426,6 +426,7 @@ public partial class AhkWpfEngine
         if (parts[0] == "Window" && parts[1] == "GMUIConfigure" && parts.Length == 3)
         {
             RmtCommonStyles.Configure(win, parts[2]);
+            FillViewboxViewport();
             return;
         }
         if (parts[0] == "Window" && parts[1] == "GMUIOpen")

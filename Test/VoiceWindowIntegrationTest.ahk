@@ -75,13 +75,13 @@ RunVoiceProbe(*) {
         if (Abs(Number(layoutValues["Window>ActualWidth"]) - Number(layoutValues["RmtDialogRoot>ActualWidth"])) > 1
             || Abs(Number(layoutValues["Window>ActualHeight"]) - Number(layoutValues["RmtDialogRoot>ActualHeight"])) > 1)
             throw Error("voice dialog root does not fill the restored window: " JoinValues(layoutValues))
-        chromeValues := MyVoiceGui.ui.Query("DialogTitle>FontSize", "BtnClosePanel>Width", "BtnClosePanel>Height", "VoiceKeywordActions>Uid")
+        chromeValues := MyVoiceGui.ui.Query("DialogTitle>FontSize", "BtnClosePanel>Width", "BtnClosePanel>Height", "KwChipPanel>Uid")
         if (chromeValues.Count != 4 || Abs(Number(chromeValues["DialogTitle>FontSize"]) - 17) > 0.01
             || Abs(Number(chromeValues["BtnClosePanel>Width"]) - 46) > 0.01 || Abs(Number(chromeValues["BtnClosePanel>Height"]) - 30) > 0.01
-            || chromeValues["VoiceKeywordActions>Uid"] != "ahk:Voice.Keywords.Actions")
-            throw Error("voice chrome or persistent action id mismatch: " JoinValues(chromeValues))
-        strokes := MyVoiceGui.ui.Query("EdKeywords>BorderThickness", "BtnSure>BorderThickness", "BtnCancel>BorderThickness")
-        if (strokes.Count != 3 || !InStr(strokes["EdKeywords>BorderThickness"], "1.25") || !InStr(strokes["BtnSure>BorderThickness"], "1.25") || !InStr(strokes["BtnCancel>BorderThickness"], "1.25"))
+            || chromeValues["KwChipPanel>Uid"] != "ahk:Voice.Keywords.Chips")
+            throw Error("voice chrome or persistent chip panel id mismatch: " JoinValues(chromeValues))
+        strokes := MyVoiceGui.ui.Query("KwInputHost>BorderThickness", "BtnSure>BorderThickness")
+        if (strokes.Count != 2 || !InStr(strokes["KwInputHost>BorderThickness"], "1") || !InStr(strokes["BtnSure>BorderThickness"], "1"))
             throw Error("voice border thickness mismatch: " JoinValues(strokes))
         FileAppend("PASS voice window opened, parent still alive`n", "*")
         MyVoiceGui.Cancel()

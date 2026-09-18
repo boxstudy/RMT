@@ -38,6 +38,14 @@ class XamlWin {
         ; Emit design DIP sizes. ApplyDialogVisualScale enlarges the window and pins the root
         ; so EngineHost's Viewbox matches the main UI. Pre-multiplying here would double-scale.
         ui.xaml := StrReplace(ui.xaml, 'Width="940" Height="700"', 'Title="' safeTitle '" ShowInTaskbar="False" Width="' Round(width * visualScale) '" Height="' Round(height * visualScale) '" Opacity="0"')
+        ; Window chrome corners sit outside the title row. Paint them with TitleBarColor so a
+        ; Viewbox letterbox cannot show the default white/BgColor strip above the title.
+        winEnd := InStr(ui.xaml, ">")
+        if (winEnd) {
+            head := SubStr(ui.xaml, 1, winEnd)
+            head := StrReplace(head, 'Background="Transparent"', 'Background="{DynamicResource TitleBarColor}"')
+            ui.xaml := head SubStr(ui.xaml, winEnd + 1)
+        }
         resources := fluidContent ? '<Boolean xmlns="clr-namespace:System;assembly=mscorlib" x:Key="RmtFluidDialogLayout">True</Boolean>' : ""
         ui.xaml := StrReplace(ui.xaml, "%resources%", resources)
         ui.OnEvent("BtnClosePanel", "Click", (*) => ui.Update("Window", "Close", ""))
