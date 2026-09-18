@@ -557,8 +557,17 @@ internal static class RmtCommonStyles
             Rect area = SystemParameters.WorkArea;
             double width = double.IsNaN(window.ActualWidth) || window.ActualWidth <= 0 ? window.Width : window.ActualWidth;
             double height = double.IsNaN(window.ActualHeight) || window.ActualHeight <= 0 ? window.Height : window.ActualHeight;
-            window.Left = area.Left + area.Width * ax + x - width * ax;
-            window.Top = area.Top + area.Height * ay + y - height * ay;
+            var position = new Point(area.Left + area.Width * ax + x - width * ax,
+                area.Top + area.Height * ay + y - height * ay);
+            // A deferred window must stay offscreen until its content is ready. Restoring
+            // a saved GM-UI position during Loaded must only update its reveal target.
+            if (window.Resources.Contains("_NativeAlphaPending"))
+                window.Resources["_RevealPos"] = position;
+            else
+            {
+                window.Left = position.X;
+                window.Top = position.Y;
+            }
             window.UpdateLayout();
             return;
         }

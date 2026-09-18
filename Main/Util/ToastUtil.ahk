@@ -45,6 +45,11 @@ class Toast {
         Toast._ShowTyped(msg, "error", holdMs)
     }
 
+    ; Repeated progress updates refresh one toast instead of reopening the window.
+    static Progress(msg) {
+        Toast._ShowTyped(msg, "progress", 3000)
+    }
+
     ; ── 内部统一入口 ─────────────────────────────────────────
     static _ShowTyped(msg, type := "info", holdMs := 0) {
         msg := Trim(String(msg))
@@ -61,6 +66,15 @@ class Toast {
         Toast._pending := ""
         if (!IsObject(job))
             return
+        if (job.type == "progress" && IsObject(Toast._inst) && Toast._inst.type == "progress"
+            && !Toast._inst.closed && IsObject(Toast._inst.ui)) {
+            Toast._inst.msg := job.msg
+            Toast._inst.ui.Update("ToastText", "Text", "ℹ " job.msg)
+            Toast._inst.ui.Update("Window", "Opacity", "1")
+            Toast._inst.phase := "hold"
+            Toast._inst.phaseTick := A_TickCount
+            return
+        }
         ; 关闭仍在显示的旧提示，避免叠加
         if (IsObject(Toast._inst)) {
             try Toast._inst.Close()
@@ -146,7 +160,7 @@ class Toast {
             eff := border.Add("Border.Effect").Add("DropShadowEffect")
             eff.BlurRadius(10).ShadowDepth(1).Opacity(0.35).SetProp("Color", "#66000000")
 
-            lbl := border.Add("TextBlock")
+            lbl := border.Add("TextBlock").Name("ToastText")
             lbl.Text(displayMsg).TextWrapping("Wrap").Foreground(text)
             lbl.FontFamily("Segoe UI Variable Display, Segoe UI, Microsoft YaHei UI, sans-serif")
             lbl.FontSize(14)

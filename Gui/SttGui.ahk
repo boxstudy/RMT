@@ -16,6 +16,40 @@
 class SttGui {
     ; ---------- 单例入口 ----------
     static instances := Map()
+    static backgroundInstance := ""
+
+    ; Ask once at the point where a voice button is used, then download in the
+    ; background so the caller can keep its own window open.
+    static RequestModelDownload() {
+        engine := InitSttEngine()
+        if (!IsObject(engine) || !engine.IsDllReady()) {
+            try Toast.Warning(GetLang("语音引擎未安装"))
+            return false
+        }
+        if (engine.IsStreamModelReady())
+            return true
+        if (!RmtDialog.Confirm(GetLang("缺少语音识别模型，是否下载？"), GetLang("提示")))
+            return false
+        inst := ""
+        if (SttGui.instances.Has("global"))
+            inst := SttGui.instances["global"]
+        if (!IsObject(inst) || (inst.downloadState != "" && inst.downloadState != "err")) {
+            if (!IsObject(SttGui.backgroundInstance) || SttGui.backgroundInstance.downloadState == "")
+                SttGui.backgroundInstance := SttGui()
+            inst := SttGui.backgroundInstance
+        }
+        if (inst.downloadState == "dl" || inst.downloadState == "ex")
+            return true
+        inst._downloadStandalone := !inst.hasGui
+        inst.OnDownloadClick()
+        if (inst.downloadState == "dl" || inst.downloadState == "ex") {
+            SetTimer(inst.timerFunc, 100)
+            Toast.Progress(GetLang("模型下载中…"))
+            return true
+        }
+        Toast.Error(GetLang("模型下载启动失败，请稍后重试"))
+        return false
+    }
 
     ; 流式模型包（chunksize 越大越准、延迟越高：160ms / 480ms / 960ms / 1920ms）
     static StreamPkg := "sherpa-onnx-x-asr-480ms-streaming-zipformer-transducer-zh-en-punct-int8-2026-06-05"
@@ -56,6 +90,8 @@ class SttGui {
         this.dlDir := ""
         this.dlSpec := ""              ; 当前模型规格（Map）
         this.dlCur := ""               ; 当前正在下载的模型说明
+        this._lastDownloadToast := 0
+        this._downloadStandalone := false
         this._topOn := false
         this.timerFunc := ObjBindMethod(this, "OnTimer")
         this.preloadFunc := ObjBindMethod(this, "OnPreload")
@@ -219,6 +255,8 @@ class SttGui {
 
     ; ---------- 状态刷新 ----------
     _RefreshUi() {
+        if (!IsObject(this.ui))
+            return
         engine := InitSttEngine()
         dllOk := engine.IsDllReady()
         streamOk := engine.IsStreamModelReady()
@@ -229,7 +267,7 @@ class SttGui {
         this.ui.Update("BtnDownload", "Visibility", (dllOk && !streamOk) ? "Visible" : "Collapsed")
 
         if (this.loading) {
-            status := GetLang("模型加载中……")
+            status := GetLang("模型正在加载…")
             this.ui.Update("BtnDownload", "IsEnabled", "False")
         } else if (this.downloadState == "dl") {
             status := GetLang("模型下载中，请稍候") "（" this.dlCur "）……"
@@ -238,7 +276,7 @@ class SttGui {
             status := GetLang("模型解压中……")
             this.ui.Update("BtnDownload", "IsEnabled", "False")
         } else if (this.recording) {
-            status := GetLang("录音中 ") this._FormatElapsed()
+            status := GetLang("正在聆听…")
             this.ui.Update("BtnDownload", "IsEnabled", "True")
         } else if (this.finalizing) {
             status := GetLang("识别中……")
@@ -270,11 +308,9 @@ class SttGui {
 
     ; ---------- 定时器：实时上屏 + 收尾轮询 + 下载进度 ----------
     OnTimer() {
-        if (!this.hasGui || !IsObject(this.ui))
-            return
-
         ; --- 模型下载/解压 ---
         if (this.downloadState == "dl" || this.downloadState == "ex") {
+            oldState := this.downloadState
             if (!ProcessExist(this.dlPid)) {
                 if (this.downloadState == "dl") {
                     if (this._StartExtract())
@@ -282,8 +318,9 @@ class SttGui {
                     else
                         this.downloadState := "err"
                 } else {
-                    this._FinishExtract()
-                    if (this.dlQueue.Length) {
+                    if (!this._FinishExtract()) {
+                        this.downloadState := "err"
+                    } else if (this.dlQueue.Length) {
                         if (!this._StartNextDownload())
                             this.downloadState := "err"
                     } else {
@@ -293,8 +330,30 @@ class SttGui {
                 }
             }
             this._RefreshUi()
+            if (this.downloadState == "dl" && (A_TickCount - this._lastDownloadToast) >= 500) {
+                this._lastDownloadToast := A_TickCount
+                mb := FileExist(this.dlTar) ? Round(FileGetSize(this.dlTar) / 1024 / 1024, 1) : 0
+                Toast.Progress(GetLang("模型下载中…") " " mb " MB")
+            } else if (this.downloadState == "ex" && oldState != "ex")
+                Toast.Progress(GetLang("模型解压中…"))
+            if (oldState != this.downloadState && this.downloadState == "") {
+                Toast.Success(GetLang("语音识别模型下载成功"))
+                if (this._downloadStandalone) {
+                    SetTimer(this.timerFunc, 0)
+                    SttGui.backgroundInstance := ""
+                }
+            } else if (oldState != this.downloadState && this.downloadState == "err") {
+                Toast.Error(GetLang("语音识别模型下载失败，请检查网络后重试"))
+                if (this._downloadStandalone) {
+                    SetTimer(this.timerFunc, 0)
+                    SttGui.backgroundInstance := ""
+                }
+            }
             return
         }
+
+        if (!this.hasGui || !IsObject(this.ui))
+            return
 
         if (!this.recording && !this.finalizing)
             return
@@ -316,10 +375,13 @@ class SttGui {
             state := engine.StreamGetState()
             if (state == 3 || state == 4) {
                 this.finalizing := false
-                if (state == 3)
+                if (state == 3) {
                     this._SetFinalText(engine.StreamGetResult())
-                else
+                    this.ui.Update("EdResult", "Foreground", "{DynamicResource InputText}")
+                } else {
+                    this.ui.Update("EdResult", "Foreground", "{DynamicResource InputText}")
                     this.ui.Update("TxtStatus", "Text", GetLang("识别失败：") engine._ErrText(engine.StreamGetLastError()))
+                }
             }
         }
         this._RefreshUi()
@@ -388,7 +450,8 @@ class SttGui {
             return
 
         if (!engine.IsStreamReady()) {
-            this.ui.Update("TxtStatus", "Text", GetLang("识别模型未就绪，请先下载模型"))
+            SttGui.RequestModelDownload()
+            this._RefreshUi()
             return
         }
         ; 若预热还没跑完（开窗 300ms 内就点了开始），这里会阻塞加载一次；
@@ -396,10 +459,12 @@ class SttGui {
         if (!engine.streamLoaded) {
             this.loading := true
             this._RefreshUi()
+            Sleep(50)
         }
         ok := engine.StreamBegin()
         this.loading := false
         if (!ok) {
+            this.ui.Update("EdResult", "Foreground", "{DynamicResource InputText}")
             this.ui.Update("TxtStatus", "Text", GetLang("开始录音失败：") engine._ErrText(engine.StreamGetLastError()))
             this._RefreshUi()
             return
@@ -412,6 +477,7 @@ class SttGui {
         this.liveAcc := 0.0
         this.recordStartTick := A_TickCount
         this.ui.Update("EdResult", "Text", "")
+        this.ui.Update("EdResult", "Foreground", "{DynamicResource TextSub}")
         this._RefreshUi()
     }
 
@@ -422,6 +488,7 @@ class SttGui {
         ; 单模型：停止即收尾（refine=0），最终结果由流式识别器直接给出
         if (!engine.StreamEnd(0)) {
             this.recording := false
+            this.ui.Update("EdResult", "Foreground", "{DynamicResource InputText}")
             this.ui.Update("TxtStatus", "Text", GetLang("识别失败：") engine._ErrText(engine.StreamGetLastError()))
             this._RefreshUi()
             return
@@ -441,6 +508,7 @@ class SttGui {
 
     OnClearClick(state := "", ctrl := "", event := "") {
         this.ui.Update("EdResult", "Text", "")
+        this.ui.Update("EdResult", "Foreground", "{DynamicResource InputText}")
         this.lastLiveText := ""
         this.shownText := ""
         this.pendingText := ""
@@ -449,7 +517,7 @@ class SttGui {
 
     ; ---------- 模型按需下载（curl + tar，异步 Run + 进程轮询，支持多模型排队） ----------
     OnDownloadClick(state := "", ctrl := "", event := "") {
-        if (this.downloadState != "")
+        if (this.downloadState == "dl" || this.downloadState == "ex")
             return
         this.dlQueue := this._MissingModels()
         this.dlTotal := this.dlQueue.Length
@@ -466,8 +534,7 @@ class SttGui {
         spec := this.dlQueue.RemoveAt(1)
         idx := this.dlTotal - this.dlQueue.Length
         this.dlCur := spec["label"] " (" idx "/" this.dlTotal ")"
-        this.dlTar := A_Temp "\rmt-stt-model.tar.bz2"
-        this.dlDir := A_Temp "\rmt-stt-model"
+        this.dlTar := A_Temp "\rmt-stt-model-" DllCall("GetCurrentProcessId") "-" A_TickCount ".tar.bz2"
         cmd := Format('curl.exe -k --ssl-no-revoke -L --fail -s -S -o "{}" "{}"', this.dlTar, spec["url"])
         try {
             Run(cmd, A_Temp, "Hide", &pid)
@@ -483,12 +550,13 @@ class SttGui {
     _StartExtract() {
         if (!this.dlSpec.Has("minBytes"))
             return false
-        ; 校验下载产物大小
-        if (!FileExist(this.dlTar) || FileGetSize(this.dlTar) < this.dlSpec["minBytes"])
-            return false
-        DirDelete(this.dlDir, true)
-        cmd := Format('tar.exe -xjf "{}" -C "{}"', this.dlTar, this.dlDir)
         try {
+            ; 每次使用独立目录；tar -C 要求目标目录已存在。
+            if (!FileExist(this.dlTar) || FileGetSize(this.dlTar) < this.dlSpec["minBytes"])
+                return false
+            this.dlDir := A_Temp "\rmt-stt-model-" DllCall("GetCurrentProcessId") "-" A_TickCount "-" Random(1000, 9999)
+            DirCreate(this.dlDir)
+            cmd := Format('tar.exe -xjf "{}" -C "{}"', this.dlTar, this.dlDir)
             Run(cmd, A_Temp, "Hide", &pid)
             this.dlPid := pid
             return true
@@ -501,20 +569,24 @@ class SttGui {
         spec := this.dlSpec
         src := this.dlDir "\" spec["pkg"]
         files := spec.Has("files") ? spec["files"] : ["model.int8.onnx", "tokens.txt"]
-        if (FileExist(src "\" files[1])) {
-            DirCreate(spec["dir"])
+        try {
+            ; 校验完整文件集后再部署，避免损坏/不完整的压缩包被当作成功。
             for f in files {
-                if (FileExist(src "\" f))
-                    FileCopy(src "\" f, spec["dir"] "\" f, true)
-                else
-                    try this.ui.Update("TxtStatus", "Text", GetLang("模型文件缺失：") f)
+                if (!FileExist(src "\" f) || FileGetSize(src "\" f) == 0)
+                    return false
             }
+            DirCreate(spec["dir"])
+            for f in files
+                FileCopy(src "\" f, spec["dir"] "\" f, true)
+        } catch {
+            return false
         }
         ; 清理临时文件
         try FileDelete(this.dlTar)
         try DirDelete(this.dlDir, true)
         this.dlTar := ""
         this.dlDir := ""
+        return true
     }
 
     ; ---------- 关闭 ----------

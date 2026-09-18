@@ -61,6 +61,20 @@ class CommonStylesTest
                     Check(ReferenceEquals(dialog.Content, hostBox) && ReferenceEquals(hostBox.Child, root),
                         "restoring the same window layout twice keeps the Viewbox host");
                     CheckLiveWindowResizeFillsViewport(dialog, hostBox, root, input, initialVisualScale);
+                    dialog.Left = -32000;
+                    dialog.Top = -32000;
+                    dialog.Resources["_NativeAlphaPending"] = true;
+                    RmtCommonStyles.ApplyLayout(dialog); Pump();
+                    Check(dialog.Left < -10000 && dialog.Top < -10000,
+                        "saved layout keeps a pending window offscreen to avoid a startup flash: " + dialog.Left + "," + dialog.Top);
+                    var revealPosition = (Point)dialog.Resources["_RevealPos"];
+                    Check(Math.Abs(revealPosition.X - SystemParameters.WorkArea.Left - 20) < .01
+                        && Math.Abs(revealPosition.Y - SystemParameters.WorkArea.Top - 30) < .01,
+                        "saved layout updates the deferred reveal position");
+                    dialog.Resources.Remove("_NativeAlphaPending");
+                    RmtCommonStyles.ApplyLayout(dialog); Pump();
+                    Check(Math.Abs(dialog.Left - revealPosition.X) < .01 && Math.Abs(dialog.Top - revealPosition.Y) < .01,
+                        "saved layout positions normally after the window is revealed");
                 }
                 finally { dialog.Close(); }
             }

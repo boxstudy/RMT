@@ -77,14 +77,14 @@ class VoiceGui {
         sendW := 24
         addW := 26
         fs := XAMLHost.FontSize()
-        panel := XAML_Generator("Grid").Margin("16,12,16,12")
+        panel := XAML_Generator("Grid").Margin("16,6,16,12")
         panel.Rows("Auto", "Auto", "Auto", "Auto")
         panel.InjectResources(this._InputStyles(lineH, radius, sendW, addW, fs))
         panel.Add("TextBlock").Name("LblKeywords").Uid("ahk:Voice.Keywords.Label")
             .Grid_Row(0).Text(GetLang("关键词：")).Foreground("{DynamicResource TextMain}")
             .Margin("0,0,0,6").TextWrapping("Wrap")
         chipBox := panel.Add("Border").Name("KwChipHost").Grid_Row(1)
-            .Height(80).MinHeight(80).MaxHeight(80).Padding("8,6,4,6")
+            .Height(124).MinHeight(124).MaxHeight(124).Padding("4,2,4,2")
             .Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}")
             .BorderThickness("1").CornerRadius(String(radius))
             .SnapsToDevicePixels("True").UseLayoutRounding("False")
@@ -250,20 +250,21 @@ class VoiceGui {
     _ChipXaml(item) {
         ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
         del := "KwChipDel_" item.Id
-        return '<Border ' ns ' Name="KwChip_' item.Id '" Margin="0,0,8,8" Padding="10,6,22,6"'
+        return '<Grid ' ns ' Name="KwChip_' item.Id '" Margin="6,4,6,4" MaxWidth="408" HorizontalAlignment="Left">'
+            . '<Border Padding="10,6,10,6"'
             . ' Background="{DynamicResource ControlBg}" BorderBrush="{DynamicResource InputStroke}"'
             . ' BorderThickness="1" CornerRadius="3" MaxWidth="408" HorizontalAlignment="Left"'
             . ' SnapsToDevicePixels="True" UseLayoutRounding="False">'
-            . '<Grid>'
             . '<TextBlock Name="KwChipText_' item.Id '" Text="' this._XmlEsc(item.Text) '"'
             . ' TextWrapping="Wrap" Foreground="{DynamicResource TextMain}"'
-            . ' VerticalAlignment="Center" Margin="0,0,4,0"/>'
-            . '<Button Name="' del '" Width="16" Height="16" Padding="0" Margin="0,-4,-10,0"'
-            . ' HorizontalAlignment="Right" VerticalAlignment="Top"'
-            . ' Background="Transparent" BorderThickness="0" Cursor="Hand" Focusable="False"'
+            . ' VerticalAlignment="Center"/>'
+            . '</Border>'
+            . '<Button Name="' del '" Width="16" Height="16" Padding="0"'
+            . ' HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-4,-8,0" Panel.ZIndex="1"'
+            . ' Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1" Cursor="Hand" Focusable="False"'
             . ' ToolTip="' this._XmlEsc(GetLang("删除")) '">'
             . '<Button.Template><ControlTemplate TargetType="Button">'
-            . '<Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="8" Width="16" Height="16">'
+            . '<Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8" Width="16" Height="16">'
             . '<TextBlock Text="' Chr(0xE711) '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"'
             . ' FontSize="8" Foreground="{DynamicResource TextSub}"'
             . ' HorizontalAlignment="Center" VerticalAlignment="Center"/>'
@@ -272,7 +273,7 @@ class VoiceGui {
             . '<Setter TargetName="Bd" Property="Background" Value="{DynamicResource ControlBorder}"/>'
             . '</Trigger></ControlTemplate.Triggers>'
             . '</ControlTemplate></Button.Template></Button>'
-            . '</Grid></Border>'
+            . '</Grid>'
     }
 
     _BindChipClicks() {
@@ -329,7 +330,8 @@ class VoiceGui {
             return
         text := ""
         try text := Trim(this.ui.Query("EdKeywords"))
-        try this.ui.Update("EdKeywordsPh", "Visibility", text == "" ? "Visible" : "Collapsed")
+        hasLive := this._rec && this._recLive != ""
+        try this.ui.Update("EdKeywordsPh", "Visibility", (text == "" && !hasLive) ? "Visible" : "Collapsed")
     }
 
     _OnMicClick(*) {
@@ -345,18 +347,30 @@ class VoiceGui {
             return
         }
         if (!engine.IsStreamReady()) {
-            try Toast.Warning(GetLang("识别模型未就绪，请先下载模型"))
+            SttGui.RequestModelDownload()
             return
         }
+        baseText := ""
+        try baseText := Trim(this.ui.Query("EdKeywords"))
+        initializing := !engine.streamLoaded
+        if (initializing && baseText == "") {
+            try this.ui.Update("EdKeywordsPh", "Text", GetLang("模型正在加载…"))
+            try this.ui.Update("EdKeywordsPh", "Visibility", "Visible")
+            Sleep(50)
+        }
         if (!engine.StreamBegin()) {
+            this._SyncPlaceholder()
             try Toast.Error(GetLang("开始录音失败：") engine._ErrText(engine.StreamGetLastError()))
             return
         }
         this._rec := true
+        this._recBase := baseText
+        this._recLive := ""
+        try this.ui.Update("EdKeywords", "Foreground", "{DynamicResource TextSub}")
         try this.ui.Update("BtnKwMic", "Foreground", "{DynamicResource Accent}")
         try this.ui.Update("BtnKwMic", "ToolTip", GetLang("停止录音"))
         try this.ui.Update("EdKeywordsPh", "Text", GetLang("正在聆听…"))
-        try this.ui.Update("EdKeywordsPh", "Visibility", "Visible")
+        try this.ui.Update("EdKeywordsPh", "Visibility", this._recBase == "" ? "Visible" : "Collapsed")
         SetTimer(this._sttTick, 150)
     }
 
@@ -370,8 +384,14 @@ class VoiceGui {
         engine := InitSttEngine()
         live := ""
         try live := engine.StreamPoll()
-        if (Trim(live) != "")
-            try this.ui.Update("EdKeywordsPh", "Text", live)
+        if (Trim(live) != "" && live != this._recLive) {
+            this._recLive := live
+            base := this._recBase
+            sep := (base != "" && !RegExMatch(base, "\s$")) ? " " : ""
+            try this.ui.Update("EdKeywords", "Text", base sep live)
+            try this.ui.Update("EdKeywordsPh", "Text", GetLang("请输入宏触发关键词"))
+            try this.ui.Update("EdKeywordsPh", "Visibility", "Collapsed")
+        }
     }
 
     _StopRec() {
@@ -381,15 +401,18 @@ class VoiceGui {
         try this.ui.Update("BtnKwMic", "ToolTip", GetLang("语音输入"))
         try this.ui.Update("EdKeywordsPh", "Text", GetLang("请输入宏触发关键词"))
         if (!IsSet(InitSttEngine)) {
+            try this.ui.Update("EdKeywords", "Foreground", "{DynamicResource InputText}")
             this._SyncPlaceholder()
             return
         }
         engine := InitSttEngine()
         if (!IsObject(engine)) {
+            try this.ui.Update("EdKeywords", "Foreground", "{DynamicResource InputText}")
             this._SyncPlaceholder()
             return
         }
         if (!engine.StreamEnd(0)) {
+            try this.ui.Update("EdKeywords", "Foreground", "{DynamicResource InputText}")
             this._SyncPlaceholder()
             return
         }
@@ -400,11 +423,11 @@ class VoiceGui {
             Sleep(50)
         }
         result := Trim(engine.StreamGetResult())
-        if (result != "") {
-            cur := ""
-            try cur := this.ui.Query("EdKeywords")
-            this.ui.Update("EdKeywords", "Text", Trim(cur " " result))
-        }
+        if (result != "")
+            this.ui.Update("EdKeywords", "Text", this._recBase (this._recBase != "" ? " " : "") result)
+        else
+            this.ui.Update("EdKeywords", "Text", this._recBase)
+        try this.ui.Update("EdKeywords", "Foreground", "{DynamicResource InputText}")
         this._SyncPlaceholder()
     }
 

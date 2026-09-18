@@ -2692,15 +2692,28 @@ class MainWin {
             return
         }
         if (!engine.IsStreamReady()) {
-            Toast.Warning(GetLang("识别模型未就绪，请先下载模型"))
+            SttGui.RequestModelDownload()
             return
         }
+        inputBefore := ""
+        try inputBefore := Trim(this.ui.Query("AiInput_" t))
+        initializing := !engine.streamLoaded
+        if (initializing && inputBefore == "") {
+            try this.ui.Update("AiInputPh_" t, "Text", GetLang("模型正在加载…"))
+            try this.ui.Update("AiInputPh_" t, "Visibility", "Visible")
+            Sleep(50)
+        }
         if (!engine.StreamBegin()) {
+            this._AiSyncPlaceholder(t)
             Toast.Error(GetLang("开始录音失败：") engine._ErrText(engine.StreamGetLastError()))
             return
         }
         this._aiRec[t] := true
         this._aiSttTab := t
+        this._aiSttBase := ""
+        try this._aiSttBase := this.ui.Query("AiInput_" t)
+        this._aiSttLive := ""
+        try this.ui.Update("AiInput_" t, "Foreground", "{DynamicResource TextSub}")
         try this.ui.Update("AiMic_" t, "Foreground", "{DynamicResource Accent}")
         try this.ui.Update("AiMic_" t, "ToolTip", GetLang("停止录音"))
         try this.ui.Update("AiInputPh_" t, "Text", GetLang("正在聆听…"))
@@ -2717,8 +2730,20 @@ class MainWin {
         engine := InitSttEngine()
         live := ""
         try live := engine.StreamPoll()
-        if (Trim(live) != "")
-            try this.ui.Update("AiInputPh_" t, "Text", live)
+        if (Trim(live) != "" && live != this._aiSttLive)
+            this._AiSetVoiceText(t, live)
+    }
+
+    _AiSetVoiceText(t, text) {
+        this._aiSttLive := text
+        base := this._aiSttBase
+        separator := (base != "" && !RegExMatch(base, "\s$")) ? " " : ""
+        this.ui.Update("AiInput_" t, "Text", base separator text)
+        try this.ui.Update("AiInputPh_" t, "Text", GetLang("询问关于宏的任何问题…"))
+        try this.ui.Update("AiInputPh_" t, "Visibility", "Collapsed")
+        this._aiFitTab := t
+        SetTimer(this.aiFitTick, -30)
+        this._AiSyncPlaceholder(t)
     }
 
     _AiStopRec(t) {
@@ -2726,6 +2751,7 @@ class MainWin {
             this._aiRec := Map()
         this._aiRec[t] := false
         SetTimer(this.aiSttTick, 0)
+        try this.ui.Update("AiInput_" t, "Foreground", "{DynamicResource InputText}")
         try this.ui.Update("AiMic_" t, "Foreground", "{DynamicResource TextMain}")
         try this.ui.Update("AiMic_" t, "ToolTip", GetLang("语音输入"))
         try this.ui.Update("AiInputPh_" t, "Text", GetLang("询问关于宏的任何问题…"))
@@ -2743,8 +2769,8 @@ class MainWin {
             Sleep(50)
         }
         result := Trim(engine.StreamGetResult())
-        if (result != "")
-            this._AiAppendInputText(t, result)
+        if (result != "" && result != this._aiSttLive)
+            this._AiSetVoiceText(t, result)
         this._AiSyncPlaceholder(t)
     }
 
@@ -2920,7 +2946,8 @@ class MainWin {
         try text := this.ui.Query("AiInput_" t)
         rec := IsObject(this._aiRec) && this._aiRec.Has(t) && this._aiRec[t]
         hasAtt := this._AiAttachList(t).Length > 0
-        vis := (!rec && Trim(text) == "" && !hasAtt) ? "Visible" : "Collapsed"
+        hasLive := rec && this._aiSttLive != ""
+        vis := (Trim(text) == "" && !hasAtt && !hasLive) ? "Visible" : "Collapsed"
         try this.ui.Update("AiInputPh_" t, "Visibility", vis)
     }
 
