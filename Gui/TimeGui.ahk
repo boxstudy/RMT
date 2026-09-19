@@ -140,7 +140,7 @@ class TimeGui {
         p4Row2 := p4.Add("StackPanel").Orientation("Horizontal").Margin("0,6,0,0")
         p4Row2.Add("TextBlock").Text(GetLang("格式化模板：")).VerticalAlignment("Center")
         gfmt := p4Row2.Add("ComboBox").Name("GetStrFormatCon").Width(200).Height(24).MinHeight(24).Margin("4,0,0,0").IsEditable("True")
-        for f in ["yyyy-MM-dd HH:mm:ss", "UnixTimestamp", "UnixTimestampMs", "HH:mm:ss", "yyyyMMdd", "yyyy/MM/dd HH:mm:ss"]
+        for f in ["yyyy-MM-dd HH:mm:ss", "UnixTimestamp", "HH:mm:ss", "yyyyMMdd", "yyyy/MM/dd HH:mm:ss", "EEEE", "EEE", "E"]
             gfmt.Add("ComboBoxItem").Content(f)
 
         ; 面板5：时间计算 (MathPanel)

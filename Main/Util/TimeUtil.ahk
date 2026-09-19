@@ -153,23 +153,28 @@ TimeParseDateTime(s) {
 
     return ""
 }
-
 TimeFormatResult(stamp, formatType) {
     if (stamp == "")
         return ""
-    if (formatType == "UnixTimestamp" || formatType == "时间戳" || formatType == "当前时间戳") {
-        return DateDiff(stamp, "19700101000000", "Seconds")
-    } else if (formatType == "UnixTimestampMs" || formatType == "毫秒时间戳") {
-        sec := DateDiff(stamp, "19700101000000", "Seconds")
-        return sec . Format("{:03}", A_MSec)
-    } else if (formatType != "" && formatType != "原始格式" && formatType != "Raw") {
-        try {
-            return FormatTime(stamp, formatType)
-        } catch {
+    switch formatType {
+        case "UnixTimestamp":
+            return DateDiff(stamp, "19700101000000", "Seconds")
+        case "E":
+            w := FormatTime(stamp, "WDay")
+            return w == 1 ? 7 : w - 1
+        case "EEEE":
+            return FormatTime(stamp, "dddd")
+        case "EEE":
+            return FormatTime(stamp, "ddd")
+        case "", "原始格式", "Raw":
             return FormatTime(stamp, "yyyy-MM-dd HH:mm:ss")
-        }
+        default:
+            try {
+                return FormatTime(stamp, formatType)
+            } catch {
+                return FormatTime(stamp, "yyyy-MM-dd HH:mm:ss")
+            }
     }
-    return FormatTime(stamp, "yyyy-MM-dd HH:mm:ss")
 }
 
 TimeToAhkStamp(s) {
