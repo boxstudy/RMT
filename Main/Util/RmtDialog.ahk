@@ -133,8 +133,8 @@ class RmtDialog {
             ; 长文案：边框包住只读文本，可框选复制、不可编辑
             roStyle := '<Style TargetType="TextBox"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TextBox"><ScrollViewer x:Name="PART_ContentHost" Background="Transparent" Padding="0"/></ControlTemplate></Setter.Value></Setter></Style>'
             box := panel.Add("Border")
-                .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").CornerRadius("4")
-                .Background("{DynamicResource InputBg}").Padding("10,8,6,8")
+                .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1.5").CornerRadius("4")
+                .Background("{DynamicResource InputBg}").Padding("10,8,10,10")
             msgTb := box.Add("TextBox").Name("DlgMsgText").Text(msg).Foreground("{DynamicResource TextMain}").FontSize(fs)
                 .Background("Transparent").BorderThickness("0").Padding("0")
                 .IsReadOnly("True").IsReadOnlyCaretVisible("True").AcceptsReturn("True")

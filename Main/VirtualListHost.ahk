@@ -145,6 +145,9 @@ class VirtualListHost {
         NormalizeFoldItemOrder(tableItem)   ; 修复历史「新增模块插错位」导致的行号乱序（按模块稳定归位）
         isMacro := CheckIsMacroTable(t)
         isNormal := CheckIsNormalTable(t)
+        isTriggerStr := CheckIsStringMacroTable(t)
+        isTiming := CheckIsTimingMacroTable(t)
+        isVoice := GetTableSymbol(t) == "Voice"
         isSubMacro := CheckIsSubMacroTable(t)
         isMenu := CheckIsMenuMacroTable(t)
         isUI := GetTableSymbol(t) == "UI"
@@ -152,7 +155,7 @@ class VirtualListHost {
         ; 表类型标志行（per tab 恒定，C# 按此设行控件 IsEnabled）
         records := "T" t "_0"
             . US . (isSubMacro ? "0" : "1")
-            . US . (isNormal ? "1" : "0")
+            . US . ((isNormal || isTriggerStr) ? "1" : "0")
             . US . (isMacro ? "1" : "0")
             . US . (isUI ? "0" : "1")
             . RS
@@ -167,6 +170,7 @@ class VirtualListHost {
                 . US . (fold.FoldState ? "1" : "0")
                 . US . showTKRow
                 . US . this._Esc(FormatHotkeyDisplay(MySoftData.FormatJoyTriggerKey(fold.TK)))
+                . US . (isSubMacro ? "0" : "1")
                 . RS
             for i, item in tableItem.Items {
                 if (item.FoldID != fold.ID)
@@ -185,8 +189,9 @@ class VirtualListHost {
                     . US . (isImageConfig ? "1" : "0")                    ; 菜单宏/UI宏图片配置标志
                     . US . (configImagePath != "" ? "1" : "0")           ; 图片是否已配置且可读取
                     . US . this._Esc(StrReplace(configImagePath, "\", "/"))
-                    . US . (CheckIsTimingMacroTable(t) ? "1" : "0")      ; 定时宏：时钟/秒表配置按钮
+                    . US . (isTiming ? "1" : "0")                         ; 定时宏：时钟/秒表配置按钮
                     . US . (HasTimingConfig(item) ? "1" : "0")
+                    . US . (isVoice ? "1" : "0")                          ; 语音宏：隐藏触发类型
                     . RS
             }
         }
@@ -295,6 +300,7 @@ class VirtualListHost {
             switch action {
                 case "FoldBtn": OnFoldBtnClick(tableItem, idx, event)
                 case "FoldFrontBtn": OnFoldFrontInfoEdit(tableItem, idx, event)
+                case "FoldFrontHelp": this._DeferDialog("FoldFrontHelp", OnFoldFrontHelp.Bind(tableItem, idx))
                 case "FoldTKEdit": OnFlodTKEditClick(tableItem, idx, event)
                 case "FoldAddMacro": OnItemAddMacroBtnClick(tableItem, idx, event)
                 case "FoldPasteMacro": OnItemPasteMacroBtnClick(tableItem, idx, event)

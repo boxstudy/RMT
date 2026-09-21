@@ -380,6 +380,14 @@ OnItemMoveDown(tableItem, index, *) {
     HotReloadPublish(tableItem.Index, 0)
 }
 
+OnFoldFrontHelp(tableItem, foldIndex, *) {
+    str1 := GetLang("前台用来给本模块绑定目标窗口。")
+    str2 := GetLang("设置后：模块触发键只在该窗口处于前台时生效。")
+    str3 := GetLang("勾选「设置 - 仅前台运行宏」后，前台窗口不匹配则终止正在运行的宏。")
+    str4 := GetLang("界面宏的面板会附着到匹配的窗口。留空则不限制窗口。")
+    RmtDialog.Info(Format("{}`n{}`n{}`n{}", str1, str2, str3, str4), GetLang("前台说明"))
+}
+
 OnFoldFrontInfoEdit(tableItem, foldIndex, *) {
     fold := tableItem.Folds[foldIndex]
     if (MyMainWin._useVirtual.Has(tableItem.Index)) {
@@ -687,7 +695,7 @@ NetworkShowHelpDialog(macroID := "") {
             .TextWrapping("Wrap").Margin(exIdx == 1 ? "0,0,0,2" : "0,10,0,2")
         exRow := panel.Add("Grid").Margin("0,0,0,0")
         exRow.Cols("*", "Auto")
-        exRow.Add("TextBlock").Grid_Column(0).Text(ex.text).Foreground("{DynamicResource Accent}")
+        exRow.Add("TextBlock").Name("NetworkUrl" exIdx).Grid_Column(0).Text(ex.text).Foreground("{DynamicResource Accent}")
             .FontSize(XAMLHost.FontSize(-2)).VerticalAlignment("Center").TextWrapping("Wrap")
         exRow.Add("Button").Grid_Column(1).Name("BtnEx" exIdx).Content(GetLang("复制"))
             .Width(56).Height(24).MinHeight(24).Margin("8,0,0,0").Cursor("Hand")
@@ -705,7 +713,7 @@ NetworkShowHelpDialog(macroID := "") {
     tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
     ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", owner)
     safeTitle := RmtDialog._XmlEsc(GetLang("网络触发说明"))
-    ui.xaml := StrReplace(ui.xaml, 'Width="940" Height="700"', 'Title="' safeTitle '" ShowInTaskbar="False" Width="' winW '" SizeToContent="Height" Opacity="0"')
+    ui.xaml := StrReplace(ui.xaml, 'Width="940" Height="700"', 'Title="' safeTitle '" ShowInTaskbar="False" Width="' winW '" Height="400" Opacity="0"')
     ui.xaml := StrReplace(ui.xaml, 'ResizeMode="CanResize"', 'ResizeMode="NoResize"')
     if (fontFamily != "")
         ui.xaml := StrReplace(ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' fontFamily '"')
@@ -715,7 +723,7 @@ NetworkShowHelpDialog(macroID := "") {
     resultObj := { Button: "" }
     closeDlg := (btnText) => RmtDialog._OnPick(ui, resultObj, btnText, owner)
     ui.OnEvent("Window", "Closing", (state, ctrl, event) => RmtDialog._OnClosing(resultObj, owner))
-    ui.OnEvent("Window", "LoadedHwnd", (state, ctrl, event) => RmtDialog._OnLoad(ui, owner))
+    ui.OnEvent("Window", "LoadedHwnd", (state, ctrl, event) => (RmtDialog._OnLoad(ui, owner), NetworkApplyHelpUrlFontSize(ui)))
     ui.OnEvent("BtnClosePanel", "Click", (state, ctrl, event) => closeDlg("Closed"))
     ui.OnEvent("BtnOk", "Click", (state, ctrl, event) => closeDlg(GetLang("确定")))
     for n, ex in exArr
@@ -733,6 +741,20 @@ NetworkShowHelpDialog(macroID := "") {
     }
     if (owner)
         try WinSetEnabled(1, "ahk_id " owner)
+}
+
+; 默认字体缩放会把声明字号抬到主题字号，导致网络链接的 -2 看起来没有生效。
+; 窗口加载后以“相对主题字号”写入，保留主题字号联动且始终比正文小 2。
+NetworkApplyHelpUrlFontSize(ui) {
+    if (!IsObject(ui))
+        return
+    helpFs := XAMLHost.FormatFontSize(XAMLHost.ScaleFontSizeRelative(XAMLHost.GetDesignFontSize() - 2))
+    prevSkip := ui.HasProp("skipFontScale") ? ui.skipFontScale : false
+    ui.skipFontScale := true
+    loop 5 {
+        try ui.Update("NetworkUrl" A_Index, "FontSize", String(helpFs))
+    }
+    ui.skipFontScale := prevSkip
 }
 
 ; 不能在 XAML Click 里同步开 Toast：会对引擎 SendMessage 嵌套死锁，

@@ -369,6 +369,7 @@ public class VirtualListHost
                 fo.Folded = f.Length > 6 && f[6] == "1";
                 fo.ShowTKRow = f.Length > 7 && f[7] == "1";
                 fo.FoldTKStr = f.Length > 8 ? f[8] : fo.FoldTK;
+                fo.ShowFront = f.Length <= 9 || f[9] != "0";
                 fo.FoldTKTypeEnabled = _foldTKTypeEn;
                 _byId[fo.Id] = fo;
                 newItems.Add(fo);
@@ -538,6 +539,7 @@ public class VirtualListHost
             df.IsLastFold = sf.IsLastFold;
             df.IsAltFold = sf.IsAltFold;
             df.ShowTKRow = sf.ShowTKRow;
+            df.ShowFront = sf.ShowFront;
             df.FoldTKTypeEnabled = sf.FoldTKTypeEnabled;
             df.ChildRows = sf.ChildRows;
             return;
@@ -1194,7 +1196,7 @@ public class VirtualListHost
         r.ColorHex = f.Length > 6 ? f[6] : "";
         r.SeqNo = f.Length > 7 ? f[7] : "";
         r.EditKind = f.Length > 8 ? f[8] : "0";
-        // 扩展位：网络宏显示说明并隐藏类型；菜单宏/UI宏显示图片状态并隐藏类型；定时宏显示时钟/秒表。
+        // 扩展位：网络、菜单/UI、语音和定时宏不显示触发类型；字串宏保留可选触发类型。
         ApplyRowConfigFlags(r, f);
         FillSelMark(r);
         return r;
@@ -1205,8 +1207,9 @@ public class VirtualListHost
         bool isNetRow = f.Length > 9 && f[9] == "1";
         bool isImageConfigRow = f.Length > 10 && f[10] == "1";
         bool isTimingRow = f.Length > 13 && f[13] == "1";
+        bool isVoiceRow = f.Length > 15 && f[15] == "1";
         r.NetHelpVis = isNetRow ? "Visible" : "Collapsed";
-        r.NetTypeVis = (isNetRow || isImageConfigRow) ? "Collapsed" : "Visible";
+        r.NetTypeVis = (isNetRow || isImageConfigRow || isTimingRow || isVoiceRow) ? "Collapsed" : "Visible";
         r.KeyInputVis = (isImageConfigRow || isTimingRow) ? "Collapsed" : "Visible";
         r.ImageConfigVis = isImageConfigRow ? "Visible" : "Collapsed";
         r.HasConfigImage = f.Length > 11 && f[11] == "1";
@@ -1348,8 +1351,10 @@ public class VListFold : VLItem
     public bool IsLastFold { get { return _IsLastFold; } set { Set(ref _IsLastFold, value, "IsLastFold"); } } private bool _IsLastFold;
     public bool IsAltFold { get { return _IsAltFold; } set { Set(ref _IsAltFold, value, "IsAltFold"); } } private bool _IsAltFold;
     public bool ShowTKRow { get; set; }
+    public bool ShowFront { get; set; }
     public bool FoldTKTypeEnabled { get; set; }
     public string ShowTKRowVisibility { get { return ShowTKRow ? "Visible" : "Collapsed"; } }
+    public string ShowFrontVisibility { get { return ShowFront ? "Visible" : "Collapsed"; } }
     public System.Collections.Generic.List<VListRow> ChildRows = new System.Collections.Generic.List<VListRow>();
 }
 

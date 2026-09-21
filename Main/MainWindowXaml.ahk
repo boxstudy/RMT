@@ -672,7 +672,8 @@ class MainWin {
         ; 间隙 160，扣掉备注右侧 Margin 8 → 前台左移 152；触发类型列 +5 → 157
         ; 宏行工具列收窄 10、TK 列 +5，Del 右缘左移 5 → 工具栏右移量 155
         ; 备注右缘到前台左缘：备注右侧 Margin 8 + 此前台左移 157
-        this._foldFrontShift := 157
+        ; 前台组右侧加了问号钮（24），整组左移 24 以免挤到操作按钮
+        this._foldFrontShift := 133
         this._itemToolbarShift := 200
         ; 宏页签无触发键/触发类型：相对原「宏编辑器」列左移，并与模块前台保持固定间距
         this._subMacroEditShift := 210
@@ -3940,7 +3941,7 @@ class MainWin {
             xaml .= '<Grid Margin="0,4,0,0">'
                 . '<Grid.ColumnDefinitions>' this._BuildFoldLayoutColDefs() '</Grid.ColumnDefinitions>'
                 . '<StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">'
-                . '<Button Name="FoldTKEdit_' t '_' f '" Style="{StaticResource RmtItemFieldBtn}" Width="125" Margin="0,0,4,0" ToolTip="' GetLang("触发键") '">' this._BuildTKBtnInnerXaml(tkStr, false) '</Button>'
+                . '<Button Name="FoldTKEdit_' t '_' f '" Style="{StaticResource RmtItemFieldBtn}" Width="120" Margin="0,0,4,0" ToolTip="' GetLang("触发键") '">' this._BuildTKBtnInnerXaml(tkStr, false) '</Button>'
                 . '<ComboBox Name="FoldTKType_' t '_' f '" Style="{StaticResource RmtItemCombo}" Width="82" Margin="0" SelectedIndex="' (fold.TKType - 1) '" IsEnabled="' (isUI ? "False" : "True") '" ToolTip="' GetLang("触发类型") '">'
                 . '<ComboBoxItem Content="' GetLang("按下") '"/><ComboBoxItem Content="' GetLang("松开") '"/><ComboBoxItem Content="' GetLang("松止") '"/><ComboBoxItem Content="' GetLang("开关") '"/><ComboBoxItem Content="' GetLang("长按") '"/><ComboBoxItem Content="' GetLang("双击") '"/>'
                 . '</ComboBox></StackPanel></Grid>'
@@ -3960,7 +3961,7 @@ class MainWin {
             lastCol := '<ColumnDefinition Width="*"/>'
         }
         remarkGroupW := 24 + 6 + this._foldFieldW
-        frontGroupW := 12 + 4 + this._foldFrontW + 4 + 24
+        frontGroupW := 12 + 4 + this._foldFrontW + 4 + 24 + 4 + 24
         toolbarW := 3 * (24 + 4) + 24
         return '<ColumnDefinition Width="' remarkGroupW '"/>' gapCol
             . '<ColumnDefinition Width="' frontGroupW '"/>' gapCol
@@ -3977,7 +3978,7 @@ class MainWin {
         return '<Grid ' ns ' VerticalAlignment="Center">'
             . '<Grid.ColumnDefinitions>' this._BuildFoldLayoutColDefs() '</Grid.ColumnDefinitions>'
             . '<StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">' this._BuildFoldCollapseBtnXaml(t, f, folded, vlMode) this._BuildFoldRemarkFieldXaml(t, f, remark, vlMode) '</StackPanel>'
-            . '<StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">' this._BuildFoldFrontCenterXaml(t, f, frontInfo, vlMode) '</StackPanel>'
+            . '<StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"' this._FoldFrontVisAttr(t, vlMode) '>' this._BuildFoldFrontCenterXaml(t, f, frontInfo, vlMode) '</StackPanel>'
             . '<StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">' this._BuildFoldToolbarXaml(t, f, forbidState, vlMode) '</StackPanel>'
             . '</Grid>'
     }
@@ -4617,6 +4618,15 @@ class MainWin {
             . '</Style></TextBlock.Style></TextBlock></Grid>'
     }
 
+    ; 宏页签不展示模块前台；虚拟列表用绑定，实体行按表类型折叠
+    _FoldFrontVisAttr(t, vlMode) {
+        if (vlMode)
+            return ' Visibility="{Binding ShowFrontVisibility}"'
+        if (t > 0 && CheckIsSubMacroTable(t))
+            return ' Visibility="Collapsed"'
+        return ""
+    }
+
     _BuildFoldFrontCenterXaml(t, f, frontInfo, vlMode) {
         fw := this._foldFrontW
         box := this._FoldFieldBoxAttrs(' IsReadOnly="True" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled"')
@@ -4626,10 +4636,12 @@ class MainWin {
             return frontIcon
                 . '<TextBox Tag="FoldFront" Text="{Binding FoldFront}" Width="' fw '"' box '/>'
                 . '<Button Tag="FoldFrontBtn" Style="{StaticResource RmtFoldToolBtn}" Content="&#xE70F;" ToolTip="' GetLang("编辑") '"' iconFont ' Margin="4,0,0,0"/>'
+                . '<Button Tag="FoldFrontHelp" Style="{StaticResource RmtFoldToolBtn}" Content="?" ToolTip="' GetLang("前台说明") '" FontSize="11" Margin="4,0,0,0"/>'
         }
         return frontIcon
             . '<TextBox Name="FoldFront_' t '_' f '" Text="' this._XmlEsc(frontInfo) '" Width="' fw '"' box '/>'
             . '<Button Name="FoldFrontBtn_' t '_' f '" Style="{StaticResource RmtFoldToolBtn}" Content="&#xE70F;" ToolTip="' GetLang("编辑") '"' iconFont ' Margin="4,0,0,0"/>'
+            . '<Button Name="FoldFrontHelp_' t '_' f '" Style="{StaticResource RmtFoldToolBtn}" Content="?" ToolTip="' GetLang("前台说明") '" FontSize="11" Margin="4,0,0,0"/>'
     }
 
     _BuildItemRow(t, i) {
@@ -4637,12 +4649,14 @@ class MainWin {
         item := tableItem.Items[i]
         isMacro := CheckIsMacroTable(t)
         isNormal := CheckIsNormalTable(t)
+        isTriggerStr := CheckIsStringMacroTable(t)
         isTiming := CheckIsTimingMacroTable(t)
         isSubMacro := CheckIsSubMacroTable(t)
         isMenu := CheckIsMenuMacroTable(t)
         isUI := GetTableSymbol(t) == "UI"
         isVoice := GetTableSymbol(t) == "Voice"
         isNetwork := GetTableSymbol(t) == "Network"
+        canEditTKType := isNormal || isTriggerStr
 
         if (isVoice) {
             ; 语音宏：触发键列显示唤醒词
@@ -4674,10 +4688,10 @@ class MainWin {
             . this._BuildSeqNoXaml(false, t, i, rowSel)
             . this._BuildItemRemarkFieldXaml(t, i, item.Remark, false)
             . '<DockPanel Grid.Column="4" LastChildFill="True" HorizontalAlignment="Stretch" Visibility="' (isSubMacro ? "Collapsed" : "Visible") '" Margin="' ((isMenu || isUI) ? "45,0,-45,0" : "0") '">'
-            . (isNetwork ? '<Button Name="NetHelp_' t '_' i '" Style="{StaticResource RmtItemFieldBtn}" Width="24" Margin="0,0,2,0" Content="&#xE946;" ToolTip="' GetLang("网络触发说明") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"/>' : '')
-            . '<Button Name="TKBtn_' t '_' i '" Style="{StaticResource RmtItemFieldBtn}" Margin="0,0,4,0" ToolTip="' GetLang((isMenu || isUI) ? "编辑" : (isTiming ? "定时" : "触发键")) '" IsEnabled="' (isSubMacro ? "False" : "True") '">' ((isMenu || isUI) ? this._BuildImageConfigBtnInnerXaml(false, t, i, this._GetItemConfigImagePath(t, item)) : (isTiming ? this._BuildTimingConfigBtnInnerXaml(false, t, i, HasTimingConfig(item)) : this._BuildTKBtnInnerXaml(tkStr, false))) '</Button>'
+            . '<Button Name="TKBtn_' t '_' i '" Style="{StaticResource RmtItemFieldBtn}" Width="120" Margin="0,0,4,0" ToolTip="' GetLang((isMenu || isUI) ? "编辑" : (isTiming ? "定时" : "触发键")) '" IsEnabled="' (isSubMacro ? "False" : "True") '">' ((isMenu || isUI) ? this._BuildImageConfigBtnInnerXaml(false, t, i, this._GetItemConfigImagePath(t, item)) : (isTiming ? this._BuildTimingConfigBtnInnerXaml(false, t, i, HasTimingConfig(item)) : this._BuildTKBtnInnerXaml(tkStr, false))) '</Button>'
             . '</DockPanel>'
-            . '<ComboBox Grid.Column="5" Name="TKType_' t '_' i '" Style="{StaticResource RmtItemCombo}" Margin="0" SelectedIndex="' tkTypeIdx '" IsEnabled="' (isNormal ? "True" : "False") '" Visibility="' ((isSubMacro || isNetwork || isMenu || isUI) ? "Collapsed" : "Visible") '" ToolTip="' GetLang("触发类型") '">'
+            . (isNetwork ? '<Button Grid.Column="5" Name="NetHelp_' t '_' i '" Style="{StaticResource RmtItemFieldBtn}" Width="24" HorizontalAlignment="Left" Margin="0,0,4,0" Content="&#xE946;" ToolTip="' GetLang("网络触发说明") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"/>' : '')
+            . '<ComboBox Grid.Column="5" Name="TKType_' t '_' i '" Style="{StaticResource RmtItemCombo}" Margin="0" SelectedIndex="' tkTypeIdx '" IsEnabled="' (canEditTKType ? "True" : "False") '" Visibility="' ((isSubMacro || isNetwork || isMenu || isUI || isVoice || isTiming) ? "Collapsed" : "Visible") '" ToolTip="' GetLang("触发类型") '">'
             . '<ComboBoxItem Content="' GetLang("按下") '"/><ComboBoxItem Content="' GetLang("松开") '"/><ComboBoxItem Content="' GetLang("松止") '"/><ComboBoxItem Content="' GetLang("开关") '"/><ComboBoxItem Content="' GetLang("长按") '"/><ComboBoxItem Content="' GetLang("双击") '"/>'
             . '</ComboBox>'
             . this._BuildItemEditGroupWrap(false, t
@@ -4876,6 +4890,7 @@ class MainWin {
         tableItem := MySoftData.TableInfo[t]
         for f, fold in tableItem.Folds {
             this._Bind("FoldFrontBtn_" t "_" f, "Click", OnFoldFrontInfoEdit.Bind(tableItem, f))
+            this._Bind("FoldFrontHelp_" t "_" f, "Click", OnFoldFrontHelp.Bind(tableItem, f))
             this._Bind("FoldBtn_" t "_" f, "Click", OnFoldBtnClick.Bind(tableItem, f))
             this._Bind("FoldTKEdit_" t "_" f, "Click", OnFlodTKEditClick.Bind(tableItem, f))
             this._Bind("FoldAddMacro_" t "_" f, "Click", OnItemAddMacroBtnClick.Bind(tableItem, f))
@@ -5039,9 +5054,9 @@ class MainWin {
             . '<DataTrigger Binding="{Binding ImageConfigVis}" Value="Visible"><Setter Property="Margin" Value="45,0,-45,0"/></DataTrigger>'
             . '<DataTrigger Binding="{Binding TKBtnEnabled}" Value="False"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger>'
             . '</Style.Triggers></Style></DockPanel.Style>'
-            . '<Button Tag="NetHelp" Visibility="{Binding NetHelpVis}" Style="{StaticResource RmtItemFieldBtn}" Width="24" Margin="0,0,2,0" Content="&#xE946;" ToolTip="' GetLang("网络触发说明") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"/>'
-            . '<Button Tag="TKBtn" IsEnabled="{Binding TKBtnEnabled}" Style="{StaticResource RmtItemFieldBtn}" Margin="0,0,4,0" ToolTip="' GetLang("编辑") '">' this._BuildVirtualItemConfigBtnInnerXaml() '</Button>'
+            . '<Button Tag="TKBtn" IsEnabled="{Binding TKBtnEnabled}" Style="{StaticResource RmtItemFieldBtn}" Width="120" Margin="0,0,4,0" ToolTip="' GetLang("编辑") '">' this._BuildVirtualItemConfigBtnInnerXaml() '</Button>'
             . '</DockPanel>'
+            . '<Button Grid.Column="5" Tag="NetHelp" Visibility="{Binding NetHelpVis}" Style="{StaticResource RmtItemFieldBtn}" Width="24" HorizontalAlignment="Left" Margin="0,0,4,0" Content="&#xE946;" ToolTip="' GetLang("网络触发说明") '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"/>'
             . '<ComboBox Grid.Column="5" Tag="TKType" SelectedIndex="{Binding TKType}" IsEnabled="{Binding TKTypeEnabled}" ToolTip="' GetLang("触发类型") '">'
             . '<ComboBox.Style><Style TargetType="ComboBox" BasedOn="{StaticResource RmtItemCombo}"><Setter Property="Margin" Value="0"/><Setter Property="Visibility" Value="Visible"/>'
             . '<Style.Triggers>'
@@ -5074,7 +5089,7 @@ class MainWin {
             . '<Grid Margin="0,4,0,0" Visibility="{Binding ShowTKRowVisibility}">'
             . '<Grid.ColumnDefinitions>' this._BuildFoldLayoutColDefs() '</Grid.ColumnDefinitions>'
             . '<StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">'
-            . '<Button Tag="FoldTKEdit" Style="{StaticResource RmtItemFieldBtn}" Width="125" Margin="0,0,4,0" ToolTip="' GetLang("触发键") '">' this._BuildTKBtnInnerXaml("", true, "FoldTKStr") '</Button>'
+            . '<Button Tag="FoldTKEdit" Style="{StaticResource RmtItemFieldBtn}" Width="120" Margin="0,0,4,0" ToolTip="' GetLang("触发键") '">' this._BuildTKBtnInnerXaml("", true, "FoldTKStr") '</Button>'
             . '<ComboBox Tag="FoldTKType" SelectedIndex="{Binding FoldTKType}" IsEnabled="{Binding FoldTKTypeEnabled}" Style="{StaticResource RmtItemCombo}" Width="82" Margin="0" ToolTip="' GetLang("触发类型") '">'
             . '<ComboBoxItem Content="' GetLang("按下") '"/><ComboBoxItem Content="' GetLang("松开") '"/><ComboBoxItem Content="' GetLang("松止") '"/><ComboBoxItem Content="' GetLang("开关") '"/><ComboBoxItem Content="' GetLang("长按") '"/><ComboBoxItem Content="' GetLang("双击") '"/>'
             . '</ComboBox></StackPanel></Grid>'
