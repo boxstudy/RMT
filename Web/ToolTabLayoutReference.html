@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RMT 工具页签布局参考</title>
+  <style>
+    :root {
+      --page: #fff8df;
+      --panel: #fffdf4;
+      --card: #fffaf0;
+      --stroke: #e9b05a;
+      --stroke-soft: #f4d89e;
+      --accent: #e98b00;
+      --accent-dark: #6b401d;
+      --text: #50341f;
+      --muted: #90745b;
+      --input: #ffffff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 28px;
+      color: var(--text);
+      font-family: "Microsoft YaHei UI", "Segoe UI", sans-serif;
+      background: radial-gradient(circle at 80% 0%, #fffdf4 0, var(--page) 52%, #fff2c9 100%);
+    }
+    .window {
+      max-width: 1320px;
+      min-height: 780px;
+      margin: auto;
+      overflow: hidden;
+      border: 1.5px solid var(--stroke);
+      border-radius: 14px;
+      background: var(--panel);
+      box-shadow: 0 16px 45px rgba(123, 76, 21, .18);
+    }
+    .titlebar {
+      display: flex;
+      align-items: center;
+      height: 54px;
+      padding: 0 22px;
+      color: #58351b;
+      background: linear-gradient(90deg, #ffe4af, #fff1cf);
+      border-bottom: 1px solid var(--stroke-soft);
+    }
+    .title { display: flex; align-items: center; gap: 10px; font-size: 21px; font-weight: 800; }
+    .title .icon { color: var(--accent); }
+    .subtitle { margin-left: 14px; font-size: 13px; font-weight: 400; color: var(--muted); }
+    .body { padding: 22px; }
+    .summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 13px 16px;
+      margin-bottom: 18px;
+      border: 1px solid var(--stroke-soft);
+      border-radius: 9px;
+      background: #fff9e8;
+    }
+    .summary strong { font-size: 15px; }
+    .summary span { font-size: 13px; color: var(--muted); }
+    .layout { display: grid; grid-template-columns: minmax(360px, 1fr) minmax(620px, 1.85fr); gap: 18px; }
+    .layout > section { order: 2; }
+    .layout > div { order: 1; }
+    .card {
+      border: 1.5px solid var(--stroke-soft);
+      border-radius: 11px;
+      background: var(--card);
+      overflow: hidden;
+    }
+    .card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 50px;
+      padding: 0 16px;
+      border-bottom: 1px solid #f6e5bd;
+      background: #fff5dc;
+    }
+    .card-name { display: flex; align-items: center; gap: 9px; font-size: 17px; font-weight: 800; }
+    .card-name .icon { color: var(--accent); font-size: 19px; }
+    .hotkey { color: var(--muted); font-size: 12px; font-weight: 400; }
+    .card-body { padding: 15px 16px 16px; }
+    .tool-line { display: flex; align-items: center; gap: 10px; min-height: 38px; }
+    .tool-line + .tool-line { margin-top: 10px; }
+    .label { min-width: 92px; font-weight: 700; }
+    .label .small-icon { margin-right: 6px; color: var(--accent); }
+    button, .input, .toggle {
+      height: 32px;
+      border: 1.5px solid var(--stroke);
+      border-radius: 6px;
+      font: inherit;
+    }
+    button {
+      padding: 0 12px;
+      cursor: default;
+      color: var(--accent-dark);
+      background: #fffdf8;
+    }
+    button.primary { color: #fff; background: var(--accent); border-color: var(--accent); }
+    button.icon-button { display: inline-grid; place-items: center; width: 34px; padding: 0; font-size: 16px; }
+    button.tool-open { display: inline-flex; align-items: center; gap: 7px; }
+    button.opens-panel { position: relative; overflow: visible; }
+    button.opens-panel::after { position: absolute; top: -7px; right: -7px; display: grid; place-items: center; width: 14px; height: 14px; border: 1px solid var(--accent); border-radius: 50%; color: #fff; background: var(--accent); content: "↗"; font-size: 10px; font-weight: 800; line-height: 1; }
+    button.state-action { color: var(--accent-dark); background: #fffdf8; border-color: var(--stroke); }
+    button.state-action.is-recording { color: #fff; background: #d85d36; border-color: #d85d36; }
+    .help { width: 32px; padding: 0; font-weight: 800; }
+    .toggle { display: inline-flex; align-items: center; gap: 8px; border: 0; }
+    .switch { width: 34px; height: 19px; padding: 2px; border-radius: 20px; background: #f0cca0; }
+    .switch::after { display: block; width: 15px; height: 15px; border-radius: 50%; background: #fff; content: ""; box-shadow: 0 1px 3px #a7773b; }
+    .toggle-text { font-size: 14px; }
+    .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 24px; padding-top: 13px; margin-top: 13px; border-top: 1px dashed #edcb90; }
+    .field { display: grid; grid-template-columns: 94px 1fr; align-items: center; gap: 8px; }
+    .field label { font-size: 14px; font-weight: 700; }
+    .input { width: 100%; padding: 0 9px; background: var(--input); }
+    .side-actions { display: grid; gap: 10px; }
+    .action {
+      display: grid;
+      grid-template-columns: 42px 1fr;
+      align-items: center;
+      min-height: 74px;
+      padding: 11px;
+      border: 1px solid #f1d59f;
+      border-radius: 8px;
+      background: #fffdf8;
+    }
+    .action-icon { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; color: var(--accent); background: #fff0ca; font-size: 18px; }
+    .action strong { display: block; margin-bottom: 5px; font-size: 15px; }
+    .action p { margin: 0; color: var(--muted); font-size: 12px; }
+    .action-buttons { grid-column: 2; display: flex; flex-wrap: wrap; gap: 7px; margin-top: 9px; }
+    .compact-actions { display: grid; gap: 9px; }
+    .compact-action { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 9px; min-height: 64px; padding: 9px 10px; border: 1px solid #f1d59f; border-radius: 8px; background: #fffdf8; }
+    .compact-copy strong { display: block; font-size: 15px; }
+    .compact-copy p { margin: 4px 0 0; color: var(--muted); font-size: 12px; line-height: 1.25; }
+    .compact-action-tools { display: flex; align-items: center; gap: 7px; }
+    .output { margin-top: 18px; }
+    .output .card-body { padding: 14px 16px 16px; }
+    .textarea {
+      min-height: 255px;
+      padding: 13px;
+      border: 1.5px solid var(--stroke);
+      border-radius: 7px;
+      color: #ad977e;
+      background: #fff;
+      font-size: 14px;
+    }
+    .status { display: flex; justify-content: space-between; margin-top: 9px; color: var(--muted); font-size: 12px; }
+    .icon, .fluent { font-family: "Segoe Fluent Icons", "Segoe MDL2 Assets", sans-serif; }
+    @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } .field-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <main class="window">
+    <header class="titlebar">
+      <div class="title"><span class="icon">&#xE713;</span>工具工作台</div>
+      <div class="subtitle">监视、录制、文本提取与结果输出</div>
+    </header>
+    <section class="body">
+      <div class="summary">
+        <strong>将“查看信息”和“执行工具”分开，输出内容始终放在最下方。</strong>
+        <span>右上角 ↗：打开子界面　录制按钮仅在录制中显示红色状态</span>
+      </div>
+
+      <div class="layout">
+        <section class="card">
+          <div class="card-head">
+            <div class="card-name"><span class="icon">&#xE7B3;</span>监视</div>
+            <span class="hotkey">实时信息</span>
+          </div>
+          <div class="card-body">
+            <div class="tool-line">
+              <button class="primary tool-open opens-panel fluent" title="打开变量监视器" aria-label="打开变量监视器">&#xE7B3; <span>变量监视器</span></button>
+            </div>
+            <div class="tool-line">
+              <span class="label"><span class="small-icon fluent">&#xE962;</span>鼠标信息</span>
+              <span class="hotkey">Alt+O</span><span class="toggle"><span class="switch"></span><span class="toggle-text">开关</span></span>
+            </div>
+            <div class="field-grid">
+              <div class="field"><label><span class="fluent">&#xE81D;</span> 屏幕坐标</label><div class="input"></div></div>
+              <div class="field"><label><span class="fluent">&#xE7F4;</span> 窗口坐标</label><div class="input"></div></div>
+              <div class="field"><label><span class="fluent">&#xE8A5;</span> 窗口标题</label><div class="input"></div></div>
+              <div class="field"><label><span class="fluent">&#xE9D9;</span> 进程名</label><div class="input"></div></div>
+              <div class="field"><label><span class="fluent">&#xE8D7;</span> 窗口类</label><div class="input"></div></div>
+              <div class="field"><label><span class="fluent">&#xE950;</span> 进程 PID</label><div class="input"></div></div>
+              <div class="field"><label><span class="fluent">&#xE71B;</span> 句柄 Id</label><div class="input"></div></div>
+              <div class="field"><label><span class="fluent">&#xE790;</span> 位置颜色</label><div class="input"></div></div>
+            </div>
+          </div>
+        </section>
+
+        <div>
+          <section class="card">
+            <div class="card-head"><div class="card-name"><span class="icon">&#xE713;</span>辅助操作</div><span class="hotkey">全局工具</span></div>
+            <div class="card-body">
+              <div class="tool-line"><span class="label"><span class="small-icon fluent">&#xE840;</span>窗口置顶</span><span class="toggle"><span class="switch"></span><span class="toggle-text">保持 RMT 主窗口在最前</span></span></div>
+              <div class="tool-line"><button class="tool-open opens-panel fluent" title="打开文件校验">&#xE8B7; <span>文件校验</span></button><button class="help" title="文件校验说明">?</button></div>
+            </div>
+          </section>
+
+          <section class="card" style="margin-top:18px">
+            <div class="card-head"><div class="card-name"><span class="icon">&#xE7C8;</span>录制与提取</div><span class="hotkey">常用操作</span></div>
+            <div class="card-body compact-actions">
+              <div class="compact-action"><div class="compact-copy"><strong>指令录制 <span class="hotkey">Alt+R</span></strong><p>记录鼠标与键盘操作。</p></div><div class="compact-action-tools"><button class="state-action icon-button fluent" title="开始或停止录制">&#xE7C8;</button></div></div>
+              <div class="compact-action"><div class="compact-copy"><strong>图片提取文本 <span class="hotkey">Alt+U</span></strong><p>从截图或本地图片识别文本。</p></div><div class="compact-action-tools"><button class="icon-button fluent" title="截图提取文本">&#xE7A8;</button><button class="icon-button fluent" title="从图片提取文本">&#xE8B7;</button></div></div>
+              <div class="compact-action"><div class="compact-copy"><strong>语音提取文本</strong><p>打开语音识别窗口并写入输出区。</p></div><div class="compact-action-tools"><button class="icon-button opens-panel fluent" title="打开语音提取文本" aria-label="打开语音提取文本">&#xE720;</button></div></div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <section class="card output">
+        <div class="card-head">
+          <div class="card-name"><span class="icon">&#xE8E3;</span>输出内容</div>
+          <button class="fluent" title="清空内容">&#xE74D;</button>
+        </div>
+        <div class="card-body">
+          <div class="textarea">录制的指令、OCR 提取结果和语音转文字会显示在这里…</div>
+          <div class="status"><span>输出区域独立，不和工具操作混排</span><span>0 行</span></div>
+        </div>
+      </section>
+    </section>
+  </main>
+</body>
+</html>
