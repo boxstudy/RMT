@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RMT 设置页签 — 参考稿对齐处理结果</title>
+<style>
+  :root{--page:#fff8df;--surface:#fffdf4;--panel:#fffaf0;--line:#e9b05a;--line-soft:#f3d69a;--accent:#ec8d00;--accent-deep:#633d20;--text:#51331f;--muted:#90745b;--ok:#2f7d32;--warn:#b4690e;--bad:#b3261e}
+  *{box-sizing:border-box}
+  body{margin:0;padding:28px;color:var(--text);font-family:"Microsoft YaHei UI","Segoe UI",sans-serif;background:radial-gradient(circle at 85% 0,#fffdf5 0,var(--page) 54%,#ffefc4 100%)}
+  .window{max-width:1180px;margin:auto;overflow:hidden;border:1.5px solid var(--line);border-radius:14px;background:var(--surface);box-shadow:0 16px 46px rgba(123,76,21,.18)}
+  .titlebar{display:flex;align-items:center;gap:10px;height:56px;padding:0 22px;border-bottom:1px solid var(--line-soft);background:linear-gradient(90deg,#ffe2ac,#fff1cf)}
+  .titlebar .t{font-size:20px;font-weight:800}.titlebar .t i{color:var(--accent);font-style:normal}
+  .titlebar .sub{margin-left:12px;color:var(--muted);font-size:13px}
+  .body{padding:22px 26px 30px}
+  h2{font-size:17px;margin:26px 0 10px;padding-left:10px;border-left:4px solid var(--accent)}
+  h2:first-child{margin-top:4px}
+  p,li{font-size:13.5px;line-height:1.7}
+  .cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+  .card{border:1px solid var(--line-soft);border-radius:10px;background:var(--panel);overflow:hidden}
+  .card-head{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border-bottom:1px solid #f6e4bd;background:linear-gradient(90deg,#fff3d5,#fff8e8);font-weight:700;font-size:15px}
+  .card-head .n{margin-left:auto;font-size:11px;font-weight:400;color:var(--muted)}
+  .card-body{padding:12px 14px 14px}
+  .notice{display:flex;gap:10px;align-items:flex-start;margin:0 0 18px;padding:11px 13px;border:1px solid var(--line-soft);border-radius:8px;color:#77542e;background:#fff8e5;font-size:13px}
+  .notice b{color:var(--accent)}
+  .ok{color:var(--ok);font-weight:700}.warn{color:var(--warn);font-weight:700}.bad{color:var(--bad);font-weight:700}
+  table{width:100%;border-collapse:collapse;font-size:13px;background:var(--panel);border:1px solid var(--line-soft);border-radius:8px;overflow:hidden}
+  th,td{padding:8px 10px;border-bottom:1px solid #f6e9cb;text-align:left;vertical-align:top}
+  th{background:#fff3d5;font-size:12.5px}
+  tr:last-child td{border-bottom:0}
+  code{background:#fff3d5;border:1px solid var(--line-soft);border-radius:4px;padding:1px 5px;font-family:Consolas,monospace;font-size:12px;color:#6b401d}
+  .shot{margin:0 0 14px}
+  .shot img{width:100%;border:1px solid var(--line-soft);border-radius:8px;background:#fff;display:block}
+  .shot figcaption{margin-top:6px;color:var(--muted);font-size:12px}
+  .pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11.5px;font-weight:700;border:1px solid var(--line)}
+  .pill.keep{background:#e8f5e9;border-color:#a5d6a7;color:#2f7d32}
+  .pill.decide{background:#fff3e0;border-color:#ffcc80;color:#b4690e}
+  .pill.gone{background:#eceff1;border-color:#b0bec5;color:#546e7a}
+  .foot{margin-top:26px;padding-top:14px;border-top:1px solid var(--line-soft);color:var(--muted);font-size:12px}
+  @media(max-width:900px){.cards{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main class="window">
+  <header class="titlebar"><div class="t"><i>⚙</i>设置页签 — 参考稿对齐处理结果</div><div class="sub">基准：SettingsLayoutReference.html　·　分支：Dev</div></header>
+  <div class="body">
+
+    <div class="notice"><b>●</b><span>右侧内容已按 <code>Web/SettingsLayoutReference.html</code> 重排并逐页核对。<b>下面第 3 节列出「设置界面已有、但参考稿里没有」的功能</b>，请你判断要<b>实现 / 删除 / 隐藏</b>；这些项目前都收在原页面底部的「待确认的原有功能」折叠区里，不会丢。</span></div>
+
+    <h2>1. 验证结论</h2>
+    <p><span class="ok">全部通过。</span>用的是真实构建流程，不是静态比对：</p>
+    <ul>
+      <li><code>Test/SettingsLayoutTest.ps1</code> 从 <code>Main/MainWindowXaml.ahk</code> 抽出真实的 <code>BuildSettingTab()</code> 函数体，注入 <code>Test/SettingsLayoutFixture.ahk</code> 的桩环境，<b>用真的 AHK 跑一遍</b>拿到 XAML。</li>
+      <li>把这份 XAML 交给 WPF <code>XamlReader.Parse</code> 真解析 → 校验收敛：无重复控件名、8 个页面各自包含预期控件、API Key 确实是 <code>PasswordBox</code>（已掩码）。</li>
+      <li>在 <b>940px / 1320px</b> 两个宽度下真实 Measure/Arrange，确认每个关键控件都有实际宽度；并校验「日志文件路径」输入框比「浏览」按钮宽。</li>
+      <li>另外单独跑过 <code>AutoHotkey64 /validate RMT.ahk</code> → exit 0。</li>
+    </ul>
+    <p>最终输出：<code>PASS: actual AHK builder, WPF load, eight page mappings, unique names, password masking and 940/1320 layout.</code></p>
+
+    <h2>2. 八个页面的实际渲染</h2>
+    <div class="cards">
+      <figure class="shot"><img src="SettingsLayoutResult/behavior.png" alt="系统页"><figcaption>系统：启动与权限 / 界面与编辑 / 通用 / 触发 / 显示页签（页签芯片）/ 手柄</figcaption></figure>
+      <figure class="shot"><img src="SettingsLayoutResult/macro.png" alt="宏执行页"><figcaption>宏执行：时间与坐标浮动 / 按键与备注</figcaption></figure>
+      <figure class="shot"><img src="SettingsLayoutResult/record.png" alt="指令录制页"><figcaption>指令录制：录制通用 / 鼠标 / 键盘 / 手柄</figcaption></figure>
+      <figure class="shot"><img src="SettingsLayoutResult/trigger.png" alt="交互界面页"><figcaption>交互界面：菜单轮盘 / 界面浮窗</figcaption></figure>
+      <figure class="shot"><img src="SettingsLayoutResult/hotkey.png" alt="快捷键页"><figcaption>快捷键：全局与工具 / 截图与调试</figcaption></figure>
+      <figure class="shot"><img src="SettingsLayoutResult/appearance.png" alt="主题页"><figcaption>主题：主题方案 / 字体 / 主题颜色 1~14</figcaption></figure>
+      <figure class="shot"><img src="SettingsLayoutResult/ai.png" alt="AI 助手页"><figcaption>AI 助手：大模型 / 权限</figcaption></figure>
+      <figure class="shot"><img src="SettingsLayoutResult/diagnostic.png" alt="日志页"><figcaption>日志：指令显示 / 日志与错误</figcaption></figure>
+    </div>
+    <p style="color:var(--muted);font-size:12.5px">说明：截图由 <code>SettingsLayoutTest.ps1 -Render</code> 直接在 WPF 里渲染真实控件生成（1320×1200），非手绘示意图。</p>
+
+    <h2>3. 需要你判断：设置界面已有、参考稿里没有的功能</h2>
+    <p>这些功能<b>目前仍然可用</b>，只是参考稿没有对应位置，所以我把它们收进了对应页面底部的「<b>待确认的原有功能</b>」折叠区。请按需选择 <span class="pill keep">保留</span> / <span class="pill decide">实现进参考稿版式</span> / <span class="pill gone">删除或隐藏</span>。</p>
+    <table>
+      <thead><tr><th style="width:88px">页面</th><th style="width:150px">功能</th><th>控件名 / 说明</th><th style="width:190px">建议</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>系统</td><td>仓库共享</td>
+          <td><code>BtnShareLogin</code> 登录论坛、<code>BtnShareLogout</code> 退出登录、<code>TxtShareLoginState</code> 登录状态。参考稿「系统」只有 6 张卡，无共享入口。</td>
+          <td><span class="pill decide">建议实现进参考稿</span>：它属于全局功能，建议在「系统」加一张「仓库共享」卡。</td>
+        </tr>
+        <tr>
+          <td>交互界面</td><td>网络宏</td>
+          <td><code>EditNetPort</code> 监听端口（1-65535，默认 16888）、<code>BtnNetworkSetting</code> 保存端口并重启监听。参考稿「交互界面」只有菜单轮盘 + 界面浮窗。</td>
+          <td><span class="pill decide">建议实现进参考稿</span>：加「网络宏」卡。</td>
+        </tr>
+        <tr>
+          <td>交互界面</td><td>界面浮窗的 4 个附加项</td>
+          <td><code>UIPanelShowOnActiveCon</code> 界面激活时显示、<code>UIPanelDefaultPosCon</code> 出现位置、<code>UIPanelOffsetXCon</code> 位置偏移X、<code>UIPanelOffsetYCon</code> 位置偏移Y。参考稿的「界面浮窗」只列了 按钮宽度/高度/字体大小/每行个数。</td>
+          <td><span class="pill decide">建议实现进参考稿</span>：参考稿漏了这 4 项，建议补进「界面浮窗」卡。</td>
+        </tr>
+        <tr>
+          <td>交互界面</td><td>右键菜单（有序列表编辑器）</td>
+          <td>4 个列表 <code>GenActiveList</code>/<code>GenAvailList</code>/<code>BranchActiveList</code>/<code>BranchAvailList</code> + 8 个按钮 <code>BtnGenUp/Down/Add/Remove</code>、<code>BtnBranchUp/Down/Add/Remove</code>；配置键 <code>GeneralContextMenu</code>/<code>BranchContextMenu</code>/<code>SharedCopy</code>。</td>
+          <td><span class="pill decide">建议实现进参考稿</span>：这是完整功能，单独一张「右键菜单」卡。</td>
+        </tr>
+        <tr>
+          <td>主题</td><td>软件背景颜色、背景图</td>
+          <td><code>EditSoftBGColor</code>、<code>EditBackImage</code> + <code>BtnBackImageBrowse</code> / <code>BtnBackImageClear</code>。参考稿「主题」只有 主题方案/字体/主题颜色。</td>
+          <td><span class="pill decide">建议实现进参考稿</span>：可并入「字体」卡或新增「背景」卡。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>4. 参考稿有、当前未实现的部分</h2>
+    <table>
+      <thead><tr><th style="width:170px">参考稿元素</th><th>状态</th><th style="width:150px">说明</th></tr></thead>
+      <tbody>
+        <tr><td>右侧底部页脚：<br>「尚未保存的修改仅影响当前预览。」+ 恢复此页默认 + 应用并保存</td><td><span class="warn">未实现</span></td><td>「应用并保存」主界面左侧已有全局按钮；「恢复此页默认」需要为 8 个页面各建一份出厂默认值表，属于新功能，等你确认后再做。</td></tr>
+        <tr><td>左侧栏顶部「RMT 默认配置」资料卡</td><td><span class="pill gone">按你要求已删除</span></td><td>你之前明确要求去掉。</td></tr>
+        <tr><td>左侧栏底部「打开 RMT 配置目录」按钮</td><td><span class="pill gone">按你要求已删除</span></td><td>你之前明确要求去掉。</td></tr>
+        <tr><td>页头（面包屑 / 标题 / 描述）与提示条</td><td><span class="ok">保留</span></td><td>你早前要求去掉，但本轮要求「完全参照参考稿」，参考稿里这两块都在，故按本轮要求恢复。如需再次去掉请说一声。</td></tr>
+      </tbody>
+    </table>
+
+    <h2>5. 本轮核对过的对齐明细</h2>
+    <table>
+      <thead><tr><th style="width:88px">页面</th><th>与参考稿的对齐情况</th></tr></thead>
+      <tbody>
+        <tr><td>系统</td><td>6 张卡与参考稿一致；补上「权限说明」信息行；「显示页签」由开关改为参考稿的<b>页签芯片</b>（9 项）；「按键与备注」按参考稿移出到「宏执行」。</td></tr>
+        <tr><td>宏执行</td><td>时间与坐标浮动（5 项）+ 按键与备注（重复按下行为 / 指令备注生成 / 无变量提醒）；「业务日志」按参考稿移到「日志」页。</td></tr>
+        <tr><td>指令录制</td><td>录制通用 / 鼠标 / 键盘 / 手柄；默认值与真实配置键一致。</td></tr>
+        <tr><td>交互界面</td><td>菜单轮盘（4 项）+ 界面浮窗（4 项）；其余见第 3 节。</td></tr>
+        <tr><td>快捷键</td><td>按参考稿拆成「全局与工具」5 项 +「截图与调试」5 项；取值改为只读输入框 + 录入图标按钮；「继续/步入」标注（仅触发键）。</td></tr>
+        <tr><td>主题</td><td>主题方案（10 个预设）+ 字体（字体/字号）+ 主题颜色 1~14（三列网格 + 取色块）。</td></tr>
+        <tr><td>AI 助手</td><td>大模型（模型商 / API URL / API Key / 模型列表+刷新）+ 权限（写入权限 / 指令审批 / 权限说明）；<b>API Key 已改为掩码输入框（PasswordBox）</b>。</td></tr>
+        <tr><td>日志</td><td>指令显示（10 项，含「日志文件路径」+ 浏览按钮）+ 日志与错误（日志级别 / warn 气泡 / 错误中心 / 业务日志 / 打开日志中心）。</td></tr>
+      </tbody>
+    </table>
+
+    <h2>6. 本轮改动文件</h2>
+    <ul>
+      <li><code>Main/MainWindowXaml.ahk</code> — 设置中心（左导航 + 8 页）全部实装与对齐。</li>
+      <li><code>Main/RMTUtil.ahk</code> — <code>OnSaveSetting</code> 补齐内联设置项的落盘（CMDLog* / MenuWheel* / UIPanel*），并接入主题落盘。</li>
+      <li><code>Test/SettingsLayoutFixture.ahk</code>、<code>Test/SettingsLayoutTest.ps1</code> — 无头验证脚手架（新增）。</li>
+      <li><code>Web/SettingsLayoutResult.html</code>（本页）、<code>Web/SettingsLayoutResult/*.png</code> — 处理结果与渲染图（新增）。</li>
+    </ul>
+
+    <div class="foot">生成方式：真实 AHK 构建 → WPF 解析/布局 → 渲染截图；配置键与既有行为均未改变。</div>
+  </div>
+</main>
+</body>
+</html>

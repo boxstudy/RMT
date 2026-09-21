@@ -143,10 +143,23 @@ OnSaveSetting(*) {
     CheckAndAddDirty("CMDTransparency", MainSoftData.CMDTransparency)
     CheckAndAddDirty("CMDFontColor", MainSoftData.CMDFontColor)
     CheckAndAddDirty("CMDFontSize", MainSoftData.CMDFontSize)
+    ; 内联设置不再经过各独立设置窗口的 SaveData，统一保存这些字段。
+    for key in ["CMDLogToFile", "CMDLogFilePath", "CMDLogAutoClear",
+        "FixedMenuWheel", "MenuWheelShowTooltip", "MenuWheelSelectMode", "MenuWheelScale",
+        "UIPanelShowOnActive", "UIPanelDefaultPos", "UIPanelOffsetX", "UIPanelOffsetY",
+        "UIPanelBtnWidth", "UIPanelBtnHeight", "UIPanelFontSize", "UIPanelCols"]
+        CheckAndAddDirty(key, MainSoftData.%key%)
 
     ; 只写入实际发生变化的配置项（性能提升80%+）
     for key, value in dirtySettings {
         CfgWrite(value, SettingFile, SettingSection, key)
+    }
+
+    ; 设置中心：主题方案与颜色 1~14 走 AppThemeUtil 自有落盘格式（[ThemeColors] + [UserSettings] AppTheme），
+    ; 与「主题选项」窗口一致；此处统一在「应用并保存」时落盘。
+    try {
+        if (IsSet(MainSoftData) && MainSoftData.HasProp("AppTheme"))
+            AppThemeUtil.SaveToToml()
     }
 
     ; §17 保存后不再弹窗/重启：宏表已即时落盘，全局设置走热重载；需要整进程重启用侧栏「重启」
