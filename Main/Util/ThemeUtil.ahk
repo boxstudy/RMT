@@ -529,8 +529,8 @@ class AppThemeUtil {
     static LoadFromToml() {
         section := "ThemeColors"
         themeKey := CfgRead(SettingFile, section, "AppTheme", AppThemeUtil.DefaultThemeKey)
-        ; 空值、未知 Key → 默认主题
-        if (themeKey == "" || !AppThemeUtil.IsPresetKey(themeKey))
+        ; 空值、未知 Key → 默认主题；Custom 是正式的可编辑主题键。
+        if (themeKey == "" || (themeKey != "Custom" && !AppThemeUtil.IsPresetKey(themeKey)))
             themeKey := AppThemeUtil.DefaultThemeKey
         MainSoftData.AppTheme := themeKey
 

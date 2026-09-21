@@ -485,7 +485,9 @@ class MainWin {
             pos := A_Index
             idx := this._tabOrder[pos]
             tableItem := MySoftData.TableInfo[idx]
-            tabItem := tab.Add("TabItem").Header(GetLang(tableItem.Name))
+            ; 设置页改为「全局」入口；表 ID 仍为 Setting，兼容现有配置与页签定位。
+            tabTitle := tableItem.Symbol == "Setting" ? GetLang("全局") : GetLang(tableItem.Name)
+            tabItem := tab.Add("TabItem").Header(tabTitle)
             ; 首个/末个页签打 Tag，模板按 Tag 适配圆角（首个左圆角、末个右圆角），末个同时隐藏分割线
             if (pos == 1)
                 tabItem.Tag("first")
@@ -5332,15 +5334,16 @@ class MainWin {
             . '</StackPanel>'
     }
 
-    ; ============ 设置页（§12 按「作用范围」重组：通用设置 / 宏设置 / 功能选项） ============
+    ; ============ 全局页：系统 / 宏执行 / 显示页签 / 交互界面 / AI 助手 ============
     BuildSettingTab() {
         ; §23 Panel_ 编号 = TableInfo 位置：表集合新增「网络宏」后 Setting 起顺延 +1，改按 Symbol 动态取位
         p := "Panel_" GetTableIndexByID("Setting")
         Add := (x) => this.ui.Update(p, "AddXamlItem", x)
         ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
 
-        ; ---- 通用设置：开机自启/管理员启动/多线程数/语言/首选编辑器/软件字体/截图方式/手柄类型/模态子窗口 ----
-        Add('<TextBlock ' ns ' Text="' GetLang("通用设置") '" FontWeight="Bold" Margin="0,6,0,4"/>')
+        ; ---- 系统：全局运行、基础偏好与执行规则 ----
+        Add('<TextBlock ' ns ' Text="' GetLang("系统") '" FontSize="14" FontWeight="Bold" Margin="0,6,0,2"/>')
+        Add('<TextBlock ' ns ' Text="' GetLang("应用启动、运行方式与基础偏好") '" Foreground="{DynamicResource TextSub}" FontSize="11" Margin="0,0,0,4"/>')
         Add('<WrapPanel ' ns ' Orientation="Horizontal">'
             . this._CheckRow("开机自启", "ChkBootStart", MainSoftData.IsBootStart)
             . this._CheckRow("管理员启动", "ChkAdminStart", MainSoftData.IsAdminStart
@@ -5355,9 +5358,9 @@ class MainWin {
                 , GetLang("设置若梦兔最大线程数量") "`n" GetLang("-1：动态多线程，线程闲置时回收（30秒），不足时创建新的线程")
                 . "`n" GetLang("0：单线程") "`n" GetLang("n：固定线程为指定n（推荐3~5）")
                 . "`n" GetLang("提示：动态多线程采用固定线程3+动态多线程池最大16"))
-            . this._ComboRow("语言/Lang：", "CmbLang", MainSoftData.LangArr, MainSoftData.Lang)
+            . this._ComboRow(GetLang("界面语言："), "CmbLang", MainSoftData.LangArr, MainSoftData.Lang)
             . this._ComboRow(GetLang("首选编辑器："), "CmbPreferredEditor", GetLangArr(["逻辑树", "图形节点"]), MainSoftData.PreferredMacroEditor)
-            . this._ComboRow(GetLang("截图方式："), "CmbScreenShot", GetLangArr(["微软截图", "RMT截图", "SC截图"]), MainSoftData.ScreenShotType)
+            . this._ComboRow(GetLang("截图工具："), "CmbScreenShot", GetLangArr(["微软截图", "RMT截图", "SC截图"]), MainSoftData.ScreenShotType)
             . this._ComboRow(GetLang("手柄映射："), "CmbTriggerJoyType", ["Xbox", "PS5"], MainSoftData.TriggerJoyType
                 , GetLang("手柄映射说明"))
             . this._ComboRow(GetLang("宏手柄类型："), "CmbJoyType", ["Xbox", "PS5"], MainSoftData.JoyType
@@ -5366,59 +5369,46 @@ class MainWin {
                 , GetLang("软件界面使用的字体，修改后保存设置生效。"))
             . '<StackPanel ' ns ' Orientation="Horizontal" Margin="0,4,16,4"><TextBlock Text="' GetLang("软件背景颜色：") '" Width="120" VerticalAlignment="Center" Foreground="{DynamicResource TextMain}" FontSize="12"/><TextBox Name="EditSoftBGColor" Text="' MainSoftData.SoftBGColor '" Width="100" Height="24" MinHeight="24" Padding="4,0" VerticalContentAlignment="Center" TextAlignment="Center" FontSize="11" Foreground="{DynamicResource InputText}" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1"/></StackPanel>'
             . '<StackPanel ' ns ' Orientation="Horizontal" Margin="0,4,16,4"><TextBlock Text="' GetLang("背景图：") '" Width="120" VerticalAlignment="Center" Foreground="{DynamicResource TextMain}" FontSize="12"/><TextBox Name="EditBackImage" Text="' this._XmlEsc(MainSoftData.BackImagePath) '" Width="220" Height="24" MinHeight="24" Padding="4,0" VerticalContentAlignment="Center" FontSize="11" Foreground="{DynamicResource InputText}" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1"/><Button Name="BtnBackImageBrowse" Content="' GetLang("浏览") '" Height="24" MinHeight="24" Padding="8,0" Margin="4,0,0,0"/><Button Name="BtnBackImageClear" Content="' GetLang("清空") '" Height="24" MinHeight="24" Padding="8,0" Margin="4,0,0,0"/></StackPanel>'
+            . this._CheckRow("仅前台运行宏", "ChkForeground", MainSoftData.CheckForeground
+                , GetLang("开启后：宏运行时会检查该项配置的前台窗口；若当前前台窗口不匹配，则终止该宏。")
+                . "`n" GetLang("关闭后：不校验前台窗口，宏按原逻辑继续执行。")
+                . "`n" GetLang("提示：需在对应宏项中配置「前台」信息后才会生效；未配置前台信息的宏不受此选项影响。"))
+            . this._CheckRow("自动松开修饰键", "ChkAutoLoosen", MainSoftData.AutoLoosenModifier
+                , GetLang("开启后：触发宏前会先松开 Ctrl、Alt、Shift 等修饰键，避免宏内按键被当作组合键。"))
+            . this._CheckRow("连续触发", "ChkContinuous", MainSoftData.ContinuousTrigger
+                , GetLang("开启后：按下、开关、长按类型在按住触发键期间可以连续触发。"))
+            . this._CheckRow("无变量提醒", "ChkNoVariable", MainSoftData.NoVariableTip)
+            . this._ComboRow(GetLang("宏终止方式："), "CmbMacroStop", GetLangArr(["智能终止", "强制终止"]), MainSoftData.MacroStopType
+                , GetLang("智能终止：优先让宏自行退出，150ms 后仍未退出时强制结束。")
+                . "`n" GetLang("强制终止：直接结束线程并创建新线程。"))
             . '</WrapPanel>')
 
-        ; ---- 宏设置：时间/间隔/坐标浮动 + 无变量提醒（多线程数已在通用设置，去重） ----
-        Add('<TextBlock ' ns ' Text="' GetLang("宏设置") '" FontWeight="Bold" Margin="0,10,0,4"/>')
+        ; ---- 宏执行：宏内的浮动与重复按键策略 ----
+        Add('<TextBlock ' ns ' Text="' GetLang("宏执行") '" FontSize="14" FontWeight="Bold" Margin="0,12,0,2"/>')
+        Add('<TextBlock ' ns ' Text="' GetLang("宏指令执行时的时间、坐标与按键规则") '" Foreground="{DynamicResource TextSub}" FontSize="11" Margin="0,0,0,4"/>')
         Add('<WrapPanel ' ns ' Orientation="Horizontal">'
             . this._IntRow("点击时间浮动(%)：", "EditHoldFloat", MainSoftData.HoldFloat)
             . this._IntRow("每次间隔浮动(%)：", "EditPreIntervalFloat", MainSoftData.PreIntervalFloat)
             . this._IntRow("间隔指令浮动(%)：", "EditIntervalFloat", MainSoftData.IntervalFloat)
             . this._IntRow("坐标X浮动(px)：", "EditCoordXFloat", MainSoftData.CoordXFloat)
             . this._IntRow("坐标Y浮动(px)：", "EditCoordYFloat", MainSoftData.CoordYFloat)
-            . this._CheckRow("无变量提醒", "ChkNoVariable", MainSoftData.NoVariableTip)
-            . '</WrapPanel>')
-
-        ; ---- §23 网络宏参数已移至独立窗口（底部按钮组「网络宏设置」）----
-
-        ; ---- 功能选项：其余开关 + 功能按钮 ----
-        Add('<TextBlock ' ns ' Text="' GetLang("功能选项") '" FontWeight="Bold" Margin="0,10,0,4"/>')
-        Add('<WrapPanel ' ns ' Orientation="Horizontal">'
-            . this._CheckRow("仅前台运行宏", "ChkForeground", MainSoftData.CheckForeground
-                , GetLang("开启后：宏运行时会检查该项配置的前台窗口；若当前前台窗口不匹配，则终止该宏。")
-                . "`n" GetLang("关闭后：不校验前台窗口，宏按原逻辑继续执行。")
-                . "`n" GetLang("提示：需在对应宏项中配置「前台」信息后才会生效；未配置前台信息的宏不受此选项影响。"))
-            . this._CheckRow("自动松开修饰键", "ChkAutoLoosen", MainSoftData.AutoLoosenModifier
-                , GetLang("开启后：当触发键为「修饰键 + 普通键」（如 Ctrl + A）时，触发宏前会先松开修饰键，再执行宏逻辑。")
-                . "`n" GetLang("这样可避免修饰键仍被按住，导致宏里发送的按键变成组合键（例如本意发 A，实际变成 Ctrl+A）。")
-                . "`n" GetLang("关闭后：不自动松开修饰键，保持物理按键原样。")
-                . "`n" GetLang("提示：触发键以 ~ 开头（穿透）时，不会自动松开修饰键。"))
-            . this._CheckRow("连续触发", "ChkContinuous", MainSoftData.ContinuousTrigger
-                , GetLang("开启后：按下、开关、长按类型在按住触发键期间可以连续触发。")
-                . "`n" GetLang("关闭后：按下、开关、长按类型必须先松开触发键，才能再次触发。")
-                . "`n" GetLang("提示：松开、松止、双击类型不受此选项影响。"))
             . this._CheckRow("业务日志", "ChkBusinessLog", MainSoftData.BusinessLog
                 , GetLang("开启后：记录宏运行流水到 Log\\Business.log（宏触发/每指令/宏结束）。")
                 . "`n" GetLang("关闭后：不记录业务流水（默认）。")
                 . "`n" GetLang("提示：业务日志可能产生大量内容，建议排查问题时开启。"))
-            . this._CheckRow("分割线", "ChkSplitLine", MainSoftData.ShowSplitLine)
-            . this._ComboRow(GetLang("按下时按下："), "CmbKeyDownDown", GetLangArr(["自动松开", "忽略重复按下", "允许重复按下"]), MainSoftData.KeyDownDownType
+            . this._ComboRow(GetLang("重复按下行为："), "CmbKeyDownDown", GetLangArr(["自动松开", "忽略重复按下", "允许重复按下"]), MainSoftData.KeyDownDownType
                 , GetLang("当宏按键已经处于按下状态，再次触发按下指令时特别处理")
                 . "`n" GetLang("自动松开：再次按下前，先松开该按键（确保指令正常执行）")
                 . "`n" GetLang("忽略重复按下：保持按键之前的状态，忽略后续的按下指令")
                 . "`n" GetLang("允许重复按下：再次按下宏按键（罗技按键可能卡死）")
                 . "`n" GetLang("Tip1：按下时再次按下，真实键盘无法触发这个行为，这个行为通常是无效的")
                 . "`n" GetLang("Tip2：按下时再次按下，按键检测网站可能无法检测，但记事本中可以有效输出"))
-            . this._ComboRow(GetLang("指令备注") "：", "CmbRemarkAuto", GetLangArr(["不生成", "自动生成", "覆盖生成"]), MainSoftData.RemarkAutoType)
-            . this._ComboRow(GetLang("宏终止方式："), "CmbMacroStop", GetLangArr(["智能终止", "强制终止"]), MainSoftData.MacroStopType
-                , GetLang("智能终止：优先以协作方式让宏自行退出，设 150ms 期限，逾期未退出则强制结束。")
-                . "`n" GetLang("强制终止：直接结束线程并创建新线程，不等待宏自行退出。")
-                . "`n" GetLang("提示：强制终止响应更快，但频繁结束、创建线程会消耗较多资源，建议保持智能终止。"))
+            . this._ComboRow(GetLang("指令备注生成："), "CmbRemarkAuto", GetLangArr(["不生成", "自动生成", "覆盖生成"]), MainSoftData.RemarkAutoType)
             . '<StackPanel ' ns ' Orientation="Horizontal" Margin="0,4,16,4"><Button Name="BtnShareLogin" Content="' GetLang("登录论坛") '" Height="24" MinHeight="24" Padding="10,0" VerticalAlignment="Center" ToolTip="' GetLang("在浏览器里登录论坛并授权本客户端；授权后自动把凭据写入配置，不必手动填 Key") '"/><Button Name="BtnShareLogout" Content="' GetLang("退出登录") '" Height="24" MinHeight="24" Padding="10,0" VerticalAlignment="Center" Margin="6,0,0,0" ToolTip="' GetLang("清除本机保存的论坛凭据；如需在论坛侧彻底注销该密钥，请到 个人设置 → 应用 里撤销") '"/><TextBlock Name="TxtShareLoginState" Text="' this._XmlEsc(this._ShareLoginStateText()) '" Margin="8,0,16,0" VerticalAlignment="Center" Foreground="{DynamicResource TextSub}" FontSize="11"/></StackPanel>'
             . '</WrapPanel>')
 
-        ; ---- §10 显示页签选项：勾选控制页签显隐（隐藏仅显示效果，不影响触发；保存后重启生效） ----
-        Add('<TextBlock ' ns ' Text="' GetLang("显示页签") '" FontWeight="Bold" Margin="0,10,0,4"/>')
+        ; ---- 显示页签：全局页中管理宏页签显隐 ----
+        Add('<TextBlock ' ns ' Text="' GetLang("显示页签") '" FontSize="14" FontWeight="Bold" Margin="0,12,0,2"/>')
         Add('<WrapPanel ' ns ' Orientation="Horizontal">'
             . this._CheckRow(GetLang("按键宏"), "TabVisible_Normal", this._TabVisibleVal("Normal"))
             . this._CheckRow(GetLang("字串宏"), "TabVisible_String", this._TabVisibleVal("String"))
@@ -5432,6 +5422,9 @@ class MainWin {
             . '</WrapPanel>')
         Add('<TextBlock ' ns ' Text="' GetLang("隐藏的页签仅不显示，不影响该页签下宏的正常触发（保存后重启生效）。") '" Foreground="{DynamicResource TextSub}" FontSize="11" Margin="0,2,0,4"/>')
 
+        ; ---- 交互界面：将所有独立界面设置统一归入全局 ----
+        Add('<TextBlock ' ns ' Text="' GetLang("交互界面") '" FontSize="14" FontWeight="Bold" Margin="0,12,0,2"/>')
+        Add('<TextBlock ' ns ' Text="' GetLang("外观、快捷键、面板与交互工具") '" Foreground="{DynamicResource TextSub}" FontSize="11" Margin="0,0,0,4"/>')
         Add('<WrapPanel ' ns ' Orientation="Horizontal">'
             . '<Button Name="BtnTheme" Content="' GetLang("主题") '" Height="28" MinHeight="28" Padding="14,0" Margin="0,4,12,4"/>'
             . '<Button Name="BtnHotkey" Content="' GetLang("快捷键") '" Height="28" MinHeight="28" Padding="14,0" Margin="0,4,12,4"/>'
@@ -5445,6 +5438,9 @@ class MainWin {
             . '<CheckBox Name="ChkCMDTip" Content="' GetLang("指令显示") '" VerticalAlignment="Center" Margin="4,4,6,4"/>'
             . '<Button Name="BtnCMDTipSetting" Content="' GetLang("设置") '" Height="28" MinHeight="28" Padding="10,0" Margin="0,4,0,4"/>'
             . '</WrapPanel>')
+
+        Add('<TextBlock ' ns ' Text="' GetLang("AI 助手") '" FontSize="14" FontWeight="Bold" Margin="0,12,0,2"/>')
+        Add('<StackPanel ' ns ' Orientation="Horizontal" Margin="0,2,0,6"><Button Name="BtnAiSetting" Content="' GetLang("AI 助手设置") '" Height="28" MinHeight="28" Padding="14,0"/><TextBlock Text="' GetLang("配置模型商、API、模型与写入权限") '" Foreground="{DynamicResource TextSub}" FontSize="11" VerticalAlignment="Center" Margin="8,0,0,0"/></StackPanel>')
 
         ; ---- 事件 ----
         this._Bind("EditHoldFloat", "LostFocus", ObjBindMethod(this, "OnIntEdit", "HoldFloat"))
@@ -5480,7 +5476,6 @@ class MainWin {
         this._Bind("ChkNoVariable", "Click", ObjBindMethod(this, "OnCheckEdit", "NoVariableTip"))
         this._Bind("ChkBusinessLog", "Click", ObjBindMethod(this, "OnBusinessLogToggle"))
         this._Bind("ChkModalSubGui", "Click", ObjBindMethod(this, "OnCheckEdit", "IsModalSubGui"))
-        this._Bind("ChkSplitLine", "Click", ObjBindMethod(this, "OnCheckEdit", "ShowSplitLine"))
         this._Bind("CmbLang", "SelectionChanged", ObjBindMethod(this, "OnComboText", "Lang"))
         this._Bind("CmbPreferredEditor", "SelectionChanged", ObjBindMethod(this, "OnComboIndex", "PreferredMacroEditor"))
         this._Bind("CmbScreenShot", "SelectionChanged", ObjBindMethod(this, "OnComboIndex", "ScreenShotType"))
@@ -5500,6 +5495,7 @@ class MainWin {
         this._Bind("BtnRightClickMenu", "Click", (*) => RightClickMenuSettingGui().ShowGui())
         this._Bind("BtnMenuWheel", "Click", OnClickMenuWheelSettingBtn)
         this._Bind("BtnUIPanel", "Click", OnClickUIMacroPanelSettingBtn)
+        this._Bind("BtnAiSetting", "Click", (*) => AiSettingGui.ShowGui())
         this._Bind("ChkCMDTip", "Click", OnClickCMDTipToggle)
         this._Bind("BtnCMDTipSetting", "Click", (*) => CMDTipSettingGui.ShowGui())
 

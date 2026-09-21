@@ -136,9 +136,10 @@ class ThemeSettingGui {
             .VerticalContentAlignment("Center").FontSize(this._colorUi.labelFs)
             .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+        ; 每个主题选项带主色块，选中后仍通过 SelectedIndex 识别，避免视觉内容影响取值。
         for item in AppThemeUtil.Presets
-            themeCombo.Add("ComboBoxItem").Content(GetLang(item.Name))
-        themeCombo.Add("ComboBoxItem").Content(GetLang("自定义"))
+            this._AddThemeOption(themeCombo, item.Name, item.Theme_Color01)
+        this._AddThemeOption(themeCombo, "自定义", "{DynamicResource ActionBg}")
 
         colorGroup := panel.Add("Border").Margin("0,10,0,0")
             .BorderBrush("{DynamicResource OutlineStroke}").BorderThickness("1.5")
@@ -205,25 +206,31 @@ class ThemeSettingGui {
         item.Add("TextBlock").Name("PaletteLabel_" slot).Grid_Column(0).Text(GetLang("颜色") slot "：")
             .Foreground(ui.labelFg).FontSize(ui.labelFs)
             .VerticalAlignment("Center")
-            .ToolTip("")
-        box := item.Add("Border").Grid_Column(1).Width(ui.boxW).Height(ui.boxH).CornerRadius("3")
-            .Background("{DynamicResource InputBg}")
+        item.Add("TextBox").Name("PaletteText_" slot).Grid_Column(1)
+            .Width(ui.boxW).Height(ui.boxH).MinHeight(ui.boxH).Padding("4,0")
+            .Text("#FF000000").FontSize(ui.boxFs).TextAlignment("Center")
+            .VerticalContentAlignment("Center").IsReadOnly("True")
+            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1.5")
-            .SnapsToDevicePixels("True").UseLayoutRounding("False")
-            .VerticalAlignment("Center").HorizontalAlignment("Left")
-        box.Add("TextBlock").Name("PaletteText_" slot)
-            .Text("#FF000000").FontSize(ui.boxFs)
-            .Foreground("{DynamicResource InputText}")
-            .HorizontalAlignment("Center").VerticalAlignment("Center")
         item.Add("Border").Grid_Column(2).Name("PalettePreview_" slot)
             .Width(ui.previewW).Height(ui.previewH).CornerRadius("3").Margin(ui.previewMargin ",0,0,0")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1.5")
-            .Background("#FF000000").Cursor("Hand").VerticalAlignment("Center")
+            .Background("#FF000000").Cursor("Arrow").VerticalAlignment("Center")
             .SnapsToDevicePixels("True").UseLayoutRounding("False")
+    }
+
+    _AddThemeOption(combo, name, color) {
+        option := combo.Add("ComboBoxItem")
+        row := option.Add("StackPanel").Orientation("Horizontal")
+        row.Add("Border").Width(14).Height(14).CornerRadius("2").Margin("0,0,6,0")
+            .Background(color).BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+            .VerticalAlignment("Center")
+        row.Add("TextBlock").Text(GetLang(name)).VerticalAlignment("Center")
     }
     LoadInitValues() {
         this._themeKey := MainSoftData.HasProp("AppTheme") ? MainSoftData.AppTheme : AppThemeUtil.DefaultThemeKey
-        if (this._themeKey == "" || !AppThemeUtil.IsPresetKey(this._themeKey))
+        ; 自定义主题也作为正式主题键保存，重新打开后继续允许编辑色块。
+        if (this._themeKey == "" || (this._themeKey != "Custom" && !AppThemeUtil.IsPresetKey(this._themeKey)))
             this._themeKey := AppThemeUtil.DefaultThemeKey
         ; CloneColorMap 会以默认主题补齐缺失 Key，兼容版本升级后的自定义主题
         if (IsObject(MainSoftData.ThemeColors))
@@ -279,13 +286,13 @@ class ThemeSettingGui {
             if (!visible)
                 continue
             entry := this._palette[slot]
-            tip := AppThemeUtil.PaletteTooltip(entry)
             updates.Push({ControlName: "PaletteLabel_" slot, PropertyName: "Text", Value: GetLang("颜色") slot "："})
-            updates.Push({ControlName: "PaletteLabel_" slot, PropertyName: "ToolTip", Value: tip})
             updates.Push({ControlName: "PaletteText_" slot, PropertyName: "Text", Value: entry.Color})
             updates.Push({ControlName: "PalettePreview_" slot, PropertyName: "Background", Value: entry.Color})
             updates.Push({ControlName: "PalettePreview_" slot, PropertyName: "BorderBrush", Value: AppThemeUtil.PaletteSwatchStroke(this._colors, entry.Color)})
-            updates.Push({ControlName: "PalettePreview_" slot, PropertyName: "ToolTip", Value: tip})
+            editable := this._themeKey == "Custom"
+            updates.Push({ControlName: "PalettePreview_" slot, PropertyName: "Cursor", Value: editable ? "Hand" : "Arrow"})
+            updates.Push({ControlName: "PalettePreview_" slot, PropertyName: "IsHitTestVisible", Value: editable ? "True" : "False"})
         }
         loop Ceil(AppThemeUtil.ColorDefs.Length / 2)
             updates.Push({ControlName: "PaletteRow_" A_Index, PropertyName: "Visibility", Value: (A_Index * 2 - 1 <= this._palette.Length) ? "Visible" : "Collapsed"})
@@ -300,14 +307,16 @@ class ThemeSettingGui {
     OnThemeSelectionChanged(state, ctrl, event) {
         if (this._applyingTheme)
             return
-        selText := state.Has("ThemeCombo") ? state["ThemeCombo"] : ""
-        if (selText == "" || selText == GetLang("自定义")) {
+        idx := this.ui.Query("ThemeCombo>SelectedIndex")
+        if (!IsNumber(idx))
+            return
+        idx := Integer(idx)
+        if (idx < 0 || idx >= AppThemeUtil.Presets.Length) {
             this._themeKey := "Custom"
+            this.RebuildPalette()
             return
         }
-        preset := AppThemeUtil.FindPresetByName(selText)
-        if (!IsObject(preset))
-            return
+        preset := AppThemeUtil.Presets[idx + 1]
         this._themeKey := preset.Key
         this._colors := AppThemeUtil.NewColorMapFromPreset(preset)
         this.RebuildPalette()
@@ -332,6 +341,8 @@ class ThemeSettingGui {
     }
 
     OnPickColor(slot, state, ctrl, event) {
+        if (this._themeKey != "Custom")
+            return
         if (!IsObject(this._palette) || slot < 1 || slot > this._palette.Length)
             return
         entry := this._palette[slot]
@@ -368,7 +379,7 @@ class ThemeSettingGui {
     }
 
     SaveData() {
-        if (this._themeKey == "" || !AppThemeUtil.IsPresetKey(this._themeKey))
+        if (this._themeKey == "" || (this._themeKey != "Custom" && !AppThemeUtil.IsPresetKey(this._themeKey)))
             this._themeKey := AppThemeUtil.DefaultThemeKey
         MainSoftData.AppTheme := this._themeKey
         ; 补齐缺失项后再落盘，保证后续新增 ColorDefs 写入默认主题色
