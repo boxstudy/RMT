@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RMT 帮助页签布局参考</title>
+  <style>
+    :root {
+      --page: #fff7df;
+      --surface: #fffdf7;
+      --card: #fffaf0;
+      --header: #ffe6b6;
+      --stroke: #edb45c;
+      --stroke-soft: #f3d79d;
+      --accent: #f28c00;
+      --accent-ink: #7a4318;
+      --text: #4b301d;
+      --muted: #8e7258;
+      --link: #1666bf;
+    }
+    * { box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      margin: 0;
+      padding: 30px;
+      color: var(--text);
+      font-family: "Microsoft YaHei UI", "Segoe UI", sans-serif;
+      background: radial-gradient(circle at 100% 0, #fffdf4 0, var(--page) 54%, #fff0c7 100%);
+    }
+    .window {
+      max-width: 1260px;
+      margin: auto;
+      overflow: hidden;
+      border: 1.5px solid var(--stroke);
+      border-radius: 15px;
+      background: var(--surface);
+      box-shadow: 0 18px 48px rgba(114, 72, 20, .17);
+    }
+    .topbar {
+      display: flex;
+      align-items: center;
+      min-height: 68px;
+      padding: 15px 24px;
+      border-bottom: 1px solid var(--stroke-soft);
+      background: linear-gradient(105deg, var(--header), #fff3d8);
+    }
+    .brand { display: flex; align-items: center; gap: 12px; font-size: 23px; font-weight: 800; }
+    .brand-mark { display: grid; place-items: center; width: 35px; height: 35px; border: 1px solid #ffc76f; border-radius: 11px; color: var(--accent); background: #fff8e7; font-size: 19px; }
+    .fluent { font-family: "Segoe Fluent Icons", "Segoe MDL2 Assets", sans-serif; font-style: normal; font-weight: 400; }
+    .brand small { display: block; margin-top: 3px; color: var(--muted); font-size: 12px; font-weight: 400; }
+    .content { padding: 22px; }
+    .notice {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      margin-bottom: 18px;
+      padding: 13px 15px;
+      border: 1px solid var(--stroke-soft);
+      border-radius: 10px;
+      background: #fff9e9;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+    .notice b { color: var(--accent-ink); }
+    .disclaimer {
+      position: relative;
+      margin-bottom: 20px;
+      overflow: hidden;
+      border: 1.5px solid #e89d4b;
+      border-radius: 12px;
+      background: linear-gradient(105deg, #fff5df, #fffaf0 72%);
+      box-shadow: 0 7px 18px rgba(165, 91, 24, .11);
+    }
+    .disclaimer::before { position: absolute; inset: 0 auto 0 0; width: 5px; background: #dc7625; content: ""; }
+    .disclaimer-head { display: flex; gap: 10px; align-items: center; min-height: 47px; padding: 0 17px 0 20px; color: #873e1f; border-bottom: 1px solid #f3c77f; background: linear-gradient(90deg, #ffe1ad, #fff0d2); font-size: 15px; font-weight: 800; }
+    .warning-mark { display: grid; place-items: center; width: 23px; height: 23px; border-radius: 50%; color: #fff; background: #d96e1d; font-size: 13px; }
+    .disclaimer-body { padding: 14px 20px 14px 25px; color: #755033; font-size: 12px; line-height: 1.65; }
+    .disclaimer-body ol { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 18px; margin: 0; padding: 0; list-style: none; counter-reset: disclaimer; }
+    .disclaimer-body li { position: relative; min-height: 47px; padding: 7px 9px 7px 35px; border: 1px solid #f2d49e; border-radius: 8px; background: rgba(255, 253, 247, .72); counter-increment: disclaimer; }
+    .disclaimer-body li::before { position: absolute; top: 8px; left: 9px; display: grid; place-items: center; width: 19px; height: 19px; border-radius: 50%; color: #fff; background: #de7a26; content: counter(disclaimer); font-size: 11px; font-weight: 800; line-height: 1; }
+    .disclaimer-body .stop { margin: 11px 0 0; padding-left: 2px; color: #a13d24; font-weight: 800; }
+    .layout { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+    .stack { display: grid; gap: 18px; }
+    .docs-card { grid-column: 1 / -1; }
+    .card { overflow: hidden; border: 1px solid var(--stroke-soft); border-radius: 12px; background: var(--card); }
+    .layout > .card:not(.docs-card), .layout > aside > .card { height: 100%; }
+    .card-head { display: flex; align-items: center; justify-content: space-between; min-height: 52px; padding: 0 16px; border-bottom: 1px solid #f5e4bd; background: #fff3d8; }
+    .card-title { display: flex; align-items: center; gap: 9px; font-size: 17px; font-weight: 800; }
+    .icon { color: var(--accent); font-size: 19px; }
+    .hint { color: var(--muted); font-size: 12px; }
+    .card-body { padding: 14px 16px 16px; }
+    .resource { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; gap: 11px; align-items: center; min-height: 67px; padding: 10px 0; }
+    .resource + .resource { border-top: 1px solid #f0cd8a; }
+    .docs-card .card-body { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 18px; }
+    .docs-card .resource + .resource { border-top: 0; }
+    .docs-card .resource:not(:first-child) { border-left: 1px solid #f0cd8a; padding-left: 18px; }
+    .resource-icon { display: grid; place-items: center; width: 31px; height: 31px; border-radius: 9px; color: var(--accent); background: #fff0c8; font-size: 16px; }
+    .resource strong { display: block; margin-bottom: 4px; font-size: 14px; }
+    .resource p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    a.button, .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 30px;
+      padding: 0 11px;
+      border: 1px solid var(--stroke);
+      border-radius: 6px;
+      color: var(--accent-ink);
+      background: #fffdfa;
+      font-size: 12px;
+      font-weight: 700;
+      text-decoration: none;
+    }
+    a.button:hover { border-color: var(--accent); color: #fff; background: var(--accent); }
+    .feedback { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
+    .feedback-item { min-height: 126px; padding: 13px; border: 1px solid #f0cf90; border-radius: 10px; background: #fffdf8; }
+    .feedback-item .top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 15px; font-weight: 800; }
+    .feedback-item p { min-height: 34px; margin: 0 0 9px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .edit-note { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; padding: 8px 10px; border: 1px dashed #e7b55e; border-radius: 8px; color: #87613a; background: #fff5da; font-size: 12px; line-height: 1.5; }
+    .quick-links { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .quick-link { display: grid; grid-template-columns: 30px minmax(0, 1fr); column-gap: 10px; row-gap: 6px; align-items: center; min-height: 88px; padding: 11px 12px; border: 1px solid #f1d49e; border-radius: 9px; color: var(--text); background: #fffdf8; text-decoration: none; }
+    .quick-link:hover { border-color: var(--accent); background: #fff7e6; }
+    .quick-link .quick-icon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; color: var(--accent); background: #fff0c9; font-size: 16px; }
+    .quick-link strong { font-size: 13px; }
+    .quick-link small { grid-column: 1 / -1; color: var(--muted); font-size: 11px; line-height: 1.4; }
+    .footer { padding: 12px 22px; border-top: 1px solid var(--stroke-soft); color: var(--muted); background: #fff9ea; font-size: 11px; text-align: center; }
+    @media (max-width: 900px) {
+      body { padding: 14px; }
+      .layout, .feedback, .disclaimer-body ol, .docs-card .card-body, .quick-links { grid-template-columns: 1fr; }
+      .docs-card .resource + .resource { border-top: 1px solid #f0cd8a; }
+      .docs-card .resource:not(:first-child) { padding-left: 0; border-left: 0; }
+    }
+  </style>
+</head>
+<body>
+  <main class="window">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark fluent">&#xE897;</span><div>帮助与反馈<small>文档、社区、版本信息与问题反馈入口</small></div></div>
+    </header>
+    <section class="content">
+      <div class="notice"><span class="fluent">&#xE946;</span><div><b>帮助中心参考布局</b>：将阅读文档、交流社区与问题反馈拆分为清晰的入口；外部链接将在默认浏览器打开。</div></div>
+      <section class="disclaimer">
+        <div class="disclaimer-head"><span class="warning-mark fluent">&#xE7BA;</span>免责声明与合法使用提醒</div>
+        <div class="disclaimer-body">
+          <ol>
+            <li>本软件按“原样”提供。因使用、修改、传播或分发本软件所产生的风险与后果，由使用者自行承担；开发者不作任何明示或默示担保。</li>
+            <li>本软件仅限用于合法且已获授权的场景。严禁用于游戏作弊、未经授权的系统访问、数据篡改，或其他违反法律法规及第三方规则的行为。</li>
+            <li>使用前，请自行确认使用方式符合所在地法律法规、平台条款及相关约定。因违规使用而引发的损失、纠纷或责任，与开发者无关。</li>
+            <li>下载、安装或使用本软件，即表示你已充分理解并接受上述风险承诺：不将其用于任何非法目的，并同意不就他人滥用行为向开发者追责。</li>
+          </ol>
+          <p class="stop">若不同意上述条款，请立即停止使用本软件。</p>
+        </div>
+      </section>
+      <div class="layout">
+        <section class="card docs-card">
+            <div class="card-head"><div class="card-title"><span class="icon fluent">&#xE8A5;</span>文档与学习</div><span class="hint">从入门到进阶</span></div>
+            <div class="card-body">
+              <div class="resource"><span class="resource-icon fluent">&#xE8A5;</span><div><strong>软件说明文档</strong><p>快速上手、指令手册、常见问题、常见报错与更新日志。</p></div><a class="button" href="https://docs.ruomengtu.com/">打开文档 <span class="fluent">&#xE8A7;</span></a></div>
+              <div class="resource"><span class="resource-icon fluent">&#xE714;</span><div><strong>更新视频合集</strong><p>查看版本更新视频与直播交流问答。</p></div><a class="button" href="https://www.bilibili.com/video/BV1yR8x6xEBW">观看视频 <span class="fluent">&#xE8A7;</span></a></div>
+              <div class="resource"><span class="resource-icon fluent">&#xE8B7;</span><div><strong>配置共享仓库</strong><p>案例学习、获取他人分享的宏配置，并支持下载导入。</p></div><a class="button" href="https://zclucas.github.io/RMT-Setting/">查看仓库 <span class="fluent">&#xE8A7;</span></a></div>
+            </div>
+        </section>
+        <aside>
+          <section class="card">
+            <div class="card-head"><div class="card-title"><span class="icon fluent">&#xE8BD;</span>社区</div><span class="hint">交流、群组与开源</span></div>
+            <div class="card-body quick-links">
+              <a class="quick-link" href="https://forum.ruomengtu.com/"><span class="quick-icon fluent">&#xE902;</span><strong>RMT 交流论坛</strong><small>经验交流、问题讨论与社区动态</small></a>
+              <a class="quick-link" href="https://qm.qq.com/q/DgpDumEPzq"><span class="quick-icon fluent">&#xE8BD;</span><strong>RMT QQ 交流群</strong><small>加入群组以参与反馈文档编辑</small></a>
+              <a class="quick-link" href="https://github.com/zclucas/RMT"><span class="quick-icon fluent">&#xE943;</span><strong>GitHub 开源地址</strong><small>镜像项目源代码与版本信息</small></a>
+              <a class="quick-link" href="https://gitee.com/fateman/RMT"><span class="quick-icon fluent">&#xE8B7;</span><strong>Gitee 开源地址</strong><small>查看发行版与软件最新版本</small></a>
+            </div>
+          </section>
+        </aside>
+        <section class="card">
+            <div class="card-head"><div class="card-title"><span class="icon fluent">&#xE7BA;</span>问题反馈</div><span class="hint">共同完善 RMT</span></div>
+            <div class="card-body">
+              <div class="feedback">
+                <article class="feedback-item"><div class="top"><span class="icon fluent">&#xE7BA;</span>Bug 文档</div><p>提交可复现步骤、预期结果、实际表现，以及必要的截图或日志。</p><a class="button" href="https://docs.qq.com/sheet/DVWJIdEVMV1pHUVJj">打开 Bug 文档 <span class="fluent">&#xE8A7;</span></a></article>
+                <article class="feedback-item"><div class="top"><span class="icon fluent">&#xE8F2;</span>需求文档</div><p>描述使用场景、期望能力与优先级，帮助我们评估和规划。</p><a class="button" href="https://docs.qq.com/sheet/DVWRQaXBFUVV5bERo">打开需求文档 <span class="fluent">&#xE8A7;</span></a></article>
+              </div>
+              <div class="edit-note"><span class="fluent">&#xE72E;</span><span>Bug 文档和需求文档需要加入交流群后才可编辑；未加入时仍可打开查看现有内容。</span></div>
+            </div>
+        </section>
+      </div>
+    </section>
+    <footer class="footer">RMT 帮助页签 HTML 视觉参考稿 · 本文件仅用于确认界面布局与文案，不会修改软件界面。</footer>
+  </main>
+</body>
+</html>
