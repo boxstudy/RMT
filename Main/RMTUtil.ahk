@@ -19,7 +19,7 @@ global XAML_IN_PROCESS_PREVIEW := false
 
 ;资源保存（带脏检查优化：只写入实际发生变化的配置项）
 OnSaveSetting(*) {
-    global MySoftData, MyWorkPool, MyHotReloadBus
+    global MySoftData, MyWorkPool, MyHotReloadBus, MyMainWin
     isValid := CheckAllValueSettingValid()
     if (!isValid)
         return
@@ -164,6 +164,7 @@ OnSaveSetting(*) {
 
     ; §17 保存后不再弹窗/重启：宏表已即时落盘，全局设置走热重载；需要整进程重启用侧栏「重启」
     HotReloadPublish(0, 0)
+    try MyMainWin.ClearSettingDirty()
     Toast.Success(GetLang("配置已保存"))
 }
 

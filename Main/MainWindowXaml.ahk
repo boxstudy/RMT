@@ -250,6 +250,7 @@ class MainWin {
         this._aiInputWide := Map()
         this._aiInputBoxW := Map()
         this._pendingMacroNav := ""
+        this._settingDirty := Map()
     }
 
     ; ---- 扩展面板尺寸（可手动改）----
@@ -5353,16 +5354,16 @@ class MainWin {
         ; 落盘仍由主界面「应用并保存」统一处理（OnSaveSetting 的 CheckAndAddDirty 已覆盖这些键）。
         iconFont := 'Segoe Fluent Icons, Segoe MDL2 Assets'
         navStyle := '<Style x:Key="SetNavItem" TargetType="RadioButton">'
-            . '<Setter Property="Height" Value="26"/><Setter Property="Margin" Value="0"/><Setter Property="Cursor" Value="Hand"/><Setter Property="Foreground" Value="{DynamicResource TextMain}"/><Setter Property="HorizontalContentAlignment" Value="Left"/>'
+            . '<Setter Property="Height" Value="36"/><Setter Property="Margin" Value="0"/><Setter Property="Padding" Value="0"/><Setter Property="BorderThickness" Value="0"/><Setter Property="HorizontalAlignment" Value="Stretch"/><Setter Property="Cursor" Value="Hand"/><Setter Property="Foreground" Value="{DynamicResource TextMain}"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/>'
             . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="RadioButton">'
-            . '<Border x:Name="Bd" Background="Transparent" BorderBrush="Transparent" BorderThickness="0" CornerRadius="0" Padding="4,0"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="3"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>'
+            . '<Border x:Name="Bd" Background="Transparent" BorderBrush="Transparent" BorderThickness="0" CornerRadius="0" Padding="0" Margin="-11,0,-8,0"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="3"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>'
             . '<Rectangle x:Name="Bar" Grid.Column="0" Width="3" RadiusX="1.5" RadiusY="1.5" Fill="{DynamicResource Accent}" Visibility="Collapsed" Margin="0,5,0,5"/>'
             . '<ContentPresenter Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center"/></Grid></Border>'
             . '<ControlTemplate.Triggers>'
             . '<Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource ListAltBg}"/></Trigger>'
             . '<Trigger Property="IsChecked" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource EditHoverBg}"/><Setter TargetName="Bar" Property="Visibility" Value="Visible"/><Setter Property="FontWeight" Value="Bold"/></Trigger>'
             . '</ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
-        switchStyle := '<Style x:Key="SetSwitch" TargetType="CheckBox"><Setter Property="VerticalAlignment" Value="Center"/><Setter Property="Cursor" Value="Hand"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="50"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Border x:Name="Track" Width="42" Height="24" CornerRadius="12" Background="{DynamicResource ControlBorder}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1"><Ellipse x:Name="Thumb" Width="18" Height="18" Fill="{DynamicResource ControlBg}" HorizontalAlignment="Left" Margin="2"/></Border><ContentPresenter Grid.Column="1" VerticalAlignment="Center"/></Grid><ControlTemplate.Triggers><Trigger Property="IsChecked" Value="True"><Setter TargetName="Track" Property="Background" Value="{DynamicResource ActionBg}"/><Setter TargetName="Thumb" Property="HorizontalAlignment" Value="Right"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
+        switchStyle := '<Style x:Key="SetSwitch" TargetType="CheckBox"><Setter Property="VerticalAlignment" Value="Center"/><Setter Property="Cursor" Value="Hand"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="50"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Border x:Name="Track" Width="42" Height="24" CornerRadius="12" Background="{DynamicResource ControlBorder}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1"><Grid><TextBlock x:Name="OffGlyph" Text="×" FontSize="13" FontWeight="Bold" Foreground="{DynamicResource TextSub}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,7,1"/><Ellipse x:Name="Thumb" Width="18" Height="18" Fill="{DynamicResource ControlBg}" HorizontalAlignment="Left" Margin="2"/></Grid></Border><ContentPresenter Grid.Column="1" VerticalAlignment="Center"/></Grid><ControlTemplate.Triggers><Trigger Property="IsChecked" Value="True"><Setter TargetName="Track" Property="Background" Value="{DynamicResource ActionBg}"/><Setter TargetName="Thumb" Property="HorizontalAlignment" Value="Right"/><Setter TargetName="OffGlyph" Property="Visibility" Value="Collapsed"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
 
         fieldStyles := '<Style TargetType="TextBox"><Setter Property="Height" Value="33"/><Setter Property="MinHeight" Value="33"/><Setter Property="Padding" Value="10,0"/><Setter Property="VerticalContentAlignment" Value="Center"/><Setter Property="Foreground" Value="{DynamicResource InputText}"/><Setter Property="Background" Value="{DynamicResource InputBg}"/><Setter Property="BorderBrush" Value="{DynamicResource InputStroke}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TextBox"><Border CornerRadius="6" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"><ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"/></Border></ControlTemplate></Setter.Value></Setter></Style>'
             . '<Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}"><Setter Property="MinHeight" Value="30"/></Style>'
@@ -5370,10 +5371,10 @@ class MainWin {
 
         ; ---------- 行/卡片构建 ----------
         dot(tip) {
-            return tip == "" ? "" : '<Button Content="?" Width="18" Height="18" MinHeight="18" Padding="0" Margin="6,0,0,0" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Cursor="Hand" ToolTip="' this._XmlEsc(tip) '"/>'
+            return tip == "" ? "" : '<Button Content="?" Width="24" Height="24" MinHeight="24" Padding="4,2" Margin="6,0,0,0" FontSize="11" FontWeight="Bold" VerticalAlignment="Center" Cursor="Hand" ToolTip="' this._XmlEsc(tip) '"/>'
         }
         row(label, ctrl, tip := "", w := "104") {
-            return '<Border MinHeight="44" Padding="0,5" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="0,0,0,0.5"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="' w '"/><ColumnDefinition Width="24"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>'
+            return '<Border Height="48" MinHeight="48" Padding="0,5" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="0,0,0,0.5"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="' w '"/><ColumnDefinition Width="30"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>'
                 . '<DockPanel VerticalAlignment="Center" LastChildFill="True">' (tip == "" ? "" : StrReplace(dot(tip), "<Button ", '<Button DockPanel.Dock="Right" ')) '<TextBlock Text="' this._XmlEsc(label) '" TextWrapping="Wrap" FontWeight="SemiBold" Foreground="{DynamicResource TextMain}" FontSize="13"/></DockPanel>'
                 . '<Grid Grid.Column="2" VerticalAlignment="Center">' ctrl '</Grid></Grid></Border>'
         }
@@ -5394,13 +5395,17 @@ class MainWin {
                 itemsXaml .= '<ComboBoxItem Content="' this._XmlEsc(it) '"/>'
             }
             selAttr := (selIdx == "") ? "" : ' SelectedIndex="' selIdx '"'
-            return row(label, '<ComboBox Name="' name '" Height="33" MinHeight="33" VerticalContentAlignment="Center" FontSize="12" Foreground="{DynamicResource InputText}" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1"' selAttr '>' itemsXaml '</ComboBox>', tip, w)
+            return row(label, '<ComboBox Name="' name '" Height="33" MinHeight="33" Padding="10,0" VerticalContentAlignment="Center" FontSize="12" Foreground="{DynamicResource InputText}" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1"' selAttr '>' itemsXaml '</ComboBox>', tip, w)
         }
         num(label, name, val, tip := "", w := "104", boxW := "96") {
-            return row(label, '<TextBox Name="' name '" Text="' this._XmlEsc(String(val)) '" Height="33" MinHeight="33" Padding="6,0" VerticalContentAlignment="Center" TextAlignment="Center" FontSize="12" Foreground="{DynamicResource InputText}" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1"/>', tip, w)
+            return row(label, '<TextBox Name="' name '" Text="' this._XmlEsc(String(val)) '" Height="33" MinHeight="33" Padding="10,0" VerticalContentAlignment="Center" TextAlignment="Center" FontSize="12" Foreground="{DynamicResource InputText}" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1"/>', tip, w)
+        }
+        ; 宏执行的浮动值：标签与问号右移，输入框延展至右边缘。
+        numCompact(label, name, val, tip) {
+            return row(label, '<TextBox Name="' name '" Text="' this._XmlEsc(String(val)) '" Height="33" MinHeight="33" Padding="10,0" VerticalContentAlignment="Center" TextAlignment="Center" FontSize="12" Foreground="{DynamicResource InputText}" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1"/>', tip, "188")
         }
         txt(label, name, val, tip := "", w := "104", boxW := "240") {
-            return row(label, '<TextBox Name="' name '" Text="' this._XmlEsc(String(val)) '" Height="33" MinHeight="33" Padding="6,0" VerticalContentAlignment="Center" FontSize="12" Foreground="{DynamicResource InputText}" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1"/>', tip, w)
+            return row(label, '<TextBox Name="' name '" Text="' this._XmlEsc(String(val)) '" Height="33" MinHeight="33" Padding="10,0" VerticalContentAlignment="Center" FontSize="12" Foreground="{DynamicResource InputText}" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1"/>', tip, w)
         }
         sld(label, name, valName, val, mn, mx, tk, tip := "", w := "104") {
             return row(label, '<Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="9"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Slider Name="' name '" Height="28" Minimum="' mn '" Maximum="' mx '" Value="' val '" TickFrequency="' tk '" IsSnapToTickEnabled="True" VerticalAlignment="Center" Cursor="Hand"/>'
@@ -5410,7 +5415,9 @@ class MainWin {
             return row(label, ctrl, tip, w)
         }
         card(title, glyph, body, margin := "0", headerRight := "") {
-            g := glyph == "" ? "" : '<TextBlock Text="' glyph '" FontFamily="' iconFont '" Foreground="{DynamicResource Accent}" FontSize="13" Margin="0,0,8,0"/>'
+            ; 每张卡的最后一行不画下分隔线；前面的行保留，用于所有类别的统一布局。
+            body := RegExReplace(body, 's)(.*)<Border([^>]*?)BorderThickness="0,0,0,0\.5"', '$1<Border$2BorderThickness="0"')
+            g := glyph == "" ? "" : '<TextBlock Text="' glyph '" FontFamily="' iconFont '" Foreground="{DynamicResource Accent}" FontSize="13" Margin="0,0,8,0" VerticalAlignment="Center"/>'
             return '<Border Margin="' margin '" Background="{DynamicResource ControlBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1" CornerRadius="10" Padding="0">'
                 . '<Grid><Grid.RowDefinitions><RowDefinition Height="48"/><RowDefinition Height="*"/></Grid.RowDefinitions>'
                 . '<Border Background="{DynamicResource TitleBarColor}" CornerRadius="10,10,0,0" Padding="12,0"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel Orientation="Horizontal" VerticalAlignment="Center">' g '<TextBlock Text="' this._XmlEsc(title) '" FontWeight="Bold" VerticalAlignment="Center"/></StackPanel><StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">' headerRight '</StackPanel></Grid></Border>'
@@ -5420,36 +5427,21 @@ class MainWin {
             return '<Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="18"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><StackPanel Grid.Column="0">' l '</StackPanel><StackPanel Grid.Column="2">' r '</StackPanel></Grid>'
         }
         navItem(id, glyph, text, checked := false) {
-            return '<RadioButton Name="SetNav_' id '" GroupName="SetNav" Style="{StaticResource SetNavItem}"' (checked ? ' IsChecked="True"' : '') '><StackPanel Orientation="Horizontal"><TextBlock Text="' glyph '" FontFamily="' iconFont '" FontSize="14" Foreground="{DynamicResource Accent}" Margin="0,0,9,0" VerticalAlignment="Center"/><TextBlock Text="' this._XmlEsc(text) '" VerticalAlignment="Center" FontSize="13"/></StackPanel></RadioButton>'
+            return '<RadioButton Name="SetNav_' id '" GroupName="SetNav" Style="{StaticResource SetNavItem}"' (checked ? ' IsChecked="True"' : '') '><StackPanel Orientation="Horizontal" Margin="12,0,0,0"><TextBlock Text="' glyph '" FontFamily="' iconFont '" FontSize="14" Foreground="{DynamicResource Accent}" Margin="0,0,9,0" VerticalAlignment="Center"/><TextBlock Name="SetNavText_' id '" Text="' this._XmlEsc(text) '" VerticalAlignment="Center" FontSize="13"/></StackPanel></RadioButton>'
         }
         pending(body) {
             return '<Expander Header="' GetLang("待确认的原有功能") '" IsExpanded="False" Margin="0,20,0,0" Foreground="{DynamicResource TextSub}"><StackPanel Margin="12">' body '</StackPanel></Expander>'
         }
         page(id, body, visible := false) {
-            meta := Map(
-                "behavior", ["全局　/　系统", "系统", "软件启动、权限、基础偏好与宏的全局执行规则。"],
-                "macro", ["宏　/　宏执行", "宏执行", "宏指令执行时的时间、坐标、重复按键和备注生成规则。"],
-                "record", ["宏　/　指令录制", "指令录制", "录制通用、键盘、鼠标和手柄选项分开配置；相关快捷键在“全局 → 快捷键”统一编辑。"],
-                "trigger", ["全局　/　交互界面", "交互界面", "主题、快捷键、菜单轮盘、界面浮窗和其他交互工具均从全局入口管理。"],
-                "hotkey", ["宏设置　/　快捷键", "快捷键", "全局操作、工具和调试快捷键统一在一个页面编辑。"],
-                "appearance", ["系统　/　主题", "主题", "主题预设、软件字体与颜色 1 ～ 14 集中配置。"],
-                "ai", ["全局　/　AI 助手", "AI 助手", "AI 服务商、模型、权限与审批策略。"],
-                "diagnostic", ["全局　/　日志", "日志", "系统日志、错误中心与指令显示设置集中管理。"])
-            m := meta[id]
-            note := id == "hotkey" ? "单击“录入”后直接按组合键；“仅触发键”项不能使用字串触发。" : "修改设置后，点击“应用并保存”保存配置。"
             return '<StackPanel Name="SetPage_' id '"' (visible ? '' : ' Visibility="Collapsed"') '>'
-                . '<Border BorderBrush="{DynamicResource ControlBorder}" BorderThickness="0,0,0,1" Padding="26,22,26,17"><StackPanel><TextBlock Text="' GetLang(m[1]) '" FontSize="12" Foreground="{DynamicResource TextSub}"/><TextBlock Text="' GetLang(m[2]) '" FontSize="23" FontWeight="Bold" Margin="0,5,0,4"/><TextBlock Text="' GetLang(m[3]) '" FontSize="13" Foreground="{DynamicResource TextSub}" TextWrapping="Wrap"/></StackPanel></Border>'
-                . '<StackPanel Margin="26,20,26,28"><Border Background="{DynamicResource ListAltBg}" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" CornerRadius="8" Padding="13,11" Margin="0,0,0,18"><TextBlock Text="' GetLang(note) '" TextWrapping="Wrap" FontSize="13" Foreground="{DynamicResource TextSub}"/></Border>' body '</StackPanel></StackPanel>'
+                . '<StackPanel Margin="26,20,26,28">' body '</StackPanel></StackPanel>'
         }
 
         ; ---------- 公共片段 ----------
-        shareBody := '<StackPanel Orientation="Horizontal"><Button Name="BtnShareLogin" Content="' GetLang("登录论坛") '" Height="28" Padding="12,0" ToolTip="' GetLang("在浏览器里登录论坛并授权本客户端；授权后自动把凭据写入配置，不必手动填 Key") '"/><Button Name="BtnShareLogout" Content="' GetLang("退出登录") '" Height="28" Padding="12,0" Margin="8,0,0,0" ToolTip="' GetLang("清除本机保存的论坛凭据；如需在论坛侧彻底注销该密钥，请到 个人设置 → 应用 里撤销") '"/><TextBlock Name="TxtShareLoginState" Text="' this._XmlEsc(this._ShareLoginStateText()) '" Margin="10,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource TextSub}" FontSize="11" TextWrapping="Wrap"/></StackPanel>'
         tabsBody := '<WrapPanel>'
             . togI(GetLang("按键宏"), "TabVisible_Normal", this._TabVisibleVal("Normal")) . togI(GetLang("字串宏"), "TabVisible_String", this._TabVisibleVal("String")) . togI(GetLang("菜单宏"), "TabVisible_Menu", this._TabVisibleVal("Menu")) . togI(GetLang("界面宏"), "TabVisible_UI", this._TabVisibleVal("UI")) . togI(GetLang("语音宏"), "TabVisible_Voice", this._TabVisibleVal("Voice")) . togI(GetLang("定时宏"), "TabVisible_Timing", this._TabVisibleVal("Timing")) . togI(GetLang("宏"), "TabVisible_SubMacro", this._TabVisibleVal("SubMacro")) . togI(GetLang("按键替换"), "TabVisible_Replace", this._TabVisibleVal("Replace")) . togI(GetLang("网络宏"), "TabVisible_Network", this._TabVisibleVal("Network")) . '</WrapPanel>'
         appearanceBody := cmb(GetLang("软件字体"), "CmbFont", MainSoftData.FontList, MainSoftData.FontType, false, GetLang("软件界面使用的字体，修改后保存设置生效。"))
             . sld(GetLang("字体大小"), "ThemeFontSizeCon", "ThemeFontSizeVal", MainSoftData.FontSize, 0, 40, 1, GetLang("字号 0~40；保存后统一刷新界面。"))
-        appearanceExtra := row(GetLang("软件背景颜色"), '<TextBox Name="EditSoftBGColor" Text="' this._XmlEsc(MainSoftData.SoftBGColor) '" Width="110" Height="33" MinHeight="33" Padding="6,0" VerticalContentAlignment="Center" TextAlignment="Center" FontSize="12" Foreground="{DynamicResource InputText}" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1"/>')
-            . row(GetLang("背景图"), '<TextBox Name="EditBackImage" Text="' this._XmlEsc(MainSoftData.BackImagePath) '" Width="220" Height="33" MinHeight="33" Padding="6,0" VerticalContentAlignment="Center" FontSize="11" Foreground="{DynamicResource InputText}" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1"/><Button Name="BtnBackImageBrowse" Content="' GetLang("浏览") '" Height="33" MinHeight="33" Padding="10,0" Margin="6,0,0,0"/><Button Name="BtnBackImageClear" Content="' GetLang("清空") '" Height="33" MinHeight="33" Padding="10,0" Margin="6,0,0,0"/>')
 
         ; ---------- 页：系统（按参考稿逐行排列） ----------
         behaviorPage := page("behavior"
@@ -5470,15 +5462,15 @@ class MainWin {
             . twoCol(card(GetLang("显示页签"), "&#xE8A5;", tabsBody, "0,18,0,0")
                 , card(GetLang("手柄"), "&#xE7FC;", cmb(GetLang("手柄映射"), "CmbTriggerJoyType", ["Xbox", "PS5"], MainSoftData.TriggerJoyType)
                     . cmb(GetLang("宏手柄类型"), "CmbJoyType", ["Xbox", "PS5"], MainSoftData.JoyType), "0,18,0,0"))
-            . pending(shareBody), true)
+            . twoCol(card(GetLang("网络宏"), "&#xE8D4;", num(GetLang("监听端口"), "EditNetPort", MainSoftData.NetworkPort, GetLang("网络宏端口 1-65535，默认 16888；仅监听本机回环地址。")), "0,18,0,0"), ""), true)
 
         ; ---------- 页：宏执行 ----------
         macroPage := page("macro", twoCol(
-            card(GetLang("时间与坐标浮动"), "&#xE823;", num(GetLang("点击时间浮动（%）"), "EditHoldFloat", MainSoftData.HoldFloat)
-                . num(GetLang("每次间隔浮动（%）"), "EditPreIntervalFloat", MainSoftData.PreIntervalFloat)
-                . num(GetLang("间隔指令浮动（%）"), "EditIntervalFloat", MainSoftData.IntervalFloat)
-                . num(GetLang("坐标 X 浮动 (px)"), "EditCoordXFloat", MainSoftData.CoordXFloat)
-                . num(GetLang("坐标 Y 浮动 (px)"), "EditCoordYFloat", MainSoftData.CoordYFloat))
+            card(GetLang("时间与坐标浮动"), "&#xE823;", numCompact(GetLang("点击时间浮动（%）"), "EditHoldFloat", MainSoftData.HoldFloat, GetLang("点击指令时，按下或等待时长可随机上下浮动的百分比。"))
+                . numCompact(GetLang("每次间隔浮动（%）"), "EditPreIntervalFloat", MainSoftData.PreIntervalFloat, GetLang("两次宏执行之间的间隔可随机上下浮动的百分比。"))
+                . numCompact(GetLang("间隔指令浮动（%）"), "EditIntervalFloat", MainSoftData.IntervalFloat, GetLang("间隔指令本身的时长可随机上下浮动的百分比。"))
+                . numCompact(GetLang("坐标 X 浮动 (px)"), "EditCoordXFloat", MainSoftData.CoordXFloat, GetLang("鼠标坐标 X 轴可随机上下偏移的像素值。"))
+                . numCompact(GetLang("坐标 Y 浮动 (px)"), "EditCoordYFloat", MainSoftData.CoordYFloat, GetLang("鼠标坐标 Y 轴可随机上下偏移的像素值。")))
             , card(GetLang("按键与备注"), "&#xE765;", cmb(GetLang("重复按下行为"), "CmbKeyDownDown", GetLangArr(["自动松开", "忽略重复按下", "允许重复按下"]), MainSoftData.KeyDownDownType)
                 . cmb(GetLang("指令备注生成"), "CmbRemarkAuto", GetLangArr(["不生成", "自动生成", "覆盖生成"]), MainSoftData.RemarkAutoType)
                 . tog(GetLang("无变量提醒"), "ChkNoVariable", MainSoftData.NoVariableTip, GetLang("变量为空时提示")))))
@@ -5530,7 +5522,7 @@ class MainWin {
                 . sld(GetLang("显示宽度"), "CmdTipWidthCon", "CmdTipWidthVal", MainSoftData.CMDWidth, 80, 800, 5)
                 . sld(GetLang("显示高度"), "CmdTipHeightCon", "CmdTipHeightVal", MainSoftData.CMDHeight, 40, 600, 5)
                 . sld(GetLang("字体大小"), "CmdTipFontCon", "CmdTipFontVal", MainSoftData.CMDFontSize, 8, 36, 1)
-                . sld(GetLang("背景透明度"), "CmdTipAlphaCon", "CmdTipAlphaVal", MainSoftData.CMDTransparency, 0, 100, 1, GetLang("0 不透明，100 完全透明"))
+                . sld(GetLang("背景透明度"), "CmdTipAlphaCon", "CmdTipAlphaVal", MainSoftData.CMDTransparency, 0, 100, 1)
                 . tog(GetLang("输出到文件"), "CmdTipLogFileCon", MainSoftData.CMDLogToFile, GetLang("把指令显示内容写入日志文件"))
                 . row(GetLang("日志文件路径"), '<Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="85"/></Grid.ColumnDefinitions><TextBox Name="CmdTipLogPathCon" Text="' this._XmlEsc(MainSoftData.CMDLogFilePath) '"/><Button Name="BtnCmdTipBrowse" Grid.Column="1" Content="' GetLang("浏览") ' ↗" Width="76" HorizontalAlignment="Right" Padding="6,0"/></Grid>')
                 . cmb(GetLang("自动清理时间"), "CmdTipAutoClearCon", GetLangArr(["从不", "每天", "每周"]), MainSoftData.CMDLogAutoClear, true))
@@ -5541,19 +5533,6 @@ class MainWin {
                 . btnRow(GetLang("日志中心"), '<Button Name="BtnLogCenter" Content="' GetLang("打开日志中心") ' ↗" HorizontalAlignment="Left" Padding="10,0"/>'))))
 
         ; ---------- 页：交互界面 ----------
-        ctxList(id, caption, h) {
-            return '<Border BorderBrush="{DynamicResource InputStroke}" BorderThickness="1" CornerRadius="4" Background="{DynamicResource InputBg}"><StackPanel><TextBlock Text="' this._XmlEsc(caption) '" FontSize="11" Foreground="{DynamicResource TextSub}" Margin="6,4,6,2"/><ListBox Name="' id '" Height="' h '" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource TextMain}" FontSize="12"/></StackPanel></Border>'
-        }
-        ctxBtn(name, glyph, tip) {
-            return '<Button Name="' name '" Content="' glyph '" ToolTip="' this._XmlEsc(tip) '" FontFamily="' iconFont '" FontSize="11" Width="34" Height="33" MinHeight="33" Padding="0" Margin="0,0,0,4"/>'
-        }
-        ctxSection(title, aId, bId, aH, bH, up, down, add, rem) {
-            return '<TextBlock Text="' this._XmlEsc(title) '" FontWeight="Bold" FontSize="13" Margin="0,0,0,6"/>'
-                . '<Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="42"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>'
-                . '<StackPanel Grid.Column="0">' ctxList(aId, GetLang("显示项目"), aH) '</StackPanel>'
-                . '<StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="6,0,6,0">' ctxBtn(up, "&#xE70E;", GetLang("上移")) ctxBtn(down, "&#xE70D;", GetLang("下移")) ctxBtn(add, "&#xE76B;", GetLang("添加")) ctxBtn(rem, "&#xE76C;", GetLang("移除")) '</StackPanel>'
-                . '<StackPanel Grid.Column="2">' ctxList(bId, GetLang("可用项目"), bH) '</StackPanel></Grid>'
-        }
         triggerPage := page("trigger"
             , twoCol(
                 card(GetLang("菜单轮盘"), "&#xE700;", tog(GetLang("固定位置"), "WheelFixedPosCon", MainSoftData.FixedMenuWheel, GetLang("固定在屏幕中下方"))
@@ -5565,15 +5544,6 @@ class MainWin {
                     . sld(GetLang("字体大小"), "UIPanelFontSizeCon", "UIPanelFontSizeVal", MainSoftData.UIPanelFontSize, 8, 24, 1)
                     . sld(GetLang("每行个数"), "UIPanelColsCon", "UIPanelColsVal", MainSoftData.UIPanelCols, 1, 6, 1), "0")
             )
-            . pending(num(GetLang("监听端口"), "EditNetPort", MainSoftData.NetworkPort, GetLang("网络宏端口 1-65535，默认 16888；仅监听本机回环地址。"))
-                    . btnRow("", '<Button Name="BtnNetworkSetting" Content="' GetLang("保存端口并重启监听") '" Height="28" Padding="14,0"/>')
-                . tog(GetLang("界面激活时显示"), "UIPanelShowOnActiveCon", MainSoftData.UIPanelShowOnActive, GetLang("切换到界面宏时显示浮窗"))
-                    . cmb(GetLang("出现位置"), "UIPanelDefaultPosCon", GetLangArr(["左上", "中上", "右上", "中左", "中心", "中右", "左下", "中下", "右下"]), this._UIPanelPosIndex(MainSoftData.UIPanelDefaultPos), true)
-                    . sld(GetLang("位置偏移X"), "UIPanelOffsetXCon", "UIPanelOffsetXVal", MainSoftData.UIPanelOffsetX, 0, 500, 5)
-                    . sld(GetLang("位置偏移Y"), "UIPanelOffsetYCon", "UIPanelOffsetYVal", MainSoftData.UIPanelOffsetY, 0, 500, 5)
-                . card(GetLang("右键菜单"), "&#xE8A5;", ctxSection(GetLang("一般右键显示"), "GenActiveList", "GenAvailList", "150", "150", "BtnGenUp", "BtnGenDown", "BtnGenAdd", "BtnGenRemove")
-                . ctxSection(GetLang("分支循环体右键显示"), "BranchActiveList", "BranchAvailList", "130", "130", "BtnBranchUp", "BtnBranchDown", "BtnBranchAdd", "BtnBranchRemove")
-                . '<TextBlock Text="' this._XmlEsc(GetLang("「分隔线」可重复添加且不会被消耗；修改后点「应用并保存」生效。")) '" FontSize="11" Foreground="{DynamicResource TextSub}" Margin="0,10,0,0" TextWrapping="Wrap"/>', "0,16,0,0"))
         )
 
         ; ---------- 页：主题 ----------
@@ -5602,7 +5572,6 @@ class MainWin {
                 , card(GetLang("字体"), "&#xE8D2;", appearanceBody, "0")
             )
             . card(GetLang("主题颜色"), "&#xE790;", paletteBody, "0,18,0,0")
-            . pending(appearanceExtra)
         )
 
         ; ---------- 页：AI 助手 ----------
@@ -5632,7 +5601,7 @@ class MainWin {
 
         ; ---------- 组装：左侧导航 + 右侧页面 ----------
         navDefs := [["behavior", "&#xE713;", "系统"], ["macro", "&#xE768;", "宏执行"], ["record", "&#xE7C8;", "指令录制"], ["trigger", "&#xE8D4;", "交互界面"], ["hotkey", "&#xE765;", "快捷键"], ["appearance", "&#xE790;", "主题"], ["ai", "&#xE99A;", "AI 助手"], ["diagnostic", "&#xE81C;", "日志"]]
-        navSep := '<Border Height="1" Background="{DynamicResource OutlineStroke}" Margin="0,3,0,3"/>'
+        navSep := '<Border Height="1" Background="{DynamicResource OutlineStroke}" Margin="-11,0,-8,0" HorizontalAlignment="Stretch"/>'
         navAll := ""
         for ni, nd in navDefs {
             if (ni > 1)
@@ -5654,24 +5623,6 @@ class MainWin {
         this._Bind("EditCoordXFloat", "LostFocus", ObjBindMethod(this, "OnIntEdit", "CoordXFloat"))
         this._Bind("EditCoordYFloat", "LostFocus", ObjBindMethod(this, "OnIntEdit", "CoordYFloat"))
         this._Bind("EditMutiThreadNum", "LostFocus", ObjBindMethod(this, "OnIntEdit", "MutiThreadNum"))
-        ; §23 网络宏：参数窗口（端口变更保存后经 OnSaveSetting + 总线调和热生效）
-        ; 弹 XAML 窗须离开 Click 消息上下文，SetTimer(-1) 延迟打开
-        this._Bind("BtnNetworkSetting", "Click", (*) => SetTimer(() => NetworkShowSettingDialog(), -1))
-        this._Bind("EditSoftBGColor", "LostFocus", ObjBindMethod(this, "OnTextEdit", "SoftBGColor"))
-        ; 共享上传：浏览器授权登录（Discourse /user-api-key/new，免手填 Key）
-        this._Bind("BtnShareLogin", "Click", ObjBindMethod(this, "OnShareLoginClick"))
-        this._Bind("BtnShareLogout", "Click", ObjBindMethod(this, "OnShareLogoutClick"))
-        ; 文本输入焦点跟踪：侧栏逻辑树把 $^c/$^v/$^z/$^y/Delete 注册成主窗口级热键（$ 吞键且不转发），
-        ; 不记录焦点的话这些键到不了输入框 → 由 MacroEditGui._OnHotkey 据此透传（主窗口文本框都粘不了的根因）
-        for nm in ["EditSoftBGColor", "EditBackImage"] {
-            this.ui.OnEvent(nm, "GotFocus", ObjBindMethod(this, "OnTextInputFocus", nm))
-            this.ui.OnEvent(nm, "LostFocus", ObjBindMethod(this, "OnTextInputBlur", nm))
-            try this.ui.Update(nm, "BindEvent", "GotFocus")
-            try this.ui.Update(nm, "BindEvent", "LostFocus")
-        }
-        ; §11 背景图：浏览/清空（写入 MainSoftData.BackImagePath，保存后重启生效）
-        this._Bind("BtnBackImageBrowse", "Click", ObjBindMethod(this, "OnBackImageBrowse"))
-        this._Bind("BtnBackImageClear", "Click", ObjBindMethod(this, "OnBackImageClear"))
         this._Bind("CmbFont", "SelectionChanged", ObjBindMethod(this, "OnComboText", "FontType"))
         this._Bind("ChkBootStart", "Click", OnBootStartChanged)
         this._Bind("ChkAdminStart", "Click", OnAdminStartChanged)
@@ -5742,18 +5693,12 @@ class MainWin {
         this._Bind("WheelShowTooltipCon", "Click", ObjBindMethod(this, "OnCheckEdit", "MenuWheelShowTooltip"))
         this._Bind("WheelSelectModeCon", "SelectionChanged", ObjBindMethod(this, "OnComboIndex", "MenuWheelSelectMode"))
         this._Bind("WheelScaleCon", "ValueChanged", ObjBindMethod(this, "OnSettingSlider", "MenuWheelScale", "WheelScaleVal", 50, 200))
-        this._Bind("UIPanelShowOnActiveCon", "Click", ObjBindMethod(this, "OnCheckEdit", "UIPanelShowOnActive"))
-        this._Bind("UIPanelDefaultPosCon", "SelectionChanged", ObjBindMethod(this, "OnUIPanelPosChanged"))
-        this._Bind("UIPanelOffsetXCon", "ValueChanged", ObjBindMethod(this, "OnSettingSlider", "UIPanelOffsetX", "UIPanelOffsetXVal", 0, 500))
-        this._Bind("UIPanelOffsetYCon", "ValueChanged", ObjBindMethod(this, "OnSettingSlider", "UIPanelOffsetY", "UIPanelOffsetYVal", 0, 500))
         this._Bind("UIPanelBtnWidthCon", "ValueChanged", ObjBindMethod(this, "OnSettingSlider", "UIPanelBtnWidth", "UIPanelBtnWidthVal", 40, 250))
         this._Bind("UIPanelBtnHeightCon", "ValueChanged", ObjBindMethod(this, "OnSettingSlider", "UIPanelBtnHeight", "UIPanelBtnHeightVal", 20, 60))
         this._Bind("UIPanelFontSizeCon", "ValueChanged", ObjBindMethod(this, "OnSettingSlider", "UIPanelFontSize", "UIPanelFontSizeVal", 8, 24))
         this._Bind("UIPanelColsCon", "ValueChanged", ObjBindMethod(this, "OnSettingSlider", "UIPanelCols", "UIPanelColsVal", 1, 6))
 
         for spec in [["MenuWheelScale", "WheelScaleCon", "WheelScaleVal", 50, 200],
-            ["UIPanelOffsetX", "UIPanelOffsetXCon", "UIPanelOffsetXVal", 0, 500],
-            ["UIPanelOffsetY", "UIPanelOffsetYCon", "UIPanelOffsetYVal", 0, 500],
             ["UIPanelBtnWidth", "UIPanelBtnWidthCon", "UIPanelBtnWidthVal", 40, 250],
             ["UIPanelBtnHeight", "UIPanelBtnHeightCon", "UIPanelBtnHeightVal", 20, 60],
             ["UIPanelFontSize", "UIPanelFontSizeCon", "UIPanelFontSizeVal", 8, 24],
@@ -5777,18 +5722,6 @@ class MainWin {
             this._Bind("PalettePreview_" A_Index, "MouseLeftButtonDown", ObjBindMethod(this, "OnSettingPickColor", A_Index))
         this._RenderSettingPalette()
 
-        ; ---- 设置中心：右键菜单有序列表（初始化 + 渲染 + 事件）----
-        this._InitCtxLists()
-        this._RenderCtxLists("", -1, false)
-        this._Bind("BtnGenUp", "Click", ObjBindMethod(this, "OnCtxMove", "up", "gen"))
-        this._Bind("BtnGenDown", "Click", ObjBindMethod(this, "OnCtxMove", "down", "gen"))
-        this._Bind("BtnGenAdd", "Click", ObjBindMethod(this, "OnCtxAdd", "gen"))
-        this._Bind("BtnGenRemove", "Click", ObjBindMethod(this, "OnCtxRemove", "gen"))
-        this._Bind("BtnBranchUp", "Click", ObjBindMethod(this, "OnCtxMove", "up", "branch"))
-        this._Bind("BtnBranchDown", "Click", ObjBindMethod(this, "OnCtxMove", "down", "branch"))
-        this._Bind("BtnBranchAdd", "Click", ObjBindMethod(this, "OnCtxAdd", "branch"))
-        this._Bind("BtnBranchRemove", "Click", ObjBindMethod(this, "OnCtxRemove", "branch"))
-
         UIControls.CMDTip := CtrlAdapter("ChkCMDTip", this.ui, "IsChecked")
         this.ui.Update("ChkCMDTip", "IsChecked", MySoftData.CMDTip ? "True" : "False")
     }
@@ -5803,6 +5736,38 @@ class MainWin {
         }
     }
 
+    MarkSettingDirty(ctrl := "") {
+        pageId := ""
+        if (RegExMatch(ctrl, "i)^(Edit(Hold|PreInterval|Interval|Coord)|CmbKeyDown|CmbRemark|ChkNoVariable)"))
+            pageId := "macro"
+        else if (RegExMatch(ctrl, "i)^(Wheel|UIPanel)") )
+            pageId := "trigger"
+        else if (RegExMatch(ctrl, "i)^(ShowBorder|HoldMuti|AutoLoosen|KeyboardTog|MouseTog|MouseTrail|JoyTog|JoyInterval)") )
+            pageId := "record"
+        else if (RegExMatch(ctrl, "i)^(CmbLog|ChkLog|ChkBusiness|ChkCMD|CmdTip)") )
+            pageId := "diagnostic"
+        else if (RegExMatch(ctrl, "i)^Ai") || ctrl == "ThemePresetCon")
+            pageId := ctrl == "ThemePresetCon" ? "appearance" : "ai"
+        else if (RegExMatch(ctrl, "i)^(CmbFont|ThemeFont|Palette)") )
+            pageId := "appearance"
+        else if (RegExMatch(ctrl, "i)^(ChkBoot|ChkAdmin|ChkForeground|ChkContinuous|CmbLang|CmbPreferred|CmbScreen|CmbTriggerJoy|CmbJoy|EditMuti|TabVisible)") )
+            pageId := "behavior"
+        else if (ctrl == "EditNetPort")
+            pageId := "behavior"
+        if (pageId == "")
+            return
+        this._settingDirty[pageId] := true
+        labels := Map("behavior", "系统", "macro", "宏执行", "record", "指令录制", "trigger", "交互界面", "hotkey", "快捷键", "appearance", "主题", "ai", "AI 助手", "diagnostic", "日志")
+        try this.ui.Update("SetNavText_" pageId, "Text", GetLang(labels[pageId]) " *")
+    }
+
+    ClearSettingDirty() {
+        labels := Map("behavior", "系统", "macro", "宏执行", "record", "指令录制", "trigger", "交互界面", "hotkey", "快捷键", "appearance", "主题", "ai", "AI 助手", "diagnostic", "日志")
+        this._settingDirty := Map()
+        for pageId, label in labels
+            try this.ui.Update("SetNavText_" pageId, "Text", GetLang(label))
+    }
+
     OnSettingLogBrowse(*) {
         selected := FileSelect("S", MainSoftData.CMDLogFilePath, GetLang("日志文件路径"), "Log (*.log; *.txt)")
         if (selected == "")
@@ -5814,6 +5779,7 @@ class MainWin {
     ; 0 基索引下拉（配置值即索引，如 RecordMouseTrail / CMDLogAutoClear）
     OnComboIndex0(fieldName, state, ctrl, event) {
         MainSoftData.%fieldName% := Integer(this.ui.Query(ctrl ">SelectedIndex"))
+        this.MarkSettingDirty(ctrl)
     }
 
     ; 滑块 → 写字段 + 同步数值框
@@ -5823,6 +5789,7 @@ class MainWin {
             return
         v := Max(mn, Min(mx, Integer(Round(Number(v)))))
         MainSoftData.%fieldName% := v
+        this.MarkSettingDirty(ctrl)
         try this.ui.Update(valName, "Text", String(v))
     }
 
@@ -5833,6 +5800,7 @@ class MainWin {
             return
         v := Max(mn, Min(mx, Integer(Round(Number(t)))))
         MainSoftData.%fieldName% := v
+        this.MarkSettingDirty(ctrl)
         try this.ui.Update(name, "Value", String(v))
     }
 
@@ -5876,6 +5844,7 @@ class MainWin {
     _ApplySettingFontSize(fs) {
         fs := Max(0, Min(40, fs))
         MainSoftData.FontSize := fs
+        this.MarkSettingDirty("ThemeFontSizeCon")
         try this.ui.Update("ThemeFontSizeCon", "Value", String(fs))
         try this.ui.Update("ThemeFontSizeVal", "Text", String(fs))
         try {
@@ -5907,6 +5876,7 @@ class MainWin {
             return
         prov := AiAssist.ProviderByIndex(Integer(idx) + 1)
         MainSoftData.AiProvider := prov["id"]
+        this.MarkSettingDirty(ctrl)
         editable := (prov["id"] = "custom" || Trim(prov["url"]) == "")
         try this.ui.Update("AiBaseUrlCon", "IsReadOnly", editable ? "False" : "True")
         try this.ui.Update("AiBaseUrlCon", "IsEnabled", editable ? "True" : "False")
@@ -5919,6 +5889,7 @@ class MainWin {
         if (m == "")
             return
         MainSoftData.AiModel := m
+        this.MarkSettingDirty(ctrl)
         list := m
         for id in AiAssist.ModelListArr() {
             id := Trim(id)
@@ -5967,6 +5938,7 @@ class MainWin {
         if (!IsNumber(idx))
             return
         idx := Integer(idx)
+        this.MarkSettingDirty(ctrl)
         if (idx < 0 || idx >= AppThemeUtil.Presets.Length) {
             MainSoftData.AppTheme := "Custom"
         } else {
@@ -6161,12 +6133,15 @@ class MainWin {
 
     OnIntEdit(fieldName, state, ctrl, event) {
         v := Trim(this.ui.Query(ctrl))
-        if (v != "" && IsInteger(v))
+        if (v != "" && IsInteger(v)) {
             MainSoftData.%fieldName% := Integer(v)
+            this.MarkSettingDirty(ctrl)
+        }
     }
 
     OnTextEdit(fieldName, state, ctrl, event) {
         MainSoftData.%fieldName% := this.ui.Query(ctrl)
+        this.MarkSettingDirty(ctrl)
     }
 
     ; 共享上传：退出登录 —— 清空本机凭据（论坛侧那条密钥不撤销，用户可自行去 个人设置 → 应用 撤销）
@@ -6309,6 +6284,7 @@ class MainWin {
 
     OnCheckEdit(fieldName, state, ctrl, event) {
         MainSoftData.%fieldName% := this.ui.Query(ctrl) == "True"
+        this.MarkSettingDirty(ctrl)
     }
 
     ; §10 显示页签勾选：写入 TabVisibleMap（保存后重启生效）
@@ -6326,16 +6302,19 @@ class MainWin {
     OnBusinessLogToggle(state, ctrl, event) {
         global RMTLogBusinessEnabled
         MainSoftData.BusinessLog := this.ui.Query(ctrl) == "True"
+        this.MarkSettingDirty(ctrl)
         RMTLogBusinessEnabled := MainSoftData.BusinessLog
         CfgWrite(MainSoftData.BusinessLog, SettingFile, SettingSection, "BusinessLog")
     }
 
     OnComboText(fieldName, state, ctrl, event) {
         MainSoftData.%fieldName% := this.ui.Query(ctrl)
+        this.MarkSettingDirty(ctrl)
     }
 
     OnComboIndex(fieldName, state, ctrl, event) {
         MainSoftData.%fieldName% := Integer(this.ui.Query(ctrl ">SelectedIndex")) + 1
+        this.MarkSettingDirty(ctrl)
     }
 
     _IntRow(label, name, val, tip := "") {
