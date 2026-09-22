@@ -5346,6 +5346,8 @@ class MainWin {
     BuildSettingTab() {
         ; §23 Panel_ 编号 = TableInfo 位置：表集合新增「网络宏」后 Setting 起顺延 +1，改按 Symbol 动态取位
         p := "Panel_" GetTableIndexByID("Setting")
+        ; 设置页导航需要与 Tab 内容外框相接：仅取消本页宿主默认的 8px 左边距。
+        this.ui.Update(p, "Margin", "0,6,8,10")
         Add := (x) => this.ui.Update(p, "AddXamlItem", x)
         ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
 
@@ -5356,7 +5358,7 @@ class MainWin {
         navStyle := '<Style x:Key="SetNavItem" TargetType="RadioButton">'
             . '<Setter Property="Height" Value="36"/><Setter Property="Margin" Value="0"/><Setter Property="Padding" Value="0"/><Setter Property="BorderThickness" Value="0"/><Setter Property="HorizontalAlignment" Value="Stretch"/><Setter Property="Cursor" Value="Hand"/><Setter Property="Foreground" Value="{DynamicResource TextMain}"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/>'
             . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="RadioButton">'
-            . '<Border x:Name="Bd" Background="Transparent" BorderBrush="Transparent" BorderThickness="0" CornerRadius="0" Padding="0" Margin="-11,0,-8,0"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="3"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>'
+            . '<Border x:Name="Bd" Background="Transparent" BorderBrush="Transparent" BorderThickness="0" CornerRadius="0" Padding="0" Margin="0,0,-8,0"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="3"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>'
             . '<Rectangle x:Name="Bar" Grid.Column="0" Width="3" RadiusX="1.5" RadiusY="1.5" Fill="{DynamicResource Accent}" Visibility="Collapsed" Margin="0,5,0,5"/>'
             . '<ContentPresenter Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center"/></Grid></Border>'
             . '<ControlTemplate.Triggers>'
@@ -5601,18 +5603,20 @@ class MainWin {
 
         ; ---------- 组装：左侧导航 + 右侧页面 ----------
         navDefs := [["behavior", "&#xE713;", "系统"], ["macro", "&#xE768;", "宏执行"], ["record", "&#xE7C8;", "指令录制"], ["trigger", "&#xE8D4;", "交互界面"], ["hotkey", "&#xE765;", "快捷键"], ["appearance", "&#xE790;", "主题"], ["ai", "&#xE99A;", "AI 助手"], ["diagnostic", "&#xE81C;", "日志"]]
-        navSep := '<Border Height="1" Background="{DynamicResource OutlineStroke}" Margin="-11,0,-8,0" HorizontalAlignment="Stretch"/>'
-        navAll := ""
+        navSep := '<Border Height="1" Background="{DynamicResource OutlineStroke}" Margin="0,0,-9,0" HorizontalAlignment="Stretch"/>'
+        navAll := navSep
         for ni, nd in navDefs {
             if (ni > 1)
                 navAll .= navSep
             navAll .= navItem(nd[1], nd[2], GetLang(nd[3]), ni == 1)
         }
+        navAll .= navSep
         pagesAll := behaviorPage . macroPage . recordPage . triggerPage . hotkeyPage . themePage . aiPage . logPage
         Add('<Grid ' ns '><Grid.Resources>' navStyle . switchStyle . fieldStyles '</Grid.Resources>'
             . '<Grid.ColumnDefinitions><ColumnDefinition Width="146"/><ColumnDefinition Width="18"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>'
-            . '<StackPanel Grid.Column="0" Margin="0,2,0,2">' navAll . '</StackPanel>'
+            ; 先画纵向边框，再画导航与横向分隔线，使交点由横线覆盖，不留抗锯齿缝隙。
             . '<Border Grid.Column="1" Width="1" HorizontalAlignment="Center" Background="{DynamicResource OutlineStroke}"/>'
+            . '<StackPanel Grid.Column="0" Margin="0,2,0,2">' navAll . '</StackPanel>'
             . '<ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><Grid>' pagesAll . '</Grid></ScrollViewer>'
             . '</Grid>')
 
