@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RMT 特别感谢页签布局参考</title>
+  <style>
+    :root { --page:#fff7df; --surface:#fffdf7; --card:#fffaf0; --header:#ffe6b6; --stroke:#edb45c; --soft:#f3d79d; --accent:#f28c00; --ink:#4b301d; --muted:#8e7258; --link:#236bc0; }
+    * { box-sizing:border-box; }
+    body { min-height:100vh; margin:0; padding:30px; color:var(--ink); font-family:"Microsoft YaHei UI","Segoe UI",sans-serif; background:radial-gradient(circle at 100% 0,#fffdf4 0,var(--page) 56%,#fff0c7 100%); }
+    .window { max-width:1180px; margin:auto; overflow:hidden; border:1.5px solid var(--stroke); border-radius:15px; background:var(--surface); box-shadow:0 18px 48px rgba(114,72,20,.17); }
+    .topbar { display:flex; gap:12px; align-items:center; min-height:68px; padding:15px 24px; border-bottom:1px solid var(--soft); background:linear-gradient(105deg,var(--header),#fff3d8); }
+    .fluent { font-family:"Segoe Fluent Icons","Segoe MDL2 Assets",sans-serif; font-style:normal; font-weight:400; }
+    .brand-icon,.item-icon { display:grid; place-items:center; color:var(--accent); background:#fff8e7; border:1px solid #ffc76f; }
+    .brand-icon { width:35px; height:35px; border-radius:11px; font-size:18px; }
+    .topbar strong { font-size:23px; } .topbar small { display:block; margin-top:3px; color:var(--muted); font-size:12px; }
+    .content { padding:22px; }
+    .wall { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:20px; align-items:center; margin-bottom:18px; padding:16px 18px; border:1.5px solid #e9a34e; border-radius:11px; background:linear-gradient(105deg,#fff2d7,#fffaf0); box-shadow:0 5px 14px rgba(165,91,24,.08); }
+    .wall h1 { display:flex; gap:9px; align-items:center; margin:0 0 6px; font-size:17px; } .wall p { margin:0; color:var(--muted); font-size:12px; line-height:1.6; } .wall p strong { display:block; margin-top:4px; color:#9b541a; font-size:11px; }
+    .button { display:inline-flex; align-items:center; gap:6px; justify-content:center; min-height:32px; padding:0 11px; border:1px solid var(--stroke); border-radius:6px; color:#7a4318; background:#fffdfa; font-size:12px; font-weight:700; text-decoration:none; white-space:nowrap; }
+    .button:hover { color:#fff; border-color:var(--accent); background:var(--accent); }
+    .layout { display:grid; grid-template-columns:minmax(0,1.55fr) minmax(300px,.85fr); gap:18px; align-items:start; }
+    .stack { display:grid; gap:18px; align-content:start; }
+    .card { overflow:hidden; border:1px solid var(--soft); border-radius:12px; background:var(--card); }
+    .developer-card { min-height:205px; }
+    .community-card { min-height:198px; }
+    .cocreate-card { min-height:198px; }
+    .card-head { display:flex; align-items:center; justify-content:space-between; min-height:50px; padding:0 16px; border-bottom:1px solid #f5e4bd; background:#fff3d8; }
+    .card-head h2 { display:flex; gap:8px; align-items:center; margin:0; font-size:16px; } .card-head small { color:var(--muted); font-size:11px; }
+    .card-body { padding:14px 16px 16px; }
+    .people { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+    .person { display:flex; gap:9px; align-items:center; min-height:54px; padding:9px; border:1px solid #f0d29a; border-radius:8px; background:#fffdf8; }
+    .person .open { margin-left:auto; }
+    .avatar { display:block; flex:none; width:28px; height:28px; border:1px solid #f2cf8e; border-radius:50%; background:#ffebbd; object-fit:cover; }
+    .avatar-letter { display:grid; place-items:center; color:#9b541a; font-size:12px; font-weight:800; }
+    .person strong { display:block; font-size:12px; } .person small { display:block; margin-top:2px; color:var(--muted); font-size:10px; }
+    .oss { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+    .project { display:grid; grid-template-columns:31px minmax(0,1fr) auto; gap:9px; align-items:center; min-height:62px; padding:10px; border:1px solid #f0d29a; border-radius:8px; background:#fffdf8; }
+    .item-icon { width:29px; height:29px; border-radius:8px; font-size:13px; } .project strong { display:block; font-size:12px; } .project small { display:block; margin-top:3px; color:var(--muted); font-size:10px; line-height:1.35; }
+    .open { color:var(--link); font-size:13px; text-decoration:none; } .open:hover { color:var(--accent); }
+    .community-note { margin:0 0 11px; color:var(--muted); font-size:11px; line-height:1.55; }
+    .nicknames { display:flex; flex-wrap:wrap; gap:8px; }
+    .nick { padding:6px 9px; border:1px solid #f0d29a; border-radius:6px; background:#fffdf8; font-size:12px; }
+    .contribution { display:flex; gap:9px; align-items:flex-start; padding:11px; border:1px dashed #e3ae59; border-radius:8px; color:#80552c; background:#fff5dc; font-size:11px; line-height:1.55; }
+    .contribution + .contribution { margin-top:9px; }
+    .footer { padding:12px 22px; border-top:1px solid var(--soft); color:var(--muted); background:#fff9ea; font-size:11px; text-align:center; }
+    @media (max-width:860px) { body { padding:14px; } .wall,.layout,.oss { grid-template-columns:1fr; } .people { grid-template-columns:repeat(2,minmax(0,1fr)); } .wall .button { justify-self:start; } }
+  </style>
+</head>
+<body>
+  <div class="window">
+    <header class="topbar"><span class="brand-icon fluent">&#xE9CE;</span><div><strong>特别感谢</strong><small>感谢每一位开发者、开源项目与社区伙伴的同行。</small></div></header>
+    <main class="content">
+      <section class="wall">
+        <div><h1><span class="fluent" style="color:var(--accent)">&#xE8A5;</span>若梦星河</h1><p>这里会逐步收录支持者留言、开发者贡献与开源项目，也会记录让 RMT 持续成长的每一份善意与协作。<strong>提示：收录数据会在版本更新时统一更新。</strong></p></div>
+        <a class="button" href="https://docs.ruomengtu.com/supporters/"><span class="fluent">&#xE8A5;</span>打开若梦星河 <span class="fluent">&#xE8A7;</span></a>
+      </section>
+
+      <div class="layout">
+        <div class="stack">
+          <section class="card developer-card">
+            <header class="card-head"><h2><span class="fluent" style="color:var(--accent)">&#xE77B;</span>开发贡献者</h2><small>感谢同行</small></header>
+            <div class="card-body people">
+              <div class="person"><img class="avatar" src="assets/thank-avatars/yun.jpg" alt="yun 头像"><span><strong>yun</strong><small>项目贡献者</small></span><a class="open fluent" href="https://github.com/yunkuangao" title="打开 yun 的主页">&#xE8A7;</a></div>
+              <div class="person"><img class="avatar" src="assets/thank-avatars/boxstudy.jpg" alt="boxstudy 头像"><span><strong>boxstudy</strong><small>项目贡献者</small></span><a class="open fluent" href="https://github.com/boxstudy" title="打开 boxstudy 的主页">&#xE8A7;</a></div>
+              <div class="person"><img class="avatar" src="assets/thank-avatars/sovaedv776.png" alt="sovaedv776 头像"><span><strong>sovaedv776</strong><small>项目贡献者</small></span><a class="open fluent" href="https://github.com/sovaedv776" title="打开 sovaedv776 的主页">&#xE8A7;</a></div>
+              <div class="person"><span class="avatar avatar-letter" aria-label="张正波">张</span><span><strong>张正波</strong><small>项目贡献者</small></span><a class="open fluent" href="https://gitee.com/bogezzb" title="打开张正波的主页">&#xE8A7;</a></div>
+              <div class="person"><img class="avatar" src="assets/thank-avatars/gushulily.jpg" alt="GushuLily 头像"><span><strong>GushuLily</strong><small>项目贡献者</small></span><a class="open fluent" href="https://github.com/GushuLily" title="打开 GushuLily 的主页">&#xE8A7;</a></div>
+              <div class="person"><img class="avatar" src="assets/thank-avatars/t8numen.jpg" alt="T8numen 头像"><span><strong>T8numen</strong><small>项目贡献者</small></span><a class="open fluent" href="https://github.com/T8numen" title="打开 T8numen 的主页">&#xE8A7;</a></div>
+            </div>
+          </section>
+
+          <section class="card">
+            <header class="card-head"><h2><span class="fluent" style="color:var(--accent)">&#xE8B7;</span>开源项目支持</h2><small>致谢以下开源项目</small></header>
+            <div class="card-body oss">
+              <article class="project"><span class="item-icon fluent">&#xE8BD;</span><span><strong>Discourse</strong><small>为 RMT 社区论坛提供支持。</small></span><a class="open fluent" href="https://github.com/discourse/discourse">&#xE8A7;</a></article>
+              <article class="project"><span class="item-icon fluent">&#xE720;</span><span><strong>sherpa-onnx</strong><small>为 RMT 语音关键词识别提供支持。</small></span><a class="open fluent" href="https://github.com/k2-fsa/sherpa-onnx">&#xE8A7;</a></article>
+              <article class="project"><span class="item-icon fluent">&#xE91B;</span><span><strong>OpenCV</strong><small>视觉识别与图像处理能力。</small></span><a class="open fluent" href="https://github.com/opencv/opencv">&#xE8A7;</a></article>
+              <article class="project"><span class="item-icon fluent">&#xE8B7;</span><span><strong>ahk2_lib</strong><small>AutoHotkey v2 基础工具库。</small></span><a class="open fluent" href="https://github.com/thqby/ahk2_lib">&#xE8A7;</a></article>
+              <article class="project"><span class="item-icon fluent">&#xE8A9;</span><span><strong>RapidOCR</strong><small>本地文字识别能力。</small></span><a class="open fluent" href="https://github.com/RapidAI/RapidOCR">&#xE8A7;</a></article>
+              <article class="project"><span class="item-icon fluent">&#xE7FC;</span><span><strong>ViGEm Bus</strong><small>虚拟手柄支持。</small></span><a class="open fluent" href="https://github.com/nefarius/ViGEmBus">&#xE8A7;</a></article>
+            </div>
+          </section>
+        </div>
+
+        <aside class="stack">
+          <section class="card cocreate-card">
+            <header class="card-head"><h2><span class="fluent" style="color:var(--accent)">&#xE8D4;</span>守护与共创</h2></header>
+            <div class="card-body">
+              <div class="contribution"><span class="fluent">&#xE8D7;</span><span>感谢若梦兔守护者的支持与陪伴。每一份信任都让 RMT 能够持续维护、不断成长。</span></div>
+              <div class="contribution"><span class="fluent">&#xE946;</span><span>有效的 Bug 反馈与需求建议、社区答疑和配置分享，都是 RMT 的共创力量。参与的伙伴会收录在若梦星河。</span></div>
+            </div>
+          </section>
+          <section class="card community-card">
+            <header class="card-head"><h2><span class="fluent" style="color:var(--accent)">&#xE902;</span>社区活跃伙伴</h2><small>QQ 昵称</small></header>
+            <div class="card-body"><p class="community-note">感谢在社区中积极交流、提出建议、协助答疑的每一位群友。</p><div class="nicknames"><span class="nick">AYu</span><span class="nick">万年置伞</span><span class="nick">别说*不下啦</span><span class="nick">仰望</span><span class="nick">话听</span><span class="nick">yun</span><span class="nick">小足</span></div></div>
+          </section>
+        </aside>
+      </div>
+    </main>
+    <footer class="footer">特别感谢页签 HTML 视觉参考稿 · 本文件仅用于确认布局与文案，不会修改软件界面。</footer>
+  </div>
+</body>
+</html>

@@ -907,6 +907,10 @@ class MainWin {
         ; §10 页签位置 → TableInfo 下标（隐藏页签后位置与下标不再 1:1）
         idx := (this.HasOwnProp("_tabOrder") && IsObject(this._tabOrder) && sel >= 1 && sel <= this._tabOrder.Length)
             ? this._tabOrder[sel] : sel
+        ; TabControl 初始选择与子控件 SelectionChanged 可能在 PopulateAll 尚未创建惰性渲染状态时冒泡。
+        ; 此时不应切换页签；待 PopulateAll 完成并建立 _renderedTabs 后再响应后续事件。
+        if (!this.HasOwnProp("_renderedTabs") || !IsObject(this._renderedTabs))
+            return
         ; ComboBox.SelectionChanged 会冒泡到 TabControl；同页再入不重渲，避免切页/生成行时抖动
         if (idx == MainSoftData.TableIndex && this.HasOwnProp("_renderedTabs") && this._renderedTabs.Has(idx))
             return
@@ -6410,7 +6414,7 @@ class MainWin {
         hintXaml := hint == "" ? "" : '<TextBlock Grid.Column="1" Text="' this._XmlEsc(hint) '" Foreground="{DynamicResource TextSub}" FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Right"/>'
         return '<Border ' ns ' Margin="' margin '" Background="{DynamicResource ControlBg}" BorderBrush="' accent '" BorderThickness="1.25" CornerRadius="8" Padding="0">'
             . '<Grid><Grid.RowDefinitions><RowDefinition Height="42"/><RowDefinition Height="*"/></Grid.RowDefinitions>'
-            . '<Border Grid.Row="0" Background="{DynamicResource EditHoverBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="0,0,0,1" CornerRadius="7,7,0,0" Padding="13,0"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel Orientation="Horizontal" VerticalAlignment="Center"><TextBlock Text="' glyph '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14" Foreground="{DynamicResource Accent}" Margin="0,0,8,0"/><TextBlock Text="' this._XmlEsc(title) '" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" Foreground="{DynamicResource TextMain}"/></StackPanel>' hintXaml '</Grid></Border>'
+            . '<Border Grid.Row="0" Background="{DynamicResource EditHoverBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="0,0,0,1" CornerRadius="7,7,0,0" Padding="13,0"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel Orientation="Horizontal" VerticalAlignment="Center"><TextBlock Text="' glyph '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14" Foreground="{DynamicResource Accent}" Margin="0,0,8,0" VerticalAlignment="Center"/><TextBlock Text="' this._XmlEsc(title) '" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" Foreground="{DynamicResource TextMain}"/></StackPanel>' hintXaml '</Grid></Border>'
             . '<Border Grid.Row="1" Padding="13,11">' body '</Border></Grid></Border>'
     }
 
@@ -6492,7 +6496,7 @@ class MainWin {
         guardianButtons := '<StackPanel Orientation="Horizontal">' this._HelpLinkButton("https://forum.ruomengtu.com/", GetLang("打开 RMT 论坛")) '<Border Width="7"/> ' this._HelpLinkButton("https://qm.qq.com/q/DgpDumEPzq", GetLang("加入 QQ 交流群")) '</StackPanel>'
         benefits := '<StackPanel>'
             . this._SupportAfterCard(0, 0, 1, "&#xE902;", GetLang("领取守护者称号"), GetLang("完成赞助后，可通过 RMT 论坛或 RMT QQ 交流群私信联系，领取论坛和 QQ 交流群的“守护者”称号。"), guardianButtons, "0,0,0,10")
-            . this._SupportAfterCard(1, 0, 1, "&#xE8A5;", GetLang("守护者留言墙"), GetLang("赞助后的留言会展示在支持者名单与留言页，感谢每一位让 RMT 走得更远的朋友。"), this._HelpLinkButton("https://docs.ruomengtu.com/supporters/", GetLang("查看支持者名单")), "0", GetLang("提示：支持者名单会在版本更新时统一更新。"))
+            . this._SupportAfterCard(1, 0, 1, "&#xE8A5;", GetLang("若梦星河"), GetLang("赞助后的留言会展示在若梦星河，感谢每一位让 RMT 走得更远的朋友。"), this._HelpLinkButton("https://docs.ruomengtu.com/supporters/", GetLang("打开若梦星河")), "0", GetLang("提示：名单会在版本更新时统一更新。"))
             . '</StackPanel>'
         aiFaDian := '<Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>' this._SupportAiFaDianCard(0, 0, 1, aiFaDianImg, "0") '</Grid>'
         supportLayout := '<Grid ' ns ' Margin="0,0,0,14"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Border Grid.Row="0" Grid.Column="0" Margin="0,0,7,7">'
@@ -6540,30 +6544,108 @@ class MainWin {
         p := "Panel_" GetTableIndexByID("Thank")
         Add := (x) => this.ui.Update(p, "AddXamlItem", x)
         ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
-        Add('<TextBlock ' ns ' Text="' GetLang("感谢以下开发者为项目付出的智慧与汗水（排名不分先后）：") '" FontWeight="Bold" TextWrapping="Wrap" Margin="0,8,0,4"/>')
-        Add(this._ThankLinks(["https://github.com/GushuLily", "https://gitee.com/bogezzb", "https://github.com/yunkuangao", "https://github.com/boxstudy", "https://github.com/sovaedv776", "https://github.com/T8numen"], ["GushuLily", "张正波", "yun", "boxstudy", "sovaedv776", "T8numen"]))
-        Add('<TextBlock ' ns ' Text="' GetLang("软件的开发离不开众多优秀开源项目的支持，特别感谢：") '" FontWeight="Bold" TextWrapping="Wrap" Margin="0,14,0,4"/>')
-        Add(this._ThankLinks(["https://github.com/opencv/opencv", "https://github.com/thqby/ahk2_lib", "https://github.com/RapidAI/RapidOCR", "https://github.com/evilC/AHK-CvJoyInterface", "https://github.com/Chaoses-Ib/IbInputSimulator", "https://github.com/evilC/AHK-ViGEm-Bus", "https://github.com/CesarHlp1/AHK-ViGEm-Bus-v2.ahk", "https://github.com/xland/ScreenCapture", "https://github.com/owhs/ahk-xaml"], ["OpenCV", "ahk2_lib", "RapidOCR", "AHK-CvJoyInterface", "IbInputSimulator", "AHK-ViGEm-Bus", "AHK-ViGEm-Bus-v2", "ScreenCapture", "ahk-xaml"]))
-        Add('<TextBlock ' ns ' Text="' GetLang("感谢以下群友在社区中的活跃参与和宝贵建议：（QQ昵称）") '" FontWeight="Bold" TextWrapping="Wrap" Margin="0,14,0,4"/>')
-        Add('<TextBlock ' ns ' Text="AYu    万年置伞    别说*不下啦    仰望    话听    yun" FontSize="12" Margin="0,4,0,4"/>')
-        Add('<TextBlock ' ns ' Text="' GetLang("感谢所有赞助支持若梦兔的守护者，以及参与完善 Bug 和需求文档的朋友。") '" FontSize="12" TextWrapping="Wrap" Margin="0,14,0,0"/>')
-        Add('<TextBlock ' ns ' Text="' GetLang("感谢每一位陪伴我们走过这段旅程的粉丝和群友们！是你们的支持与信任，让这个软件从一个小小的想法，一步步成长为今天的样子。每一次的鼓励、每一条的建议，都是我们前进的动力。") '`n' GetLang("感谢你们不离不弃，与我们共同见证每一次的迭代与成长。") '" FontSize="12" TextWrapping="Wrap" Margin="0,8,0,0"/>')
-        Add('<TextBlock ' ns ' Text="' GetLang("再次感谢所有关心、支持、帮助过这个项目的每一个人！") '`n' GetLang("因为有你，这个项目才变得更有意义。") '" FontSize="12" TextWrapping="Wrap" Margin="0,8,0,0"/>')
-        Add('<TextBlock ' ns ' Text="—— 若梦兔' GetLang("敬上") '" FontSize="12" HorizontalAlignment="Right" Margin="0,8,0,0"/>')
+        wall := '<Border ' ns ' Margin="0,2,0,14" Padding="16,14" Background="{DynamicResource ControlBg}" BorderBrush="{DynamicResource Accent}" BorderThickness="1.25" CornerRadius="8"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE734;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Foreground="{DynamicResource Accent}" FontSize="15" Margin="0,0,8,0"/><TextBlock Text="' this._XmlEsc(GetLang("若梦星河")) '" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource TextMain}"/></StackPanel><TextBlock Text="' this._XmlEsc(GetLang("这里会逐步收录支持者留言、开发者贡献与开源项目，也会记录让 RMT 持续成长的每一份善意与协作。")) '" TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource TextSub}" Margin="0,7,16,0"/><TextBlock Text="' this._XmlEsc(GetLang("提示：收录数据会在版本更新时统一更新。")) '" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource Accent}" Margin="0,5,0,0"/></StackPanel><Border Grid.Column="1" VerticalAlignment="Center" Margin="10,0,0,0">' this._ThankLinkButton("https://docs.ruomengtu.com/supporters/", GetLang("打开若梦星河"), "&#xE734;") '</Border></Grid></Border>'
+        Add(wall)
+
+        dev := '<Grid><Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="*"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>'
+            . this._ThankContributor(0, 0, "yun", "yun", this._GetBuiltInThankAvatar("yun"), "https://github.com/yunkuangao", "0,0,5,5")
+            . this._ThankContributor(0, 1, "boxstudy", "B", this._GetBuiltInThankAvatar("boxstudy"), "https://github.com/boxstudy", "5,0,5,5")
+            . this._ThankContributor(0, 2, "sovaedv776", "S", this._GetBuiltInThankAvatar("sovaedv776"), "https://github.com/sovaedv776", "5,0,0,5")
+            . this._ThankContributor(1, 0, "张正波", "张", "", "https://gitee.com/bogezzb", "0,5,5,0")
+            . this._ThankContributor(1, 1, "GushuLily", "G", this._GetBuiltInThankAvatar("gushulily"), "https://github.com/GushuLily", "5,5,5,0")
+            . this._ThankContributor(1, 2, "T8numen", "T", this._GetBuiltInThankAvatar("t8numen"), "https://github.com/T8numen", "5,5,0,0")
+            . '</Grid>'
+
+        oss := '<Grid><Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="*"/><RowDefinition Height="*"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>'
+            . this._ThankProject(0, 0, "&#xE8BD;", "Discourse", "为 RMT 社区论坛提供支持。", "https://github.com/discourse/discourse", "0,0,5,5")
+            . this._ThankProject(0, 1, "&#xE720;", "sherpa-onnx", "为 RMT 语音关键词识别提供支持。", "https://github.com/k2-fsa/sherpa-onnx", "5,0,0,5")
+            . this._ThankProject(1, 0, "&#xE91B;", "OpenCV", "视觉识别与图像处理能力。", "https://github.com/opencv/opencv", "0,5,5,5")
+            . this._ThankProject(1, 1, "&#xE8B7;", "ahk2_lib", "AutoHotkey v2 基础工具库。", "https://github.com/thqby/ahk2_lib", "5,5,0,5")
+            . this._ThankProject(2, 0, "&#xE8A9;", "RapidOCR", "本地文字识别能力。", "https://github.com/RapidAI/RapidOCR", "0,5,5,0")
+            . this._ThankProject(2, 1, "&#xE7FC;", "ViGEm Bus", "虚拟手柄支持。", "https://github.com/nefarius/ViGEmBus", "5,5,0,0")
+            . '</Grid>'
+
+        cocreate := '<StackPanel>'
+            . this._ThankInfoBlock("&#xE8D7;", GetLang("感谢若梦兔守护者的支持与陪伴。每一份信任都让 RMT 能够持续维护、不断成长。"), "0,0,0,7")
+            . this._ThankInfoBlock("&#xE946;", GetLang("有效的 Bug 反馈与需求建议、社区答疑和配置分享，都是 RMT 的共创力量。参与的伙伴会收录在若梦星河。"), "0")
+            . '</StackPanel>'
+        community := '<StackPanel><TextBlock Text="' this._XmlEsc(GetLang("感谢在社区中积极交流、提出建议、协助答疑的每一位群友。")) '" TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource TextSub}" Margin="0,0,0,9"/><WrapPanel>'
+            . this._ThankNickname("AYu") this._ThankNickname("万年置伞") this._ThankNickname("别说*不下啦") this._ThankNickname("仰望") this._ThankNickname("话听") this._ThankNickname("yun") this._ThankNickname("小足")
+            . '</WrapPanel></StackPanel>'
+
+        layout := '<Grid ' ns ' Margin="0,0,0,14"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="1.55*"/><ColumnDefinition Width="0.85*"/></Grid.ColumnDefinitions><Border Grid.Row="0" Grid.Column="0" Margin="0,0,7,7">'
+            . this._HelpCard(GetLang("开发贡献者"), "&#xE77B;", dev, GetLang("感谢同行"), "0")
+            . '</Border><Border Grid.Row="1" Grid.Column="0" Margin="0,7,7,0">'
+            . this._HelpCard(GetLang("开源项目支持"), "&#xE8B7;", oss, GetLang("致谢以下开源项目"), "0")
+            . '</Border><Border Grid.Row="0" Grid.Column="1" Margin="7,0,0,7">'
+            . this._HelpCard(GetLang("守护与共创"), "&#xE8D4;", cocreate, "", "0")
+            . '</Border><Border Grid.Row="1" Grid.Column="1" Margin="7,7,0,0" VerticalAlignment="Top">'
+            . this._HelpCard(GetLang("社区活跃伙伴"), "&#xE902;", community, GetLang("QQ 昵称"), "0")
+            . '</Border></Grid>'
+        Add(layout)
         this._FlushLinks()
     }
 
-    _ThankLinks(urls, names) {
-        ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
-        row := '<WrapPanel ' ns ' Margin="0,3,0,3">'
-        for k, url in urls {
-            this._linkCounter := this._linkCounter + 1
-            name := "ThankLink_" this._linkCounter
-            this._linkQueue.Push({ name: name, url: url })
-            row .= '<TextBlock Name="' name '" Text="' this._XmlEsc(names[k]) '" TextDecorations="Underline" Foreground="#2D6CDF" Cursor="Hand" FontSize="12" Margin="0,0,18,0"/>'
+    _ThankLinkButton(url, text, glyph := "&#xE8A7;") {
+        this._linkCounter := this._linkCounter + 1
+        name := "ThankLink_" this._linkCounter
+        this._linkQueue.Push({ name: name, url: url, event: "Click" })
+        return '<Button Name="' name '" Cursor="Hand" MinHeight="35" Padding="15,7" VerticalContentAlignment="Center" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1">' this._ThankSoftHoverTemplate() '<StackPanel Orientation="Horizontal"><TextBlock Text="' glyph '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="11" Foreground="{DynamicResource Accent}" Margin="0,0,6,0" VerticalAlignment="Center"/><TextBlock Text="' this._XmlEsc(text) '" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource TextMain}" VerticalAlignment="Center"/><TextBlock Text="&#xE8A7;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="9" Foreground="{DynamicResource Accent}" Margin="6,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>'
+    }
+
+    ; 特别感谢页的可点击卡片沿用设置左侧分类的柔和悬停底色，避免默认按钮高亮过重。
+    _ThankSoftHoverTemplate() {
+        return '<Button.Template><ControlTemplate TargetType="Button"><Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="5"><ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource ListAltBg}"/></Trigger><Trigger Property="IsPressed" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource EditHoverBg}"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Button.Template>'
+    }
+
+    _ThankContributor(row, col, title, initial, image, url, margin) {
+        this._linkCounter := this._linkCounter + 1
+        name := "ThankContributor_" this._linkCounter
+        this._linkQueue.Push({ name: name, url: url, event: "Click" })
+        avatar := image == "" ? '<Border Width="30" Height="30" CornerRadius="15" Background="{DynamicResource EditHoverBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1"><TextBlock Text="' this._XmlEsc(initial) '" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource Accent}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>' : '<Ellipse Width="30" Height="30" Stroke="{DynamicResource OutlineStroke}" StrokeThickness="1"><Ellipse.Fill><ImageBrush ImageSource="' image '" Stretch="UniformToFill"/></Ellipse.Fill></Ellipse>'
+        return '<Border Grid.Row="' row '" Grid.Column="' col '" Margin="' margin '" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1" CornerRadius="6"><Button Name="' name '" Cursor="Hand" Background="Transparent" BorderThickness="0" Padding="0" HorizontalContentAlignment="Stretch">' this._ThankSoftHoverTemplate() '<Grid Margin="9,7"><Grid.ColumnDefinitions><ColumnDefinition Width="37"/><ColumnDefinition Width="*"/><ColumnDefinition Width="18"/></Grid.ColumnDefinitions>' avatar '<StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="' this._XmlEsc(title) '" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextMain}"/><TextBlock Text="' this._XmlEsc(GetLang("项目贡献者")) '" FontSize="9" Foreground="{DynamicResource TextSub}" Margin="0,2,0,0"/></StackPanel><TextBlock Grid.Column="2" Text="&#xE8A7;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="11" Foreground="{DynamicResource Accent}" HorizontalAlignment="Right" VerticalAlignment="Center"/></Grid></Button></Border>'
+    }
+
+    _ThankProject(row, col, glyph, title, description, url, margin) {
+        this._linkCounter := this._linkCounter + 1
+        name := "ThankProject_" this._linkCounter
+        this._linkQueue.Push({ name: name, url: url, event: "Click" })
+        return '<Border Grid.Row="' row '" Grid.Column="' col '" Margin="' margin '" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1" CornerRadius="6"><Button Name="' name '" Cursor="Hand" Background="Transparent" BorderThickness="0" Padding="0" HorizontalContentAlignment="Stretch">' this._ThankSoftHoverTemplate() '<Grid Margin="10,8"><Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="18"/></Grid.ColumnDefinitions><Border Width="28" Height="28" CornerRadius="6" Background="{DynamicResource EditHoverBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1"><TextBlock Text="' glyph '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" Foreground="{DynamicResource Accent}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="' this._XmlEsc(title) '" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextMain}"/><TextBlock Text="' this._XmlEsc(GetLang(description)) '" TextWrapping="Wrap" FontSize="9" Foreground="{DynamicResource TextSub}" Margin="0,2,0,0"/></StackPanel><TextBlock Grid.Column="2" Text="&#xE8A7;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="11" Foreground="{DynamicResource Accent}" HorizontalAlignment="Right" VerticalAlignment="Center"/></Grid></Button></Border>'
+    }
+
+    _ThankInfoBlock(glyph, text, margin := "0") {
+        return '<Border Margin="' margin '" Padding="10" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1" CornerRadius="6"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="20"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Text="' glyph '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="11" Foreground="{DynamicResource Accent}" VerticalAlignment="Top"/><TextBlock Grid.Column="1" Text="' this._XmlEsc(text) '" TextWrapping="Wrap" FontSize="10" Foreground="{DynamicResource TextMain}"/></Grid></Border>'
+    }
+
+    _ThankNickname(text) {
+        return '<Border Margin="0,0,7,7" Padding="8,4" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1" CornerRadius="5"><TextBlock Text="' this._XmlEsc(text) '" FontSize="10" Foreground="{DynamicResource TextMain}"/></Border>'
+    }
+
+    _GetBuiltInThankAvatar(id) {
+        static paths := Map()
+        if (paths.Has(id))
+            return paths[id]
+        switch id {
+            case "yun":
+                tempPath := A_Temp "\RMT_Thank_yun.jpg"
+                FileInstall("Web\assets\thank-avatars\yun.jpg", tempPath, 1)
+            case "boxstudy":
+                tempPath := A_Temp "\RMT_Thank_boxstudy.jpg"
+                FileInstall("Web\assets\thank-avatars\boxstudy.jpg", tempPath, 1)
+            case "sovaedv776":
+                tempPath := A_Temp "\RMT_Thank_sovaedv776.png"
+                FileInstall("Web\assets\thank-avatars\sovaedv776.png", tempPath, 1)
+            case "gushulily":
+                tempPath := A_Temp "\RMT_Thank_gushulily.jpg"
+                FileInstall("Web\assets\thank-avatars\gushulily.jpg", tempPath, 1)
+            case "t8numen":
+                tempPath := A_Temp "\RMT_Thank_t8numen.jpg"
+                FileInstall("Web\assets\thank-avatars\t8numen.jpg", tempPath, 1)
+            default:
+                return ""
         }
-        row .= '</WrapPanel>'
-        return row
+        paths[id] := StrReplace(tempPath, "\", "/")
+        return paths[id]
     }
 
     _FlushLinks() {
