@@ -5356,7 +5356,7 @@ class MainWin {
         ; §23 Panel_ 编号 = TableInfo 位置：表集合新增「网络宏」后 Setting 起顺延 +1，改按 Symbol 动态取位
         p := "Panel_" GetTableIndexByID("Setting")
         ; 设置页导航需要与 Tab 内容外框相接：仅取消本页宿主默认的 8px 左边距。
-        this.ui.Update(p, "Margin", "0,6,8,10")
+        this.ui.Update(p, "Margin", "0,6,4,10")
         Add := (x) => this.ui.Update(p, "AddXamlItem", x)
         ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
 
@@ -5445,7 +5445,7 @@ class MainWin {
         }
         page(id, body, visible := false) {
             return '<StackPanel Name="SetPage_' id '"' (visible ? '' : ' Visibility="Collapsed"') '>'
-                . '<StackPanel Margin="26,20,26,28">' body '</StackPanel></StackPanel>'
+                . '<StackPanel Margin="14,20,14,28">' body '</StackPanel></StackPanel>'
         }
 
         ; ---------- 公共片段 ----------
@@ -5473,7 +5473,7 @@ class MainWin {
             . twoCol(card(GetLang("显示页签"), "&#xE8A5;", tabsBody, "0,18,0,0")
                 , card(GetLang("手柄"), "&#xE7FC;", cmb(GetLang("手柄映射"), "CmbTriggerJoyType", ["Xbox", "PS5"], MainSoftData.TriggerJoyType)
                     . cmb(GetLang("宏手柄类型"), "CmbJoyType", ["Xbox", "PS5"], MainSoftData.JoyType), "0,18,0,0"))
-            . twoCol(card(GetLang("网络宏"), "&#xE8D4;", num(GetLang("监听端口"), "EditNetPort", MainSoftData.NetworkPort, GetLang("网络宏端口 1-65535，默认 16888；仅监听本机回环地址。")), "0,18,0,0"), ""), true)
+            . twoCol(card(GetLang("网络宏"), "&#xE8D4;", num(GetLang("监听端口"), "EditNetPort", MainSoftData.NetworkPort, GetLang("网络宏端口 1-65535，默认 16888；仅监听本机回环地址。")), "0"), ""), true)
 
         ; ---------- 页：宏执行 ----------
         macroPage := page("macro", twoCol(
@@ -5622,7 +5622,7 @@ class MainWin {
         navAll .= navSep
         pagesAll := behaviorPage . macroPage . recordPage . triggerPage . hotkeyPage . themePage . aiPage . logPage
         Add('<Grid ' ns '><Grid.Resources>' navStyle . switchStyle . fieldStyles '</Grid.Resources>'
-            . '<Grid.ColumnDefinitions><ColumnDefinition Width="146"/><ColumnDefinition Width="18"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>'
+            . '<Grid.ColumnDefinitions><ColumnDefinition Width="146"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>'
             ; 先画纵向边框，再画导航与横向分隔线，使交点由横线覆盖，不留抗锯齿缝隙。
             . '<Border Grid.Column="1" Width="1" HorizontalAlignment="Center" Background="{DynamicResource OutlineStroke}"/>'
             . '<StackPanel Grid.Column="0" Margin="0,2,0,2">' navAll . '</StackPanel>'
