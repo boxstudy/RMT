@@ -6372,11 +6372,14 @@ class MainWin {
         p := "Panel_" GetTableIndexByID("Help")
         Add := (x) => this.ui.Update(p, "AddXamlItem", x)
         ; 结构与 HelpTabLayoutReference.html 一致：先说明合法使用，再给出文档、社区与反馈入口。
+        disclaimerRules := '<Grid Margin="10,8"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>'
+            . '<Border Grid.Row="0" Grid.Column="0" Margin="0,0,8,5" Padding="8,6" Background="{DynamicResource ControlBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1" CornerRadius="5">' this._HelpDisclaimerItem("1", "本软件按“原样”提供。因使用、修改、传播或分发本软件所产生的风险与后果，由使用者自行承担；开发者不作任何明示或默示担保。") '</Border>'
+            . '<Border Grid.Row="0" Grid.Column="1" Margin="8,0,0,5" Padding="8,6" Background="{DynamicResource ControlBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1" CornerRadius="5">' this._HelpDisclaimerItem("2", "本软件仅限用于合法且已获授权的场景。严禁用于游戏作弊、未经授权的系统访问、数据篡改，或其他违反法律法规及第三方规则的行为。") '</Border>'
+            . '<Border Grid.Row="1" Grid.Column="0" Margin="0,5,8,0" Padding="8,6" Background="{DynamicResource ControlBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1" CornerRadius="5">' this._HelpDisclaimerItem("3", "使用前，请自行确认使用方式符合所在地法律法规、平台条款及相关约定。因违规使用而引发的损失、纠纷或责任，与开发者无关。") '</Border>'
+            . '<Border Grid.Row="1" Grid.Column="1" Margin="8,5,0,0" Padding="8,6" Background="{DynamicResource ControlBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1" CornerRadius="5">' this._HelpDisclaimerItem("4", "下载、安装或使用本软件，即表示你已充分理解并接受上述风险承诺：不将其用于任何非法目的，并同意不就他人滥用行为向开发者追责。") '</Border>'
+            . '</Grid>'
         disclaimer := '<StackPanel><TextBlock Text="' this._XmlEsc(GetLang("本文件是对 GNU Affero General Public License v3.0 的补充说明，不影响原协议效力")) '" FontSize="10" Foreground="{DynamicResource TextSub}" Margin="0,0,0,8"/>'
-            . this._HelpDisclaimerItem("1", "本软件按“原样”提供。因使用、修改、传播或分发本软件所产生的风险与后果，由使用者自行承担；开发者不作任何明示或默示担保。")
-            . this._HelpDisclaimerItem("2", "本软件仅限用于合法且已获授权的场景。严禁用于游戏作弊、未经授权的系统访问、数据篡改，或其他违反法律法规及第三方规则的行为。")
-            . this._HelpDisclaimerItem("3", "使用前，请自行确认使用方式符合所在地法律法规、平台条款及相关约定。因违规使用而引发的损失、纠纷或责任，与开发者无关。")
-            . this._HelpDisclaimerItem("4", "下载、安装或使用本软件，即表示你已充分理解并接受上述风险承诺：不将其用于任何非法目的，并同意不就他人滥用行为向开发者追责。")
+            . disclaimerRules
             . '<TextBlock Text="' this._XmlEsc(GetLang("若不同意上述条款，请立即停止使用本软件。")) '" Foreground="{DynamicResource Accent}" FontWeight="Bold" FontSize="12" Margin="0,9,0,0"/></StackPanel>'
         Add(this._HelpCard(GetLang("免责声明与合法使用提醒"), "&#xE7BA;", disclaimer, "", "0,2,0,14", true))
 
