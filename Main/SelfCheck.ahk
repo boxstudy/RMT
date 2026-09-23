@@ -62,7 +62,7 @@ SelfCheckMissingFiles() {
         "Operation.png", "Output.png", "RedColor.png", "Run.png", "Search.png",
         "SearchPro.png", "Sub.png", "Target.png", "TextOps.png", "True.png",
         "Var.png", "WeiXin.png", "WindowManage.png", "YellowColor.png",
-        "ZhiFuBao.png", "rabit.ico", "rabit.png", "Comment.png", "ScreenShot.png"]
+        "ZhiFuBao.png", "AiFaDian.png", "rabit.ico", "rabit.png", "Comment.png", "ScreenShot.png"]
 
     missingCritical := []
     missingOptional := []

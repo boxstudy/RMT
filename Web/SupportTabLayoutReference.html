@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>支持若梦兔 · 页面参考</title>
+  <style>
+    :root { --page:#fff7df; --surface:#fffdf7; --card:#fffaf0; --head:#ffe6b6; --stroke:#edb45c; --soft:#f3d79d; --accent:#f28c00; --ink:#4b301d; --muted:#8e7258; --note:#fff2d0; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; padding:30px; color:var(--ink); font-family:"Microsoft YaHei UI","Segoe UI",sans-serif; background:radial-gradient(circle at 100% 0,#fffdf4 0,var(--page) 56%,#fff0c7 100%); }
+    .window { max-width:1120px; margin:auto; overflow:hidden; border:1.5px solid var(--stroke); border-radius:15px; background:var(--surface); box-shadow:0 18px 48px rgba(114,72,20,.17); }
+    .topbar { display:flex; align-items:center; gap:12px; min-height:68px; padding:15px 24px; border-bottom:1px solid var(--soft); background:linear-gradient(105deg,var(--head),#fff3d8); }
+    .icon { display:grid; place-items:center; width:35px; height:35px; border:1px solid #ffc76f; border-radius:11px; color:var(--accent); background:#fff8e7; font-family:"Segoe Fluent Icons","Segoe MDL2 Assets",sans-serif; font-size:18px; }
+    .topbar strong { font-size:23px; } .topbar small { display:block; margin-top:3px; color:var(--muted); font-size:12px; }
+    .content { padding:22px; }
+    .hero { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:20px; align-items:center; margin-bottom:18px; padding:17px 19px; border:1px solid var(--soft); border-radius:11px; background:linear-gradient(100deg,#fff8e9,#fffdf8); }
+    .hero h1 { margin:0 0 6px; font-size:18px; } .hero p { max-width:680px; margin:0; color:var(--muted); font-size:13px; line-height:1.6; }
+    .hero-stats { display:flex; gap:9px; align-items:stretch; }
+    .run-count,.hero-badge { padding:9px 12px; border:1px solid #f1ca80; border-radius:8px; color:#895222; background:#fff2d2; text-align:center; }
+    .run-count small { display:block; margin-bottom:3px; font-size:11px; font-weight:400; } .run-count strong { display:block; color:#a35915; font-size:18px; line-height:1.15; } .run-count em { color:var(--muted); font-size:10px; font-style:normal; }
+    .hero-badge { display:grid; place-items:center; font-size:12px; font-weight:700; }
+    .section { overflow:hidden; margin-top:18px; border:1px solid var(--soft); border-radius:12px; background:var(--card); }
+    .section-head { display:flex; justify-content:space-between; align-items:center; min-height:48px; padding:0 16px; border-bottom:1px solid #f5e4bd; background:#fff3d8; }
+    .section-head h2 { display:flex; align-items:center; gap:8px; margin:0; font-size:16px; } .section-head .glyph { color:var(--accent); font-family:"Segoe Fluent Icons","Segoe MDL2 Assets",sans-serif; font-weight:400; }
+    .section-head small { color:var(--muted); font-size:11px; } .section-body { padding:15px; }
+    .aifadian { display:grid; grid-template-columns:178px minmax(0,1fr); gap:19px; align-items:center; }
+    .qr { width:164px; height:164px; padding:7px; border:1px solid #efc878; border-radius:10px; background:#fff; object-fit:contain; }
+    .aifadian h3 { margin:0 0 7px; font-size:17px; } .aifadian p { margin:0; color:var(--muted); font-size:12px; line-height:1.65; }
+    .facts { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; margin-top:12px; }
+    .fact { padding:10px 11px; border:1px solid #f0d29a; border-radius:8px; background:#fffdf8; font-size:12px; line-height:1.45; } .fact b { display:block; margin-bottom:3px; color:#794119; }
+    .support-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+    .support-card { display:grid; grid-template-columns:132px minmax(0,1fr); gap:14px; align-items:center; padding:14px; border:1px solid #efcf92; border-radius:10px; background:#fffdf8; }
+    .support-card .qr { width:120px; height:120px; padding:5px; } .support-card h3 { margin:0 0 6px; font-size:16px; } .support-card p { margin:0; color:var(--muted); font-size:12px; line-height:1.55; }
+    .recommended { display:inline-flex; margin-top:9px; padding:4px 7px; border-radius:5px; color:#8c511d; background:#fff0ca; font-size:11px; font-weight:700; }
+    .after { display:grid; grid-template-columns:1fr 1fr; gap:13px; }
+    .after-card { min-height:116px; padding:14px; border:1px solid #efcf92; border-radius:9px; background:#fffdf8; }
+    .after-card h3 { display:flex; align-items:center; gap:7px; margin:0 0 8px; font-size:14px; } .after-card p { margin:0; color:var(--muted); font-size:12px; line-height:1.6; }
+    .after-card .glyph { color:var(--accent); font-family:"Segoe Fluent Icons","Segoe MDL2 Assets",sans-serif; font-weight:400; }
+    a { color:#236bc0; text-decoration:none; } a:hover { text-decoration:underline; }
+    .footer { padding:12px 22px; border-top:1px solid var(--soft); color:var(--muted); background:#fff9ea; font-size:11px; text-align:center; }
+    @media (max-width:720px) { body { padding:14px; } .hero,.aifadian,.support-grid,.after { grid-template-columns:1fr; } .hero-stats { justify-self:start; } .support-card { grid-template-columns:120px minmax(0,1fr); } }
+  </style>
+</head>
+<body>
+  <div class="window">
+    <header class="topbar"><span class="icon">&#xE8C8;</span><div><strong>支持若梦兔</strong><small>你的每一份支持，都会成为 RMT 持续迭代的动力。</small></div></header>
+    <section class="content">
+      <section class="hero">
+        <div><h1>感谢每一位支持 RMT 的守护者</h1><p>RMT 始终免费、开源。若它为你节省了时间，欢迎用一杯咖啡的心意支持开发与维护；分享给朋友，同样是珍贵的支持。</p></div>
+        <div class="hero-stats"><div class="run-count"><small>RMT 已累计执行</small><strong>12,345,678</strong><em>次宏指令</em></div><div class="hero-badge">完全自愿<br>量力而行</div></div>
+      </section>
+
+      <section class="section">
+        <header class="section-head"><h2><span class="glyph">&#xE8C7;</span>推荐的单次赞助</h2><small>微信与支付宝</small></header>
+        <div class="section-body support-grid">
+          <article class="support-card"><img class="qr" src="../Images/Soft/WeiXin.png" alt="微信赞助二维码"><div><h3>微信赞助</h3><p>扫码完成一次性赞助。快捷直接，适合随时表达一份心意。</p><span class="recommended">推荐 · 单次赞助</span></div></article>
+          <article class="support-card"><img class="qr" src="../Images/Soft/ZhiFuBao.png" alt="支付宝赞助二维码"><div><h3>支付宝赞助</h3><p>扫码完成一次性赞助。与微信同为推荐的直接支持方式。</p><span class="recommended">推荐 · 单次赞助</span></div></article>
+        </div>
+      </section>
+
+      <section class="section">
+        <header class="section-head"><h2><span class="glyph">&#xE8C8;</span>爱发电 · 月度守护</h2><small>可按月赞助</small></header>
+        <div class="section-body aifadian">
+          <img class="qr" src="../Images/Soft/AiFaDian.png" alt="爱发电赞助二维码">
+          <div><h3>成为若梦兔守护者</h3><p>使用爱发电可选择按月赞助，适合希望长期陪伴 RMT 成长的朋友。平台会收取约 6% 的手续费；如更希望支持尽可能直接用于项目维护，可优先选择上方微信或支付宝的单次赞助。</p><div class="facts"><div class="fact"><b>按月支持</b>适合长期守护与持续支持。</div><div class="fact"><b>平台手续费</b>爱发电会收取约 6% 手续费。</div></div></div>
+        </div>
+      </section>
+
+      <section class="section">
+        <header class="section-head"><h2><span class="glyph">&#xE9CE;</span>支持后的感谢与权益</h2><small>让每份心意被看见</small></header>
+        <div class="section-body after">
+          <article class="after-card"><h3><span class="glyph">&#xE902;</span>领取守护者称号</h3><p>完成赞助后，可通过 <a href="https://forum.ruomengtu.com/">RMT 论坛</a> 或 <a href="https://qm.qq.com/q/DgpDumEPzq">RMT QQ 交流群</a>私信联系，领取论坛和 QQ 交流群的“守护者”称号。</p></article>
+          <article class="after-card"><h3><span class="glyph">&#xE8A5;</span>守护者留言墙</h3><p>赞助后的留言会展示在 <a href="https://docs.ruomengtu.com/supporters/">支持者名单与留言</a>，感谢每一位让 RMT 走得更远的朋友。</p></article>
+        </div>
+      </section>
+    </section>
+    <footer class="footer">支持若梦兔页签 HTML 视觉参考稿 · 本文件仅用于确认布局与文案，不会重构软件内页。</footer>
+  </div>
+</body>
+</html>

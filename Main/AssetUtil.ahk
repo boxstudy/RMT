@@ -1707,7 +1707,7 @@ CreateDefaultTableDefs() {
         ["Tool", "工具", 10],
         ["Setting", "设置", 11],
         ["Help", "帮助", 12],
-        ["Reward", "赞助", 13],
+        ["Reward", "支持我们", 13],
         ["Thank", "特别感谢", 14]
     ]
 }

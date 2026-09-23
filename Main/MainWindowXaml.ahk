@@ -486,8 +486,13 @@ class MainWin {
             pos := A_Index
             idx := this._tabOrder[pos]
             tableItem := MySoftData.TableInfo[idx]
-            ; 设置页改为「全局」入口；表 ID 仍为 Setting，兼容现有配置与页签定位。
-            tabTitle := tableItem.Symbol == "Setting" ? GetLang("设置") : GetLang(tableItem.Name)
+            ; 静态页标题不受旧配置中保存的历史名称影响。
+            ; Reward 曾保存为「赞助」，此处固定显示新名称「支持我们」。
+            switch tableItem.Symbol {
+                case "Setting": tabTitle := GetLang("设置")
+                case "Reward": tabTitle := GetLang("支持我们")
+                default: tabTitle := GetLang(tableItem.Name)
+            }
             tabItem := tab.Add("TabItem").Header(tabTitle)
             ; 首个/末个页签打 Tag，模板按 Tag 适配圆角（首个左圆角、末个右圆角），末个同时隐藏分割线
             if (pos == 1)
@@ -6472,18 +6477,61 @@ class MainWin {
         p := "Panel_" GetTableIndexByID("Reward")
         Add := (x) => this.ui.Update(p, "AddXamlItem", x)
         countStr := FormatIntegerWithCommas(MySoftData.MacroTotalCount)
-        str := Format(GetLang("若梦兔（RMT）—— 这款完全免费的开源软件，始终陪在你身边。")) "`n"
-            . Format(GetLang("至今已为您执行 {:} 次宏指令。"), countStr) "`n"
-            . GetLang("诚邀本月赞助成为若梦兔的 “守护者”，一起让若梦兔走得更远。")
         weiXinImg := StrReplace(A_WorkingDir "\Images\Soft\WeiXin.png", "\", "/")
         zhiFuBaoImg := StrReplace(A_WorkingDir "\Images\Soft\ZhiFuBao.png", "\", "/")
+        ; 爱发电二维码通过 FileInstall 编译进主程序，运行时不读取 Images\Soft 下的同名文件。
+        aiFaDianImg := this._GetBuiltInAiFaDianImage()
         ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
-        Add('<TextBlock ' ns ' Text="' this._XmlEsc(str) '" FontSize="12" TextWrapping="Wrap" Margin="0,8,0,4"/>')
-        Add('<StackPanel ' ns ' Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10,0,0">'
-            . '<StackPanel Margin="0,0,40,0"><Image Source="' weiXinImg '" Width="180" Height="180"/><TextBlock Text="' GetLang("微信赞助") '" HorizontalAlignment="Center" Margin="0,6,0,0"/></StackPanel>'
-            . '<StackPanel><Image Source="' zhiFuBaoImg '" Width="180" Height="180"/><TextBlock Text="' GetLang("支付宝赞助") '" HorizontalAlignment="Center" Margin="0,6,0,0"/></StackPanel>'
-            . '</StackPanel>')
-        Add('<TextBlock ' ns ' Text="' this._XmlEsc(GetLang("当然，如果你暂时不方便，分享给朋友也是很棒的支持~")) '`n' this._XmlEsc(GetLang("开发不易，感谢你的每一份温暖！")) '" FontSize="12" TextWrapping="Wrap" Margin="0,16,0,0"/>')
+        hero := '<Border ' ns ' Margin="0,2,0,14" Padding="18,15" Background="{DynamicResource EditHoverBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1.25" CornerRadius="8"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="' this._XmlEsc(GetLang("感谢每一位支持 RMT 的守护者")) '" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextMain}"/><TextBlock Text="' this._XmlEsc(GetLang("RMT 始终免费、开源。若它为你节省了时间，欢迎用一杯咖啡的心意支持开发与维护。")) '" TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource TextSub}" Margin="0,7,14,0"/><TextBlock Text="' this._XmlEsc(GetLang("若暂时不方便，分享给朋友同样是珍贵的支持。开发不易，感谢你的每一份温暖！")) '" TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource TextSub}" Margin="0,5,14,0"/><Border HorizontalAlignment="Left" Margin="0,8,0,0" Padding="8,3" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1" CornerRadius="5"><TextBlock Text="' this._XmlEsc(GetLang("完全自愿 · 量力而行")) '" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource TextMain}"/></Border></StackPanel><StackPanel Grid.Column="1" VerticalAlignment="Center"><Border Padding="12,8" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1" CornerRadius="7"><StackPanel Orientation="Horizontal" VerticalAlignment="Center"><Border Width="28" Height="28" CornerRadius="14" Background="{DynamicResource EditHoverBg}" Margin="0,0,8,0"><TextBlock Text="&#xE823;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Foreground="{DynamicResource Accent}" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><StackPanel><TextBlock Text="' this._XmlEsc(GetLang("RMT 已累计执行")) '" FontSize="10" Foreground="{DynamicResource TextMain}"/><StackPanel Orientation="Horizontal"><TextBlock Text="' countStr '" TextWrapping="NoWrap" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource Accent}" VerticalAlignment="Center"/><TextBlock Text="' this._XmlEsc(GetLang("次宏指令")) '" FontSize="10" Foreground="{DynamicResource TextMain}" VerticalAlignment="Center" Margin="5,3,0,0"/></StackPanel></StackPanel></StackPanel></Border></StackPanel></Grid></Border>'
+        Add(hero)
+
+        singleSupport := '<Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>'
+            . this._SupportQrCard(0, 0, 1, weiXinImg, GetLang("微信赞助"), GetLang("扫码完成一次性赞助。快捷直接，适合随时表达一份心意。"), "0,0,5,0")
+            . this._SupportQrCard(0, 1, 1, zhiFuBaoImg, GetLang("支付宝赞助"), GetLang("扫码完成一次性赞助。与微信同为推荐的直接支持方式。"), "5,0,0,0")
+            . '</Grid>'
+        guardianButtons := '<StackPanel Orientation="Horizontal">' this._HelpLinkButton("https://forum.ruomengtu.com/", GetLang("打开 RMT 论坛")) '<Border Width="7"/> ' this._HelpLinkButton("https://qm.qq.com/q/DgpDumEPzq", GetLang("加入 QQ 交流群")) '</StackPanel>'
+        benefits := '<StackPanel>'
+            . this._SupportAfterCard(0, 0, 1, "&#xE902;", GetLang("领取守护者称号"), GetLang("完成赞助后，可通过 RMT 论坛或 RMT QQ 交流群私信联系，领取论坛和 QQ 交流群的“守护者”称号。"), guardianButtons, "0,0,0,10")
+            . this._SupportAfterCard(1, 0, 1, "&#xE8A5;", GetLang("守护者留言墙"), GetLang("赞助后的留言会展示在支持者名单与留言页，感谢每一位让 RMT 走得更远的朋友。"), this._HelpLinkButton("https://docs.ruomengtu.com/supporters/", GetLang("查看支持者名单")), "0", GetLang("提示：支持者名单会在版本更新时统一更新。"))
+            . '</StackPanel>'
+        aiFaDian := '<Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>' this._SupportAiFaDianCard(0, 0, 1, aiFaDianImg, "0") '</Grid>'
+        supportLayout := '<Grid ' ns ' Margin="0,0,0,14"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Border Grid.Row="0" Grid.Column="0" Margin="0,0,7,7">'
+            . this._HelpCard(GetLang("推荐的单次赞助"), "&#xE8C7;", singleSupport, GetLang("微信与支付宝"), "0")
+            . '</Border><Border Grid.Row="1" Grid.Column="0" Margin="0,7,7,0">'
+            . this._HelpCard(GetLang("爱发电 · 月度守护"), "&#xE8C8;", aiFaDian, GetLang("可按月赞助"), "0")
+            . '</Border><Border Grid.Row="0" Grid.RowSpan="2" Grid.Column="1" Margin="7,0,0,0" VerticalAlignment="Top">'
+            . this._HelpCard(GetLang("支持后的感谢与权益"), "&#xE9CE;", benefits, GetLang("让每份心意被看见"), "0")
+            . '</Border></Grid>'
+        Add(supportLayout)
+        this._FlushLinks()
+    }
+
+    _SupportQrCard(row, col, span, image, title, description, margin) {
+        return '<Border Grid.Row="' row '" Grid.Column="' col '" Grid.ColumnSpan="' span '" Margin="' margin '" MinHeight="166" Padding="16" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1" CornerRadius="7"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="138"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Border Width="132" Height="132" Padding="5" Background="{DynamicResource ControlBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1" CornerRadius="7"><Image Source="' image '" Stretch="Uniform"/></Border><StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="' this._XmlEsc(title) '" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource TextMain}"/><TextBlock Text="' this._XmlEsc(description) '" TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource TextSub}" Margin="0,10,0,12"/><Border HorizontalAlignment="Left" Padding="8,4" Background="{DynamicResource EditHoverBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1" CornerRadius="4"><TextBlock Text="' this._XmlEsc(GetLang("推荐 · 单次赞助")) '" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource Accent}"/></Border></StackPanel></Grid></Border>'
+    }
+
+    _SupportAiFaDianCard(row, col, span, image, margin) {
+        return '<Border Grid.Row="' row '" Grid.Column="' col '" Grid.ColumnSpan="' span '" Margin="' margin '" MinHeight="182" Padding="16" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1" CornerRadius="7"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="156"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Border Width="148" Height="148" Padding="6" Background="{DynamicResource ControlBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1" CornerRadius="7"><Image Source="' image '" Stretch="Uniform"/></Border><StackPanel Grid.Column="1" VerticalAlignment="Center"><StackPanel Orientation="Horizontal"><Border Width="26" Height="26" CornerRadius="6" Background="{DynamicResource EditHoverBg}" Margin="0,0,7,0"><TextBlock Text="&#xE8C8;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Foreground="{DynamicResource Accent}" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><TextBlock Text="' this._XmlEsc(GetLang("爱发电 · 月度守护")) '" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" Foreground="{DynamicResource TextMain}"/></StackPanel><TextBlock Text="' this._XmlEsc(GetLang("使用爱发电可选择按月赞助，适合希望长期陪伴 RMT 成长的朋友。平台会收取约 6% 的手续费；如更希望支持尽可能直接用于项目维护，可优先选择微信或支付宝的单次赞助。")) '" TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource TextSub}" Margin="0,10,0,12"/><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>' this._SupportFact(0, GetLang("按月支持"), GetLang("适合长期守护与持续支持。"), "0,0,5,0") this._SupportFact(1, GetLang("平台手续费"), GetLang("爱发电会收取约 6% 手续费。"), "5,0,0,0") '</Grid></StackPanel></Grid></Border>'
+    }
+
+    _GetBuiltInAiFaDianImage() {
+        static imagePath := ""
+        if (imagePath != "")
+            return imagePath
+        ; 第三个参数为覆盖：每次启动都用 exe 内嵌资源恢复二维码，避免运行目录文件被替换后生效。
+        tempPath := A_Temp "\RMT_AiFaDian.png"
+        FileInstall("Images\Soft\AiFaDian.png", tempPath, 1)
+        imagePath := StrReplace(tempPath, "\", "/")
+        return imagePath
+    }
+
+    _SupportFact(col, title, description, margin) {
+        return '<Border Grid.Column="' col '" Margin="' margin '" Padding="9,7" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1" CornerRadius="5"><StackPanel><TextBlock Text="' this._XmlEsc(title) '" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource TextMain}"/><TextBlock Text="' this._XmlEsc(description) '" TextWrapping="Wrap" FontSize="10" Foreground="{DynamicResource TextSub}" Margin="0,3,0,0"/></StackPanel></Border>'
+    }
+
+    _SupportAfterCard(row, col, span, glyph, title, description, footer, margin, note := "") {
+        noteXaml := note == "" ? "" : '<TextBlock Text="' this._XmlEsc(note) '" TextWrapping="Wrap" FontSize="10" Foreground="{DynamicResource Accent}" Margin="0,7,0,0"/>'
+        return '<Border Grid.Row="' row '" Grid.Column="' col '" Grid.ColumnSpan="' span '" Margin="' margin '" Padding="11" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1" CornerRadius="7"><StackPanel><StackPanel Orientation="Horizontal"><Border Width="26" Height="26" CornerRadius="6" Background="{DynamicResource EditHoverBg}" Margin="0,0,7,0"><TextBlock Text="' glyph '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Foreground="{DynamicResource Accent}" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><TextBlock Text="' this._XmlEsc(title) '" FontWeight="Bold" FontSize="12" VerticalAlignment="Center" Foreground="{DynamicResource TextMain}"/></StackPanel><TextBlock Text="' this._XmlEsc(description) '" TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource TextSub}" Margin="0,7,0,0"/>' noteXaml '<Border Margin="0,10,0,0">' footer '</Border></StackPanel></Border>'
     }
 
     ; ============ 特别感谢页 ============
