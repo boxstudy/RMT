@@ -1,12 +1,12 @@
 #Requires AutoHotkey v2.0
 
 ; =====================================================================
-; 时间指令执行端 —— 5 种子模式
-;   1. 指定时刻等待
-;   2. 时间区间判断
-;   3. 获取时间变量  (Param1=目标变量名, Param2=来源时间变量/可选)
+; 时间指令执行端 —— 5 种子模式 (纯英文参数)
+;   1. 指定时刻等待 (Param1=目标时间/时长, Param2=Seconds/Minutes/Hours/Days/SpecificTime/TimeVariable)
+;   2. 时间区间判断 (Param1=开始时间, Param2=结束时间, Param3=允许星期, Param4=Skip/Wait/Stop)
+;   3. 获取时间变量 (Param1=目标变量名, Param2=来源时间变量/可选)
 ;   4. 获取时间字符串 (Param1=目标变量名, Param2=来源时间变量/可选, Param3=格式模板)
-;   5. 时间计算      (Param1=时间变量1, Param2=时间变量2/偏移, Param3=操作, Param4=目标变量, Param5=单位)
+;   5. 时间计算     (Param1=时间变量1, Param2=时间变量2/偏移, Param3=Diff/Add/Sub, Param4=目标变量, Param5=Seconds/Milliseconds/Minutes/Hours/Days/HH:mm:ss)
 ; =====================================================================
 
 OnTimeData(tableItem, cmd, index) {
@@ -65,21 +65,21 @@ TimeCalcTargetDateTime(tableItem, index, Data) {
     unit := Data.Param2
 
     switch unit {
-        case "秒", "Seconds":
+        case "Seconds":
             secs := IsNumber(param1Val) ? Integer(param1Val) : 0
             return DateAdd(A_Now, secs, "Seconds")
-        case "分钟", "Minutes":
+        case "Minutes":
             mins := IsNumber(param1Val) ? Integer(param1Val) : 0
             return DateAdd(A_Now, mins, "Minutes")
-        case "小时", "Hours":
+        case "Hours":
             hrs := IsNumber(param1Val) ? Integer(param1Val) : 0
             return DateAdd(A_Now, hrs, "Hours")
-        case "天", "Days":
+        case "Days":
             days := IsNumber(param1Val) ? Integer(param1Val) : 0
             return DateAdd(A_Now, days, "Days")
-        case "具体时间", "SpecificTime":
+        case "SpecificTime":
             return TimeParseDateTime(param1Val)
-        case "时间变量", "TimeVariable":
+        case "TimeVariable":
             valStr := String(param1Val)
             if (valStr == "") {
                 rawVarName := GetVarName(Data.Param1)
@@ -120,8 +120,8 @@ TimeParseDateTime(s) {
             return DateAdd("19700101000000", Integer(SubStr(s, 1, 10)), "Seconds")
     }
 
-    ; 2. 纯时刻格式：14:30:00, 14:30, 14点30分, 14点30分00秒
-    if (RegExMatch(s, "^(\d{1,2})[:点时](\d{1,2})(?:[:分](\d{1,2}))?", &mt)) {
+    ; 2. 纯时刻格式：14:30:00, 14:30
+    if (RegExMatch(s, "^(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?", &mt)) {
         h := Format("{:02}", mt[1])
         mi := Format("{:02}", mt[2])
         se := (mt.Count >= 3 && mt[3] != "") ? Format("{:02}", mt[3]) : "00"
@@ -132,13 +132,13 @@ TimeParseDateTime(s) {
         return todayTime
     }
 
-    ; 3. 年月日 + 时分秒：2026-09-19 14:30:00 / 2026/09/19 14:30 / 2026年09月19日 14点30分
-    if (RegExMatch(s, "(\d{4})[-/年. ](\d{1,2})[-/月. ](\d{1,2})", &m)) {
+    ; 3. 年月日 + 时分秒：2026-09-19 14:30:00 / 2026/09/19 14:30
+    if (RegExMatch(s, "(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})", &m)) {
         y := m[1]
         mo := Format("{:02}", m[2])
         d := Format("{:02}", m[3])
         h := "00", mi := "00", se := "00"
-        if (RegExMatch(s, "(\d{1,2})[:点时](\d{1,2})(?:[:分](\d{1,2}))?", &mt)) {
+        if (RegExMatch(s, "(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?", &mt)) {
             h := Format("{:02}", mt[1])
             mi := Format("{:02}", mt[2])
             se := (mt.Count >= 3 && mt[3] != "") ? Format("{:02}", mt[3]) : "00"
@@ -153,6 +153,7 @@ TimeParseDateTime(s) {
 
     return ""
 }
+
 TimeFormatResult(stamp, formatType) {
     if (stamp == "")
         return ""
@@ -166,7 +167,7 @@ TimeFormatResult(stamp, formatType) {
             return FormatTime(stamp, "dddd")
         case "EEE":
             return FormatTime(stamp, "ddd")
-        case "", "原始格式", "Raw":
+        case "", "Raw":
             return FormatTime(stamp, "yyyy-MM-dd HH:mm:ss")
         default:
             try {
@@ -190,7 +191,7 @@ TimeExecWindowCheck(tableItem, index, Data) {
     startTime := Data.Param1
     endTime := Data.Param2
     allowDays := Data.Param3 != "" ? Data.Param3 : "1,2,3,4,5,6,7"
-    mismatchAction := Data.Param4 != "" ? Data.Param4 : "跳过"
+    mismatchAction := Data.Param4 != "" ? Data.Param4 : "Skip"
 
     startStamp := TimeParseDateTime(startTime)
     endStamp := TimeParseDateTime(endTime)
@@ -207,11 +208,11 @@ TimeExecWindowCheck(tableItem, index, Data) {
         return
 
     switch mismatchAction {
-        case "跳过", "Skip":
+        case "Skip":
             return
-        case "停止", "Stop":
+        case "Stop":
             KillTableItemMacro(tableItem, index)
-        case "等待", "Wait":
+        case "Wait":
             Loop {
                 WaitIfPaused(tableItem, index)
                 item := tableItem.Items[index]
@@ -278,64 +279,64 @@ TimeExecGetTimeStr(tableItem, index, Data) {
 ; ---------- 模式5：时间计算 ----------
 ; Param1 = 时间变量1（或时间字符串）
 ; Param2 = 时间变量2 / 数值偏移
-; Param3 = 操作 (差值 / 增加 / 减少)
+; Param3 = 操作 (Diff / Add / Sub)
 ; Param4 = 保存变量名
-; Param5 = 单位/格式 (秒 / 毫秒 / 分钟 / 小时 / 天 / HH:mm:ss)
+; Param5 = 单位/格式 (Seconds / Milliseconds / Minutes / Hours / Days / HH:mm:ss)
 
 TimeExecTimeMath(tableItem, index, Data) {
     src1 := GetReplaceVarText(tableItem, index, Data.Param1)
     src2 := GetReplaceVarText(tableItem, index, Data.Param2)
-    opType := Data.Param3 != "" ? Data.Param3 : "差值" ; 差值 / 增加 / 减少
+    opType := Data.Param3 != "" ? Data.Param3 : "Diff" ; Diff / Add / Sub
     targetVar := GetVarName(Trim(Data.Param4))
-    unit := Data.Param5 != "" ? Data.Param5 : "秒" ; 秒 / 毫秒 / 分钟 / 小时 / 天 / HH:mm:ss 等
+    unit := Data.Param5 != "" ? Data.Param5 : "Seconds" ; Seconds / Milliseconds / Minutes / Hours / Days / HH:mm:ss
 
     if (targetVar == "")
         return
 
     result := ""
 
-    if (opType == "差值" || opType == "Diff") {
+    if (opType == "Diff") {
         ; 计算两个时间之差 (src1 - src2)
         t1 := TimeToAhkStamp(src1)
         t2 := TimeToAhkStamp(src2)
         if (t1 != "" && t2 != "") {
             diffSec := DateDiff(t1, t2, "Seconds")
             switch unit {
-                case "毫秒", "Milliseconds":
+                case "Milliseconds":
                     result := diffSec * 1000
-                case "分钟", "Minutes":
+                case "Minutes":
                     result := Round(diffSec / 60, 2)
-                case "小时", "Hours":
+                case "Hours":
                     result := Round(diffSec / 3600, 2)
-                case "天", "Days":
+                case "Days":
                     result := Round(diffSec / 86400, 2)
-                case "HH:mm:ss", "时分秒":
+                case "HH:mm:ss":
                     absSec := Abs(diffSec)
                     h := Format("{:02}", Floor(absSec / 3600))
                     mi := Format("{:02}", Floor(Mod(absSec, 3600) / 60))
                     se := Format("{:02}", Mod(absSec, 60))
                     result := (diffSec < 0 ? "-" : "") h ":" mi ":" se
-                default: ; 秒
+                default: ; Seconds
                     result := diffSec
             }
         }
-    } else if (opType == "增加" || opType == "Add" || opType == "减少" || opType == "Sub") {
+    } else if (opType == "Add" || opType == "Sub") {
         ; 时间增加或减少偏移
         baseTime := TimeToAhkStamp(src1)
         if (baseTime == "")
             baseTime := A_Now
 
         offsetVal := IsNumber(src2) ? Integer(src2) : 0
-        if (opType == "减少" || opType == "Sub")
+        if (opType == "Sub")
             offsetVal := -offsetVal
 
         ahkUnit := "Seconds"
         switch unit {
-            case "分钟", "Minutes":
+            case "Minutes":
                 ahkUnit := "Minutes"
-            case "小时", "Hours":
+            case "Hours":
                 ahkUnit := "Hours"
-            case "天", "Days":
+            case "Days":
                 ahkUnit := "Days"
             default:
                 ahkUnit := "Seconds"
@@ -349,4 +350,3 @@ TimeExecTimeMath(tableItem, index, Data) {
         MySetGlobalVariable([targetVar], [result], false)
     }
 }
-
