@@ -86,7 +86,7 @@ class TimeGui {
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").VerticalContentAlignment("Center").Padding("4,0")
         p1Row1.Add("TextBlock").Text(GetLang("单位/类型：")).VerticalAlignment("Center").Margin("12,0,0,0")
         wunit := p1Row1.Add("ComboBox").Name("WaitUnitCon").Width(110).Height(24).MinHeight(24).Margin("4,0,0,0")
-        for u in GetLangArr(["具体时间", "秒", "分钟", "小时", "天", "时间变量"])
+        for u in GetLangArr(TimeGui.WaitUnitKeys)
             wunit.Add("ComboBoxItem").Content(u)
 
         p1Row2 := p1.Add("StackPanel").Orientation("Horizontal").Margin("0,6,0,0")
@@ -118,7 +118,7 @@ class TimeGui {
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").VerticalContentAlignment("Center").Padding("4,0")
         p2Row2.Add("TextBlock").Text(GetLang("不满足时：")).VerticalAlignment("Center").Margin("12,0,0,0")
         act := p2Row2.Add("ComboBox").Name("MismatchActionCon").Width(110).Height(24).MinHeight(24).Margin("4,0,0,0")
-        for a in GetLangArr(["跳过", "等待", "停止"])
+        for a in GetLangArr(TimeGui.MismatchActionKeys)
             act.Add("ComboBoxItem").Content(a)
 
         ; 面板3：获取时间变量 (GetVarPanel)
@@ -150,7 +150,7 @@ class TimeGui {
         p5Row1.Add("ComboBox").Name("MathSrc1Con").Width(130).Height(24).MinHeight(24).Margin("4,0,0,0").IsEditable("True")
         p5Row1.Add("TextBlock").Text(GetLang("操作：")).VerticalAlignment("Center").Margin("10,0,0,0")
         mop := p5Row1.Add("ComboBox").Name("MathOpCon").Width(85).Height(24).MinHeight(24).Margin("4,0,0,0")
-        for o in GetLangArr(["差值", "增加", "减少"])
+        for o in GetLangArr(TimeGui.MathOpKeys)
             mop.Add("ComboBoxItem").Content(o)
         p5Row1.Add("TextBlock").Text(GetLang("时间变量2/偏移：")).VerticalAlignment("Center").Margin("10,0,0,0")
         p5Row1.Add("ComboBox").Name("MathSrc2Con").Width(110).Height(24).MinHeight(24).Margin("4,0,0,0").IsEditable("True")
@@ -160,7 +160,7 @@ class TimeGui {
         p5Row2.Add("ComboBox").Name("MathTargetCon").Width(130).Height(24).MinHeight(24).Margin("4,0,0,0").IsEditable("True")
         p5Row2.Add("TextBlock").Text(GetLang("单位/格式：")).VerticalAlignment("Center").Margin("16,0,0,0")
         munit := p5Row2.Add("ComboBox").Name("MathUnitCon").Width(110).Height(24).MinHeight(24).Margin("4,0,0,0").IsEditable("True")
-        for u in GetLangArr(["秒", "毫秒", "分钟", "小时", "天", "HH:mm:ss"])
+        for u in GetLangArr(TimeGui.MathUnitKeys)
             munit.Add("ComboBoxItem").Content(u)
 
         ; 行2：确定 / 取消 按钮
@@ -228,6 +228,34 @@ class TimeGui {
         this.ui.Update(comboName, "Text", text)
     }
 
+    static WaitUnitKeys := ["SpecificTime", "Seconds", "Minutes", "Hours", "Days", "TimeVariable"]
+    static MismatchActionKeys := ["Skip", "Wait", "Stop"]
+    static MathOpKeys := ["Diff", "Add", "Sub"]
+    static MathUnitKeys := ["Seconds", "Milliseconds", "Minutes", "Hours", "Days", "HH:mm:ss"]
+
+    _GetSelectedKey(comboName, keysArray) {
+        if (!IsObject(this.ui))
+            return keysArray[1]
+        try {
+            idx := Integer(this.ui.Query(comboName ">SelectedIndex"))
+            if (idx >= 0 && idx < keysArray.Length)
+                return keysArray[idx + 1]
+        }
+        text := this.ui.Query(comboName)
+        return GetLangKey(text)
+    }
+
+    _SetSelectedByKey(comboName, key, keysArray) {
+        engKey := GetLangKey(key)
+        for i, k in keysArray {
+            if (k == engKey) {
+                this.ui.Update(comboName, "SelectedIndex", i - 1)
+                return
+            }
+        }
+        this.ui.Update(comboName, "Text", GetLang(key))
+    }
+
     Init(cmd) {
         cmdArr := cmd != "" ? SplitCommand(cmd) : []
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("时间")
@@ -241,8 +269,8 @@ class TimeGui {
 
         ; 模式1参数
         this.ui.Update("WaitValCon", "Text", this.Data.Param1 != "" ? this.Data.Param1 : "14:30:00")
-        unit := this.Data.Param2 != "" ? this.Data.Param2 : "具体时间"
-        this.ui.Update("WaitUnitCon", "Text", GetLang(unit))
+        unit := this.Data.Param2 != "" ? this.Data.Param2 : "SpecificTime"
+        this._SetSelectedByKey("WaitUnitCon", unit, TimeGui.WaitUnitKeys)
         this.ui.Update("TimeoutCon", "Text", String(this.Data.Timeout))
         this.ui.Update("CheckIntervalCon", "Text", String(this.Data.CheckInterval))
 
@@ -250,7 +278,8 @@ class TimeGui {
         this.ui.Update("StartTimeCon", "Text", this.Data.Param1 != "" ? this.Data.Param1 : "09:00:00")
         this.ui.Update("EndTimeCon", "Text", this.Data.Param2 != "" ? this.Data.Param2 : "18:00:00")
         this.ui.Update("DaysCon", "Text", this.Data.Param3 != "" ? this.Data.Param3 : "1,2,3,4,5,6,7")
-        this.ui.Update("MismatchActionCon", "Text", GetLang(this.Data.Param4 != "" ? this.Data.Param4 : "跳过"))
+        mismatch := this.Data.Param4 != "" ? this.Data.Param4 : "Skip"
+        this._SetSelectedByKey("MismatchActionCon", mismatch, TimeGui.MismatchActionKeys)
 
         ; 模式3参数 (获取时间变量)
         this._SetCombo("GetTimeVarCon", GetGuiVarArr(), this.Data.Param1 != "" ? this.Data.Param1 : "TimeVar1")
@@ -264,9 +293,11 @@ class TimeGui {
         ; 模式5参数 (时间计算)
         this._SetCombo("MathSrc1Con", GetGuiVarArr(1), this.Data.Param1)
         this._SetCombo("MathSrc2Con", GetGuiVarArr(1), this.Data.Param2)
-        this.ui.Update("MathOpCon", "Text", GetLang(this.Data.Param3 != "" ? this.Data.Param3 : "差值"))
+        op := this.Data.Param3 != "" ? this.Data.Param3 : "Diff"
+        this._SetSelectedByKey("MathOpCon", op, TimeGui.MathOpKeys)
         this._SetCombo("MathTargetCon", GetGuiVarArr(), this.Data.Param4 != "" ? this.Data.Param4 : "TimeRes")
-        this.ui.Update("MathUnitCon", "Text", GetLang(this.Data.Param5 != "" ? this.Data.Param5 : "秒"))
+        mathUnit := this.Data.Param5 != "" ? this.Data.Param5 : "Seconds"
+        this._SetSelectedByKey("MathUnitCon", mathUnit, TimeGui.MathUnitKeys)
     }
 
     OnModeChange(state := "", ctrl := "", event := "") {
@@ -340,14 +371,14 @@ class TimeGui {
         switch m {
             case 1:
                 this.Data.Param1 := this.ui.Query("WaitValCon")
-                this.Data.Param2 := GetLangKey(this.ui.Query("WaitUnitCon"))
+                this.Data.Param2 := this._GetSelectedKey("WaitUnitCon", TimeGui.WaitUnitKeys)
                 this.Data.Timeout := Integer(this.ui.Query("TimeoutCon") != "" ? this.ui.Query("TimeoutCon") : 0)
                 this.Data.CheckInterval := Integer(this.ui.Query("CheckIntervalCon") != "" ? this.ui.Query("CheckIntervalCon") : 500)
             case 2:
                 this.Data.Param1 := this.ui.Query("StartTimeCon")
                 this.Data.Param2 := this.ui.Query("EndTimeCon")
                 this.Data.Param3 := this.ui.Query("DaysCon")
-                this.Data.Param4 := GetLangKey(this.ui.Query("MismatchActionCon"))
+                this.Data.Param4 := this._GetSelectedKey("MismatchActionCon", TimeGui.MismatchActionKeys)
             case 3:
                 this.Data.Param1 := GetVarName(this.ui.Query("GetTimeVarCon"))
                 this.Data.Param2 := GetVarName(this.ui.Query("GetTimeVarSrcCon"))
@@ -358,9 +389,9 @@ class TimeGui {
             case 5:
                 this.Data.Param1 := this.ui.Query("MathSrc1Con")
                 this.Data.Param2 := this.ui.Query("MathSrc2Con")
-                this.Data.Param3 := GetLangKey(this.ui.Query("MathOpCon"))
+                this.Data.Param3 := this._GetSelectedKey("MathOpCon", TimeGui.MathOpKeys)
                 this.Data.Param4 := GetVarName(this.ui.Query("MathTargetCon"))
-                this.Data.Param5 := GetLangKey(this.ui.Query("MathUnitCon"))
+                this.Data.Param5 := this._GetSelectedKey("MathUnitCon", TimeGui.MathUnitKeys)
         }
 
         SaveMacroCMDData(this.Data)
