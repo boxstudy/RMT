@@ -1478,8 +1478,11 @@ OnPressJoy(tableItem, cmd, index) {
     if (info.axes.Length > 0) {
         for ax in info.axes
             OnPressKey(tableItem, GetLang("按键") "_" ax, index)
-        return
+        if (info.buttons.Length == 0)
+            return
     }
+    if (info.buttons.Length == 0)
+        return
     keyName := ""
     for b in info.buttons
         keyName .= (keyName == "" ? "" : "⎖") b

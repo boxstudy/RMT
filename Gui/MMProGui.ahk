@@ -90,67 +90,94 @@ class MMProGui {
         chrome := XAMLHost.AddCmdTitleBar(main, title, titleHeight)
 
         ; === 内容 ===
-        body := main.Add("Grid").Grid_Row(1).Margin("10,6")
-        body.Rows("34", "30", "24", "32", "34", "32", "32", "24", "*")
-        body.Cols("80", "130", "80", "130")
+        body := main.Add("Grid").Grid_Row(1).Margin("10,8,10,18")
+        body.Rows("32", "36", "36", "36", "36", "36", "24", "40")
+        body.Cols("90", "130", "110", "150")
 
-        ; 行0：备注
-        row0 := body.Add("StackPanel").Grid_Row(0).Grid_ColumnSpan(4).Orientation("Horizontal").VerticalAlignment("Center")
-        row0.Add("TextBlock").Text(GetLang("备注：")).VerticalAlignment("Center")
-        row0.Add("TextBox").Name("RemarkCon").Width(150).Height(24).MinHeight(24).Margin("4,0,0,0")
+        ; 行0：当前鼠标位置 + 备注（备注与坐标Y左对齐，输入右对齐下方下拉）
+        body.Add("TextBlock").Grid_Row(0).Grid_Column(0).Grid_ColumnSpan(2).Name("MousePosCon")
+            .Text(GetLang("当前鼠标位置:0,0")).VerticalAlignment("Center")
+            .Foreground("{DynamicResource TextMain}").FontSize("12")
+        body.Add("TextBlock").Grid_Row(0).Grid_Column(2).Text(GetLang("备注：")).VerticalAlignment("Center").Margin("20,0,0,0")
+            .Foreground("{DynamicResource TextMain}").FontSize("12")
+        body.Add("TextBox").Grid_Row(0).Grid_Column(3).Name("RemarkCon").Height(26).MinHeight(26).Margin("-45,0,0,0")
+            .VerticalContentAlignment("Center").FontSize("11").Padding("4,0")
+            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
 
-        ; 行1：F1 + 定位取色器
-        row1 := body.Add("StackPanel").Grid_Row(1).Grid_ColumnSpan(4).Orientation("Horizontal").VerticalAlignment("Center")
-        row1.Add("TextBlock").Text(GetLang("F1:选取当前坐标")).VerticalAlignment("Center")
-        row1.Add("Button").Name("BtnTargeter").Content(GetLang("定位取色器")).Width(100).Height(26).MinHeight(26).Margin("14,0,0,0")
-        row1.Add("Button").Name("BtnTargeterHelp").Content("?").Width(30).Height(26).MinHeight(26).Margin("4,0,0,0")
+        ; 行1：坐标基准 + 拟真轨迹
+        body.Add("TextBlock").Grid_Row(1).Grid_Column(0).Text(GetLang("坐标基准：")).VerticalAlignment("Center")
+            .Foreground("{DynamicResource TextMain}").FontSize("12")
+        ref := body.Add("ComboBox").Grid_Row(1).Grid_Column(1).Name("RefCombo").Height(26).MinHeight(26)
+            .VerticalContentAlignment("Center").FontSize("11")
+            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+        for r in GetLangArr(["屏幕", "窗口"])
+            ref.Add("ComboBoxItem").Content(r)
+        body.Add("CheckBox").Grid_Row(1).Grid_Column(2).Grid_ColumnSpan(2).Name("HumanMouseTog")
+            .Content(GetLang("拟真轨迹")).Margin("20,0,0,0").VerticalAlignment("Center")
 
-        ; 行2：鼠标位置
-        body.Add("TextBlock").Grid_Row(2).Grid_ColumnSpan(4).Name("MousePosCon").Text(GetLang("当前鼠标位置:0,0")).VerticalAlignment("Center")
+        ; 行2：窗口信息（坐标基准=窗口时显示）
+        winRow := body.Add("Grid").Name("WinInfoRow").Grid_Row(2).Grid_ColumnSpan(4).Visibility("Hidden")
+        winRow.Cols("90", "130", "110", "150")
+        winRow.Add("TextBlock").Grid_Column(0).Text(GetLang("窗口信息：")).VerticalAlignment("Center")
+            .Foreground("{DynamicResource TextMain}").FontSize("12")
+        winRow.Add("TextBox").Grid_Column(1).Grid_ColumnSpan(2).Name("WinInfoCon").Height(26).MinHeight(26)
+            .VerticalContentAlignment("Center").FontSize("11").Padding("4,0")
+            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+        winRow.Add("Button").Grid_Column(3).Name("BtnWinInfoEdit").Content(GetLang("编辑")).Height(26).MinHeight(26)
+            .Margin("20,0,0,0").HorizontalAlignment("Left").VerticalAlignment("Center")
 
-        ; 行3：坐标位置X/Y
-        body.Add("TextBlock").Grid_Row(3).Grid_Column(0).Text(GetLang("坐标位置X:")).VerticalAlignment("Center")
-        body.Add("ComboBox").Grid_Row(3).Grid_Column(1).Name("PosVarX").Height(26).MinHeight(26).IsEditable("True")
-        body.Add("TextBlock").Grid_Row(3).Grid_Column(2).Text(GetLang("坐标位置Y:")).VerticalAlignment("Center")
-        body.Add("ComboBox").Grid_Row(3).Grid_Column(3).Name("PosVarY").Height(26).MinHeight(26).IsEditable("True")
-
-        ; 行4：移动速度 + 鼠标动作
-        body.Add("TextBlock").Grid_Row(4).Grid_Column(0).Text(GetLang("移动速度：")).VerticalAlignment("Center")
-        body.Add("TextBox").Grid_Row(4).Grid_Column(1).Name("SpeedCon").Height(24).MinHeight(24).VerticalContentAlignment("Center").Text("90")
-        body.Add("TextBlock").Grid_Row(4).Grid_Column(2).Text(GetLang("鼠标动作：")).VerticalAlignment("Center")
-        act := body.Add("ComboBox").Grid_Row(4).Grid_Column(3).Name("ActionTypeCombo").Height(26).MinHeight(26)
+        ; 行3：移动方式 + 鼠标动作
+        body.Add("TextBlock").Grid_Row(3).Grid_Column(0).Text(GetLang("移动方式：")).VerticalAlignment("Center")
+            .Foreground("{DynamicResource TextMain}").FontSize("12")
+        mm := body.Add("ComboBox").Grid_Row(3).Grid_Column(1).Name("MouseMoveModeCombo").Height(26).MinHeight(26)
+            .VerticalContentAlignment("Center").FontSize("11")
+            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+        for m in GetLangArr(["绝对移动", "相对移动"])
+            mm.Add("ComboBoxItem").Content(m)
+        body.Add("TextBlock").Grid_Row(3).Grid_Column(2).Text(GetLang("鼠标动作：")).VerticalAlignment("Center").Margin("20,0,0,0")
+            .Foreground("{DynamicResource TextMain}").FontSize("12")
+        act := body.Add("ComboBox").Grid_Row(3).Grid_Column(3).Name("ActionTypeCombo").Height(26).MinHeight(26).Margin("20,0,0,0")
+            .VerticalContentAlignment("Center").FontSize("11")
+            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
         for a in GetLangArr(["移动", "移动点击1次", "移动点击2次"])
             act.Add("ComboBoxItem").Content(a)
 
-        ; 行5：坐标基准（§20 屏幕/窗口）+ 移动模式（绝对/相对）+ 拟真轨迹
-        row5 := body.Add("StackPanel").Grid_Row(5).Grid_ColumnSpan(4).Orientation("Horizontal").VerticalAlignment("Center")
-        row5.Add("TextBlock").Text(GetLang("坐标基准：")).VerticalAlignment("Center")
-        ref := row5.Add("ComboBox").Name("RefCombo").Width(90).Height(26).MinHeight(26).Margin("4,0,0,0")
-        for r in GetLangArr(["屏幕", "窗口"])
-            ref.Add("ComboBoxItem").Content(r)
-        row5.Add("TextBlock").Text(GetLang("移动方式：")).VerticalAlignment("Center").Margin("14,0,0,0")
-        mm := row5.Add("ComboBox").Name("MouseMoveModeCombo").Width(90).Height(26).MinHeight(26).Margin("4,0,0,0")
-        for m in GetLangArr(["绝对移动", "相对移动"])
-            mm.Add("ComboBoxItem").Content(m)
-        row5.Add("CheckBox").Name("HumanMouseTog").Content(GetLang("启用拟真轨迹")).VerticalAlignment("Center").Margin("14,0,0,0")
+        ; 行4：坐标X/Y（绝对=坐标位置，相对=坐标偏移）
+        body.Add("TextBlock").Grid_Row(4).Grid_Column(0).Name("PosXLabel").Text(GetLang("坐标位置X:")).VerticalAlignment("Center")
+            .Foreground("{DynamicResource TextMain}").FontSize("12")
+        body.Add("ComboBox").Grid_Row(4).Grid_Column(1).Name("PosVarX").Height(26).MinHeight(26).IsEditable("True")
+            .VerticalContentAlignment("Center").FontSize("11")
+            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+        body.Add("TextBlock").Grid_Row(4).Grid_Column(2).Name("PosYLabel").Text(GetLang("坐标位置Y:")).VerticalAlignment("Center").Margin("20,0,0,0")
+            .Foreground("{DynamicResource TextMain}").FontSize("12")
+        body.Add("ComboBox").Grid_Row(4).Grid_Column(3).Name("PosVarY").Height(26).MinHeight(26).Margin("20,0,0,0").IsEditable("True")
+            .VerticalContentAlignment("Center").FontSize("11")
+            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
 
-        ; 行6：窗口信息（坐标基准=窗口时显示；标题/类名，可 FrontInfoGui 选窗）
-        winRow := body.Add("StackPanel").Name("WinInfoRow").Grid_Row(6).Grid_ColumnSpan(4).Orientation("Horizontal").VerticalAlignment("Center")
-        winRow.Add("TextBlock").Text(GetLang("窗口信息：")).VerticalAlignment("Center")
-        winRow.Add("TextBox").Name("WinInfoCon").Width(240).Height(24).MinHeight(24).Margin("4,0,0,0").VerticalContentAlignment("Center")
-        winRow.Add("Button").Name("BtnWinInfoEdit").Content(GetLang("编辑")).Height(26).MinHeight(26).Margin("6,0,0,0")
+        ; 行5：移动速度
+        spdHost := body.Add("Border").Grid_Row(5).Grid_Column(0).Background("Transparent").VerticalAlignment("Center")
+            .ToolTip(GetLang("移动速度0~100，100为瞬移"))
+        spdHost.Add("TextBlock").Text(GetLang("移动速度：")).VerticalAlignment("Center")
+            .Foreground("{DynamicResource TextMain}").FontSize("12")
+        body.Add("TextBox").Grid_Row(5).Grid_Column(1).Name("SpeedCon").Height(26).MinHeight(26).VerticalContentAlignment("Center")
+            .FontSize("11").Padding("4,0").Text("90")
+            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
 
-        ; 行7：提示
-        body.Add("TextBlock").Grid_Row(7).Grid_ColumnSpan(4).Text(GetLang("坐标基准=窗口时，坐标按所选窗口左上角偏移计算（绝对移动）。")).VerticalAlignment("Center")
+        ; 行6：提示
+        body.Add("TextBlock").Grid_Row(6).Grid_ColumnSpan(4).Text(GetLang("坐标基准=窗口时，坐标按所选窗口左上角偏移计算（绝对移动）。")).VerticalAlignment("Center")
+            .Foreground("{DynamicResource TextSub}").FontSize("11")
 
-        ; 行8：确定
-        btnRow := body.Add("StackPanel").Grid_Row(8).Grid_ColumnSpan(4).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
+        ; 行7：确定（水平居中）
+        btnRow := body.Add("StackPanel").Grid_Row(7).Grid_ColumnSpan(4).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
         AddCmdOkBtn(btnRow)
 
         ; === 创建 XAMLHost ===
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", this.OwnerHwnd)
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="500" Height="380" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="520" SizeToContent="Height" Opacity="0"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
         this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '')
 
@@ -158,13 +185,11 @@ class MMProGui {
         this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
         this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
         this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
-        BindCmdEditorChrome(this.ui, "#指令手册/6-移动Pro", ObjBindMethod(this, "TriggerMacro"))
+        BindCmdEditorChrome(this.ui, "#指令手册/6-移动Pro", ObjBindMethod(this, "TriggerMacro"), "!l", ObjBindMethod(this, "OnClickTargeterBtn"), ObjBindMethod(this, "SureMMPro"))
         this.ui.OnEvent("RefCombo", "SelectionChanged", ObjBindMethod(this, "OnRefChange"))
         this.ui.OnEvent("BtnWinInfoEdit", "Click", ObjBindMethod(this, "OnWinInfoEdit"))
         this.ui.OnEvent("MouseMoveModeCombo", "SelectionChanged", ObjBindMethod(this, "OnTypeChange"))
         this.ui.OnEvent("HumanMouseTog", "Click", ObjBindMethod(this, "OnHumanMouseTogClick"))
-        this.ui.OnEvent("BtnTargeter", "Click", ObjBindMethod(this, "OnClickTargeterBtn"))
-        this.ui.OnEvent("BtnTargeterHelp", "Click", ObjBindMethod(this, "OnClickTargeterHelpBtn"))
         this.ui.OnEvent("BtnOk", "Click", ObjBindMethod(this, "OnClickSureBtn"))
 
     }
@@ -247,6 +272,7 @@ class MMProGui {
         RefMode := ObjHasOwnProp(this.Data, "RefMode") ? Integer(this.Data.RefMode) : 0
         this.ui.Update("RefCombo", "SelectedIndex", String(RefMode))
         this.ui.Update("WinInfoCon", "Text", ObjHasOwnProp(this.Data, "WinInfo") ? this.Data.WinInfo : "")
+        this.OnRefChange()
 
         this.ui.Update("SpeedCon", "Text", this.Data.Speed)
         this.ui.Update("HumanMouseTog", "IsChecked", (ObjHasOwnProp(this.Data, "IsHumanMouse") ? this.Data.IsHumanMouse : 0) ? "True" : "False")
@@ -283,7 +309,7 @@ class MMProGui {
         if (this._syncing || !IsObject(this.ui))
             return
         isWin := this._RefMode() == 1
-        this.ui.Update("WinInfoRow", "Visibility", isWin ? "Visible" : "Collapsed")
+        this.ui.Update("WinInfoRow", "Visibility", isWin ? "Visible" : "Hidden")
     }
 
     ; §20 窗口信息编辑：复用 FrontInfoGui 选窗（标题/类名）
@@ -326,7 +352,9 @@ class MMProGui {
     OnTypeChange(state := "", ctrl := "", event := "") {
         if (this._syncing || !IsObject(this.ui))
             return
-        ; §20 移动模式仅剩 绝对/相对（旧「游戏视角」已拆为增量移动指令），无需联动禁用
+        isRel := this._MoveMode() == 1
+        this.ui.Update("PosXLabel", "Text", GetLang(isRel ? "坐标偏移X:" : "坐标位置X:"))
+        this.ui.Update("PosYLabel", "Text", GetLang(isRel ? "坐标偏移Y:" : "坐标位置Y:"))
     }
 
     OnSureTarget(PosX, PosY, Color) {
@@ -361,10 +389,18 @@ class MMProGui {
     SureMMPro() {
         CoordMode("Mouse", "Screen")
         MouseGetPos &mouseX, &mouseY
-        if (IsObject(this.ui)) {
-            this.ui.Update("PosVarX", "Text", mouseX)
-            this.ui.Update("PosVarY", "Text", mouseY)
+        if (!IsObject(this.ui))
+            return
+        if (this._MoveMode() == 1) {
+            curX := this.ui.Query("PosVarX")
+            curY := this.ui.Query("PosVarY")
+            curX := IsNumber(curX) ? Number(curX) : 0
+            curY := IsNumber(curY) ? Number(curY) : 0
+            mouseX := mouseX - curX
+            mouseY := mouseY - curY
         }
+        this.ui.Update("PosVarX", "Text", mouseX)
+        this.ui.Update("PosVarY", "Text", mouseY)
     }
 
     OnHumanMouseTogClick(state := "", ctrl := "", event := "") {

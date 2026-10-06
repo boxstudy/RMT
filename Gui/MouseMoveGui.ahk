@@ -56,7 +56,7 @@ class MouseMoveGui {
         chrome := XAMLHost.AddCmdTitleBar(main, title, titleHeight)
 
         ; === 内容 ===
-        body := main.Add("Grid").Grid_Row(1).Margin("8,8,8,8")
+        body := main.Add("Grid").Grid_Row(1).Margin("8,8,8,13")
         body.Rows("26", "36", "36", "34", "*")
         body.Cols("82", "92", "100", "110")
         speedTip := GetLang("移动速度0~100，100为瞬移")
