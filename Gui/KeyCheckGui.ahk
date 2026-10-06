@@ -70,7 +70,7 @@ class KeyCheckGui {
         main.Rows(titleHeight, "*", "34", "44")
 
         ; === 标题栏 ===
-        chrome := XAMLHost.AddTitleBar(main, title, titleHeight)
+        chrome := XAMLHost.AddCmdTitleBar(main, title, titleHeight)
 
         ; === 按键网格（GroupBox + ScrollViewer）===
         keyGroup := main.Add("GroupBox").Grid_Row(1).Header(GetLang("请从下面按钮中选择要检测的按键：")).Margin("8,2,8,4")
@@ -95,7 +95,7 @@ class KeyCheckGui {
         ; === 底部按钮行 ===
         btnRow := main.Add("StackPanel").Grid_Row(3).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
         btnRow.Add("Button").Name("BtnClear").Content(GetLang("清空")).Width(100).Height(32).MinHeight(32).Margin("4,0").Cursor("Hand")
-        btnRow.Add("Button").Name("BtnOk").Content(GetLang("确定")).Width(100).Height(32).MinHeight(32).Margin("4,0").Cursor("Hand")
+        AddCmdOkBtn(btnRow, "BtnOk", "4,0")
 
         ; === 生成按键网格 ===
         this._BuildKeyGrid()
@@ -114,6 +114,7 @@ class KeyCheckGui {
         this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
         this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
         this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
+        BindCmdEditorChrome(this.ui, "#指令手册/24-按键检测")
         this.ui.OnEvent("BtnClear", "Click", (*) => this.ClearCheckedArr())
         this.ui.OnEvent("BtnOk", "Click", ObjBindMethod(this, "OnSureBtnClick"))
 

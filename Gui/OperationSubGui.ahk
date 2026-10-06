@@ -112,7 +112,7 @@ class OperationSubGui {
         btnRow := body.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Center").Margin("0,10,0,0")
         btnRow.Add("Button").Name("BtnCalcResult").Content(GetLang("计算结果")).Width(100).Height(36).MinHeight(36).Margin("4,0").Cursor("Hand")
         btnRow.Add("Button").Name("BtnBackspace").Content(GetLang("退格")).Width(100).Height(36).MinHeight(36).Margin("4,0").Cursor("Hand")
-        btnRow.Add("Button").Name("BtnSure").Content(GetLang("确定")).Width(100).Height(36).MinHeight(36).Margin("4,0").Cursor("Hand")
+        AddCmdOkBtn(btnRow, "BtnSure", "4,0")
 
         ; === 创建 XAMLHost ===
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)

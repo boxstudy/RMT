@@ -650,6 +650,7 @@ class AppThemeUtil {
                 {ControlName: "Resource", PropertyName: "BtnPressBg", Value: btnPressBg},
                 {ControlName: "Resource", PropertyName: "ActionPressBg", Value: actionPressBg},
                 {ControlName: "Resource", PropertyName: "OutlineStroke", Value: outlineStroke},
+                {ControlName: "Resource", PropertyName: "ScrollBarHover", Value: progress},
                 ; 下拉弹出层与输入框同色，避免浅色底 + 深色主题文字导致看不清
                 {ControlName: "Resource", PropertyName: "DropdownBg", Value: windowBg},
                 ; 列表斑马纹：取标题色 RGB，降低透明度，随主题变化
@@ -695,6 +696,7 @@ class AppThemeUtil {
             try ui.Update("Resource", "BtnPressBg", btnPressBg)
             try ui.Update("Resource", "ActionPressBg", actionPressBg)
             try ui.Update("Resource", "OutlineStroke", outlineStroke)
+            try ui.Update("Resource", "ScrollBarHover", progress)
             ; 下拉弹出层与输入框同色，避免浅色底 + 深色主题文字导致看不清
             try ui.Update("Resource", "DropdownBg", windowBg)
             ; 列表斑马纹：取标题色 RGB，降低透明度，随主题变化

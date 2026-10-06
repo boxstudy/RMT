@@ -93,6 +93,8 @@ class MacroGraphConnectionsMixin {
                 s .= "  x" d.count
             return s
         }
+        if (d.type == GetLang("手柄"))
+            return this._JoyCmdSummary(d)
         if (IsMoveCmd(d.type))
             return "(" d.posx ", " d.posy ")  " GetLang("移动速度：") d.speed
         if (IsDeltaMoveCmd(d.type))
@@ -129,6 +131,16 @@ class MacroGraphConnectionsMixin {
         if (this._IsFormalNodeType(d.type))
             return this._FormalSummary(d)
         return d.raw
+    }
+
+    _JoyCmdSummary(d) {
+        raw := d.HasOwnProp("raw") ? d.raw : ""
+        if (raw == "")
+            return d.HasOwnProp("key") ? d.key : ""
+        prefix := GetLang("手柄") "_"
+        if (SubStr(raw, 1, StrLen(prefix)) == prefix)
+            return SubStr(raw, StrLen(prefix) + 1)
+        return raw
     }
 
     _XmlEsc(s) {

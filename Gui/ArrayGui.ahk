@@ -76,7 +76,7 @@ class ArrayGui {
         main.Rows(titleHeight, "*")
 
         ; === 标题栏 ===
-        chrome := XAMLHost.AddTitleBar(main, title, titleHeight)
+        chrome := XAMLHost.AddCmdTitleBar(main, title, titleHeight)
 
         ; === 内容 ===
         body := main.Add("Grid").Grid_Row(1).Margin("10,6")
@@ -133,7 +133,7 @@ class ArrayGui {
 
         ; 行5：确定
         btnRow := body.Add("StackPanel").Grid_Row(5).Grid_ColumnSpan(4).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
-        btnRow.Add("Button").Name("BtnOk").Content(GetLang("确定")).Width(100).Height(36).MinHeight(36)
+        AddCmdOkBtn(btnRow)
 
         ; === 创建 XAMLHost ===
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
@@ -146,6 +146,7 @@ class ArrayGui {
         this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
         this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
         this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
+        BindCmdEditorChrome(this.ui, "#指令手册/19-数组")
         this.ui.OnEvent("TypeCombo", "SelectionChanged", ObjBindMethod(this, "OnRefresh"))
         this.ui.OnEvent("ArgsTypeCon", "SelectionChanged", ObjBindMethod(this, "OnRefreshDataType"))
         this.ui.OnEvent("SaveTypeCon", "SelectionChanged", ObjBindMethod(this, "OnRefreshDataType"))

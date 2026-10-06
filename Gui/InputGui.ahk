@@ -76,19 +76,16 @@ class InputGui {
         main.Rows(titleHeight, "*")
 
         ; === 标题栏 ===
-        chrome := XAMLHost.AddTitleBar(main, title, titleHeight)
+        chrome := XAMLHost.AddCmdTitleBar(main, title, titleHeight)
 
         ; === 内容 ===
         body := main.Add("Grid").Grid_Row(1).Margin("10,8")
         body.Rows("32", "36", "34", "*", "52")
         body.Cols("80", "150", "60", "150")
 
-        ; 行0：快捷方式 + 执行指令 + 备注
+        ; 行0：备注
         row0 := body.Add("StackPanel").Grid_Row(0).Grid_ColumnSpan(4).Orientation("Horizontal").VerticalAlignment("Center")
-        row0.Add("TextBlock").Text(GetLang("快捷方式：")).VerticalAlignment("Center")
-        row0.Add("TextBox").Name("HotkeyText").Width(60).Height(24).MinHeight(24).Margin("4,0,0,0").Text("!l").IsReadOnly("True")
-        row0.Add("Button").Name("BtnExecute").Content(GetLang("执行指令")).Height(26).MinHeight(26).Margin("10,0,0,0")
-        row0.Add("TextBlock").Text(GetLang("备注：")).VerticalAlignment("Center").Margin("14,0,0,0")
+        row0.Add("TextBlock").Text(GetLang("备注：")).VerticalAlignment("Center")
         row0.Add("TextBox").Name("RemarkCon").Width(130).Height(24).MinHeight(24).Margin("4,0,0,0")
 
         ; 行1：输入类型
@@ -119,7 +116,7 @@ class InputGui {
 
         ; 行4：确定
         btnRow := body.Add("StackPanel").Grid_Row(4).Grid_ColumnSpan(4).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
-        btnRow.Add("Button").Name("BtnOk").Content(GetLang("确定")).Width(100).Height(36).MinHeight(36)
+        AddCmdOkBtn(btnRow)
 
         ; === 创建 XAMLHost ===
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
@@ -132,7 +129,7 @@ class InputGui {
         this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
         this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
         this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
-        this.ui.OnEvent("BtnExecute", "Click", ObjBindMethod(this, "TriggerMacro"))
+        BindCmdEditorChrome(this.ui, "#指令手册/7-输入", ObjBindMethod(this, "TriggerMacro"))
         this.ui.OnEvent("TypeCombo", "SelectionChanged", ObjBindMethod(this, "OnRefreshType"))
         this.ui.OnEvent("BtnOk", "Click", ObjBindMethod(this, "OnClickSureBtn"))
 

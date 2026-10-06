@@ -68,16 +68,11 @@ class WindowManageGui {
         main.Rows(titleHeight, "32", "32", "34", "30", "30", "30", "30", "44")
 
         ; === 标题栏 ===
-        chrome := XAMLHost.AddTitleBar(main, title, titleHeight)
+        chrome := XAMLHost.AddCmdTitleBar(main, title, titleHeight)
 
-        ; === 快捷方式 / 执行指令 / 备注 ===
+        ; === 备注 ===
         top := main.Add("StackPanel").Grid_Row(1).Orientation("Horizontal").Margin("10,2").VerticalAlignment("Center")
-        top.Add("TextBlock").Text(GetLang("快捷方式：")).VerticalAlignment("Center")
-        top.Add("TextBox").Width(60).Height(26).MinHeight(26).Margin("4,0,0,0").Text("!l").IsReadOnly("True").VerticalContentAlignment("Center").FontSize(11).Padding("4,0")
-            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
-            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-        top.Add("Button").Name("BtnExecute").Content(GetLang("执行指令")).Height(28).MinHeight(28).Padding("14,0").Margin("14,0,0,0").Cursor("Hand")
-        top.Add("TextBlock").Text(GetLang("备注：")).VerticalAlignment("Center").Margin("14,0,0,0")
+        top.Add("TextBlock").Text(GetLang("备注：")).VerticalAlignment("Center")
         top.Add("TextBox").Name("RemarkCon").Width(150).Height(26).MinHeight(26).Margin("4,0,0,0").VerticalContentAlignment("Center").FontSize(11).Padding("4,0")
             .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
@@ -130,7 +125,7 @@ class WindowManageGui {
 
         ; === 底部按钮 ===
         btnRow := main.Add("StackPanel").Grid_Row(8).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
-        btnRow.Add("Button").Name("BtnSure").Content(GetLang("确定")).Width(100).Height(32).MinHeight(32).Margin("4,0").Cursor("Hand")
+        AddCmdOkBtn(btnRow, "BtnSure", "4,0")
 
         ; === 创建 XAMLHost ===
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
@@ -143,7 +138,7 @@ class WindowManageGui {
         this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
         this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
         this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
-        this.ui.OnEvent("BtnExecute", "Click", ObjBindMethod(this, "TriggerMacro"))
+        BindCmdEditorChrome(this.ui, "#指令手册/23-窗口管理", ObjBindMethod(this, "TriggerMacro"))
         this.ui.OnEvent("ActionTypeCon", "SelectionChanged", ObjBindMethod(this, "OnActionChange"))
         this.ui.OnEvent("WinInfoEditBtn", "Click", ObjBindMethod(this, "OnClickWinEditBtn"))
         this.ui.OnEvent("BtnSure", "Click", ObjBindMethod(this, "OnClickSureBtn"))

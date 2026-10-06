@@ -45,9 +45,9 @@ class MacroGraphNodeUIMixin {
             ; 时间：可编辑下拉（既能下拉选变量，也能手动输入数值），与间隔编辑器一致
             varList := GetGuiVarArr()
             ; 固定值 / 随机最小值
-            this._AddEditableComboRow(body, "Time1Row_" id, GetLang("时间："), "Time_" id, varList, d.time, true)
+            this._AddEditableComboRow(body, "Time1Row_" id, GetLang("时间A："), "Time_" id, varList, d.time, true)
             ; 随机最大值（仅随机模式显示）
-            this._AddEditableComboRow(body, "Time2Row_" id, GetLang("时间："), "Time2_" id, varList, d.time2, isRandom)
+            this._AddEditableComboRow(body, "Time2Row_" id, GetLang("时间B："), "Time2_" id, varList, d.time2, isRandom)
         }
         else if (d.type == GetLang("按键")) {
             body.Add("TextBlock").Name("KeyName_" id).Text(d.key).Foreground("{DynamicResource EditText}").FontWeight("Bold").FontSize(this._MGFontSize(13)).TextWrapping("Wrap")
@@ -62,6 +62,10 @@ class MacroGraphNodeUIMixin {
             this._AddFieldRow(body, "HoldRow_" id, GetLang("点击时长:"), "Hold_" id, d.hold, isClick, true, id, "hold")
             this._AddFieldRow(body, "CountRow_" id, GetLang("点击次数："), "Count_" id, d.count, isClick, true, id, "count")
             this._AddFieldRow(body, "InterRow_" id, GetLang("每次间隔："), "Inter_" id, d.inter, showInter, true, id, "inter")
+        }
+        else if (d.type == GetLang("手柄")) {
+            body.Add("TextBlock").Name("JoySum_" id).Text(this._JoyCmdSummary(d)).Foreground("{DynamicResource EditText}").FontWeight("Bold").FontSize(this._MGFontSize(13)).TextWrapping("Wrap")
+            body.Add("TextBlock").Text(GetLang("双击打开手柄编辑器")).Foreground("{DynamicResource TextSub}").FontSize(this._MGFontSize(11)).Margin("0,6,0,0")
         }
         else if (IsMoveCmd(d.type)) {
             isGameView := (d.mode == "2" || d.mode == 2)   ; 旧配置游戏视角兼容（新配置无此值）

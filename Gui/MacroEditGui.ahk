@@ -1,6 +1,7 @@
 #Requires AutoHotkey v2.0
 #Include IntervalGui.ahk
 #Include KeyGui.ahk
+#Include JoyGui.ahk
 #Include MouseMoveGui.ahk
 #Include SearchGui.ahk
 #Include SearchProGui.ahk
@@ -161,16 +162,19 @@ class MacroEditGui {
         this._undoBatch := 0             ; >0 时 _PushUndo 静默（内部批量组合操作只记一次）
         ; §13 左侧指令面板：按类型分类 + 收藏星标 + 分类展开状态（持久化到 INI）
         this.CmdCategory := [
-            {name: "键鼠/手柄", cmds: ["按键", "鼠标移动", "鼠标移动Pro", "增量移动", "后台按键", "后台鼠标", "按键检测"]},
-            {name: "搜索/识图", cmds: ["搜索", "搜索Pro"]},
-            {name: "输入/输出", cmds: ["输入", "输出", "文件读写"]},
-            {name: "变量/数据", cmds: ["变量", "变量提取", "运算", "数组", "文本处理"]},
-            {name: "流程控制", cmds: ["间隔", "如果", "如果Pro", "循环", "等待"]},
-            {name: "调控", cmds: ["运行", "宏操作", "窗口管理", "RMT指令"]},
-            {name: "其他", cmds: ["抓图", "注释", "时间"]}
+            {name: "键鼠/手柄", icon: Chr(0xE765), cmds: ["按键", "手柄", "鼠标移动", "鼠标移动Pro", "增量移动", "后台按键", "后台鼠标", "按键检测"]},
+            {name: "搜索/识图", icon: Chr(0xE721), cmds: ["搜索", "搜索Pro"]},
+            {name: "输入/输出", icon: Chr(0xE8A1), cmds: ["输入", "输出", "文件读写"]},
+            {name: "变量/数据", icon: Chr(0xE8EF), cmds: ["变量", "变量提取", "运算", "数组", "文本处理"]},
+            {name: "流程控制", icon: Chr(0xE8FD), cmds: ["间隔", "如果", "如果Pro", "循环", "等待"]},
+            {name: "调控", icon: Chr(0xE713), cmds: ["运行", "宏操作", "窗口管理", "RMT指令"]},
+            {name: "其他", icon: Chr(0xE712), cmds: ["抓图", "注释", "时间"]}
         ]
         this._favSet := Map()            ; 收藏指令名（中文）→ true
         this._catExpand := Map()         ; 分类名（中文）→ true（展开）
+        this._favOpen := true            ; 收藏分组展开
+        this._allExpanded := true        ; 工具栏「缩放」：全部展开 / 全部折叠
+        this._ctxFavProp := ""           ; 指令行右键收藏的当前 propName
         this.SubMacroLastIndex := 0
         this.DragSourceMap := Map()
         this._dragCancelled := false
@@ -194,10 +198,10 @@ class MacroEditGui {
 
     InitCommandConfigs() {
         ; §20 指令改名：移动→鼠标移动、移动Pro→鼠标移动Pro、新增 增量移动（原游戏视角）
-        this.CMDStrArr := GetLangArr(["间隔", "按键", "搜索", "搜索Pro", "鼠标移动", "鼠标移动Pro", "增量移动", "输入", "输出", "循环", "宏操作", "变量", "变量提取",
+        this.CMDStrArr := GetLangArr(["间隔", "按键", "手柄", "搜索", "搜索Pro", "鼠标移动", "鼠标移动Pro", "增量移动", "输入", "输出", "循环", "宏操作", "变量", "变量提取",
             "如果", "如果Pro", "运算", "运行", "文件读写", "文本处理", "数组", "RMT指令", "后台鼠标", "后台按键", "窗口管理", "按键检测", "等待", "时间", "注释", "抓图"])
 
-        this.CMDIconFileArr := ["Images\Soft\Interval.png", "Images\Soft\Key.png",
+        this.CMDIconFileArr := ["Images\Soft\Interval.png", "Images\Soft\Key.png", "Images\Soft\Key.png",
             "Images\Soft\Search.png", "Images\Soft\SearchPro.png",
             "Images\Soft\Move.png", "Images\Soft\MovePro.png", "Images\Soft\Move.png",
             "Images\Soft\Input.png", "Images\Soft\Output.png",
@@ -212,7 +216,7 @@ class MacroEditGui {
             "Images\Soft\Control.png", "Images\Soft\Interval.png",
             "Images\Soft\ScreenShot.png", "Images\Soft\Comment.png"]
 
-        this.IconMap := Map(GetLang("间隔"), "Icon1", GetLang("按键"), "Icon2", GetLang("搜索"), "Icon3",
+        this.IconMap := Map(GetLang("间隔"), "Icon1", GetLang("按键"), "Icon2", GetLang("手柄"), "Icon2", GetLang("搜索"), "Icon3",
         GetLang("搜索Pro"), "Icon4", GetLang("鼠标移动"), "Icon5", GetLang("鼠标移动Pro"), "Icon6", GetLang("增量移动"), "Icon34", GetLang("输出"), "Icon7",
         GetLang("运行"), "Icon8", GetLang("循环"), "Icon9", GetLang("宏操作"), "Icon10", GetLang("变量"), "Icon11",
         GetLang("变量提取"), "Icon12", GetLang("如果"), "Icon13", GetLang("如果Pro"), "Icon14", GetLang("运算"), "Icon15",
@@ -252,6 +256,7 @@ class MacroEditGui {
         this.SubGuiConfig := [
             {class: IntervalGui, name: "间隔", icon: "Images\Soft\Interval.png", propName: "IntervalGui"},
             {class: KeyGui, name: "按键", icon: "Images\Soft\Key.png", propName: "KeyGui"},
+            {class: JoyGui, name: "手柄", icon: "Images\Soft\Key.png", propName: "JoyGui"},
             {class: SearchGui, name: "搜索", icon: "Images\Soft\Search.png", propName: "SearchGui"},
             {class: SearchProGui, name: "搜索Pro", icon: "Images\Soft\SearchPro.png", propName: "SearchProGui"},
             {class: MouseMoveGui, name: "鼠标移动", icon: "Images\Soft\Move.png", propName: "MouseMoveGui"},
@@ -426,36 +431,46 @@ class MacroEditGui {
         try this.OnMacroChanged.Call(this.GetMacroStr())
     }
 
+    _BindTreeUiEvent(ctrlName, eventName, callback) {
+        if (!IsObject(this.ui) || ctrlName == "")
+            return
+        this.ui.OnEvent(ctrlName, eventName, callback)
+        ; 主窗口侧栏在 CREATE_WINDOW 之后才 Attach：必须补 BindEvent，否则引擎不挂 WPF 事件
+        try this.ui.Update(ctrlName, "BindEvent", eventName)
+    }
+
     _BindTreeInteractionEvents() {
         if (!IsObject(this.ui))
             return
-        this.ui.OnEvent(this.treeName, "PreviewMouseLeftButtonDown", ObjBindMethod(this, "_OnTreePreviewLeftDown"))
-        this.ui.OnEvent(this.treeName, "PreviewMouseRightButtonDown", ObjBindMethod(this, "_OnTreePreviewRightDown"))
-        this.ui.OnEvent(this.treeName, "PreviewKeyDown", ObjBindMethod(this, "_OnTreePreviewKeyDown"))
-        this.ui.OnEvent("Window", "PreviewMouseMove", ObjBindMethod(this, "_OnTreeDragMove"))
-        this.ui.OnEvent("Window", "PreviewMouseLeftButtonUp", ObjBindMethod(this, "_OnTreeDragDrop"))
+        this._BindTreeUiEvent(this.treeName, "PreviewMouseLeftButtonDown", ObjBindMethod(this, "_OnTreePreviewLeftDown"))
+        this._BindTreeUiEvent(this.treeName, "PreviewMouseRightButtonDown", ObjBindMethod(this, "_OnTreePreviewRightDown"))
+        this._BindTreeUiEvent(this.treeName, "PreviewKeyDown", ObjBindMethod(this, "_OnTreePreviewKeyDown"))
+        this._BindTreeUiEvent(this.treeName, "PreviewMouseMove", ObjBindMethod(this, "_OnTreeDragMove"))
+        this._BindTreeUiEvent(this.treeName, "PreviewMouseLeftButtonUp", ObjBindMethod(this, "_OnTreeDragDrop"))
+        this._BindTreeUiEvent("Window", "PreviewMouseMove", ObjBindMethod(this, "_OnTreeDragMove"))
+        this._BindTreeUiEvent("Window", "PreviewMouseLeftButtonUp", ObjBindMethod(this, "_OnTreeDragDrop"))
     }
 
     _BindTreeContextMenuEvents() {
         if (!IsObject(this.ui))
             return
-        this.ui.OnEvent(this.menuEditName, "Click", (*) => this.ContentMenuHandler(GetLang("编辑")))
-        this.ui.OnEvent(this.menuSkipName, "Click", (*) => this.ContentMenuHandler("Skip"))
-        this.ui.OnEvent(this.menuDebugName, "Click", (*) => this.ContentMenuHandler("Debug"))
-        this.ui.OnEvent(this.menuBpName, "Click", (*) => this.ContentMenuHandler("Bp"))
-        this.ui.OnEvent(this.menuCopyName, "Click", (*) => this.ContentMenuHandler(GetLang("复制")))
-        this.ui.OnEvent(this.menuPasteName, "Click", (*) => this.ContentMenuHandler(GetLang("粘贴")))
-        this.ui.OnEvent(this.menuDeleteName, "Click", (*) => this.ContentMenuHandler(GetLang("删除")))
-        this.ui.OnEvent(this.menuBranchDeleteName, "Click", (*) => this.ContentMenuHandler(GetLang("删除")))
-        this.ui.OnEvent(this.menuBlankPasteName, "Click", (*) => this.ContentMenuHandler(GetLang("粘贴")))
+        this._BindTreeUiEvent(this.menuEditName, "Click", (*) => this.ContentMenuHandler(GetLang("编辑")))
+        this._BindTreeUiEvent(this.menuSkipName, "Click", (*) => this.ContentMenuHandler("Skip"))
+        this._BindTreeUiEvent(this.menuDebugName, "Click", (*) => this.ContentMenuHandler("Debug"))
+        this._BindTreeUiEvent(this.menuBpName, "Click", (*) => this.ContentMenuHandler("Bp"))
+        this._BindTreeUiEvent(this.menuCopyName, "Click", (*) => this.ContentMenuHandler(GetLang("复制")))
+        this._BindTreeUiEvent(this.menuPasteName, "Click", (*) => this.ContentMenuHandler(GetLang("粘贴")))
+        this._BindTreeUiEvent(this.menuDeleteName, "Click", (*) => this.ContentMenuHandler(GetLang("删除")))
+        this._BindTreeUiEvent(this.menuBranchDeleteName, "Click", (*) => this.ContentMenuHandler(GetLang("删除")))
+        this._BindTreeUiEvent(this.menuBlankPasteName, "Click", (*) => this.ContentMenuHandler(GetLang("粘贴")))
         if (!this._sideMode) {
-            this.ui.OnEvent("MenuBranchUndoCmd", "Click", (*) => this.Undo())
+            this._BindTreeUiEvent("MenuBranchUndoCmd", "Click", (*) => this.Undo())
         }
         for index, value in this.CMDStrArr {
-            this.ui.OnEvent(this.menuInsertPrePrefix index, "Click", this.ContentMenuHandler.Bind(this, "Pre_" value))
-            this.ui.OnEvent(this.menuInsertNextPrefix index, "Click", this.ContentMenuHandler.Bind(this, "Next_" value))
-            this.ui.OnEvent(this.menuBlankInsertPrefix index, "Click", this.ContentMenuHandler.Bind(this, "Root_" value))
-            this.ui.OnEvent(this.menuBranchAddPrefix index, "Click", this.ContentMenuHandler.Bind(this, "Add_" value))
+            this._BindTreeUiEvent(this.menuInsertPrePrefix index, "Click", this.ContentMenuHandler.Bind(this, "Pre_" value))
+            this._BindTreeUiEvent(this.menuInsertNextPrefix index, "Click", this.ContentMenuHandler.Bind(this, "Next_" value))
+            this._BindTreeUiEvent(this.menuBlankInsertPrefix index, "Click", this.ContentMenuHandler.Bind(this, "Root_" value))
+            this._BindTreeUiEvent(this.menuBranchAddPrefix index, "Click", this.ContentMenuHandler.Bind(this, "Add_" value))
         }
     }
 
@@ -603,6 +618,7 @@ class MacroEditGui {
             if (pair.Length == 2 && Trim(pair[1]) != "")
                 this._catExpand[Trim(pair[1])] := Trim(pair[2]) == "1"
         }
+        this._favOpen := CfgRead(SettingFile, SettingSection, "CmdFavOpen", "1") != "0"
     }
 
     ; 收藏集落盘（即时）
@@ -626,6 +642,7 @@ class MacroEditGui {
         for i, p in pairs
             s .= (i > 1 ? "," : "") p
         CfgWrite(s, SettingFile, SettingSection, "CmdCatState")
+        CfgWrite(this._favOpen ? "1" : "0", SettingFile, SettingSection, "CmdFavOpen")
     }
 
     ; 按中文指令名找 SubGuiConfig；找不到返回 ""
@@ -636,59 +653,101 @@ class MacroEditGui {
         return ""
     }
 
-    ; 构建一行指令：星标 + 指令按钮（图标+名称）
-    _AddCmdRowBtn(row, config, favBtnName, cmdBtnName, isFav) {
-        fav := row.Add("Button").Name(favBtnName).Width(22).Height(30).Margin("0,1,0,1")
-            .Background("Transparent").BorderThickness("0").Cursor("Hand").Padding("0")
-            .VerticalContentAlignment("Center").HorizontalContentAlignment("Center")
-        fav.Add("TextBlock").Name(favBtnName "_Txt").Text(isFav ? "⭐" : "☆").FontSize(13)
-            .HorizontalAlignment("Center").VerticalAlignment("Center")
-        b := row.Add("Button").Name(cmdBtnName).Height(30).Margin("2,1").Background("Transparent").BorderThickness("0")
-            .Cursor("Hand").HorizontalContentAlignment("Left").VerticalContentAlignment("Center")
+    ; 构建一行指令：图标 + 名称（收藏改右键，无星标）
+    _AddCmdRowBtn(row, config, cmdBtnName, padLeft) {
+        b := row.Add("Button").Name(cmdBtnName).Height(26).MinHeight(26).Margin("0,1")
+            .HorizontalAlignment("Stretch").Cursor("Hand")
+            .Style("{StaticResource RmtCmdRowBtn}")
+            .Padding(padLeft ",0,6,0")
+            .HorizontalContentAlignment("Left").VerticalContentAlignment("Center")
         sp := b.Add("StackPanel").Orientation("Horizontal").VerticalAlignment("Center")
-        sp.Add("Image").Source(StrReplace(A_WorkingDir "\" config.icon, "\", "/")).Width(16).Height(16).Margin("0,0,4,0")
-        sp.Add("TextBlock").Text(GetLang(config.name)).FontSize(11).VerticalAlignment("Center")
+        sp.Add("Image").Source(StrReplace(A_WorkingDir "\" config.icon, "\", "/")).Width(16).Height(16).Margin("0,0,6,0")
+        sp.Add("TextBlock").Text(GetLang(config.name)).FontSize(12).VerticalAlignment("Center")
+            .TextTrimming("CharacterEllipsis").Foreground("{DynamicResource TextMain}")
     }
 
-    ; 构建左侧面板：收藏区（预建全部行按收藏集显隐）+ 分类区（可折叠，状态记忆）
+    _AddCmdSectionHead(parent, btnName, arrowName, countName, iconGlyph, title, expanded, count, extraMargin := "0") {
+        btn := parent.Add("Button").Name(btnName).Style("{StaticResource RmtCatHeadBtn}")
+            .HorizontalAlignment("Stretch").Height(24).MinHeight(24).Cursor("Hand")
+            .HorizontalContentAlignment("Left").Margin(extraMargin)
+        g := btn.Add("Grid").HorizontalAlignment("Stretch")
+        g.Cols("Auto", "Auto", "*", "Auto")
+        g.Add("TextBlock").Name(arrowName).Grid_Column(0).Text(expanded ? Chr(0xE70D) : Chr(0xE76C))
+            .FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(12).Width(16)
+            .VerticalAlignment("Center").HorizontalAlignment("Center")
+            .Margin("0,0,4,0")
+            .Foreground("{DynamicResource TextMain}")
+        g.Add("TextBlock").Grid_Column(1).Text(iconGlyph)
+            .FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(12).Width(16).Margin("0,0,6,0")
+            .VerticalAlignment("Center").HorizontalAlignment("Center")
+            .Foreground("{DynamicResource TextMain}")
+        g.Add("TextBlock").Grid_Column(2).Text(title).FontSize(12).FontWeight("Normal")
+            .VerticalAlignment("Center").Foreground("{DynamicResource TextMain}")
+            .TextTrimming("CharacterEllipsis")
+        g.Add("TextBlock").Name(countName).Grid_Column(3).Text(String(count)).FontSize(10)
+            .VerticalAlignment("Center").Margin("4,0,2,0").Foreground("{DynamicResource TextSub}")
+        return btn
+    }
+
+    ; 构建左侧面板：筛选 + 收藏框 + 分类（可折叠，状态记忆）
     _BuildCmdPanel(left) {
         this._LoadCmdPanelState()
-        sv := left.Add("ScrollViewer").VerticalScrollBarVisibility("Auto").HorizontalScrollBarVisibility("Disabled")
-        panel := sv.Add("StackPanel").Margin("2,4,2,4")
+        box := left.Add("Grid")
+        box.Rows("Auto", "*")
 
-        ; ---- 收藏区 ----
-        panel.Add("TextBlock").Text("⭐ " GetLang("收藏")).FontSize(12).FontWeight("SemiBold")
-            .Margin("4,2,0,2").Foreground("{DynamicResource TextMain}")
-        favPanel := panel.Add("StackPanel").Name("CmdFavPanel")
+        filterHost := box.Add("Grid").Grid_Row(0).Margin("0,0,6,8")
+        filterHost.Add("TextBox").Name("CmdFilter").Height(26).MinHeight(26)
+            .VerticalContentAlignment("Center").Padding("8,0")
+            .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+        filterHost.Add("TextBlock").Name("CmdFilterHint").Text(GetLang("筛选指令"))
+            .IsHitTestVisible("False").VerticalAlignment("Center").Margin("10,0,0,0")
+            .Foreground("{DynamicResource TextSub}").FontSize(12)
+
+        sv := box.Add("ScrollViewer").Grid_Row(1).VerticalScrollBarVisibility("Auto")
+            .HorizontalScrollBarVisibility("Disabled").Padding("0").Margin("0")
+            .Style("{StaticResource RmtThemedScrollViewer}")
+        panel := sv.Add("StackPanel").Margin("0,0,6,6")
+
+        favCnt := 0
+        for config in this.SubGuiConfig
+            if (this._favSet.Has(config.name))
+                favCnt++
+
+        favBlock := panel.Add("Border").Background("{DynamicResource EditHoverBg}")
+            .BorderBrush("{DynamicResource OutlineStroke}").BorderThickness("1").CornerRadius("4")
+            .Padding("4,4,2,6").Margin("0,0,0,8")
+        favInner := favBlock.Add("StackPanel")
+        this._AddCmdSectionHead(favInner, "FavToggle", "FavArrow", "FavCount", Chr(0xE734), GetLang("收藏"), this._favOpen, favCnt)
+        favPanel := favInner.Add("StackPanel").Name("CmdFavPanel").Visibility(this._favOpen ? "Visible" : "Collapsed")
         for config in this.SubGuiConfig {
             isFav := this._favSet.Has(config.name)
             row := favPanel.Add("StackPanel").Name("FavRow_" config.propName).Orientation("Horizontal")
                 .Visibility(isFav ? "Visible" : "Collapsed")
-            this._AddCmdRowBtn(row, config, "FavBtnFav_" config.propName, "CmdBtnFav_" config.propName, isFav)
+            this._AddCmdRowBtn(row, config, "CmdBtnFav_" config.propName, "22")
         }
+        favInner.Add("TextBlock").Name("FavEmptyHint").FontSize(11).Margin("6,4,4,2")
+            .Foreground("{DynamicResource TextSub}")
+            .Text(GetLang("右键指令即可加入收藏"))
+            .Visibility((this._favOpen && favCnt == 0) ? "Visible" : "Collapsed")
 
-        ; ---- 分类区 ----
         for idx, cat in this.CmdCategory {
             expanded := this._catExpand.Get(cat.name, true)
-            arrow := expanded ? Chr(0x25BE) : Chr(0x25B8)   ; ▾ / ▸
-            panel.Add("Button").Name("CatToggle_" idx).Content(arrow " " GetLang(cat.name))
-                .HorizontalAlignment("Stretch").Height(28).Background("Transparent").BorderThickness("0")
-                .Cursor("Hand").HorizontalContentAlignment("Left").FontSize(12).FontWeight("SemiBold")
-                .Foreground("{DynamicResource TextMain}").Margin("0,6,0,0").Padding("6,0")
+            this._AddCmdSectionHead(panel, "CatToggle_" idx, "CatArrow_" idx, "CatCount_" idx, cat.icon, GetLang(cat.name), expanded, cat.cmds.Length, "0,2,0,0")
             catPanel := panel.Add("StackPanel").Name("CatPanel_" idx).Visibility(expanded ? "Visible" : "Collapsed")
             for cmdName in cat.cmds {
                 config := this._CmdConfigOf(cmdName)
                 if (config == "")
                     continue
-                row := catPanel.Add("StackPanel").Orientation("Horizontal")
-                this._AddCmdRowBtn(row, config, "FavBtnCat_" config.propName, "CmdBtn_" config.propName, this._favSet.Has(config.name))
+                row := catPanel.Add("StackPanel").Name("CmdRowCat_" config.propName).Orientation("Horizontal")
+                this._AddCmdRowBtn(row, config, "CmdBtn_" config.propName, "22")
             }
         }
     }
 
-    ; 星标点击：切换收藏并刷新两处星标与收藏区行显隐
-    _OnToggleFav(propName, state, ctrl, event) {
-        if (!IsObject(this.ui))
+    ; 右键收藏 / 取消收藏
+    _OnToggleFav(propName, state := "", ctrl := "", event := "") {
+        if (!IsObject(this.ui) || propName == "")
             return
         for config in this.SubGuiConfig {
             if (config.propName != propName)
@@ -698,13 +757,20 @@ class MacroEditGui {
                 this._favSet[config.name] := true
             else
                 this._favSet.Delete(config.name)
-            star := isFav ? "⭐" : "☆"
-            try this.ui.Update("FavBtnCat_" propName "_Txt", "Text", star)
-            try this.ui.Update("FavBtnFav_" propName "_Txt", "Text", star)
-            try this.ui.Update("FavRow_" propName, "Visibility", isFav ? "Visible" : "Collapsed")
             this._SaveFavState()
+            this._ApplyCmdFilter()
             return
         }
+    }
+
+    _OnToggleFavSection(*) {
+        if (!IsObject(this.ui))
+            return
+        this._favOpen := !this._favOpen
+        try this.ui.Update("FavArrow", "Text", this._favOpen ? Chr(0xE70D) : Chr(0xE76C))
+        try this.ui.Update("CmdFavPanel", "Visibility", this._favOpen ? "Visible" : "Collapsed")
+        this._SaveCatState()
+        this._ApplyCmdFilter()
     }
 
     ; 分类标题点击：折叠/展开该分类并保存
@@ -715,8 +781,324 @@ class MacroEditGui {
         expanded := !this._catExpand.Get(cat.name, true)
         this._catExpand[cat.name] := expanded
         try this.ui.Update("CatPanel_" idx, "Visibility", expanded ? "Visible" : "Collapsed")
-        try this.ui.Update("CatToggle_" idx, "Content", (expanded ? Chr(0x25BE) : Chr(0x25B8)) " " GetLang(cat.name))
+        try this.ui.Update("CatArrow_" idx, "Text", expanded ? Chr(0xE70D) : Chr(0xE76C))
         this._SaveCatState()
+        this._ApplyCmdFilter()
+    }
+
+    _OnCmdFilterChanged(state, ctrl := "", event := "") {
+        q := ""
+        if (IsObject(state) && state.Has("CmdFilter"))
+            q := state["CmdFilter"]
+        else if (IsObject(this.ui))
+            q := this.ui.Query("CmdFilter")
+        this._ApplyCmdFilter(q)
+    }
+
+    _CmdFilterMatch(name, q) {
+        if (q == "")
+            return true
+        return InStr(name, q) || InStr(GetLang(name), q)
+    }
+
+    _ApplyCmdFilter(q := unset) {
+        if (!IsObject(this.ui))
+            return
+        if (!IsSet(q))
+            q := this.ui.Query("CmdFilter")
+        q := Trim(String(q))
+        try this.ui.Update("CmdFilterHint", "Visibility", q == "" ? "Visible" : "Collapsed")
+
+        favVisible := 0
+        for config in this.SubGuiConfig {
+            match := this._CmdFilterMatch(config.name, q)
+            isFav := this._favSet.Has(config.name)
+            showFav := isFav && match
+            try this.ui.Update("FavRow_" config.propName, "Visibility", showFav ? "Visible" : "Collapsed")
+            if (showFav)
+                favVisible++
+            try this.ui.Update("CmdRowCat_" config.propName, "Visibility", match ? "Visible" : "Collapsed")
+        }
+        try this.ui.Update("FavCount", "Text", String(favVisible))
+        emptyTxt := q != "" ? GetLang("无匹配收藏") : GetLang("右键指令即可加入收藏")
+        try this.ui.Update("FavEmptyHint", "Text", emptyTxt)
+        try this.ui.Update("FavEmptyHint", "Visibility", (this._favOpen && favVisible == 0) ? "Visible" : "Collapsed")
+        try this.ui.Update("CmdFavPanel", "Visibility", this._favOpen ? "Visible" : "Collapsed")
+
+        for idx, cat in this.CmdCategory {
+            cnt := 0
+            for cmdName in cat.cmds {
+                if (this._CmdFilterMatch(cmdName, q))
+                    cnt++
+            }
+            showCat := cnt > 0
+            expanded := this._catExpand.Get(cat.name, true)
+            try this.ui.Update("CatToggle_" idx, "Visibility", showCat ? "Visible" : "Collapsed")
+            try this.ui.Update("CatPanel_" idx, "Visibility", (showCat && expanded) ? "Visible" : "Collapsed")
+            try this.ui.Update("CatCount_" idx, "Text", String(cnt))
+        }
+    }
+
+    _OnCmdRowRightClick(propName, *) {
+        if (!IsObject(this.ui) || propName == "")
+            return
+        this._ctxFavProp := propName
+        isFav := false
+        for config in this.SubGuiConfig {
+            if (config.propName == propName) {
+                isFav := this._favSet.Has(config.name)
+                break
+            }
+        }
+        try this.ui.Update("MenuFavToggle", "Header", isFav ? GetLang("取消收藏") : GetLang("收藏"))
+        try this.ui.Update("CmdFavCM", "IsOpen", "True")
+    }
+
+    _OnMenuFavToggle(*) {
+        this._OnToggleFav(this._ctxFavProp)
+    }
+
+    _EditLayoutStyles() {
+        fold := '<Style x:Key="RmtFoldToolBtn" TargetType="Button">'
+            . '<Setter Property="Width" Value="31"/><Setter Property="Height" Value="31"/><Setter Property="MinHeight" Value="31"/>'
+            . '<Setter Property="Padding" Value="0"/><Setter Property="Cursor" Value="Hand"/>'
+            . '<Setter Property="Background" Value="{DynamicResource ControlBg}"/>'
+            . '<Setter Property="BorderBrush" Value="{DynamicResource ControlBorder}"/>'
+            . '<Setter Property="BorderThickness" Value="1.5"/>'
+            . '<Setter Property="Foreground" Value="{DynamicResource TextMain}"/>'
+            . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Grid>'
+            . '<Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3" SnapsToDevicePixels="True" UseLayoutRounding="False">'
+            . '<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>'
+            . '</Border><Rectangle x:Name="BottomLine" Height="1.5" VerticalAlignment="Bottom" Margin="3,0,3,0" Fill="{TemplateBinding BorderBrush}" IsHitTestVisible="False"/>'
+            . '</Grid><ControlTemplate.Triggers>'
+            . '<Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource ControlBorder}"/><Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}"/><Setter TargetName="BottomLine" Property="Fill" Value="{DynamicResource Accent}"/></Trigger>'
+            . '<Trigger Property="IsPressed" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource BtnPressBg}"/><Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}"/><Setter TargetName="BottomLine" Property="Fill" Value="{DynamicResource Accent}"/></Trigger>'
+            . '</ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
+        okBtn := '<Style x:Key="RmtEditOkBtn" TargetType="Button">'
+            . '<Setter Property="Height" Value="31"/><Setter Property="MinHeight" Value="31"/><Setter Property="MinWidth" Value="72"/>'
+            . '<Setter Property="Padding" Value="12,0"/><Setter Property="Cursor" Value="Hand"/>'
+            . '<Setter Property="Background" Value="{DynamicResource Accent}"/>'
+            . '<Setter Property="BorderBrush" Value="{DynamicResource Accent}"/>'
+            . '<Setter Property="BorderThickness" Value="1.5"/>'
+            . '<Setter Property="Foreground" Value="{DynamicResource ActionText}"/>'
+            . '<Setter Property="FontSize" Value="13"/>'
+            . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">'
+            . '<Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True" UseLayoutRounding="False">'
+            . '<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>'
+            . '</Border><ControlTemplate.Triggers>'
+            . '<Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Opacity" Value="0.92"/></Trigger>'
+            . '<Trigger Property="IsPressed" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource BtnPressBg}"/></Trigger>'
+            . '</ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
+        modeTab := '<Style x:Key="RmtEditModeTab" TargetType="Button">'
+            . '<Setter Property="Height" Value="31"/><Setter Property="MinHeight" Value="31"/><Setter Property="MaxHeight" Value="31"/>'
+            . '<Setter Property="Padding" Value="12,0"/><Setter Property="Cursor" Value="Hand"/>'
+            . '<Setter Property="Background" Value="Transparent"/>'
+            . '<Setter Property="BorderThickness" Value="0"/>'
+            . '<Setter Property="Foreground" Value="{DynamicResource TextMain}"/>'
+            . '<Setter Property="HorizontalContentAlignment" Value="Center"/>'
+            . '<Setter Property="VerticalContentAlignment" Value="Center"/>'
+            . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">'
+            . '<Grid ClipToBounds="False">'
+            . '<Border x:Name="Bd" Background="Transparent" BorderThickness="0" Padding="{TemplateBinding Padding}" Cursor="Hand">'
+            . '<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" TextElement.Foreground="{DynamicResource TextMain}" TextElement.FontSize="13" TextElement.FontWeight="SemiBold"/>'
+            . '</Border>'
+            . '<Ellipse x:Name="SelDot" Width="6" Height="6" Fill="{DynamicResource Accent}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,3,3,0" Visibility="Collapsed" IsHitTestVisible="False"/>'
+            . '</Grid>'
+            . '<ControlTemplate.Triggers>'
+            . '<Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource ControlBorder}"/></Trigger>'
+            . '<Trigger Property="Tag" Value="first"><Setter TargetName="Bd" Property="CornerRadius" Value="2,0,0,2"/></Trigger>'
+            . '<Trigger Property="Tag" Value="last"><Setter TargetName="Bd" Property="CornerRadius" Value="0,2,2,0"/></Trigger>'
+            . '<Trigger Property="Tag" Value="sel-first"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource TabSelBg}"/><Setter TargetName="Bd" Property="CornerRadius" Value="2,0,0,2"/><Setter TargetName="SelDot" Property="Visibility" Value="Visible"/></Trigger>'
+            . '<Trigger Property="Tag" Value="sel-last"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource TabSelBg}"/><Setter TargetName="Bd" Property="CornerRadius" Value="0,2,2,0"/><Setter TargetName="SelDot" Property="Visibility" Value="Visible"/></Trigger>'
+            . '<MultiTrigger><MultiTrigger.Conditions><Condition Property="IsMouseOver" Value="True"/><Condition Property="Tag" Value="sel-first"/></MultiTrigger.Conditions>'
+            . '<Setter TargetName="Bd" Property="Background" Value="{DynamicResource TabSelBg}"/></MultiTrigger>'
+            . '<MultiTrigger><MultiTrigger.Conditions><Condition Property="IsMouseOver" Value="True"/><Condition Property="Tag" Value="sel-last"/></MultiTrigger.Conditions>'
+            . '<Setter TargetName="Bd" Property="Background" Value="{DynamicResource TabSelBg}"/></MultiTrigger>'
+            . '</ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
+        graphFloat := '<Style x:Key="RmtEditGraphFloat" TargetType="Button">'
+            . '<Setter Property="Height" Value="31"/><Setter Property="MinHeight" Value="31"/><Setter Property="MinWidth" Value="72"/>'
+            . '<Setter Property="Padding" Value="12,0"/><Setter Property="Cursor" Value="Hand"/>'
+            . '<Setter Property="Opacity" Value="0.94"/>'
+            . '<Setter Property="Background" Value="{DynamicResource ControlBg}"/>'
+            . '<Setter Property="BorderBrush" Value="{DynamicResource ControlBorder}"/>'
+            . '<Setter Property="BorderThickness" Value="1.5"/>'
+            . '<Setter Property="Foreground" Value="{DynamicResource TextMain}"/>'
+            . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Grid>'
+            . '<Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True" UseLayoutRounding="False">'
+            . '<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" TextElement.Foreground="{DynamicResource TextMain}" TextElement.FontSize="13"/>'
+            . '</Border><Rectangle x:Name="BottomLine" Height="1.5" VerticalAlignment="Bottom" Margin="4,0,4,0" Fill="{TemplateBinding BorderBrush}" IsHitTestVisible="False"/>'
+            . '</Grid><ControlTemplate.Triggers>'
+            . '<Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource ControlBorder}"/><Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}"/><Setter TargetName="BottomLine" Property="Fill" Value="{DynamicResource Accent}"/><Setter Property="Opacity" Value="1"/></Trigger>'
+            . '<Trigger Property="IsPressed" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource BtnPressBg}"/><Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}"/></Trigger>'
+            . '</ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
+        sbThumb := '<ControlTemplate x:Key="RmtSbThumb" TargetType="Thumb">'
+            . '<Border x:Name="bd" Background="{DynamicResource ControlBorder}" CornerRadius="3" Opacity="0.9" Margin="1"/>'
+            . '<ControlTemplate.Triggers>'
+            . '<Trigger Property="IsMouseOver" Value="True"><Setter TargetName="bd" Property="Background" Value="{DynamicResource Accent}"/><Setter TargetName="bd" Property="Opacity" Value="1"/></Trigger>'
+            . '</ControlTemplate.Triggers></ControlTemplate>'
+        sbV := '<Style x:Key="RmtSbVertical" TargetType="ScrollBar">'
+            . '<Setter Property="OverridesDefaultStyle" Value="True"/>'
+            . '<Setter Property="Background" Value="Transparent"/>'
+            . '<Setter Property="Width" Value="6"/><Setter Property="MinWidth" Value="0"/>'
+            . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ScrollBar">'
+            . '<Grid Background="Transparent"><Track x:Name="PART_Track" IsDirectionReversed="true">'
+            . '<Track.Thumb><Thumb Template="{StaticResource RmtSbThumb}"/></Track.Thumb>'
+            . '</Track></Grid></ControlTemplate></Setter.Value></Setter></Style>'
+        sbH := '<Style x:Key="RmtSbHorizontal" TargetType="ScrollBar">'
+            . '<Setter Property="OverridesDefaultStyle" Value="True"/>'
+            . '<Setter Property="Background" Value="Transparent"/>'
+            . '<Setter Property="Height" Value="6"/><Setter Property="MinHeight" Value="0"/>'
+            . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ScrollBar">'
+            . '<Grid Background="Transparent"><Track x:Name="PART_Track" IsDirectionReversed="false">'
+            . '<Track.Thumb><Thumb Template="{StaticResource RmtSbThumb}"/></Track.Thumb>'
+            . '</Track></Grid></ControlTemplate></Setter.Value></Setter></Style>'
+        svStyle := '<Style x:Key="RmtThemedScrollViewer" TargetType="ScrollViewer">'
+            . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ScrollViewer"><Grid>'
+            . '<Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>'
+            . '<Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>'
+            . '<ScrollContentPresenter x:Name="PART_ScrollContentPresenter" Grid.Column="0" Grid.Row="0" Margin="{TemplateBinding Padding}" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" CanContentScroll="{TemplateBinding CanContentScroll}"/>'
+            . '<ScrollBar x:Name="PART_VerticalScrollBar" Width="6" MinWidth="0" Grid.Column="1" Grid.Row="0" Value="{TemplateBinding VerticalOffset}" Maximum="{TemplateBinding ScrollableHeight}" ViewportSize="{TemplateBinding ViewportHeight}" Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}" Style="{StaticResource RmtSbVertical}"/>'
+            . '<ScrollBar x:Name="PART_HorizontalScrollBar" Height="6" MinHeight="0" Orientation="Horizontal" Grid.Column="0" Grid.Row="1" Value="{TemplateBinding HorizontalOffset}" Maximum="{TemplateBinding ScrollableWidth}" ViewportSize="{TemplateBinding ViewportWidth}" Visibility="{TemplateBinding ComputedHorizontalScrollBarVisibility}" Style="{StaticResource RmtSbHorizontal}"/>'
+            . '</Grid></ControlTemplate></Setter.Value></Setter></Style>'
+        svImplicit := StrReplace(svStyle, 'x:Key="RmtThemedScrollViewer" ', '')
+        cmdRow := '<Style x:Key="RmtCmdRowBtn" TargetType="Button">'
+            . '<Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/>'
+            . '<Setter Property="HorizontalContentAlignment" Value="Left"/>'
+            . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">'
+            . '<Border x:Name="Bd" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}" CornerRadius="3">'
+            . '<ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>'
+            . '</Border><ControlTemplate.Triggers>'
+            . '<Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource EditHoverBg}"/></Trigger>'
+            . '<Trigger Property="IsPressed" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource ControlBorder}"/></Trigger>'
+            . '</ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
+        catHead := '<Style x:Key="RmtCatHeadBtn" TargetType="Button">'
+            . '<Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/>'
+            . '<Setter Property="HorizontalContentAlignment" Value="Stretch"/>'
+            . '<Setter Property="Padding" Value="2,0"/>'
+            . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">'
+            . '<Border x:Name="Bd" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}" CornerRadius="3">'
+            . '<ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center"/>'
+            . '</Border><ControlTemplate.Triggers>'
+            . '<Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource EditHoverBg}"/></Trigger>'
+            . '</ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
+        return fold okBtn modeTab graphFloat sbThumb sbV sbH svStyle svImplicit cmdRow catHead
+    }
+
+    _AddEditFoldBtn(bar, name, glyph, tip, isToggle := false) {
+        host := bar.Add("Grid").Margin("0,0,7,0").ClipToBounds("False")
+        btn := host.Add("Button").Name(name).Style("{StaticResource RmtFoldToolBtn}")
+            .Width(31).Height(31).MinHeight(31)
+            .FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(14)
+            .ToolTip(tip)
+            .Background("{DynamicResource ControlBg}")
+            .BorderBrush("{DynamicResource ControlBorder}")
+            .BorderThickness("1.5")
+            .Foreground("{DynamicResource TextMain}")
+        if (glyph != "")
+            btn.Content(glyph)
+        if (isToggle) {
+            dotHost := host.Add("Grid").Name(name "Dot").Visibility("Collapsed").IsHitTestVisible("False")
+            dotHost.Add("Ellipse").Width(7).Height(7).Fill("{DynamicResource Accent}")
+                .HorizontalAlignment("Right").VerticalAlignment("Top")
+                .Margin("0,1,1,0").IsHitTestVisible("False")
+        }
+        return btn
+    }
+
+    _AddEditVSplit(bar) {
+        bar.Add("Rectangle").Width(1).Height(20).Fill("{DynamicResource ControlBorder}")
+            .VerticalAlignment("Center").Margin("8,0,12,0").IsHitTestVisible("False")
+            .SnapsToDevicePixels("True")
+    }
+
+    _AddEditModeSeg(bar) {
+        seg := bar.Add("Border").Height(31).MinHeight(31).Margin("0,0,8,0").VerticalAlignment("Center")
+            .Background("{DynamicResource ControlBg}")
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1.5").CornerRadius("3")
+            .SnapsToDevicePixels("True")
+        inner := seg.Add("Grid")
+        inner.Cols("Auto", "Auto", "Auto")
+        this._AddEditModeBtn(inner, "BtnModeTree", GetLang("逻辑树"), 80, "sel-first").Grid_Column(0)
+        inner.Add("Rectangle").Grid_Column(1).Width("1.5").Fill("{DynamicResource ControlBorder}")
+            .VerticalAlignment("Stretch").Margin("0,6,0,6").IsHitTestVisible("False").SnapsToDevicePixels("True")
+        this._AddEditModeBtn(inner, "BtnModeText", GetLang("文本"), 56, "last").Grid_Column(2)
+        return seg
+    }
+
+    _AddEditModeBtn(parent, name, text, w, tag) {
+        return parent.Add("Button").Name(name).Style("{StaticResource RmtEditModeTab}")
+            .Content(text).Width(w).MinWidth(w).MaxWidth(w).Height(31).MinHeight(31).MaxHeight(31).Tag(tag)
+            .Foreground("{DynamicResource TextMain}")
+    }
+
+    _SyncModeSeg(mode) {
+        if (!IsObject(this.ui))
+            return
+        try this.ui.Update("BtnModeTree", "Tag", Integer(mode) == 1 ? "sel-first" : "first")
+        try this.ui.Update("BtnModeText", "Tag", Integer(mode) == 2 ? "sel-last" : "last")
+    }
+
+    _SyncFoldToggle(btn, on) {
+        if (!IsObject(this.ui) || btn == "")
+            return
+        if (on) {
+            try this.ui.Update(btn, "Background", "{DynamicResource ActionBg}")
+            try this.ui.Update(btn, "BorderBrush", "{DynamicResource ActionStroke}")
+            try this.ui.Update(btn, "Foreground", "{DynamicResource ActionText}")
+            try this.ui.Update(btn "Dot", "Visibility", "Visible")
+        } else {
+            try this.ui.Update(btn, "Background", "{DynamicResource ControlBg}")
+            try this.ui.Update(btn, "BorderBrush", "{DynamicResource ControlBorder}")
+            try this.ui.Update(btn, "Foreground", "{DynamicResource TextMain}")
+            try this.ui.Update(btn "Dot", "Visibility", "Collapsed")
+        }
+    }
+
+    _SyncToolToggleDots() {
+        if (!IsObject(this.ui) || this._sideMode)
+            return
+        rec := false
+        try rec := this.RecordMacroCon.Value
+        this._SyncFoldToggle("BtnRecord", rec)
+        varOn := IsObject(this.ToolMenu) && this.ToolMenu.HasMethod("IsChecked") && this.ToolMenu.IsChecked(GetLang("变量监视"))
+        tipOn := IsObject(this.ToolMenu) && this.ToolMenu.HasMethod("IsChecked") && this.ToolMenu.IsChecked(GetLang("指令显示"))
+        this._SyncFoldToggle("BtnVarListen", varOn)
+        this._SyncFoldToggle("BtnCmdTip", tipOn)
+        this._SyncFoldToggle("BtnTopMost", this._topOn)
+    }
+
+    _OnModeTreeClick(*) {
+        this._SetEditMode(1)
+    }
+
+    _OnModeTextClick(*) {
+        this._SetEditMode(2)
+    }
+
+    _SetEditMode(mode) {
+        if (IsObject(this.EditModeCon) && this.EditModeCon.Value == mode) {
+            this._SyncModeSeg(mode)
+            return
+        }
+        this._suppressModeChange := true
+        try this.EditModeCon.Value := mode
+        this._suppressModeChange := false
+        this.OnChangeEditMode(Map("EditModeCombo", String(mode)), "", "")
+    }
+
+    _OnClickRecordBtn(*) {
+        if (IsObject(this.RecordMacroCon))
+            this.RecordMacroCon.Value := !this.RecordMacroCon.Value
+        this._SyncFoldToggle("BtnRecord", IsObject(this.RecordMacroCon) && this.RecordMacroCon.Value)
+        this.OnClickRecordTog()
+    }
+
+    _OnToggleZoom(*) {
+        if (this._allExpanded)
+            this.CollapseAll()
+        else
+            this.ExpandAll()
+        this._allExpanded := !this._allExpanded
     }
 
     _BuildAndShow(CommandStr, ShowSaveBtn) {
@@ -730,23 +1112,19 @@ class MacroEditGui {
         main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize(XAMLHost.FontSize())
         main.Rows(titleHeight, "*")
 
-        chrome := XAMLHost.AddTitleBarChrome(main, title)
-        BtnGroup := chrome.Btns
-        ; §8 帮助/视频按钮（占位）：帮助打开指令手册，视频提示制作中（文档/视频完成后按指令跳转）
-        helpBtn := BtnGroup.Add("Button").Name("BtnCmdHelp").WindowChrome_IsHitTestVisibleInChrome("True").Width(34).Height(30).MinHeight(30).Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0).ToolTip(GetLang("指令手册"))
-        helpBtn.Add("TextBlock").Text(Chr(0xE946)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
-        videoBtn := BtnGroup.Add("Button").Name("BtnCmdVideo").WindowChrome_IsHitTestVisibleInChrome("True").Width(34).Height(30).MinHeight(30).Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0).ToolTip(GetLang("指令视频"))
-        videoBtn.Add("TextBlock").Text(Chr(0xE714)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
-        XAMLHost.AddTitleCloseBtn(BtnGroup, "BtnClosePanel", titleHeight)
+        chrome := XAMLHost.AddCmdTitleBar(main, title)
 
-        ; === 主体 ===
+        ; === 主体：左指令列表贯穿全高，右为工具栏 + 树 ===
         body := main.Add("Grid").Grid_Row(1)
-        body.Rows("30", "*")
 
-        ; 菜单栏：按钮 + ContextMenu（桥接有成熟先例 MG_CM，Menu 控件本桥接未验证过）
-        menuBar := body.Add("StackPanel").Grid_Row(0).Orientation("Horizontal").Margin("2,2,0,0").Background("{DynamicResource BgColor}")
-        dbgBtn := menuBar.Add("Button").Name("BtnMenuDebug").Content(GetLang("调试")).Cursor("Hand").Background("Transparent").BorderThickness("0").Padding("10,3")
-        dbgHost := menuBar.Add("Border").Name("MenuDebugHost").Width("0").Height("0").Visibility("Collapsed")
+        ; 隐藏菜单宿主（调试/工具/树右键/指令收藏）
+        menuHost := body.Add("Grid").Name("EditMenuHost").Width("0").Height("0").Visibility("Collapsed")
+        combo := menuHost.Add("ComboBox").Name("EditModeCombo").SelectedIndex("0").Visibility("Collapsed")
+        combo.Add("ComboBoxItem").Content(GetLang("逻辑树")).Tag("1")
+        combo.Add("ComboBoxItem").Content(GetLang("文本")).Tag("2")
+        menuHost.Add("CheckBox").Name("RecordTog").Visibility("Collapsed")
+        menuHost.Add("Button").Name("SaveBtn").Visibility("Collapsed")
+        dbgHost := menuHost.Add("Border").Name("MenuDebugHost")
         dbgCM := dbgHost.Add("Border.ContextMenu").Add("ContextMenu").Name("MenuDebugCM").MinWidth("160").Placement("MousePoint").Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").Foreground("{DynamicResource TextMain}").InjectResources(this._ContextMenuScrollStyle()).InjectResources(this._MenuItemSubmenuStyle())
         dbgCM.Add("MenuItem").Name("MenuContinue").Header(this._ContinueLabel())
         dbgCM.Add("MenuItem").Name("MenuStepOver").Header(this._StepOverLabel())
@@ -758,15 +1136,19 @@ class MacroEditGui {
         dbgCM.Add("MenuItem").Name("MenuDebugRun").Header(this._DebugRunLabel())
         dbgCM.Add("Separator")
         dbgCM.Add("MenuItem").Name("MenuKill").Header(GetLang("终止"))
-        toolBtn := menuBar.Add("Button").Name("BtnMenuTool").Content(GetLang("工具")).Cursor("Hand").Background("Transparent").BorderThickness("0").Padding("10,3").Margin("8,0,0,0")
-        toolHost := menuBar.Add("Border").Name("MenuToolHost").Width("0").Height("0").Visibility("Collapsed")
+        toolHost := menuHost.Add("Border").Name("MenuToolHost")
         toolCM := toolHost.Add("Border.ContextMenu").Add("ContextMenu").Name("MenuToolCM").MinWidth("160").Placement("MousePoint").Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").Foreground("{DynamicResource TextMain}").InjectResources(this._ContextMenuScrollStyle()).InjectResources(this._MenuItemSubmenuStyle())
         toolCM.Add("MenuItem").Name("MenuVarListen").Header(GetLang("变量监视")).IsCheckable("True")
         toolCM.Add("MenuItem").Name("MenuCmdTip").Header(GetLang("指令显示")).IsCheckable("True")
         toolCM.Add("MenuItem").Name("MenuTopMost").Header(GetLang("窗口置顶")).IsCheckable("True")
+        favCtxHost := menuHost.Add("Border").Name("CmdFavHost")
+        favCM := favCtxHost.Add("Border.ContextMenu").Add("ContextMenu").Name("CmdFavCM").MinWidth("120").Placement("MousePoint")
+            .InjectResources(this._ContextMenuScrollStyle()).InjectResources(this._MenuItemSubmenuStyle())
+        this._ApplyCtxMenuTheme(favCM)
+        favCM.Add("MenuItem").Name("MenuFavToggle").Header(GetLang("收藏"))
 
         ; 树右键菜单（普通指令 / 分支容器 / 空白区），挂在 0 尺寸隐藏 Border 上，Placement=MousePoint
-        treeCtxHost := menuBar.Add("Border").Name("TreeCtxHost").Width("0").Height("0").Visibility("Collapsed")
+        treeCtxHost := menuHost.Add("Border").Name("TreeCtxHost")
         treeCtx := treeCtxHost.Add("Border.ContextMenu").Add("ContextMenu").Name("TreeCtxMenu").MinWidth("180").Placement("MousePoint")
             .InjectResources(this._ContextMenuScrollStyle()).InjectResources(this._MenuItemSubmenuStyle())
         this._ApplyCtxMenuTheme(treeCtx)
@@ -788,7 +1170,7 @@ class MacroEditGui {
         treeCtx.Add("Separator")
         treeCtx.Add("MenuItem").Name("MenuDeleteCmd").Header(GetLang("删除"))
 
-        branchCtxHost := menuBar.Add("Border").Name("BranchCtxHost").Width("0").Height("0").Visibility("Collapsed")
+        branchCtxHost := menuHost.Add("Border").Name("BranchCtxHost")
         branchCtx := branchCtxHost.Add("Border.ContextMenu").Add("ContextMenu").Name("BranchCtxMenu").MinWidth("180").Placement("MousePoint")
             .InjectResources(this._ContextMenuScrollStyle()).InjectResources(this._MenuItemSubmenuStyle())
         this._ApplyCtxMenuTheme(branchCtx)
@@ -798,7 +1180,7 @@ class MacroEditGui {
         branchCtx.Add("MenuItem").Name("MenuBranchDelete").Header(GetLang("删除"))
         branchCtx.Add("MenuItem").Name("MenuBranchUndoCmd").Header(GetLang("撤销一步"))
 
-        blankCtxHost := menuBar.Add("Border").Name("TreeBlankCtxHost").Width("0").Height("0").Visibility("Collapsed")
+        blankCtxHost := menuHost.Add("Border").Name("TreeBlankCtxHost")
         blankCtx := blankCtxHost.Add("Border.ContextMenu").Add("ContextMenu").Name("TreeBlankCtxMenu").MinWidth("180").Placement("MousePoint")
             .InjectResources(this._ContextMenuScrollStyle()).InjectResources(this._MenuItemSubmenuStyle())
         this._ApplyCtxMenuTheme(blankCtx)
@@ -806,35 +1188,59 @@ class MacroEditGui {
         this._AddCmdMenuItems(miBlankIns, "MenuBlankInsert_")
         blankCtx.Add("MenuItem").Name("MenuBlankPasteCmd").Header(GetLang("粘贴"))
 
-        content := body.Add("Grid").Grid_Row(1)
-        content.Cols("210", "*")
-        content.Rows("42", "30", "*", "48")
+        content := body.Add("Grid")
+        content.Cols("228", "*")
+        content.Rows("52", "*")
 
-        ; 左侧指令面板（§13：按类型分类 + 收藏星标 + 滚动条 + 展开状态记忆）
-        left := content.Add("GroupBox").Grid_Column(0).Grid_RowSpan(4).Header(GetLang("指令选项")).Margin("5,4,2,4")
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").Foreground("{DynamicResource TextMain}")
+        ; 左侧指令面板（无左边框，右边框作分割线）
+        left := content.Add("Border").Grid_Column(0).Grid_RowSpan(2)
+            .BorderBrush("{DynamicResource OutlineStroke}").BorderThickness("0,0,1.5,0")
+            .Padding("4,4,0,0").Background("Transparent")
         this._BuildCmdPanel(left)
 
-        ; 顶部工具条
-        toolRow := content.Add("Grid").Grid_Column(1).Grid_Row(0).Margin("10,8,10,0")
+        ; 顶部工具条（仅覆盖树区域）
+        toolWrap := content.Add("Border").Grid_Column(1).Grid_Row(0)
+            .BorderBrush("{DynamicResource OutlineStroke}").BorderThickness("0,0,0,1.5")
+        toolRow := toolWrap.Add("Grid")
         toolRow.Cols("*", "Auto")
-        leftStack := toolRow.Add("StackPanel").Grid_Column(0).Orientation("Horizontal")
-        leftStack.Add("TextBlock").Text(GetLang("编辑模式：")).VerticalAlignment("Center")
-        combo := leftStack.Add("ComboBox").Name("EditModeCombo").Width(86).Height(26).MinHeight(26).SelectedIndex("0").Margin("4,0")
-        combo.Add("ComboBoxItem").Content(GetLang("逻辑树")).Tag("1")
-        combo.Add("ComboBoxItem").Content(GetLang("文本")).Tag("2")
-        leftStack.Add("CheckBox").Name("RecordTog").Content(GetLang("指令录制")).VerticalAlignment("Center").Margin("12,0,0,0")
-        leftStack.Add("TextBlock").Name("RecordHotkeyText").Text(FormatHotkeyDisplay(MainSoftData.ToolRecordMacroHotKey)).Opacity("0.6").VerticalAlignment("Center").Margin("6,0,0,0")
-        toolRow.Add("Button").Grid_Column(1).Name("BtnGraphNode").Content(GetLang("图形节点")).Height(28).MinHeight(28).Padding("10,3").Margin("6,0,0,0")
+        recTip := GetLang("指令录制")
+        try recTip := recTip "  " FormatHotkeyDisplay(MainSoftData.ToolRecordMacroHotKey)
 
-        ; 当前宏指令行
-        row1 := content.Add("StackPanel").Grid_Column(1).Grid_Row(1).Orientation("Horizontal").Margin("10,4,10,0")
-        row1.Add("TextBlock").Text(GetLang("当前宏指令")).VerticalAlignment("Center")
-        row1.Add("Button").Name("BtnExpand").Content(GetLang("全部展开")).Padding("8,3").Margin("10,0,0,0")
-        row1.Add("Button").Name("BtnCollapse").Content(GetLang("全部折叠")).Padding("8,3").Margin("6,0,0,0")
+        leftTools := toolRow.Add("StackPanel").Grid_Column(0).Orientation("Horizontal").VerticalAlignment("Center").Margin("8,0,0,0")
+        this._AddEditModeSeg(leftTools)
+        this._AddEditVSplit(leftTools)
 
-        ; 树 / 文本视图
-        view := content.Add("Grid").Grid_Column(1).Grid_Row(2).Margin("10,0,10,0")
+        this._AddEditFoldBtn(leftTools, "BtnRecord", Chr(0xE7C8), recTip, true)
+        this._AddEditFoldBtn(leftTools, "BtnExpand", Chr(0xE73F), GetLang("缩放"))
+        this._AddEditFoldBtn(leftTools, "BtnUndo", Chr(0xE7A7), GetLang("撤销")).IsEnabled("False")
+        this._AddEditFoldBtn(leftTools, "BtnRedo", Chr(0xE7A6), GetLang("恢复")).IsEnabled("False")
+        this._AddEditFoldBtn(leftTools, "BtnBack", Chr(0xE750), GetLang("删除末尾"))
+        this._AddEditFoldBtn(leftTools, "BtnClear", Chr(0xE74D), GetLang("清空"))
+        this._AddEditVSplit(leftTools)
+
+        this._AddEditFoldBtn(leftTools, "BtnContinue", Chr(0xE768), GetLang("播放/继续") "  F5")
+        stepBtn := this._AddEditFoldBtn(leftTools, "BtnStepInto", "", this._StepIntoLabel())
+        stepSp := stepBtn.Add("StackPanel").Orientation("Vertical").HorizontalAlignment("Center").VerticalAlignment("Center")
+        stepSp.Add("TextBlock").Text(Chr(0xE74B)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets")
+            .FontSize(11).HorizontalAlignment("Center").Foreground("{DynamicResource TextMain}")
+        stepSp.Add("Ellipse").Width(4).Height(4).Fill("{DynamicResource TextMain}")
+            .HorizontalAlignment("Center").Margin("0,1,0,0")
+        this._AddEditVSplit(leftTools)
+
+        this._AddEditFoldBtn(leftTools, "BtnVarListen", Chr(0xE7B3), GetLang("变量监视"), true)
+        tipBtn := this._AddEditFoldBtn(leftTools, "BtnCmdTip", "", GetLang("指令显示"), true)
+        tipG := tipBtn.Add("Grid").Width(16).Height(14).HorizontalAlignment("Center").VerticalAlignment("Center")
+        tipG.Add("Rectangle").Width("1.8").Height(14).Fill("{DynamicResource TextMain}").HorizontalAlignment("Left").RadiusX("0.6").RadiusY("0.6")
+        tipLines := tipG.Add("StackPanel").Orientation("Vertical").HorizontalAlignment("Right").VerticalAlignment("Center").Margin("3,0,0,0")
+        loop 3
+            tipLines.Add("Rectangle").Width(11).Height("1.8").Fill("{DynamicResource TextMain}").RadiusX("0.6").RadiusY("0.6").Margin(A_Index < 3 ? "0,0,0,2" : "0")
+        this._AddEditFoldBtn(leftTools, "BtnTopMost", Chr(0xE840), GetLang("窗口置顶"), true)
+
+        rightTools := toolRow.Add("StackPanel").Grid_Column(1).Orientation("Horizontal").VerticalAlignment("Center").Margin("0,0,8,0")
+        rightTools.Add("Button").Name("BtnOk").Content(GetLang("确定")).Style("{StaticResource RmtEditOkBtn}")
+            .Height(31).MinHeight(31).Padding("12,0")
+
+        view := content.Add("Grid").Grid_Column(1).Grid_Row(1)
         ; 关虚拟化（注入真实 ListBoxItem，虚拟化会导致插入后滚动条复位）+ 去 ListBoxItem 默认内边距/选中高亮
         lbStyle := '<Style TargetType="ListBoxItem"><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0"/><Setter Property="BorderThickness" Value="0"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem"><Border x:Name="Bd" Background="Transparent" SnapsToDevicePixels="True"><ContentPresenter/></Border></ControlTemplate></Setter.Value></Setter></Style>'
         view.Add("ListBox").Name("MacroTree").Background("{DynamicResource BgColor}").Foreground("{DynamicResource TextMain}")
@@ -856,28 +1262,26 @@ class MacroEditGui {
         view.Add("TextBox").Name("MacroText").AcceptsReturn("True").FontSize("12").Visibility("Collapsed")
             .VerticalContentAlignment("Top")
             .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
-            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("0")
             .ScrollViewer_HorizontalScrollBarVisibility("Auto").ScrollViewer_VerticalScrollBarVisibility("Auto")
-
-        ; 底部按钮
-        bottom := content.Add("StackPanel").Grid_Column(1).Grid_Row(3).Orientation("Horizontal").Margin("10,6,10,0").HorizontalAlignment("Center")
-        bottom.Add("Button").Name("BtnUndo").Content(GetLang("撤销")).Width(80).Height(32).MinHeight(32).Margin("4,0").IsEnabled("False")
-        bottom.Add("Button").Name("BtnRedo").Content(GetLang("重做")).Width(80).Height(32).MinHeight(32).Margin("4,0").IsEnabled("False")
-        bottom.Add("Button").Name("BtnBack").Content(GetLang("退格")).Width(80).Height(32).MinHeight(32).Margin("4,0")
-        bottom.Add("Button").Name("BtnClear").Content(GetLang("清空指令")).Width(80).Height(32).MinHeight(32).Margin("4,0")
-        bottom.Add("Button").Name("BtnOk").Content(GetLang("确定")).Width(80).Height(32).MinHeight(32).Margin("4,0")
-        bottom.Add("Button").Name("SaveBtn").Content(GetLang("应用并保存")).Width(80).Height(32).MinHeight(32).Margin("4,0")
+        view.Add("Button").Name("BtnGraphNode").Content(GetLang("图形节点"))
+            .Style("{StaticResource RmtEditGraphFloat}")
+            .Height(31).MinHeight(31)
+            .HorizontalAlignment("Right").VerticalAlignment("Top").Margin("0,8,8,0")
+            .SetProp("Panel.ZIndex", "20")
+            .ToolTip(GetLang("图形节点"))
 
         ; === 创建 XAMLHost ===
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", this.OwnerHwnd)
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="945" Height="570" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="1400" Height="837" Opacity="0"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
-        groupBoxStyle := '<Style TargetType="GroupBox"><Setter Property="BorderBrush" Value="{DynamicResource ControlBorder}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="Foreground" Value="{DynamicResource TextMain}"/></Style>'
-        this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', groupBoxStyle)
+        this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', this._EditLayoutStyles())
 
         ; === 控件适配器 ===
         this.MacroTreeViewCon := MacroTreeAdapter(this.ui, this.treeName)
+        this.MacroTreeViewCon.rootSlot := 14
+        this.MacroTreeViewCon.cardPad := "0,0,4,0"
         this.MacroTreeViewCon.SetIconMap(this.IconFileByNumber)
         this.MacroEditTextCon := MacroTextBox(this.ui, "MacroText")
         this.EditModeCon := MacroCombo(this.ui, "EditModeCombo")
@@ -894,17 +1298,22 @@ class MacroEditGui {
         this.ui.OnEvent("BtnCmdVideo", "Click", ObjBindMethod(this, "OnCmdVideoClick"))
         this.ui.OnEvent("EditModeCombo", "SelectionChanged", ObjBindMethod(this, "OnChangeEditMode"))
         this.ui.OnEvent("RecordTog", "Click", ObjBindMethod(this, "OnClickRecordTog"))
+        this.ui.OnEvent("BtnModeTree", "Click", ObjBindMethod(this, "_OnModeTreeClick"))
+        this.ui.OnEvent("BtnModeText", "Click", ObjBindMethod(this, "_OnModeTextClick"))
+        this.ui.OnEvent("BtnGraphNode", "Click", ObjBindMethod(this, "OnSwitchToGraphEditor"))
+        this.ui.OnEvent("BtnRecord", "Click", ObjBindMethod(this, "_OnClickRecordBtn"))
         this.ui.OnEvent("BtnBack", "Click", (*) => this.Backspace())
         this.ui.OnEvent("BtnClear", "Click", (*) => this.ClearStr())
         this.ui.OnEvent("BtnUndo", "Click", (*) => this.Undo())
         this.ui.OnEvent("BtnRedo", "Click", (*) => this.Redo())
         this.ui.OnEvent("BtnOk", "Click", (*) => this.OnSureBtnClick())
         this.ui.OnEvent("SaveBtn", "Click", (*) => this.OnSaveBtnClick())
-        this.ui.OnEvent("BtnExpand", "Click", (*) => this.ExpandAll())
-        this.ui.OnEvent("BtnCollapse", "Click", (*) => this.CollapseAll())
-        this.ui.OnEvent("BtnGraphNode", "Click", ObjBindMethod(this, "OnSwitchToGraphEditor"))
-        this.ui.OnEvent("BtnMenuDebug", "Click", (*) => this.ui.Update("MenuDebugCM", "IsOpen", "True"))
-        this.ui.OnEvent("BtnMenuTool", "Click", (*) => this.ui.Update("MenuToolCM", "IsOpen", "True"))
+        this.ui.OnEvent("BtnExpand", "Click", ObjBindMethod(this, "_OnToggleZoom"))
+        this.ui.OnEvent("BtnContinue", "Click", (*) => this.MenuHandler(this._ContinueLabel()))
+        this.ui.OnEvent("BtnStepInto", "Click", (*) => this.MenuHandler(this._StepIntoLabel()))
+        this.ui.OnEvent("BtnVarListen", "Click", (*) => this.MenuHandler(GetLang("变量监视")))
+        this.ui.OnEvent("BtnCmdTip", "Click", (*) => this.MenuHandler(GetLang("指令显示")))
+        this.ui.OnEvent("BtnTopMost", "Click", (*) => this.MenuHandler(GetLang("窗口置顶")))
         this.ui.OnEvent("MenuContinue", "Click", (*) => this.MenuHandler(this._ContinueLabel()))
         this.ui.OnEvent("MenuStepOver", "Click", (*) => this.MenuHandler(this._StepOverLabel()))
         this.ui.OnEvent("MenuStepInto", "Click", (*) => this.MenuHandler(this._StepIntoLabel()))
@@ -928,16 +1337,19 @@ class MacroEditGui {
             ; §13 收藏区行（同名指令按钮，点击/拖拽同分类区）
             this.ui.OnEvent("CmdBtnFav_" config.propName, "Click", CreateSubGuiClickHandler(this, guiInstance))
             this.ui.OnEvent("CmdBtnFav_" config.propName, "PreviewMouseLeftButtonDown", this._OnPanelDragStart.Bind(this, guiInstance, GetLang(config.name)))
-            ; 星标切换
-            this.ui.OnEvent("FavBtnCat_" config.propName, "Click", this._OnToggleFav.Bind(this, config.propName))
-            this.ui.OnEvent("FavBtnFav_" config.propName, "Click", this._OnToggleFav.Bind(this, config.propName))
+            this.ui.OnEvent(btnName, "PreviewMouseRightButtonDown", this._OnCmdRowRightClick.Bind(this, config.propName))
+            this.ui.OnEvent("CmdBtnFav_" config.propName, "PreviewMouseRightButtonDown", this._OnCmdRowRightClick.Bind(this, config.propName))
         }
         for idx, cat in this.CmdCategory {
             this.ui.OnEvent("CatToggle_" idx, "Click", this._OnToggleCat.Bind(this, idx))
         }
+        this.ui.OnEvent("FavToggle", "Click", ObjBindMethod(this, "_OnToggleFavSection"))
+        this.ui.OnEvent("MenuFavToggle", "Click", ObjBindMethod(this, "_OnMenuFavToggle"))
+        this.ui.OnEvent("CmdFilter", "TextChanged", ObjBindMethod(this, "_OnCmdFilterChanged"))
 
         this.ui.Track("EditModeCombo")
         this.ui.Track("MacroText")
+        this.ui.Track("CmdFilter")
         this.ui.Track(this.treeName)
 
         ; WPF ComboBox 默认 SelectedIndex=-1（不自动选第一项），强制选中「逻辑树」
@@ -950,6 +1362,7 @@ class MacroEditGui {
         }
         this.ui.Update("EditModeCombo", "SelectedIndex", "0")
         try this.EditModeCon._value := 1
+        this._SyncModeSeg(1)
 
         if (!XamlWin.Open(this.ui, "", XamlWin.Owner(this)))
             this._closed := true
@@ -965,6 +1378,8 @@ class MacroEditGui {
                     this.ui.Update("Window", "Icon", "HICON:" hIcon)
             }
             XamlWin.OnLoadTheme(this.ui)
+            this._SyncModeSeg(IsObject(this.EditModeCon) ? this.EditModeCon.Value : 1)
+            this._SyncToolToggleDots()
         } catch {
         }
         this._TryReveal("theme")
@@ -1094,6 +1509,7 @@ class MacroEditGui {
                 }
             }
         }
+        this._SyncToolToggleDots()
     }
 
     Init(MacroStr, ShowSaveBtn) {
@@ -1104,7 +1520,7 @@ class MacroEditGui {
         this._undoStack := []
         this._redoStack := []
         this._undoBatch := 0
-        this.SaveBtnCtrl.Visible := this.ShowSaveBtn
+        this.SaveBtnCtrl.Visible := false
         this.InitTreeView(MacroStr)
         this.InitMacroText(MacroStr)
 
@@ -1186,6 +1602,7 @@ class MacroEditGui {
             this.ResetDebugState()                  ; V6：树已隐藏，悬挂的调试态会继续驱动不可见树 → 切换即终止调试
             this.InitMacroText(MacroStr)
         }
+        this._SyncModeSeg(this.EditModeCon.Value)
     }
 
     OnClickRecordTog(*) {
@@ -1619,13 +2036,13 @@ class MacroEditGui {
         }
     }
 
-    ; 从事件 state 读 DragCoords（相对绑定控件的 DIP 坐标），返回 "x;y"；读不到返回 ""
+    ; 从事件 state 读坐标。优先用绑定控件本地 DIP（控件名键），DragCoords 是窗口坐标，侧栏树偏移后不能拿来做 HitTest。
     _EventCoord(state, ctrlName) {
         coord := ""
-        if (IsObject(state) && state.Has("DragCoords"))
-            coord := state["DragCoords"]
-        else if (IsObject(state) && state.Has(ctrlName))
+        if (IsObject(state) && ctrlName != "" && state.Has(ctrlName))
             coord := state[ctrlName]
+        else if (IsObject(state) && state.Has("DragCoords"))
+            coord := state["DragCoords"]
         if (coord == "")
             return ""
         parts := StrSplit(coord, ",")
@@ -1724,11 +2141,11 @@ class MacroEditGui {
             return
         if (!IsObject(this._dragCandidate))
             return
-        if (!GetKeyState("LButton", "P")) {
-            this._DragEndReset()
-            return
-        }
+        lbtnDown := GetKeyState("LButton", "P")
         if (!this._dragActive) {
+            ; 异步回调可能晚于物理松开：尚未进入拖拽则不再启动
+            if (!lbtnDown)
+                return
             cand := this._dragCandidate
             CoordMode("Mouse", "Screen")
             MouseGetPos(&cx, &cy)
@@ -2148,6 +2565,10 @@ class MacroEditGui {
             this._OpenGraphNodeEditor(GetCmdStr(paramsArr[1]), GetCmdSymbol(paramsArr[1]))
             return
         }
+        itemCmd := MySoftData.ParseCmdJoyDisplay(GetCmdStr(cleanText))
+        itemCmd := MySoftData.CmdJoyNToJoyFriendly(itemCmd)
+        if (cmd == GetLang("按键") && IsJoyLegacyKeyCmd(itemCmd))
+            cmd := GetLang("手柄")
         if (!this.SubGuiMap.Has(cmd))
             return
         subGui := this.SubGuiMap[cmd]
@@ -2329,6 +2750,7 @@ class MacroEditGui {
                 MyCMDTipGui.ShowGui(GetLang("终止"))
             }
         }
+        this._SyncToolToggleDots()
     }
 
     ContentMenuHandler(cmdStr, *) {

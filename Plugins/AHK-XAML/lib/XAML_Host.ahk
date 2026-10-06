@@ -368,15 +368,15 @@ class XAMLHost {
     }
 
     ; 标题栏关闭钮：与主界面 BtnWinClose 同款（46×标题栏高、TitleBarCloseButton、右上圆角 hover）
-    static AddTitleCloseBtn(parent, name := "BtnClosePanel", titleHeight := "30") {
-        return XAMLHost.AddTitleChromeBtn(parent, name, titleHeight, Chr(0xE8BB), "Visible", "{StaticResource TitleBarCloseButton}")
+    static AddTitleCloseBtn(parent, name := "BtnClosePanel", titleHeight := "30", btnWidth := "46") {
+        return XAMLHost.AddTitleChromeBtn(parent, name, titleHeight, Chr(0xE8BB), "Visible", "{StaticResource TitleBarCloseButton}", btnWidth)
     }
 
-    static AddTitleChromeBtn(parent, name, titleHeight := "30", glyph := "", visibility := "Visible", style := "{StaticResource TitleBarChromeButton}") {
+    static AddTitleChromeBtn(parent, name, titleHeight := "30", glyph := "", visibility := "Visible", style := "{StaticResource TitleBarChromeButton}", btnWidth := "46") {
         btn := parent.Add("Button").Name(name)
             .Style(style)
             .WindowChrome_IsHitTestVisibleInChrome("True")
-            .Width(46).Height(titleHeight).MinHeight(titleHeight).Padding("0")
+            .Width(btnWidth).MinWidth(btnWidth).Height(titleHeight).MinHeight(titleHeight).Padding("0")
             .VerticalAlignment("Stretch").Background("Transparent")
             .Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
             .Visibility(visibility)
@@ -393,19 +393,27 @@ class XAMLHost {
         drag := tb.Add("Border").Grid_Column(0).Background("{DynamicResource TitleBarColor}").Name("DragArea")
         row := drag.Add("StackPanel").Orientation("Horizontal").VerticalAlignment("Center").Margin("15,0,0,0")
         if (titleIcon != "") {
-            icColor := (titleIconColor != "") ? titleIconColor : "{DynamicResource TitleBarForeground}"
-            icHost := row.Add("Border").Margin("0,1,0,0").VerticalAlignment("Center")
-            icHost.Add("TextBlock").Text(titleIcon).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets")
-                .FontSize(XAMLHost.TitleFontSize()).Foreground(icColor)
-                .VerticalAlignment("Center")
+            isImg := InStr(titleIcon, ".") || InStr(titleIcon, "\") || InStr(titleIcon, "/")
+            if (isImg) {
+                src := titleIcon
+                if (!InStr(src, ":") && SubStr(src, 1, 1) != "/")
+                    src := A_WorkingDir "\" src
+                src := StrReplace(src, "\", "/")
+                row.Add("Image").Source(src).Width(16).Height(16).Margin("0,0,10,0").VerticalAlignment("Center").Stretch("Uniform")
+            } else {
+                icColor := (titleIconColor != "") ? titleIconColor : "{DynamicResource TitleBarForeground}"
+                icHost := row.Add("Border").Margin("0,1,10,0").VerticalAlignment("Center")
+                icHost.Add("TextBlock").Text(titleIcon).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets")
+                    .FontSize(XAMLHost.TitleFontSize()).Foreground(icColor)
+                    .VerticalAlignment("Center")
+            }
         }
         tbk := row.Add("TextBlock")
         if (titleName != "")
             tbk.Name(titleName)
-        titleLeft := (titleIcon != "") ? "6" : "0"
         tbk.Text(title).Foreground("{DynamicResource TitleBarForeground}")
             .FontSize(XAMLHost.TitleFontSize()).FontWeight("Bold").VerticalAlignment("Center")
-            .Margin(titleLeft ",0,0,0").Padding("0")
+            .Margin("0").Padding("0")
         btns := tb.Add("StackPanel").Grid_Column(1).Orientation("Horizontal").VerticalAlignment("Stretch")
         return { Root: tb, Drag: drag, Title: tbk, Btns: btns }
     }
@@ -417,6 +425,48 @@ class XAMLHost {
         chrome.Maximize := XAMLHost.AddTitleChromeBtn(chrome.Btns, "BtnMaximize", titleHeight, Chr(0xE922), "Collapsed")
         chrome.Pin := XAMLHost.AddTitleChromeBtn(chrome.Btns, "BtnPin", titleHeight, Chr(0xE840), "Collapsed")
         chrome.Close := XAMLHost.AddTitleCloseBtn(chrome.Btns, closeName, titleHeight)
+        return chrome
+    }
+
+    ; 指令编辑器标题栏：手册、视频、关闭（与宏指令编辑器同款，铬钮收窄以减少间距）
+    static AddCmdTitleBar(main, title, titleHeight := "30", closeName := "BtnClosePanel", titleName := "", titleIcon := "", titleIconColor := "") {
+        if (titleIcon == "") {
+            try titleIcon := CmdEditorTitleIcon(title)
+        }
+        cmdBtnW := "32"
+        dispTitle := title
+        try dispTitle := CmdEditorDisplayTitle(title)
+        chrome := XAMLHost.AddTitleBarChrome(main, dispTitle, titleName, titleIcon, titleIconColor)
+        f1Tip := "F1：选取当前坐标"
+        try {
+            t := GetLang("F1:选取当前坐标")
+            if (t != "")
+                f1Tip := StrReplace(t, "F1:", "F1：")
+        }
+        chrome.F1 := XAMLHost.AddTitleChromeBtn(chrome.Btns, "BtnCmdF1", titleHeight, Chr(0xE707), "Collapsed", "{StaticResource TitleBarChromeButton}", cmdBtnW)
+        chrome.F1.ToolTip(f1Tip)
+        tgtTip := "定位取色器"
+        try tgtTip := GetLang("定位取色器")
+        chrome.Targeter := XAMLHost.AddTitleChromeBtn(chrome.Btns, "BtnCmdTargeter", titleHeight, Chr(0xEF3C), "Collapsed", "{StaticResource TitleBarChromeButton}", cmdBtnW)
+        chrome.Targeter.ToolTip(tgtTip)
+        playTip := "Alt + L：执行"
+        try playTip := CmdEditorPlayTip("!l")
+        chrome.Play := XAMLHost.AddTitleChromeBtn(chrome.Btns, "BtnCmdPlay", titleHeight, Chr(0xE768), "Collapsed", "{StaticResource TitleBarChromeButton}", cmdBtnW)
+        chrome.Play.ToolTip(playTip)
+        chrome.Help := XAMLHost.AddTitleChromeBtn(chrome.Btns, "BtnCmdHelp", titleHeight, Chr(0xE8F1), "Visible", "{StaticResource TitleBarChromeButton}", cmdBtnW)
+        chrome.Video := XAMLHost.AddTitleChromeBtn(chrome.Btns, "BtnCmdVideo", titleHeight, Chr(0xE786), "Visible", "{StaticResource TitleBarChromeButton}", cmdBtnW)
+        helpTip := "手册"
+        videoTip := "视频"
+        try {
+            helpTip := GetLang("手册")
+            videoTip := GetLang("视频")
+        }
+        chrome.Help.ToolTip(helpTip)
+        chrome.Video.ToolTip(videoTip)
+        chrome.Minimize := XAMLHost.AddTitleChromeBtn(chrome.Btns, "BtnMinimize", titleHeight, Chr(0xE921), "Collapsed")
+        chrome.Maximize := XAMLHost.AddTitleChromeBtn(chrome.Btns, "BtnMaximize", titleHeight, Chr(0xE922), "Collapsed")
+        chrome.Pin := XAMLHost.AddTitleChromeBtn(chrome.Btns, "BtnPin", titleHeight, Chr(0xE840), "Collapsed")
+        chrome.Close := XAMLHost.AddTitleCloseBtn(chrome.Btns, closeName, titleHeight, cmdBtnW)
         return chrome
     }
 

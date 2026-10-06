@@ -158,7 +158,7 @@ RecordJoyAxisSet(axisKey, value) {
     span := curTime - MainSoftData.RecordLastTime
     MainSoftData.RecordLastTime := curTime
     MainSoftData.RecordMacroStr .= Format("{}_{},", GetLang("间隔"), span)
-    MainSoftData.RecordMacroStr .= Format("{}_{}:{},", GetLang("按键"), axisKey, value)
+    MainSoftData.RecordMacroStr .= Format("{}_{}:{},", GetLang("手柄"), JoyInternalToShort(axisKey), value)
 }
 
 ; 上次已落宏的各轴值（初值从每轮采样建立；录制结束时非零需兜底回中）

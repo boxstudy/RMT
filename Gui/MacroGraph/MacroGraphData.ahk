@@ -876,7 +876,7 @@ class MacroGraphDataMixin {
     ; 节点标题栏是否不显示备注（旧纯文本格式：这些指令的 `_` 后段是参数而非备注）
     ; 阶段5 配置化后（首段带数字序列码，如 间隔123_500），备注应显示
     _NodeTitleOmitRemark(type) {
-        return type == GetLang("间隔") || type == GetLang("按键") || IsMoveCmd(type)
+        return type == GetLang("间隔") || type == GetLang("按键") || type == GetLang("手柄") || IsMoveCmd(type)
             || type == GetLang("变量") || type == GetLang("RMT指令") || type == GetLang("注释")
     }
 
@@ -922,8 +922,14 @@ class MacroGraphDataMixin {
                 d.time := raw
                 d.time2 := "1000"
             }
+            if (paramArr.Length >= 3) {
+                remark := paramArr[3]
+                loop paramArr.Length - 3
+                    remark .= "_" paramArr[A_Index + 3]
+                d.remark := remark
+            }
         }
-        else if (name == GetLang("按键")) {
+        else if (name == GetLang("按键") || name == GetLang("手柄")) {
             d.key := paramArr.Length >= 2 ? paramArr[2] : ""
             d.ktype := paramArr.Length >= 3 ? paramArr[3] : GetLang("点击")
             d.hold := paramArr.Length >= 4 ? paramArr[4] : "100"
@@ -1067,6 +1073,8 @@ class MacroGraphDataMixin {
                 data := GetMacroCMDData(name)
                 this._MapIniDataToParse(d, data, iniKey)
             }
+            if (iniKey == "间隔" && paramArr.Length >= 2)
+                d.remark := paramArr[2]
         }
         else {
             d.temp := true
@@ -1075,18 +1083,17 @@ class MacroGraphDataMixin {
     }
 
     _BuildCmd(d) {
-        ; 阶段5：配置化节点（有 serialStr，来自 间隔<serial> 等）→ 更新 Data 并保存，返回序列码+备注
+        if (d.type == GetLang("间隔")) {
+            timePart := (d.itype == GetLang("随机")) ? d.time "~" d.time2 : d.time
+            return CorrectRemark(GetLang("间隔") "_" timePart, d.HasOwnProp("remark") ? d.remark : "")
+        }
+        ; 阶段5：配置化节点（有 serialStr）→ 更新 Data 并保存，返回序列码+备注
         if (d.HasOwnProp("serialStr") && d.serialStr != "") {
-            if (d.type == GetLang("间隔") || d.type == GetLang("按键") || IsMoveCmd(d.type) || IsDeltaMoveCmd(d.type) || d.type == GetLang("RMT指令")) {
+            if (d.type == GetLang("按键") || IsMoveCmd(d.type) || IsDeltaMoveCmd(d.type) || d.type == GetLang("RMT指令")) {
                 try {
                     data := GetMacroCMDData(d.serialStr)
                     if (IsObject(data)) {
-                        if (d.type == GetLang("间隔")) {
-                            data.Type := d.itype == GetLang("随机") ? 2 : 1
-                            data.Time1 := d.time
-                            data.Time2 := d.time2
-                            remark := data.Type == 2 ? data.Time1 "~" data.Time2 : data.Time1
-                        } else if (d.type == GetLang("按键")) {
+                        if (d.type == GetLang("按键")) {
                             data.KeyName := d.key
                             ktIdx := 1
                             for ktI, ktV in GetLangArr(["按下", "松开", "点击"]) {
@@ -1124,12 +1131,6 @@ class MacroGraphDataMixin {
             return d.serialStr
         }
 
-        if (d.type == GetLang("间隔")) {
-            if (d.itype == GetLang("随机"))
-                return GetLang("间隔") "_" d.time "~" d.time2
-            return GetLang("间隔") "_" d.time
-        }
-
         if (d.type == GetLang("按键")) {
             isClick := d.ktype == GetLang("点击")
             hasHold := isClick
@@ -1144,6 +1145,8 @@ class MacroGraphDataMixin {
                 cmd .= "_" d.inter
             return cmd
         }
+        if (d.type == GetLang("手柄"))
+            return d.raw
 
         if (IsMoveCmd(d.type)) {
             ; 旧格式纯文本指令（无序列码）：按当前语言显示名重建（旧名/新名都兼容）

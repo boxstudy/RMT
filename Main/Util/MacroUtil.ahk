@@ -158,6 +158,7 @@ ExecuteMacroCmdOnce(tableItem, cmdStr, index, graphNode := "") {
     static Actions := Map(
         "间隔", OnInterval,
         "按键", OnPressKey,
+        "手柄", OnPressJoy,
         "搜索", SearchOnTrigger,
         "搜索Pro", SearchOnTrigger,
         "移动", OnMouseMove,
@@ -207,9 +208,8 @@ ExecuteMacroCmdOnce(tableItem, cmdStr, index, graphNode := "") {
         return
     }
 
-    ; 阶段5：剥离指令自带错误处理段（影刀模式 |EH:...），出错按配置 stop/ignore/retry
-    eh := RMTParseErrHandle(cmdStr)
-    cmdStr := eh.cmd
+    ; 兼容剥离历史 |EH: 后缀；出错一律停止
+    cmdStr := RMTParseErrHandle(cmdStr).cmd
 
     ; 避免重复调用 GetCmdStr，并用 InStr 提取首段 Key 替代全量 StrSplit
     ; 解 G2：清洗串只剥离 🚫/▶/⭐（参数段完整保留），交给处理器一律用 cleanCmdStr，
@@ -227,18 +227,10 @@ ExecuteMacroCmdOnce(tableItem, cmdStr, index, graphNode := "") {
         result := Actions[cmdKey](tableItem, cleanCmdStr, index)
     } catch as err {
         ok := false
-        ; 错误处理配置：优先指令 Data 配置（间隔<serial> 等配置文件模式），|EH: 后缀兼容保留
-        ehCfg := eh.cfg
-        if (!IsObject(ehCfg))
-            ehCfg := RMTGetDataErrHandle(cleanCmdStr)
-        handled := RMTHandleError(err, cmdKey, ehCfg, () => Actions[cmdKey](tableItem, cleanCmdStr, index))
-        if (handled[1]) {
-            ok := true
-            result := handled[2]
-        } else {
-            KillTableItemMacro(tableItem, index)
-            result := ""
-        }
+        errMsg := IsObject(err) && err.HasProp("Message") ? err.Message : String(err)
+        RMTErrorShow(Format("[{1}] {2}", cmdKey, errMsg), RMT_LV_ERROR, "宏")
+        KillTableItemMacro(tableItem, index)
+        result := ""
     }
     ; 业务日志（C 项阶段3）：每指令执行流水（默认关，设置开启后生效；Worker 执行侧写入）
     ; 执行后记录，成功/失败并入同一条，不额外增加日志条目（复用 cleanCmdStr）
@@ -1477,6 +1469,24 @@ OnInterval(tableItem, cmd, index) {
 
     FloatInterval := GetFloatTime(interval, MainSoftData.IntervalFloat)
     InterruptibleSleep(tableItem, index, FloatInterval)
+}
+
+OnPressJoy(tableItem, cmd, index) {
+    global MySoftData
+    MySoftData.HasJoyMacro := true
+    info := JoyCmdToPressKeyParts(cmd)
+    if (info.axes.Length > 0) {
+        for ax in info.axes
+            OnPressKey(tableItem, GetLang("按键") "_" ax, index)
+        return
+    }
+    keyName := ""
+    for b in info.buttons
+        keyName .= (keyName == "" ? "" : "⎖") b
+    press := GetLang("按键") "_" keyName "_" info.ktype
+    for r in info.rest
+        press .= "_" r
+    return OnPressKey(tableItem, press, index)
 }
 
 OnPressKey(tableItem, cmd, index) {

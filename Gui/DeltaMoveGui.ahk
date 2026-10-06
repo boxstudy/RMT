@@ -74,14 +74,10 @@ class DeltaMoveGui {
         main.Rows(titleHeight, "*")
 
         ; === 标题栏 ===
-        chrome := XAMLHost.AddTitleBar(main, title, titleHeight)
+        chrome := XAMLHost.AddCmdTitleBar(main, title, titleHeight)
 
-        ; === 内容：TabControl（常规 / 错误处理）===
-        tc := main.Add("TabControl").Grid_Row(1).Margin("8,8,8,8").Name("MainTab")
-
-        ; ---- Tab1 常规 ----
-        ti1 := tc.Add("TabItem").Header(GetLang("常规"))
-        body := ti1.Add("Grid").Margin("15,14,15,14")
+        ; === 内容 ===
+        body := main.Add("Grid").Grid_Row(1).Margin("15,14,15,14")
         body.Rows("40", "40", "34", "30", "*")
         body.Cols("110", "*")
 
@@ -109,38 +105,9 @@ class DeltaMoveGui {
         ; 提示
         body.Add("TextBlock").Grid_Row(3).Grid_ColumnSpan(2).Text(GetLang("相对位移（鼠标增量移动），固定走 mouse_event，与按键类型无关；支持 {变量}。")).VerticalAlignment("Center").Foreground("{DynamicResource TextSub}").FontSize("11")
 
-        ; ---- Tab2 错误处理 ----
-        ti2 := tc.Add("TabItem").Header(GetLang("错误处理"))
-        body2 := ti2.Add("Grid").Margin("16,14,16,14")
-        body2.Rows("34", "34", "34", "*")
-        ehRow1 := body2.Add("StackPanel").Grid_Row(0).Orientation("Horizontal").VerticalAlignment("Center")
-        ehRow1.Add("TextBlock").Text(GetLang("错误处理：")).Width(92).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
-        ehCombo := ehRow1.Add("ComboBox").Name("EHModeCombo").Width(150).Height(26).MinHeight(26).Margin("4,0,0,0").SelectedIndex("0")
-            .VerticalContentAlignment("Center").FontSize("11").Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-        ehCombo.Add("ComboBoxItem").Content(GetLang("停止运行")).Tag("stop")
-        ehCombo.Add("ComboBoxItem").Content(GetLang("忽略错误并继续")).Tag("ignore")
-        ehCombo.Add("ComboBoxItem").Content(GetLang("重试")).Tag("retry")
-
-        ehRow2 := body2.Add("StackPanel").Name("EHRetryRow").Grid_Row(1).Orientation("Horizontal").VerticalAlignment("Center")
-        ehRow2.Add("TextBlock").Text(GetLang("重试次数：")).Width(92).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
-        ehRow2.Add("TextBox").Name("EHRetryCount").Width(60).Height(26).MinHeight(26).Margin("4,0,0,0")
-            .VerticalContentAlignment("Center").TextAlignment("Center").FontSize("11").Padding("4,0")
-            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
-            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-
-        ehRow3 := body2.Add("StackPanel").Name("EHIntervalRow").Grid_Row(2).Orientation("Horizontal").VerticalAlignment("Center")
-        ehRow3.Add("TextBlock").Text(GetLang("重试间隔(ms)：")).Width(92).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
-        ehRow3.Add("TextBox").Name("EHRetryInterval").Width(60).Height(26).MinHeight(26).Margin("4,0,0,0")
-            .VerticalContentAlignment("Center").TextAlignment("Center").FontSize("11").Padding("4,0")
-            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
-            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-
-        ehBtnRow := body2.Add("StackPanel").Grid_Row(3).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
-        ehBtnRow.Add("Button").Name("BtnOk2").Content(GetLang("确定")).Height(28).MinHeight(28).Padding("14,0")
-
-        ; 常规 Tab 确定按钮
+        ; 确定按钮
         btnRow := body.Add("StackPanel").Grid_Row(4).Grid_ColumnSpan(2).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
-        btnRow.Add("Button").Name("BtnOk").Content(GetLang("确定")).Height(28).MinHeight(28).Padding("14,0")
+        AddCmdOkBtn(btnRow)
 
         ; === 创建 XAMLHost ===
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
@@ -153,9 +120,8 @@ class DeltaMoveGui {
         this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
         this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
         this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
+        BindCmdEditorChrome(this.ui, "#指令手册/6-移动Pro")
         this.ui.OnEvent("BtnOk", "Click", ObjBindMethod(this, "OnSureBtnClick"))
-        this.ui.OnEvent("EHModeCombo", "SelectionChanged", ObjBindMethod(this, "OnEHModeChange"))
-        this.ui.OnEvent("BtnOk2", "Click", ObjBindMethod(this, "OnSureBtnClick"))
 
     }
 
@@ -187,9 +153,7 @@ class DeltaMoveGui {
     }
 
     Init(cmd) {
-        eh := RMTParseErrHandle(cmd)
-        cmd := eh.cmd
-        this._ehCfg := eh.cfg
+        cmd := RMTParseErrHandle(cmd).cmd
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
         this.Data := DeltaMoveData()
         this.ui.Update("RemarkCon", "Text", cmdArr.Length >= 2 ? cmdArr[2] : "")
@@ -204,41 +168,6 @@ class DeltaMoveGui {
         }
         this.ui.Update("DeltaXCon", "Text", dX)
         this.ui.Update("DeltaYCon", "Text", dY)
-        this._InitEH()
-    }
-
-    ; ============ 错误处理（阶段5，影刀模式）============
-
-    _InitEH() {
-        mode := this.Data.HasOwnProp("ErrMode") ? this.Data.ErrMode : "stop"
-        if (IsObject(this._ehCfg))
-            mode := this._ehCfg.mode
-        idx := 0
-        for i, m in ["stop", "ignore", "retry"] {
-            if (m == mode) {
-                idx := i - 1
-                break
-            }
-        }
-        if (IsObject(this.ui)) {
-            this.ui.Update("EHModeCombo", "SelectedIndex", String(idx))
-            this.ui.Update("EHRetryCount", "Text", this.Data.HasOwnProp("ErrRetryCount") ? this.Data.ErrRetryCount : "3")
-            this.ui.Update("EHRetryInterval", "Text", this.Data.HasOwnProp("ErrRetryInterval") ? this.Data.ErrRetryInterval : "500")
-            this.OnEHModeChange()
-        }
-    }
-
-    _EHMode() {
-        v := IsObject(this.ui) ? this.ui.Query("EHModeCombo>SelectedIndex") : ""
-        return IsNumber(v) ? Integer(v) : 0
-    }
-
-    OnEHModeChange(state := "", ctrl := "", event := "") {
-        showRetry := this._EHMode() == 2
-        if (IsObject(this.ui)) {
-            this.ui.Update("EHRetryRow", "Visibility", showRetry ? "Visible" : "Collapsed")
-            this.ui.Update("EHIntervalRow", "Visibility", showRetry ? "Visible" : "Collapsed")
-        }
     }
 
     CheckIfValid() {
@@ -259,9 +188,6 @@ class DeltaMoveGui {
     GetCmdStr() {
         this.Data.DeltaX := this.ui.Query("DeltaXCon")
         this.Data.DeltaY := this.ui.Query("DeltaYCon")
-        this.Data.ErrMode := ["stop", "ignore", "retry"][this._EHMode() + 1]
-        this.Data.ErrRetryCount := this.ui.Query("EHRetryCount")
-        this.Data.ErrRetryInterval := this.ui.Query("EHRetryInterval")
 
         if (this.Data.SerialStr == "")
             this.Data.SerialStr := GetCMDSerialStr(GetLang("增量移动"))

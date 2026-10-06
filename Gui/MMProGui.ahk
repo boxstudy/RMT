@@ -87,19 +87,16 @@ class MMProGui {
         main.Rows(titleHeight, "*")
 
         ; === 标题栏 ===
-        chrome := XAMLHost.AddTitleBar(main, title, titleHeight)
+        chrome := XAMLHost.AddCmdTitleBar(main, title, titleHeight)
 
         ; === 内容 ===
         body := main.Add("Grid").Grid_Row(1).Margin("10,6")
         body.Rows("34", "30", "24", "32", "34", "32", "32", "24", "*")
         body.Cols("80", "130", "80", "130")
 
-        ; 行0：快捷方式
+        ; 行0：备注
         row0 := body.Add("StackPanel").Grid_Row(0).Grid_ColumnSpan(4).Orientation("Horizontal").VerticalAlignment("Center")
-        row0.Add("TextBlock").Text(GetLang("快捷方式：")).VerticalAlignment("Center")
-        row0.Add("TextBox").Width(60).Height(24).MinHeight(24).Margin("4,0,0,0").Text("!l").IsReadOnly("True")
-        row0.Add("Button").Name("BtnExecute").Content(GetLang("执行指令")).Height(26).MinHeight(26).Margin("10,0,0,0")
-        row0.Add("TextBlock").Text(GetLang("备注：")).VerticalAlignment("Center").Margin("14,0,0,0")
+        row0.Add("TextBlock").Text(GetLang("备注：")).VerticalAlignment("Center")
         row0.Add("TextBox").Name("RemarkCon").Width(150).Height(24).MinHeight(24).Margin("4,0,0,0")
 
         ; 行1：F1 + 定位取色器
@@ -148,7 +145,7 @@ class MMProGui {
 
         ; 行8：确定
         btnRow := body.Add("StackPanel").Grid_Row(8).Grid_ColumnSpan(4).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
-        btnRow.Add("Button").Name("BtnOk").Content(GetLang("确定")).Width(100).Height(36).MinHeight(36)
+        AddCmdOkBtn(btnRow)
 
         ; === 创建 XAMLHost ===
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
@@ -161,7 +158,7 @@ class MMProGui {
         this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
         this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
         this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
-        this.ui.OnEvent("BtnExecute", "Click", ObjBindMethod(this, "TriggerMacro"))
+        BindCmdEditorChrome(this.ui, "#指令手册/6-移动Pro", ObjBindMethod(this, "TriggerMacro"))
         this.ui.OnEvent("RefCombo", "SelectionChanged", ObjBindMethod(this, "OnRefChange"))
         this.ui.OnEvent("BtnWinInfoEdit", "Click", ObjBindMethod(this, "OnWinInfoEdit"))
         this.ui.OnEvent("MouseMoveModeCombo", "SelectionChanged", ObjBindMethod(this, "OnTypeChange"))

@@ -1229,6 +1229,12 @@ class MainWin {
         }
     }
 
+    _AddSideToolSep(toolBar) {
+        toolBar.Add("Rectangle").Width(1).Height(16).Fill("{DynamicResource ControlBorder}")
+            .VerticalAlignment("Center").Margin("6,0,10,0").IsHitTestVisible("False")
+            .SnapsToDevicePixels("True")
+    }
+
     _AddSideToolBtn(toolBar, idx, key, glyph, tip, isToggle, prefix := "SideTool") {
         host := toolBar.Add("Grid").Margin("0,0,4,0").ClipToBounds("False")
         btn := host.Add("Button").Name(prefix key "_" idx)
@@ -1761,13 +1767,15 @@ class MainWin {
 
         toolBar := head.Add("StackPanel").Name("SideToolBar_" idx).Grid_Row(2)
             .Orientation("Horizontal").Height(30).Margin("4,4,4,4").VerticalAlignment("Center")
-        this._AddSideToolBtn(toolBar, idx, "Expand", Chr(0xE73F), GetLang("展开/收缩"), false)
+        this._AddSideToolBtn(toolBar, idx, "Record", Chr(0xE7C8), GetLang("指令录制"), true)
+        this._AddSideToolBtn(toolBar, idx, "Expand", Chr(0xE73F), GetLang("缩放"), false)
         this._AddSideToolBtn(toolBar, idx, "Undo", Chr(0xE7A7), GetLang("撤销"), false)
         this._AddSideToolBtn(toolBar, idx, "Redo", Chr(0xE7A6), GetLang("恢复"), false)
         this._AddSideToolBtn(toolBar, idx, "Back", Chr(0xE750), GetLang("删除末尾"), false)
-        this._AddSideToolBtn(toolBar, idx, "Record", Chr(0xE7C8), GetLang("指令录制"), true)
-        this._AddSideToolBtn(toolBar, idx, "Run", Chr(0xE768), GetLang("继续"), false)
+        this._AddSideToolSep(toolBar)
+        this._AddSideToolBtn(toolBar, idx, "Run", Chr(0xE768), GetLang("播放/继续"), false)
         this._AddSideToolBtn(toolBar, idx, "Step", "", GetLang("步入"), false)
+        this._AddSideToolSep(toolBar)
         this._AddSideToolBtn(toolBar, idx, "Var", Chr(0xE7B3), GetLang("变量监视"), true)
         this._AddSideToolBtn(toolBar, idx, "CmdTip", Chr(0xE8E3), GetLang("指令显示"), true)
         this._AddSideToolBtn(toolBar, idx, "Top", Chr(0xE840), GetLang("窗口置顶"), true)

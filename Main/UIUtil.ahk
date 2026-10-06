@@ -224,7 +224,155 @@ OnTrayEndRecord(*) {
 
 ; 帮助文档首页：统一走程序目录下的 Web\index.html（源码态与发布版同名）
 GetHelpDocPath() {
-    return A_WorkingDir "\Web\index.html"
+    p := A_WorkingDir "\Web\index.html"
+    if (FileExist(p))
+        return p
+    return A_WorkingDir "\index.html"
+}
+
+; 标题栏执行钮提示：Alt + L：执行
+CmdEditorPlayTip(hotkey := "!l") {
+    disp := FormatHotkeyDisplay(hotkey)
+    if (disp == "")
+        disp := hotkey
+    disp := StrReplace(disp, "+", " + ")
+    act := GetLang("执行")
+    if (act == "")
+        act := "执行"
+    return disp "：" act
+}
+
+; 指令编辑器标题栏：手册跳转对应章节，视频暂为占位提示
+; playAction 非空时显示执行钮；targeterAction 显示定位取色器；f1Action 显示 F1 定位
+BindCmdEditorChrome(ui, helpRoute := "", playAction := "", playHotkey := "!l", targeterAction := "", f1Action := "") {
+    if (!IsObject(ui))
+        return
+    hash := "#指令手册"
+    helpRoute := Trim(helpRoute)
+    if (helpRoute != "")
+        hash := (SubStr(helpRoute, 1, 1) == "#") ? helpRoute : "#" helpRoute
+    ui.OnEvent("BtnCmdHelp", "Click", (*) => OnOpenHelpDoc(hash))
+    ui.OnEvent("BtnCmdVideo", "Click", (*) => MyMsgBoxContent(GetLang("指令介绍视频制作中，敬请期待。")))
+    if (playAction != "") {
+        try ui.Update("BtnCmdPlay", "Visibility", "Visible")
+        disp := CmdEditorPlayTip(playHotkey)
+        try ui.Update("BtnCmdPlay", "ToolTip", disp)
+        ui.OnEvent("BtnCmdPlay", "Click", playAction)
+    }
+    if (targeterAction != "") {
+        try ui.Update("BtnCmdTargeter", "Visibility", "Visible")
+        try ui.Update("BtnCmdTargeter", "ToolTip", GetLang("定位取色器"))
+        ui.OnEvent("BtnCmdTargeter", "Click", targeterAction)
+    }
+    if (f1Action != "") {
+        try ui.Update("BtnCmdF1", "Visibility", "Visible")
+        f1Tip := GetLang("F1:选取当前坐标")
+        f1Tip := StrReplace(f1Tip, "F1:", "F1：")
+        try ui.Update("BtnCmdF1", "ToolTip", f1Tip)
+        ui.OnEvent("BtnCmdF1", "Click", f1Action)
+    }
+}
+
+; 标题去掉「编辑器」后缀：宏指令-鼠标移动编辑器 → 宏指令-鼠标移动
+CmdEditorDisplayTitle(title) {
+    s := String(title)
+    try s := StrReplace(s, GetLang("编辑器"), "")
+    s := StrReplace(s, "编辑器", "")
+    return Trim(s)
+}
+
+; 按窗口标题匹配指令图标（优先用指令配置，长名字先命中）
+CmdEditorTitleIcon(title) {
+    t := String(title)
+    if (InStr(t, "宏指令编辑器"))
+        return ""
+    best := "", bestLen := 0
+    try {
+        if (IsSet(MyMacroGui) && IsObject(MyMacroGui) && MyMacroGui.HasProp("SubGuiConfig")) {
+            for config in MyMacroGui.SubGuiConfig {
+                cand := [config.name]
+                try cand.Push(GetLang(config.name))
+                try cand.Push(GetLang(config.name "编辑器"))
+                for k in cand {
+                    if (k != "" && InStr(t, k) && StrLen(k) > bestLen) {
+                        best := config.icon
+                        bestLen := StrLen(k)
+                    }
+                }
+            }
+        }
+    }
+    if (best != "")
+        return best
+    static pairs := ""
+    if (!IsObject(pairs)) {
+        pairs := [
+            ["鼠标移动Pro", "Images\Soft\MovePro.png"],
+            ["搜索Pro", "Images\Soft\SearchPro.png"],
+            ["如果Pro", "Images\Soft\IfPro.png"],
+            ["变量提取", "Images\Soft\Extract.png"],
+            ["提取文本", "Images\Soft\Extract.png"],
+            ["文本处理", "Images\Soft\TextOps.png"],
+            ["文件读写", "Images\Soft\FileIO.png"],
+            ["窗口管理", "Images\Soft\WindowManage.png"],
+            ["按键检测", "Images\Soft\KeyCheck.png"],
+            ["后台鼠标", "Images\Soft\Mouse.png"],
+            ["后台按键", "Images\Soft\Key.png"],
+            ["增量移动", "Images\Soft\Move.png"],
+            ["鼠标移动", "Images\Soft\Move.png"],
+            ["RMT指令", "Images\Soft\rabit.png"],
+            ["宏操作", "Images\Soft\Sub.png"],
+            ["间隔", "Images\Soft\Interval.png"],
+            ["按键", "Images\Soft\Key.png"],
+            ["手柄", "Images\Soft\Key.png"],
+            ["搜索", "Images\Soft\Search.png"],
+            ["输入", "Images\Soft\Input.png"],
+            ["输出", "Images\Soft\Output.png"],
+            ["循环", "Images\Soft\Loop.png"],
+            ["变量", "Images\Soft\Var.png"],
+            ["如果", "Images\Soft\If.png"],
+            ["运算", "Images\Soft\Operation.png"],
+            ["运行", "Images\Soft\Run.png"],
+            ["数组", "Images\Soft\Arr.png"],
+            ["等待", "Images\Soft\Control.png"],
+            ["时间", "Images\Soft\Interval.png"],
+            ["注释", "Images\Soft\Comment.png"],
+            ["抓图", "Images\Soft\ScreenShot.png"]
+        ]
+    }
+    for p in pairs {
+        if (InStr(t, p[1]))
+            return p[2]
+    }
+    return ""
+}
+
+; 指令编辑器确定按钮：与间隔编辑器同款
+AddCmdOkBtn(parent, name := "BtnOk", extraMargin := "") {
+    btn := parent.Add("Button").Name(name).Content(GetLang("确定")).Width(88).Height(32).MinHeight(32).Cursor("Hand")
+        .Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}")
+        .BorderBrush("{DynamicResource ActionStroke}").BorderThickness("1").FontSize(13).FontWeight("Bold")
+    if (extraMargin != "")
+        btn.Margin(extraMargin)
+    btn.InjectResources(FrontInfoGui._OkBtnHoverStyle())
+    return btn
+}
+
+; 快捷键键帽（F1 等）
+AddHotkeyBadge(parent, hotkey, tip := "") {
+    cap := parent.Add("Border").CornerRadius("3").BorderThickness("1.25").Padding("8,0")
+        .Height(28).MinHeight(28)
+        .BorderBrush("{DynamicResource ControlBorder}").Background("{DynamicResource ControlBg}")
+        .VerticalAlignment("Center").SnapsToDevicePixels("True").UseLayoutRounding("False")
+    if (tip != "")
+        cap.ToolTip(tip)
+    disp := FormatHotkeyDisplay(hotkey)
+    if (disp == "")
+        disp := hotkey
+    disp := StrReplace(disp, "+", " + ")
+    cap.Add("TextBlock").Text(disp).FontSize(11).FontWeight("SemiBold")
+        .VerticalAlignment("Center").HorizontalAlignment("Center").Foreground("{DynamicResource TextMain}")
+    return cap
 }
 
 ; 打开帮助文档；文件不存在时给出提示而不是抛 Run 错误

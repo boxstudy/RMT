@@ -54,7 +54,7 @@ class TimeGui {
         main.Rows(titleHeight, "*")
 
         ; === 标题栏 ===
-        chrome := XAMLHost.AddTitleBar(main, title, titleHeight)
+        chrome := XAMLHost.AddCmdTitleBar(main, title, titleHeight)
 
         ; === 内容 ===
         body := main.Add("Grid").Grid_Row(1).Margin("12,6,12,6")
@@ -165,7 +165,7 @@ class TimeGui {
 
         ; 行2：确定 / 取消 按钮
         btnRow := body.Add("StackPanel").Grid_Row(2).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
-        btnRow.Add("Button").Name("SureBtn").Content(GetLang("确定")).Width(80).Height(26).MinHeight(26).Margin("0,0,16,0").Cursor("Hand")
+        AddCmdOkBtn(btnRow, "SureBtn", "0,0,16,0")
         btnRow.Add("Button").Name("CancelBtn").Content(GetLang("取消")).Width(80).Height(26).MinHeight(26).Cursor("Hand")
 
         ; === 创建 XAMLHost ===
@@ -179,6 +179,7 @@ class TimeGui {
         this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
         this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
         this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnClickCancelBtn"))
+        BindCmdEditorChrome(this.ui, "#指令手册/27-时间")
         this.ui.OnEvent("SureBtn", "Click", ObjBindMethod(this, "OnClickSureBtn"))
         this.ui.OnEvent("CancelBtn", "Click", ObjBindMethod(this, "OnClickCancelBtn"))
         this.ui.OnEvent("TimeModeCon", "SelectionChanged", ObjBindMethod(this, "OnModeChange"))

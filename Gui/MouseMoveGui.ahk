@@ -53,106 +53,51 @@ class MouseMoveGui {
         main.Rows(titleHeight, "*")
 
         ; === 标题栏 ===
-        chrome := XAMLHost.AddTitleBar(main, title, titleHeight)
+        chrome := XAMLHost.AddCmdTitleBar(main, title, titleHeight)
 
-        ; === 内容：TabControl（常规 / 错误处理）===
-        tc := main.Add("TabControl").Grid_Row(1).Margin("8,8,8,8").Name("MainTab")
+        ; === 内容 ===
+        body := main.Add("Grid").Grid_Row(1).Margin("8,8,8,8")
+        body.Rows("26", "36", "36", "34", "*")
+        body.Cols("82", "92", "100", "110")
+        speedTip := GetLang("移动速度0~100，100为瞬移")
 
-        ; ---- Tab1 常规 ----
-        ti1 := tc.Add("TabItem").Header(GetLang("常规"))
-        body := ti1.Add("Grid").Margin("10,10,10,10")
-        body.Rows("30", "34", "30", "26", "36", "36", "24", "34", "*")
-        body.Cols("90", "100", "90", "130")
+        ; 行0：鼠标位置
+        body.Add("TextBlock").Grid_Row(0).Grid_ColumnSpan(4).Name("MousePosCon").Text(GetLang("当前鼠标位置:0,0")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
 
-        ; 行0：备注（放选项卡第一个位置）
-        body.Add("TextBlock").Grid_Row(0).Grid_Column(0).Text(GetLang("备注：")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
-        body.Add("TextBox").Grid_Row(0).Grid_Column(1).Grid_ColumnSpan(3).Name("RemarkCon").Height(26).MinHeight(26).Margin("0,0,0,0")
-            .VerticalContentAlignment("Center").FontSize("11").Padding("4,0")
-            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
-            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-
-        ; 行1：快捷方式 + 执行指令
-        row0 := body.Add("StackPanel").Grid_Row(1).Grid_ColumnSpan(4).Orientation("Horizontal").VerticalAlignment("Center")
-        row0.Add("TextBlock").Text(GetLang("快捷方式：")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
-        row0.Add("TextBox").Width(60).Height(26).MinHeight(26).Margin("4,0,0,0").Text("!l").IsReadOnly("True").VerticalContentAlignment("Center").FontSize("11").Padding("4,0")
-            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
-            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-        row0.Add("Button").Name("BtnExecute").Content(GetLang("执行指令")).Height(28).MinHeight(28).Padding("14,0").Margin("14,0,0,0").Cursor("Hand")
-
-        ; 行2：F1 + 定位取色器
-        row1 := body.Add("StackPanel").Grid_Row(2).Grid_ColumnSpan(4).Orientation("Horizontal").VerticalAlignment("Center")
-        row1.Add("TextBlock").Text(GetLang("F1:选取当前坐标")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
-        ; 定位取色器组：按钮+说明提示挂盒子（主界面 _LabelRow 同款）
-        tgtBox := row1.Add("StackPanel").Orientation("Horizontal").VerticalAlignment("Center").Margin("14,0,0,0").ToolTip("1.左键拖拽改变位置`n2.上下左右方向键微调位置`n3.左键双击或回车键关闭取色器，同时确定点位信息")
-        tgtBox.Add("Button").Name("BtnTargeter").Content(GetLang("定位取色器")).Width(100).Height(28).MinHeight(28).Padding("14,0").Cursor("Hand")
-
-        ; 行3：鼠标位置
-        body.Add("TextBlock").Grid_Row(3).Grid_ColumnSpan(4).Name("MousePosCon").Text(GetLang("当前鼠标位置:0,0")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
-
-        ; 行4：坐标位置X/Y
-        body.Add("TextBlock").Grid_Row(4).Grid_Column(0).Text(GetLang("坐标位置X:")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
-        body.Add("TextBox").Grid_Row(4).Grid_Column(1).Name("PosXCon").Height(26).MinHeight(26).VerticalContentAlignment("Center").FontSize("11").Padding("4,0")
+        ; 行1：坐标位置X/Y
+        body.Add("TextBlock").Grid_Row(1).Grid_Column(0).Text(GetLang("坐标位置X:")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
+        body.Add("TextBox").Grid_Row(1).Grid_Column(1).Name("PosXCon").Height(26).MinHeight(26).VerticalContentAlignment("Center").FontSize("11").Padding("4,0")
             .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-        body.Add("TextBlock").Grid_Row(4).Grid_Column(2).Text(GetLang("坐标位置Y:")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
-        body.Add("TextBox").Grid_Row(4).Grid_Column(3).Name("PosYCon").Height(26).MinHeight(26).VerticalContentAlignment("Center").FontSize("11").Padding("4,0")
+        body.Add("TextBlock").Grid_Row(1).Grid_Column(2).Text(GetLang("坐标位置Y:")).VerticalAlignment("Center").Margin("10,0,0,0").Foreground("{DynamicResource TextMain}").FontSize("12")
+        body.Add("TextBox").Grid_Row(1).Grid_Column(3).Name("PosYCon").Height(26).MinHeight(26).Margin("10,0,0,0").VerticalContentAlignment("Center").FontSize("11").Padding("4,0")
             .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
 
-        ; 行5：移动速度 + 移动方式（§20 去「游戏视角」，已拆为增量移动指令）
-        body.Add("TextBlock").Grid_Row(5).Grid_Column(0).Text(GetLang("移动速度：")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
-        body.Add("TextBox").Grid_Row(5).Grid_Column(1).Name("SpeedCon").Height(26).MinHeight(26).VerticalContentAlignment("Center").FontSize("11").Padding("4,0").Text("90")
+        ; 行2：移动速度 + 移动方式
+        spdHost := body.Add("Border").Grid_Row(2).Grid_Column(0).Background("Transparent").VerticalAlignment("Center").ToolTip(speedTip)
+        spdHost.Add("TextBlock").Text(GetLang("移动速度：")).VerticalAlignment("Center")
+            .Foreground("{DynamicResource TextMain}").FontSize("12")
+        body.Add("TextBox").Grid_Row(2).Grid_Column(1).Name("SpeedCon").Height(26).MinHeight(26).VerticalContentAlignment("Center").FontSize("11").Padding("4,0").Text("90")
             .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
-            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-        body.Add("TextBlock").Grid_Row(5).Grid_Column(2).Text(GetLang("移动方式：")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
-        mm := body.Add("ComboBox").Grid_Row(5).Grid_Column(3).Name("MouseMoveModeCombo").Height(26).MinHeight(26)
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").ToolTip(speedTip)
+        body.Add("TextBlock").Grid_Row(2).Grid_Column(2).Text(GetLang("移动方式：")).VerticalAlignment("Center").Margin("10,0,0,0").Foreground("{DynamicResource TextMain}").FontSize("12")
+        mm := body.Add("ComboBox").Grid_Row(2).Grid_Column(3).Name("MouseMoveModeCombo").Height(26).MinHeight(26).Margin("10,0,0,0")
             .VerticalContentAlignment("Center").FontSize("11").Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
         for m in GetLangArr(["绝对移动", "相对移动"])
             mm.Add("ComboBoxItem").Content(m)
 
-        ; 行6：提示
-        body.Add("TextBlock").Grid_Row(6).Grid_ColumnSpan(4).Text(GetLang("移动速度0~100，100为瞬移")).VerticalAlignment("Center").Foreground("{DynamicResource TextSub}").FontSize("11")
+        ; 行3：当前指令
+        body.Add("TextBlock").Grid_Row(3).Grid_ColumnSpan(4).Name("CommandStrCon").Text(GetLang("当前指令：鼠标移动")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
 
-        ; 行7：当前指令
-        body.Add("TextBlock").Grid_Row(7).Grid_ColumnSpan(4).Name("CommandStrCon").Text(GetLang("当前指令：鼠标移动")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
-
-        ; 行8：确定
-        btnRow := body.Add("StackPanel").Grid_Row(8).Grid_ColumnSpan(4).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
-        btnRow.Add("Button").Name("BtnOk").Content(GetLang("确定")).Height(28).MinHeight(28).Padding("14,0")
-
-        ; ---- Tab2 错误处理 ----
-        ti2 := tc.Add("TabItem").Header(GetLang("错误处理"))
-        body2 := ti2.Add("Grid").Margin("16,14,16,14")
-        body2.Rows("34", "34", "34", "*")
-        ehRow1 := body2.Add("StackPanel").Grid_Row(0).Orientation("Horizontal").VerticalAlignment("Center")
-        ehRow1.Add("TextBlock").Text(GetLang("错误处理：")).Width(92).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
-        ehCombo := ehRow1.Add("ComboBox").Name("EHModeCombo").Width(150).Height(26).MinHeight(26).Margin("4,0,0,0").SelectedIndex("0")
-            .VerticalContentAlignment("Center").FontSize("11").Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-        ehCombo.Add("ComboBoxItem").Content(GetLang("停止运行")).Tag("stop")
-        ehCombo.Add("ComboBoxItem").Content(GetLang("忽略错误并继续")).Tag("ignore")
-        ehCombo.Add("ComboBoxItem").Content(GetLang("重试")).Tag("retry")
-
-        ehRow2 := body2.Add("StackPanel").Name("EHRetryRow").Grid_Row(1).Orientation("Horizontal").VerticalAlignment("Center")
-        ehRow2.Add("TextBlock").Text(GetLang("重试次数：")).Width(92).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
-        ehRow2.Add("TextBox").Name("EHRetryCount").Width(60).Height(26).MinHeight(26).Margin("4,0,0,0")
-            .VerticalContentAlignment("Center").TextAlignment("Center").FontSize("11").Padding("4,0")
-            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
-            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-
-        ehRow3 := body2.Add("StackPanel").Name("EHIntervalRow").Grid_Row(2).Orientation("Horizontal").VerticalAlignment("Center")
-        ehRow3.Add("TextBlock").Text(GetLang("重试间隔(ms)：")).Width(92).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
-        ehRow3.Add("TextBox").Name("EHRetryInterval").Width(60).Height(26).MinHeight(26).Margin("4,0,0,0")
-            .VerticalContentAlignment("Center").TextAlignment("Center").FontSize("11").Padding("4,0")
-            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
-            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-
-        ehBtnRow := body2.Add("StackPanel").Grid_Row(3).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
-        ehBtnRow.Add("Button").Name("BtnOk2").Content(GetLang("确定")).Height(28).MinHeight(28).Padding("14,0")
+        ; 行4：确定
+        btnRow := body.Add("StackPanel").Grid_Row(4).Grid_ColumnSpan(4).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
+        AddCmdOkBtn(btnRow)
 
         ; === 创建 XAMLHost ===
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", this.OwnerHwnd)
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="500" SizeToContent="Height" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="420" SizeToContent="Height" Opacity="0"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
         this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '')
 
@@ -160,15 +105,12 @@ class MouseMoveGui {
         this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
         this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
         this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
-        this.ui.OnEvent("BtnExecute", "Click", ObjBindMethod(this, "TriggerMacro"))
+        BindCmdEditorChrome(this.ui, "#指令手册/5-移动", ObjBindMethod(this, "TriggerMacro"), "!l", ObjBindMethod(this, "OnClickTargeterBtn"), ObjBindMethod(this, "SureCoord"))
         this.ui.OnEvent("PosXCon", "TextChanged", ObjBindMethod(this, "OnChangeEditValue"))
         this.ui.OnEvent("PosYCon", "TextChanged", ObjBindMethod(this, "OnChangeEditValue"))
         this.ui.OnEvent("SpeedCon", "TextChanged", ObjBindMethod(this, "OnChangeEditValue"))
         this.ui.OnEvent("MouseMoveModeCombo", "SelectionChanged", ObjBindMethod(this, "OnChangeEditValue"))
-        this.ui.OnEvent("BtnTargeter", "Click", ObjBindMethod(this, "OnClickTargeterBtn"))
         this.ui.OnEvent("BtnOk", "Click", ObjBindMethod(this, "OnClickSureBtn"))
-        this.ui.OnEvent("EHModeCombo", "SelectionChanged", ObjBindMethod(this, "OnEHModeChange"))
-        this.ui.OnEvent("BtnOk2", "Click", ObjBindMethod(this, "OnClickSureBtn"))
 
     }
 
@@ -208,12 +150,8 @@ class MouseMoveGui {
 
     Init(cmd) {
         ; 阶段5：指令配置化。新格式 移动<serial> 读配置文件；旧格式 移动_X_Y_Speed_MoveMode 兼容
-        eh := RMTParseErrHandle(cmd)
-        cmd := eh.cmd
-        this._ehCfg := eh.cfg
+        cmd := RMTParseErrHandle(cmd).cmd
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
-        ; 备注：指令串第二段（移动<serial>_备注 或 旧 移动_X_Y 均取第二段）
-        this.ui.Update("RemarkCon", "Text", cmdArr.Length >= 2 ? cmdArr[2] : "")
         SplitSerialTextAndNumbers(cmdArr.Length >= 1 ? cmdArr[1] : "", &textOnly, &numbersOnly)
         if (numbersOnly != "") {
             ; 新格式：读配置文件 Data
@@ -236,41 +174,6 @@ class MouseMoveGui {
         this.ui.Update("MouseMoveModeCombo", "SelectedIndex", String(MoveMode))
         this.OnMoveModeChange()
         this.UpdateCommandStr()
-        this._InitEH()
-    }
-
-    ; ============ 错误处理（阶段5，影刀模式）============
-
-    _InitEH() {
-        mode := this.Data.HasOwnProp("ErrMode") ? this.Data.ErrMode : "stop"
-        if (IsObject(this._ehCfg))
-            mode := this._ehCfg.mode
-        idx := 0
-        for i, m in ["stop", "ignore", "retry"] {
-            if (m == mode) {
-                idx := i - 1
-                break
-            }
-        }
-        if (IsObject(this.ui)) {
-            this.ui.Update("EHModeCombo", "SelectedIndex", String(idx))
-            this.ui.Update("EHRetryCount", "Text", this.Data.HasOwnProp("ErrRetryCount") ? this.Data.ErrRetryCount : "3")
-            this.ui.Update("EHRetryInterval", "Text", this.Data.HasOwnProp("ErrRetryInterval") ? this.Data.ErrRetryInterval : "500")
-            this.OnEHModeChange()
-        }
-    }
-
-    _EHMode() {
-        v := IsObject(this.ui) ? this.ui.Query("EHModeCombo>SelectedIndex") : ""
-        return IsNumber(v) ? Integer(v) : 0
-    }
-
-    OnEHModeChange(state := "", ctrl := "", event := "") {
-        showRetry := this._EHMode() == 2
-        if (IsObject(this.ui)) {
-            this.ui.Update("EHRetryRow", "Visibility", showRetry ? "Visible" : "Collapsed")
-            this.ui.Update("EHIntervalRow", "Visibility", showRetry ? "Visible" : "Collapsed")
-        }
     }
 
     CheckIfValid() {
@@ -375,18 +278,11 @@ class MouseMoveGui {
         this.Data.PosY := this.ui.Query("PosYCon")
         this.Data.Speed := this.ui.Query("SpeedCon")
         this.Data.MoveMode := this._MoveMode()
-        ; 错误处理（阶段5）
-        this.Data.ErrMode := ["stop", "ignore", "retry"][this._EHMode() + 1]
-        this.Data.ErrRetryCount := this.ui.Query("EHRetryCount")
-        this.Data.ErrRetryInterval := this.ui.Query("EHRetryInterval")
 
         if (this.Data.SerialStr == "")
             this.Data.SerialStr := GetCMDSerialStr(GetLang("鼠标移动"))
         SaveMacroCMDData(this.Data)
-        ; 备注：用户备注优先，为空则自动生成操作内容（CorrectRemark 会剔除逗号，故用空格分隔）
-        remark := Trim(this.ui.Query("RemarkCon"))
-        if (remark == "")
-            remark := this.Data.PosX " " this.Data.PosY
+        remark := this.Data.PosX " " this.Data.PosY
         return CorrectRemark(this.Data.SerialStr, remark)
     }
 
@@ -400,10 +296,18 @@ class MouseMoveGui {
     SureCoord() {
         CoordMode("Mouse", "Screen")
         MouseGetPos &mouseX, &mouseY
-        if (IsObject(this.ui)) {
-            this.ui.Update("PosXCon", "Text", mouseX)
-            this.ui.Update("PosYCon", "Text", mouseY)
-            this.UpdateCommandStr()
+        if (!IsObject(this.ui))
+            return
+        if (this._MoveMode() == 1) {
+            curX := this.ui.Query("PosXCon")
+            curY := this.ui.Query("PosYCon")
+            curX := IsNumber(curX) ? Number(curX) : 0
+            curY := IsNumber(curY) ? Number(curY) : 0
+            mouseX := mouseX - curX
+            mouseY := mouseY - curY
         }
+        this.ui.Update("PosXCon", "Text", mouseX)
+        this.ui.Update("PosYCon", "Text", mouseY)
+        this.UpdateCommandStr()
     }
 }

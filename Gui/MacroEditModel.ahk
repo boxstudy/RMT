@@ -41,6 +41,8 @@ class MacroTreeAdapter {
         this._renderCause := ""    ; 临时诊断
         this._suppressRender := false  ; 拖拽期间禁止全量重建
         this._splitRenderPending := false
+        this.rootSlot := 20            ; 根节点展开列宽；独立编辑器会收紧
+        this.cardPad := "2,0,6,0"      ; 卡片左右内边距
     }
 
     Hwnd {
@@ -637,7 +639,7 @@ class MacroTreeAdapter {
     ; 浅嵌套（≤ 约 8 层，计算值 ≤ 约 180）远低于上限 → Min 不生效，顶层与浅嵌套行为零变化。
     _SplitPairLeftInset(pair) {
         owner := (IsObject(pair) && IsObject(pair.true)) ? pair.true.parent : ""
-        prefix := IsObject(owner) ? this._WidthBeforeIcon(owner) : 20
+        prefix := IsObject(owner) ? this._WidthBeforeIcon(owner) : this._SlotW()
         return Min(2 + prefix, this._SplitInsetCap())
     }
 
@@ -709,12 +711,20 @@ class MacroTreeAdapter {
     }
 
     ; 该行「指令图标」左侧已占用宽度（用于对齐下级展开符/连线）
+    _SlotW() {
+        return (this.HasProp("rootSlot") && Integer(this.rootSlot) > 0) ? Integer(this.rootSlot) : 20
+    }
+
+    _CardPad() {
+        return (this.HasProp("cardPad") && this.cardPad != "") ? this.cardPad : "2,0,6,0"
+    }
+
     _WidthBeforeIcon(node) {
         if (!IsObject(node))
             return 0
         d := this._Depth(node)
         if (d == 0)
-            return 20
+            return this._SlotW()
         if (this._IsBranchContainer(node))
             return this._WidthBeforeIcon(node.parent) + 20
         branchAnc := this._FindBranchAncestor(node)
@@ -732,8 +742,10 @@ class MacroTreeAdapter {
     }
 
     ; 展开/收缩按钮（加大加粗）；overlay=true 时叠在引导列中心
-    _BuildArrowBtnXml(node, glyph, overlay := false) {
-        w := 20
+    _BuildArrowBtnXml(node, glyph, overlay := false, w := 0) {
+        if (w <= 0)
+            w := 20
+        fontSz := (w < 18) ? 12 : 16
         align := overlay ? ' HorizontalAlignment="Center"' : ""
         return '<Button Name="Arrow_' node.id '" Width="' w '" Height="' w '" Margin="0" Padding="0"'
             . ' Cursor="Hand" Focusable="False" VerticalAlignment="Center"' align
@@ -742,7 +754,7 @@ class MacroTreeAdapter {
             . '<Button.Template><ControlTemplate TargetType="Button">'
             . '<Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="3" Width="' w '" Height="' w '">'
             . '<TextBlock Name="Arrow_' node.id '_Txt" Text="' glyph '"'
-            . ' FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="16" FontWeight="Bold"'
+            . ' FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="' fontSz '" FontWeight="Bold"'
             . ' Foreground="{DynamicResource TextMain}" HorizontalAlignment="Center" VerticalAlignment="Center"/>'
             . '</Border>'
             . '<ControlTemplate.Triggers>'
@@ -788,7 +800,7 @@ class MacroTreeAdapter {
         if (colMode) {
             ; 分栏内：不画真/假列头，列内指令从 depth=0 起画连线
             if (depth == 0)
-                return hasChild ? this._BuildArrowBtnXml(node, glyph, false) : this._PadSlotXml(20)
+                return hasChild ? this._BuildArrowBtnXml(node, glyph, false, this._SlotW()) : this._PadSlotXml(this._SlotW())
             line := "{DynamicResource ControlBorder}"
             loop (depth - 1) {
                 prefix .= '<Grid Width="16" VerticalAlignment="Stretch">'
@@ -799,7 +811,7 @@ class MacroTreeAdapter {
             return prefix
         }
         if (depth == 0) {
-            prefix := hasChild ? this._BuildArrowBtnXml(node, glyph, false) : this._PadSlotXml(20)
+            prefix := hasChild ? this._BuildArrowBtnXml(node, glyph, false, this._SlotW()) : this._PadSlotXml(this._SlotW())
         } else if (isBranch) {
             pad := this._WidthBeforeIcon(node.parent)
             if (pad > 0)
@@ -840,7 +852,7 @@ class MacroTreeAdapter {
         curVis := (node.HasProp("debugCur") && node.debugCur) ? "Visible" : "Collapsed"
         brkVis := (node.HasProp("debugBp") && node.debugBp) ? "Visible" : "Collapsed"
         dispText := this._EscapeXml(CmdStripDebug(node.text))
-        xml := '<Border Name="CardBd_' node.id '" Tag="' node.id '" CornerRadius="0" BorderThickness="0" Background="' cardBg '" Margin="0" Padding="2,0,6,0" HorizontalAlignment="Stretch">'
+        xml := '<Border Name="CardBd_' node.id '" Tag="' node.id '" CornerRadius="0" BorderThickness="0" Background="' cardBg '" Margin="0" Padding="' this._CardPad() '" HorizontalAlignment="Stretch">'
             . '<StackPanel Name="CardInner_' node.id '" Orientation="Horizontal" VerticalAlignment="Stretch" MinHeight="24" Opacity="' skipOp '">'
             . prefix
         if (node.icon != "")
@@ -1075,6 +1087,10 @@ class MacroMenuAdapter {
     ToggleCheck(name) {
         cur := this._checked.Has(name) ? this._checked[name] : false
         cur ? this.Uncheck(name) : this.Check(name)
+    }
+
+    IsChecked(name) {
+        return this._checked.Has(name) && this._checked[name]
     }
 }
 

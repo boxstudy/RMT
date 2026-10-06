@@ -1526,6 +1526,8 @@ class MacroGraphHandlersMixin {
             this._FlushIntervalInline(id, d, state)
         else if (d.type == GetLang("按键"))
             this._FlushKeyInline(id, d, state)
+        else if (d.type == GetLang("手柄"))
+            return
         else if (IsMoveCmd(d.type))
             this._FlushMoveInline(id, d, state)
         else if (IsDeltaMoveCmd(d.type))

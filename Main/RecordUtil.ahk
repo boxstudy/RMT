@@ -553,8 +553,14 @@ OnRecordAddMacroStr(keyName, isDown, eventTime?) {
 
     if (IsJoy || (IsKeyboard && MainSoftData.RecordKeyboard)) {
         keyName := keyName == "," ? GetLang("逗号") : keyName
+        cmdKey := GetLang("按键")
+        outName := keyName
+        if (IsJoy) {
+            cmdKey := GetLang("手柄")
+            outName := JoyInternalToShort(keyName)
+        }
         MainSoftData.RecordMacroStr .= Format("{}_{},", GetLang("间隔"), span)
-        MainSoftData.RecordMacroStr .= Format("{}_{}_{},", GetLang("按键"), keyName, keySymbol)
+        MainSoftData.RecordMacroStr .= Format("{}_{}_{},", cmdKey, outName, keySymbol)
     }
 
     if (IsMouse && MainSoftData.RecordMouse) {
@@ -572,7 +578,11 @@ OnFinishRecordMacro() {
             if (MainSoftData.RecordInitialHoldMap.Has(Key) && MainSoftData.RecordInitialHoldMap[Key])
                 continue
             keyName := Key == "," ? GetLang("逗号") : Key
-            MainSoftData.RecordMacroStr .= GetLang("按键") "_" keyName "_" GetLang("松开") ","
+            isJoyHold := InStr(Key, "Joy") || InStr(Key, "Btn") || InStr(Key, "Axis") || InStr(Key, "Dpad")
+            if (isJoyHold)
+                MainSoftData.RecordMacroStr .= GetLang("手柄") "_" JoyInternalToShort(keyName) "_" GetLang("松开") ","
+            else
+                MainSoftData.RecordMacroStr .= GetLang("按键") "_" keyName "_" GetLang("松开") ","
         }
         ; 真轴兜底回中：仍有非零偏转的摇杆/扳机补一条 :0，保证回放结束归零
         RecordJoyAxisRecentre()

@@ -51,12 +51,12 @@ class MacroGraphGui {
         this._sessionId := 0          ; 每次打开自增；用于忽略旧窗口迟到的异步关闭事件，避免覆盖写空
 
         ; 若梦兔全部指令（§20 改名：移动→鼠标移动、移动Pro→鼠标移动Pro、新增 增量移动）
-        this.CmdList := GetLangArr(["间隔", "按键", "搜索", "搜索Pro", "鼠标移动", "鼠标移动Pro", "增量移动", "输入", "输出", "循环", "宏操作",
+        this.CmdList := GetLangArr(["间隔", "按键", "手柄", "搜索", "搜索Pro", "鼠标移动", "鼠标移动Pro", "增量移动", "输入", "输出", "循环", "宏操作",
             "变量", "变量提取", "如果", "如果Pro", "运算", "运行", "文件读写", "文本处理", "数组", "RMT指令", "后台鼠标",
             "后台按键", "窗口管理", "按键检测", "等待", "时间", "注释", "抓图"])
 
         ; 各指令对应图标（顺序与 CmdList 一一对应，复用 MacroEditGui 的图标资源）
-        this.CmdIconArr := ["Images\Soft\Interval.png", "Images\Soft\Key.png",
+        this.CmdIconArr := ["Images\Soft\Interval.png", "Images\Soft\Key.png", "Images\Soft\Key.png",
             "Images\Soft\Search.png", "Images\Soft\SearchPro.png",
             "Images\Soft\Move.png", "Images\Soft\MovePro.png", "Images\Soft\Move.png",
             "Images\Soft\Input.png", "Images\Soft\Output.png",
@@ -74,6 +74,7 @@ class MacroGraphGui {
         ; 复用现有子编辑器（双击节点时打开）
         this.IntervalGui := IntervalGui()
         this.KeyGui := KeyGui()
+        this.JoyGui := JoyGui()
         this.MouseGui := MouseMoveGui()
         this.SearchGui := SearchGui()
         this.SearchProGui := SearchProGui()
@@ -464,23 +465,13 @@ class MacroGraphGui {
 
     _DefaultObj(cmdName) {
         if (cmdName == GetLang("间隔")) {
-            ; 阶段5：配置化（间隔<serial>_备注，参数存 IntervalFile.toml）
-            serial := GetCMDSerialStr("间隔")
-            data := IntervalData()
-            data.SerialStr := serial
-            SaveMacroCMDData(data)
-            return this._MakeNode(CorrectRemark(serial, data.Time1))
+            return this._MakeNode(GetLang("间隔") "_500")
         }
         if (cmdName == GetLang("按键")) {
-            ; 阶段5：配置化
-            serial := GetCMDSerialStr("按键")
-            data := KeyDataConfig()
-            data.SerialStr := serial
-            data.KeyName := "a"
-            data.KeyType := 3
-            data.HoldTime := 100
-            SaveMacroCMDData(data)
-            return this._MakeNode(CorrectRemark(serial, "a_" GetLang("点击")))
+            return this._MakeNode(GetLang("按键") "_a_" GetLang("点击"))
+        }
+        if (cmdName == GetLang("手柄")) {
+            return this._MakeNode(GetLang("手柄") "_A_" GetLang("点击"))
         }
         if (IsMoveCmd(cmdName)) {
             ; 阶段5：配置化
@@ -665,8 +656,14 @@ class MacroGraphGui {
         editor := ""
         if (d.type == GetLang("间隔"))
             editor := this.IntervalGui
-        else if (d.type == GetLang("按键"))
-            editor := this.KeyGui
+        else if (d.type == GetLang("按键")) {
+            if (IsJoyLegacyKeyCmd(this.cmdNodes[id].CurCMD))
+                editor := this.JoyGui
+            else
+                editor := this.KeyGui
+        }
+        else if (d.type == GetLang("手柄"))
+            editor := this.JoyGui
         else if (IsMoveCmd(d.type))
             editor := this.MouseGui
         else if (IsDeltaMoveCmd(d.type))
@@ -702,8 +699,14 @@ class MacroGraphGui {
     OnEditorSure(id, cmd) {
         if (!this.cmdNodes.Has(id))
             return
+        oldType := this._Parse(this.cmdNodes[id].CurCMD).type
         this.cmdNodes[id].CurCMD := cmd
         dEdit := this._Parse(cmd)
+        if (oldType != dEdit.type) {
+            this._CaptureLinks()
+            this._Render()
+            return
+        }
         ; 搜索/搜索Pro：就地刷新内联字段与分支节点内容，避免整窗重建（闪烁/窗口被销毁）
         if (dEdit.type == GetLang("搜索") || dEdit.type == GetLang("搜索Pro")) {
             this._RefreshSearchNode(id, dEdit)
@@ -753,6 +756,9 @@ class MacroGraphGui {
                 this.ui.Update("Count_" id, "Text", d.count)
                 this.ui.Update("Inter_" id, "Text", d.inter)
                 this._RefreshKeyVisibility(id)
+            }
+            else if (d.type == GetLang("手柄")) {
+                this.ui.Update("JoySum_" id, "Text", this._JoyCmdSummary(d))
             }
             else if (IsMoveCmd(d.type)) {
                 this.ui.Update("PosX_" id, "Text", d.posx)

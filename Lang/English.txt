@@ -630,6 +630,7 @@ warn 气泡：=Warn Bubble:
 打开监视器=Open Monitor
 赞助=Sponsor
 执行指令=Execute
+执行=Execute
 找到后的指令：（可选）=On Found (Optional)
 拉=Drag
 指令=Cmd

@@ -1431,17 +1431,17 @@ SimpleRecordMacroStr(MacroStr) {
     loop CmdArr.Length {
         paramArr := SplitCommand(CmdArr[A_Index])
         ; 轴行无类型(如 按键_JoyAxisLX:75)仅2段，访问 paramArr[3] 会越界，须先判长度
-        isPressKey := paramArr.Length >= 3 && paramArr[1] == GetLang("按键") && paramArr[3] == GetLang("按下")
+        isPressKey := paramArr.Length >= 3 && (paramArr[1] == GetLang("按键") || paramArr[1] == GetLang("手柄")) && paramArr[3] == GetLang("按下")
         if (isPressKey && A_Index + 2 < CmdArr.Length) {
             next1ParamArr := SplitCommand(CmdArr[A_Index + 1])
             next2ParamArr := SplitCommand(CmdArr[A_Index + 2])
-            isMatchFormat := next1ParamArr.Length >= 2 && next2ParamArr.Length >= 3 && next1ParamArr[1] == GetLang("间隔") && next2ParamArr[1] == GetLang("按键")
+            isMatchFormat := next1ParamArr.Length >= 2 && next2ParamArr.Length >= 3 && next1ParamArr[1] == GetLang("间隔") && next2ParamArr[1] == paramArr[1]
             if (isMatchFormat && paramArr[2] == next2ParamArr[2] && next2ParamArr[3] == "松开") {
                 ; 时长保底：PS5 蓝牙有时按下+松开在同 tick，间隔=0
                 clickDuration := next1ParamArr[2]
                 if (clickDuration < 50)
                     clickDuration := 50
-                SimpleCmdStr := Format("{}_{}_{}_{}", GetLang("按键"), paramArr[2], GetLang("点击"), clickDuration)
+                SimpleCmdStr := Format("{}_{}_{}_{}", paramArr[1], paramArr[2], GetLang("点击"), clickDuration)
                 SimpleCmdArr.Push(SimpleCmdStr)
                 A_Index := A_Index + 2
                 continue
@@ -1495,12 +1495,27 @@ DiscardRecordTriggerKey(MacroStr, isFront) {
 }
 
 CheckIfDiscardCMD(triggerMap, cmd) {
-    if (!InStr(cmd, GetLang("按键")) || InStr(cmd, GetLang("按键检测")))
+    isKey := InStr(cmd, GetLang("按键")) && !InStr(cmd, GetLang("按键检测"))
+    isJoy := InStr(cmd, GetLang("手柄"))
+    if (!isKey && !isJoy)
         return false
 
     paramArr := SplitCommand(cmd)
-    if (triggerMap.Has(paramArr[2]) && triggerMap[paramArr[2]] < 2) {
-        triggerMap[paramArr[2]] += 1
+    if (paramArr.Length < 2)
+        return false
+    key := paramArr[2]
+    inn := JoyShortToInternal(key)
+    short := JoyInternalToShort(key)
+    if (triggerMap.Has(key) && triggerMap[key] < 2) {
+        triggerMap[key] += 1
+        return true
+    }
+    if (inn != "" && triggerMap.Has(inn) && triggerMap[inn] < 2) {
+        triggerMap[inn] += 1
+        return true
+    }
+    if (short != "" && triggerMap.Has(short) && triggerMap[short] < 2) {
+        triggerMap[short] += 1
         return true
     }
 
@@ -1513,6 +1528,8 @@ FullCopyCmd(cmdStr, CopyedMap := Map()) {
     if (paramArr[1] == GetLang("间隔"))
         return cmdStr
     if (paramArr[1] == GetLang("按键"))
+        return cmdStr
+    if (paramArr[1] == GetLang("手柄"))
         return cmdStr
     if (IsMoveCmd(paramArr[1]))
         return cmdStr

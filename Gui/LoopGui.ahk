@@ -72,14 +72,11 @@ class LoopGui {
         main.Rows(titleHeight, "34", "32", "*", "Auto", "48")
 
         ; === 标题栏 ===
-        chrome := XAMLHost.AddTitleBar(main, title, titleHeight)
+        chrome := XAMLHost.AddCmdTitleBar(main, title, titleHeight)
 
-        ; === 顶部工具行：快捷方式 + 执行指令 + 备注 ===
+        ; === 顶部工具行：备注 ===
         top := main.Add("StackPanel").Grid_Row(1).Orientation("Horizontal").Margin("10,4")
-        top.Add("TextBlock").Text(GetLang("快捷方式：")).VerticalAlignment("Center")
-        top.Add("TextBlock").Text("!l").VerticalAlignment("Center").Margin("4,0,0,0").Opacity("0.6")
-        top.Add("Button").Name("BtnTrigger").Content(GetLang("执行指令")).Width(80).Height(26).MinHeight(26).Margin("8,0,0,0").Cursor("Hand")
-        top.Add("TextBlock").Text(GetLang("备注：")).VerticalAlignment("Center").Margin("12,0,0,0")
+        top.Add("TextBlock").Text(GetLang("备注：")).VerticalAlignment("Center")
         top.Add("TextBox").Name("RemarkCon").Width(140).Height(26).MinHeight(26).Margin("4,0,0,0")
             .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").VerticalContentAlignment("Center").Padding("4,0")
@@ -127,7 +124,7 @@ class LoopGui {
 
         ; === 底部按钮 ===
         btnRow := main.Add("StackPanel").Grid_Row(5).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
-        btnRow.Add("Button").Name("BtnSure").Content(GetLang("确定")).Width(100).Height(32).MinHeight(32).Margin("4,0").Cursor("Hand")
+        AddCmdOkBtn(btnRow, "BtnSure", "4,0")
 
         ; === 创建 XAMLHost ===
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
@@ -140,7 +137,7 @@ class LoopGui {
         this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
         this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
         this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
-        this.ui.OnEvent("BtnTrigger", "Click", (*) => this.TriggerMacro())
+        BindCmdEditorChrome(this.ui, "#指令手册/9-循环", (*) => this.TriggerMacro())
         this.ui.OnEvent("BtnEditMacro", "Click", ObjBindMethod(this, "OnEditMacroBtnClick"))
         this.ui.OnEvent("BtnSure", "Click", ObjBindMethod(this, "OnClickSureBtn"))
         this.ui.OnEvent("CondiCon", "SelectionChanged", ObjBindMethod(this, "OnRefresh"))

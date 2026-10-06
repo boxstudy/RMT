@@ -1,0 +1,1206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RMT 宏指令编辑器布局参考</title>
+  <style>
+    :root {
+      --accent: #ff8c00;
+      --accent-hover: #e67e00;
+      --accent-soft: #ffe4b5;
+      --title-bg: #ffe4b5;
+      --title-fg: #5c3317;
+      --bg: #fff8dc;
+      --content: #ffffff;
+      --stroke: #e8b86d;
+      --outline: #e8b86d;
+      --text: #5c3317;
+      --text-sub: #8a5a2b;
+      --action-fg: #ffffff;
+      --control-bg: #fff8dc;
+      --control-border: #e8b86d;
+      --btn-press: #d1a662;
+      --tab-sel: #80ff8c00;
+      --row-a: #fff8dc;
+      --row-b: #fff4d3;
+      --row-sel: #80ff8c00;
+      --row-skip: #efe6c8;
+      --cmd-hover: #ffe4b5;
+      --shadow: 0 12px 40px rgba(92, 51, 23, 0.16);
+      --font: "Microsoft YaHei UI", "Segoe UI Variable Display", "Segoe UI", sans-serif;
+      --icon: "Segoe Fluent Icons", "Segoe MDL2 Assets";
+    }
+
+    * { box-sizing: border-box; }
+    html, body { min-height: 100%; }
+    body {
+      margin: 0;
+      font-family: var(--font);
+      color: var(--text);
+      background:
+        radial-gradient(1200px 600px at 20% -10%, var(--accent-soft), transparent 55%),
+        linear-gradient(180deg, #f4eee0, #ece4d0);
+    }
+
+    .page {
+      min-height: 100vh;
+      padding: 10px 14px 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .note {
+      width: 1400px;
+      max-width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      font-size: 12px;
+      color: var(--text-sub);
+    }
+    .note strong { color: var(--text); }
+    .theme-switch { display: flex; gap: 6px; flex-wrap: wrap; }
+    .theme-btn {
+      border: 1px solid var(--stroke);
+      background: var(--content);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 4px 10px;
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .theme-btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--action-fg);
+    }
+
+    .win {
+      width: 1400px;
+      max-width: 100%;
+      height: 787px;
+      max-height: calc(100vh - 48px);
+      background: var(--bg);
+      border: 1px solid var(--outline);
+      border-radius: 4px;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .titlebar {
+      height: 30px;
+      min-height: 30px;
+      background: var(--title-bg);
+      color: var(--title-fg);
+      display: flex;
+      align-items: center;
+      padding: 0 0 0 12px;
+      user-select: none;
+    }
+    .titlebar h1 {
+      margin: 0;
+      font-size: 13px;
+      font-weight: 700;
+      flex: 1;
+    }
+    .title-btns { display: flex; height: 100%; }
+    .title-btn {
+      width: 46px;
+      height: 100%;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      cursor: pointer;
+      font-family: var(--icon);
+      font-size: 12px;
+    }
+    .title-btn:hover { background: var(--control-border); }
+    .title-btn.close:hover { background: #e81123; color: #fff; }
+
+    .app {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 228px minmax(0, 1fr);
+    }
+
+    .cmd-panel {
+      min-width: 0;
+      min-height: 0;
+      display: flex;
+      padding: 4px 0 0 4px;
+      border-right: 1.5px solid var(--outline);
+    }
+    .cmd-box {
+      flex: 1;
+      min-width: 0;
+      min-inline-size: 0;
+      min-height: 0;
+      margin: 0;
+      padding: 0 0 6px;
+      display: flex;
+      flex-direction: column;
+      border: 0;
+      background: transparent;
+      overflow: hidden;
+    }
+    .cmd-filter {
+      height: 26px;
+      margin: 0 2px 8px 0;
+      padding: 0 8px;
+      border: 1px solid var(--stroke);
+      border-radius: 3px;
+      background: var(--content);
+      color: var(--text);
+      font: inherit;
+      font-size: 12px;
+      outline: none;
+      width: auto;
+      align-self: stretch;
+    }
+    .cmd-filter:focus { border-color: var(--accent); }
+    .cmd-scroll {
+      flex: 1;
+      overflow-x: hidden;
+      overflow-y: auto;
+      overflow-y: overlay;
+      padding: 0 2px 0 0;
+      min-height: 0;
+      scrollbar-width: thin;
+      scrollbar-color: var(--control-border) var(--bg);
+    }
+    .cmd-scroll::-webkit-scrollbar {
+      width: 6px;
+    }
+    .cmd-scroll::-webkit-scrollbar-button {
+      display: none;
+      width: 0;
+      height: 0;
+    }
+    .cmd-scroll::-webkit-scrollbar-track {
+      background: var(--bg);
+    }
+    .cmd-scroll::-webkit-scrollbar-thumb {
+      background: var(--control-border);
+      border-radius: 6px;
+      border: 1px solid var(--bg);
+    }
+    .cmd-scroll::-webkit-scrollbar-thumb:hover {
+      background: var(--accent);
+    }
+    .cmd-scroll::-webkit-scrollbar-corner {
+      background: transparent;
+    }
+
+    .fav-block {
+      margin: 0 0 8px;
+      padding: 4px 2px 6px;
+      border: 1px solid var(--stroke);
+      border-radius: 4px;
+      background: var(--accent-soft);
+    }
+    .sec-title {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      width: 100%;
+      height: 24px;
+      margin: 2px 0 0;
+      padding: 0 2px;
+      border: 0;
+      background: transparent;
+      color: var(--text);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      border-radius: 3px;
+      text-align: left;
+    }
+    .sec-title:hover { background: var(--cmd-hover); }
+    .sec-title .arrow {
+      width: 16px;
+      height: 20px;
+      display: grid;
+      place-items: center;
+      font-family: var(--icon);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .sec-title .cat-icon {
+      width: 16px;
+      height: 16px;
+      margin-right: 2px;
+      display: grid;
+      place-items: center;
+      font-family: var(--icon);
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--text);
+    }
+    .sec-title .count {
+      margin-left: auto;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-sub);
+    }
+    .cmd-rows { padding: 1px 0 4px; }
+    .cmd-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      height: 26px;
+      margin: 1px 0;
+      padding: 0 6px 0 18px;
+      border-radius: 3px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .fav-block .cmd-row { padding-left: 6px; }
+    .cmd-row:hover { background: var(--cmd-hover); }
+    .cmd-row:active { background: var(--control-border); }
+    .cmd-row img { width: 16px; height: 16px; flex: 0 0 16px; }
+    .cmd-row span {
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .cmd-empty {
+      padding: 6px 10px;
+      font-size: 11px;
+      color: var(--text-sub);
+    }
+
+    .main {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      height: 38px;
+      min-height: 38px;
+      padding: 4px 10px;
+      border-bottom: 1.5px solid var(--outline);
+      gap: 0;
+    }
+    .tool-group {
+      display: flex;
+      align-items: center;
+    }
+    .vsplit {
+      width: 1.5px;
+      height: 18px;
+      background: var(--outline);
+      margin: 0 8px;
+      flex: 0 0 1.5px;
+    }
+    .tool-slot {
+      position: relative;
+      width: 26px;
+      height: 26px;
+      margin: 0 4px 0 0;
+      overflow: visible;
+    }
+    .fold-btn {
+      width: 26px;
+      height: 26px;
+      padding: 0;
+      border: 1px solid var(--control-border);
+      border-radius: 3px;
+      background: var(--control-bg);
+      color: var(--text);
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      font-family: var(--icon);
+      font-size: 12px;
+      box-shadow: inset 0 -1px 0 var(--control-border);
+      position: relative;
+    }
+    .fold-btn:hover {
+      background: var(--control-border);
+      border-color: var(--accent);
+      box-shadow: inset 0 -1px 0 var(--accent);
+    }
+    .fold-btn:active {
+      background: var(--btn-press);
+      border-color: var(--accent);
+      box-shadow: inset 0 -1px 0 var(--accent);
+    }
+    .fold-btn.text {
+      width: auto;
+      min-width: 64px;
+      padding: 0 10px;
+      font-family: var(--font);
+      font-size: 12px;
+      margin-left: 4px;
+    }
+    .fold-btn.text.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--action-fg);
+      box-shadow: none;
+    }
+    .fold-btn.text.primary:hover {
+      background: var(--accent-hover);
+      border-color: var(--accent-hover);
+      box-shadow: none;
+    }
+    .toggle-dot {
+      display: none;
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      pointer-events: none;
+      z-index: 1;
+    }
+    .tool-slot.on .toggle-dot { display: block; }
+    .tool-grow { flex: 1; }
+
+    .seg {
+      display: flex;
+      height: 26px;
+      border: 1px solid var(--stroke);
+      border-radius: 5px;
+      overflow: hidden;
+      background: var(--content);
+      margin-right: 8px;
+    }
+    .seg button {
+      border: 0;
+      background: transparent;
+      color: var(--text);
+      min-width: 62px;
+      padding: 0 10px;
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .seg button + button { border-left: 1px solid var(--stroke); }
+    .seg button.on {
+      background: var(--accent);
+      color: var(--action-fg);
+    }
+    .seg button:hover:not(.on) { background: var(--cmd-hover); }
+    .seg button[data-mode="graph"] { min-width: 72px; }
+
+    .view-host {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      padding: 0;
+    }
+    .tree-wrap, .text-wrap, .graph-wrap {
+      flex: 1;
+      min-height: 0;
+      position: relative;
+      background: var(--bg);
+      border: 0;
+      overflow: hidden;
+    }
+    .tree {
+      height: 100%;
+      overflow: auto;
+      padding: 0;
+    }
+    .text-wrap { display: none; padding: 0; }
+    .text-wrap textarea {
+      width: 100%;
+      height: 100%;
+      resize: none;
+      border: 0;
+      background: var(--content);
+      color: var(--text);
+      padding: 8px;
+      font: 12px/1.6 Consolas, "Microsoft YaHei UI", monospace;
+      outline: none;
+    }
+    .graph-wrap {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-sub);
+      font-size: 13px;
+    }
+
+    .node {
+      display: flex;
+      align-items: stretch;
+      min-height: 24px;
+      padding: 2px 6px 2px 2px;
+      cursor: pointer;
+      user-select: none;
+      background: var(--row-a);
+    }
+    .node.alt { background: var(--row-b); }
+    .node.sel { background: var(--row-sel); }
+    .node.skip { background: var(--row-skip); }
+    .node.skip .node-inner { opacity: .42; }
+    .node-inner {
+      display: flex;
+      align-items: stretch;
+      min-height: 24px;
+      width: 100%;
+    }
+    .pad {
+      flex: 0 0 auto;
+      height: 20px;
+      align-self: center;
+    }
+    .slot {
+      width: 20px;
+      flex: 0 0 20px;
+      display: grid;
+      place-items: center;
+      position: relative;
+      align-self: stretch;
+    }
+    .guide-col {
+      width: 20px;
+      flex: 0 0 20px;
+      position: relative;
+      align-self: stretch;
+    }
+    .guide-col .v {
+      position: absolute;
+      left: 8px;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: var(--control-border);
+    }
+    .guide-col.last .v { bottom: 50%; }
+    .guide-col .h {
+      position: absolute;
+      left: 8px;
+      right: 0;
+      top: 50%;
+      height: 1px;
+      background: var(--control-border);
+    }
+    .node .arrow {
+      width: 20px;
+      height: 20px;
+      border: 0;
+      background: transparent;
+      color: var(--text);
+      font-family: var(--icon);
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      border-radius: 3px;
+      line-height: 1;
+      z-index: 1;
+    }
+    .guide-col .arrow {
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+    .node .arrow:hover { background: var(--cmd-hover); }
+    .node img {
+      width: 16px;
+      height: 16px;
+      margin-right: 4px;
+      flex: 0 0 16px;
+      align-self: center;
+    }
+    .node .mark {
+      width: 12px;
+      margin-right: 4px;
+      display: grid;
+      place-items: center;
+      flex: 0 0 12px;
+      align-self: center;
+    }
+    .node .label {
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      align-self: center;
+    }
+    .keycap {
+      width: 11px;
+      height: 9px;
+      border: 1.6px solid var(--accent);
+      border-radius: 1px;
+      position: relative;
+    }
+    .keycap::after {
+      content: "";
+      position: absolute;
+      right: -4px;
+      top: 1px;
+      border: 3px solid transparent;
+      border-left-color: var(--accent);
+    }
+    .cur {
+      width: 0;
+      height: 0;
+      border-top: 5.5px solid transparent;
+      border-bottom: 5.5px solid transparent;
+      border-left: 9px solid var(--accent);
+    }
+    .bp {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #e53935;
+    }
+
+    .footer {
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      border-top: 1px solid var(--outline);
+    }
+    .foot-left, .foot-right { display: flex; gap: 6px; }
+    .btn {
+      height: 26px;
+      min-width: 80px;
+      padding: 0 12px;
+      border-radius: 3px;
+      border: 1px solid var(--control-border);
+      background: var(--control-bg);
+      color: var(--text);
+      font: inherit;
+      font-size: 13px;
+      cursor: pointer;
+      box-shadow: inset 0 -1px 0 var(--control-border);
+    }
+    .btn:hover {
+      background: var(--control-border);
+      border-color: var(--accent);
+      box-shadow: inset 0 -1px 0 var(--accent);
+    }
+    .btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--action-fg);
+      box-shadow: none;
+    }
+    .btn.primary:hover { background: var(--accent-hover); }
+    .btn.danger:hover { border-color: #c0392b; color: #c0392b; background: var(--control-bg); box-shadow: none; }
+
+    .menu {
+      position: fixed;
+      z-index: 20;
+      min-width: 168px;
+      padding: 4px 0;
+      background: var(--content);
+      color: var(--text);
+      border: 1px solid var(--stroke);
+      border-radius: 6px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.16);
+      display: none;
+    }
+    .menu.open { display: block; }
+    .menu button {
+      display: block;
+      width: 100%;
+      text-align: left;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      padding: 7px 14px;
+      font: inherit;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .menu button:hover { background: var(--cmd-hover); }
+    .menu .sep { height: 1px; background: var(--stroke); margin: 4px 8px; }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 28px;
+      transform: translateX(-50%) translateY(12px);
+      background: var(--title-bg);
+      color: var(--title-fg);
+      border: 1px solid var(--stroke);
+      border-radius: 999px;
+      padding: 7px 14px;
+      font-size: 12px;
+      opacity: 0;
+      pointer-events: none;
+      transition: .2s ease;
+      z-index: 30;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    .step-icon {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1px;
+      line-height: 1;
+      color: inherit;
+    }
+    .step-icon .bar { font-family: var(--icon); font-size: 9px; }
+    .step-icon .dot2 { width: 3px; height: 3px; border-radius: 50%; background: currentColor; }
+    .tip-icon {
+      width: 14px;
+      height: 12px;
+      display: grid;
+      grid-template-columns: 1.6px 1fr;
+      gap: 3px;
+      align-items: center;
+    }
+    .tip-icon b {
+      display: block;
+      width: 1.6px;
+      height: 12px;
+      border-radius: .6px;
+      background: currentColor;
+    }
+    .tip-icon span {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .tip-icon i {
+      display: block;
+      width: 9px;
+      height: 1.6px;
+      border-radius: .6px;
+      background: currentColor;
+      font-style: normal;
+    }
+
+    [data-theme="Default"] {
+      --accent: #0078d7; --accent-hover: #106ebe; --accent-soft: #e3f2fd;
+      --title-bg: #ebebeb; --title-fg: #1a1a1a; --bg: #f0f0f0; --content: #fff;
+      --stroke: #ccc; --outline: #999; --text: #1a1a1a; --text-sub: #666;
+      --control-bg: #f0f0f0; --control-border: #999; --btn-press: #8a8a8a;
+      --tab-sel: #800078d7; --row-a: #f0f0f0; --row-b: #ececec;
+      --row-sel: #800078d7; --row-skip: #e6e6e6; --cmd-hover: #e3f2fd;
+    }
+    [data-theme="FrostGray"] {
+      --accent: #475569; --accent-hover: #334155; --accent-soft: #e2e8f0;
+      --title-bg: #e2e8f0; --title-fg: #1e293b; --bg: #f8fafc; --content: #fff;
+      --stroke: #cbd5e1; --outline: #94a3b8; --text: #1e293b; --text-sub: #64748b;
+      --control-bg: #f8fafc; --control-border: #94a3b8; --btn-press: #8596ab;
+      --tab-sel: #80475569; --row-a: #f8fafc; --row-b: #f1f5f9;
+      --row-sel: #80475569; --row-skip: #eef2f6; --cmd-hover: #e2e8f0;
+    }
+    [data-theme="DarkNight"] {
+      --accent: #6b6b6b; --accent-hover: #7a7a7a; --accent-soft: #3d3d3d;
+      --title-bg: #111; --title-fg: #e8e8e8; --bg: #1e1e1e; --content: #2d2d2d;
+      --stroke: #6e6e6e; --outline: #666; --text: #e0e0e0; --text-sub: #aaa;
+      --control-bg: #1e1e1e; --control-border: #666; --btn-press: #5c5c5c;
+      --tab-sel: #806b6b6b; --row-a: #1e1e1e; --row-b: #252525;
+      --row-sel: #806b6b6b; --row-skip: #1a1a1a; --cmd-hover: #3d3d3d;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="note">
+      <div>参考样式页，<strong>不会改动现有宏指令编辑器</strong>。工具按钮对齐主界面逻辑树；窗口默认 1400×787。</div>
+      <div class="theme-switch" id="themeSwitch"></div>
+    </div>
+
+    <div class="win" id="win">
+      <div class="titlebar">
+        <h1>宏指令编辑器</h1>
+        <div class="title-btns">
+          <button class="title-btn" title="手册">&#xE8F1;</button>
+          <button class="title-btn" title="视频">&#xE786;</button>
+          <button class="title-btn close" title="关闭">&#xE8BB;</button>
+        </div>
+      </div>
+
+      <div class="app">
+        <aside class="cmd-panel">
+          <div class="cmd-box">
+            <input class="cmd-filter" id="cmdFilter" placeholder="筛选指令" />
+            <div class="cmd-scroll" id="cmdScroll"></div>
+          </div>
+        </aside>
+
+        <section class="main">
+          <div class="toolbar">
+            <div class="seg" id="modeSeg">
+              <button class="on" data-mode="tree">逻辑树</button>
+              <button data-mode="text">文本</button>
+              <button data-mode="graph">图形节点</button>
+            </div>
+            <div class="vsplit"></div>
+            <div class="tool-group">
+              <span class="tool-slot">
+                <button class="fold-btn" data-toggle="record" title="指令录制">&#xE7C8;</button>
+                <i class="toggle-dot"></i>
+              </span>
+              <span class="tool-slot"><button class="fold-btn" data-act="expand" title="缩放">&#xE73F;</button></span>
+              <span class="tool-slot"><button class="fold-btn" data-act="undo" title="撤销">&#xE7A7;</button></span>
+              <span class="tool-slot"><button class="fold-btn" data-act="redo" title="恢复">&#xE7A6;</button></span>
+              <span class="tool-slot"><button class="fold-btn" data-act="back" title="删除末尾">&#xE750;</button></span>
+              <span class="tool-slot"><button class="fold-btn" data-act="clear" title="清空">&#xE74D;</button></span>
+            </div>
+            <div class="vsplit"></div>
+            <div class="tool-group">
+              <span class="tool-slot"><button class="fold-btn" data-act="continue" title="播放/继续  F5">&#xE768;</button></span>
+              <span class="tool-slot">
+                <button class="fold-btn" data-act="into" title="步入  F11">
+                  <span class="step-icon"><span class="bar">&#xE74B;</span><span class="dot2"></span></span>
+                </button>
+              </span>
+            </div>
+            <div class="vsplit"></div>
+            <div class="tool-group">
+              <span class="tool-slot">
+                <button class="fold-btn" data-toggle="var" title="变量监视">&#xE7B3;</button>
+                <i class="toggle-dot"></i>
+              </span>
+              <span class="tool-slot">
+                <button class="fold-btn" data-toggle="tip" title="指令显示">
+                  <span class="tip-icon"><b></b><span><i></i><i></i><i></i></span></span>
+                </button>
+                <i class="toggle-dot"></i>
+              </span>
+              <span class="tool-slot">
+                <button class="fold-btn" data-toggle="top" title="窗口置顶">&#xE840;</button>
+                <i class="toggle-dot"></i>
+              </span>
+            </div>
+            <div class="tool-grow"></div>
+            <button class="fold-btn text primary" data-act="ok">确定</button>
+          </div>
+
+          <div class="view-host">
+            <div class="tree-wrap" id="treeWrap">
+              <div class="tree" id="tree"></div>
+            </div>
+            <div class="text-wrap" id="textWrap">
+              <textarea id="macroText" spellcheck="false"></textarea>
+            </div>
+            <div class="graph-wrap" id="graphWrap">图形节点编辑器（参考占位）</div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <div class="menu" id="cmdMenu"></div>
+  <div class="menu" id="treeMenu">
+    <button data-act="edit">编辑</button>
+    <div class="sep"></div>
+    <button data-act="copy">复制</button>
+    <button data-act="paste">粘贴</button>
+    <div class="sep"></div>
+    <button data-act="ins-pre">上插指令</button>
+    <button data-act="ins-next">下插指令</button>
+    <div class="sep"></div>
+    <button data-act="skip">跳过指令</button>
+    <button data-act="debug-start">调试起点</button>
+    <button data-act="bp">断点</button>
+    <div class="sep"></div>
+    <button data-act="del">删除</button>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const ICON = {
+      "间隔": "Interval.png", "按键": "Key.png", "搜索": "Search.png", "搜索Pro": "SearchPro.png",
+      "鼠标移动": "Move.png", "鼠标移动Pro": "MovePro.png", "增量移动": "Move.png",
+      "输入": "Input.png", "输出": "Output.png", "循环": "Loop.png", "宏操作": "Sub.png",
+      "变量": "Var.png", "变量提取": "Extract.png", "如果": "If.png", "如果Pro": "IfPro.png",
+      "运算": "Operation.png", "运行": "Run.png", "文件读写": "FileIO.png", "文本处理": "TextOps.png",
+      "数组": "Arr.png", "RMT指令": "rabit.png", "后台鼠标": "Mouse.png", "后台按键": "Key.png",
+      "窗口管理": "WindowManage.png", "按键检测": "KeyCheck.png", "等待": "Control.png",
+      "时间": "Interval.png", "注释": "Comment.png", "抓图": "ScreenShot.png",
+      "真": "True.png", "假": "False.png", "循环次数": "LoopCount.png", "循环体": "LoopBody.png"
+    };
+    const CATS = [
+      { name: "键鼠/手柄", icon: "&#xE765;", cmds: ["按键", "鼠标移动", "鼠标移动Pro", "增量移动", "后台按键", "后台鼠标", "按键检测"] },
+      { name: "搜索/识图", icon: "&#xE721;", cmds: ["搜索", "搜索Pro"] },
+      { name: "输入/输出", icon: "&#xE8A1;", cmds: ["输入", "输出", "文件读写"] },
+      { name: "变量/数据", icon: "&#xE8EF;", cmds: ["变量", "变量提取", "运算", "数组", "文本处理"] },
+      { name: "流程控制", icon: "&#xE8FD;", cmds: ["间隔", "如果", "如果Pro", "循环", "等待"] },
+      { name: "调控", icon: "&#xE713;", cmds: ["运行", "宏操作", "窗口管理", "RMT指令"] },
+      { name: "其他", icon: "&#xE712;", cmds: ["抓图", "注释", "时间"] }
+    ];
+    const THEMES = [
+      ["WarmSun", "暖阳"],
+      ["Default", "默认"],
+      ["FrostGray", "霜灰"],
+      ["DarkNight", "暗夜"]
+    ];
+
+    const state = {
+      favs: new Set(["间隔", "按键", "搜索", "鼠标移动"]),
+      cats: Object.fromEntries(CATS.map(c => [c.name, true])),
+      favOpen: true,
+      mode: "tree",
+      toggles: { record: false, var: false, tip: false, top: false },
+      selected: "n2",
+      allOpen: true,
+      ctxCmd: "",
+      filter: ""
+    };
+
+    const treeData = [
+      { id: "n1", name: "间隔", text: "间隔(_500)", open: true, kids: [] },
+      { id: "n2", name: "按键", text: "按键(A)", open: true, debug: true, kids: [] },
+      { id: "n3", name: "搜索", text: "搜索(图标A, 相似度80)", open: true, kids: [
+        { id: "n3t", name: "真", text: "真", open: true, kids: [
+          { id: "n4", name: "循环", text: "循环(3)", open: true, kids: [
+            { id: "n4c", name: "循环次数", text: "循环次数", open: true, kids: [] },
+            { id: "n4b", name: "循环体", text: "循环体", open: true, kids: [
+              { id: "n5", name: "鼠标移动", text: "鼠标移动(320, 180)", open: true, cur: true, kids: [] },
+              { id: "n6", name: "输出", text: "输出(找到目标)", open: true, kids: [] }
+            ]}
+          ]}
+        ]},
+        { id: "n3f", name: "假", text: "假", open: true, kids: [
+          { id: "n7", name: "注释", text: "注释(未找到则跳过)", open: true, skip: true, kids: [] }
+        ]}
+      ]},
+      { id: "n8", name: "如果Pro", text: "如果Pro(HP > 30)", open: true, bp: true, kids: [
+        { id: "n8t", name: "真", text: "真", open: true, kids: [
+          { id: "n9", name: "变量", text: "变量(Count += 1)", open: true, kids: [] }
+        ]},
+        { id: "n8f", name: "假", text: "假", open: false, kids: [
+          { id: "n10", name: "等待", text: "等待(超时)", open: true, kids: [] }
+        ]}
+      ]}
+    ];
+
+    const $ = (id) => document.getElementById(id);
+    const iconSrc = (name) => "../Images/Soft/" + (ICON[name] || "Interval.png");
+    window.iconFallback = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16" rx="3" fill="#e8b86d"/></svg>')}`;
+
+    function toast(msg) {
+      const el = $("toast");
+      el.textContent = msg;
+      el.classList.add("show");
+      clearTimeout(toast._t);
+      toast._t = setTimeout(() => el.classList.remove("show"), 1600);
+    }
+
+    function hideMenus() {
+      document.querySelectorAll(".menu").forEach(m => m.classList.remove("open"));
+    }
+
+    function showMenu(el, x, y) {
+      hideMenus();
+      el.classList.add("open");
+      const pad = 8;
+      const r = el.getBoundingClientRect();
+      el.style.left = Math.min(x, innerWidth - r.width - pad) + "px";
+      el.style.top = Math.min(y, innerHeight - r.height - pad) + "px";
+    }
+
+    function renderThemes() {
+      $("themeSwitch").innerHTML = THEMES.map(([key, name]) =>
+        `<button class="theme-btn${document.documentElement.dataset.theme === key ? " active" : ""}" data-theme="${key}">${name}</button>`
+      ).join("");
+    }
+
+    function renderCmds() {
+      const q = state.filter.trim();
+      const match = (name) => !q || name.includes(q);
+      const favs = [...state.favs].filter(match);
+      let html = `<div class="fav-block">
+        <button class="sec-title" data-toggle-sec="fav">
+          <span class="arrow">${state.favOpen ? "&#xE70D;" : "&#xE76C;"}</span>
+          <span class="cat-icon">&#xE734;</span>收藏
+          <span class="count">${favs.length}</span>
+        </button>
+        <div class="cmd-rows" ${state.favOpen ? "" : 'style="display:none"'}>
+          ${favs.length ? favs.map(n => cmdRow(n)).join("") : `<div class="cmd-empty">${q ? "无匹配收藏" : "右键指令即可加入收藏"}</div>`}
+        </div>
+      </div>`;
+      CATS.forEach(cat => {
+        const cmds = cat.cmds.filter(match);
+        if (!cmds.length) return;
+        const open = state.cats[cat.name];
+        html += `
+          <button class="sec-title" data-toggle-sec="${cat.name}">
+            <span class="arrow">${open ? "&#xE70D;" : "&#xE76C;"}</span>
+            <span class="cat-icon">${cat.icon}</span>${cat.name}
+            <span class="count">${cmds.length}</span>
+          </button>
+          <div class="cmd-rows" ${open ? "" : 'style="display:none"'}>
+            ${cmds.map(n => cmdRow(n)).join("")}
+          </div>`;
+      });
+      $("cmdScroll").innerHTML = html;
+    }
+
+    function cmdRow(name) {
+      return `<div class="cmd-row" data-cmd="${name}"><img src="${iconSrc(name)}" alt="" onerror="this.src=iconFallback"><span>${name}</span></div>`;
+    }
+
+    const BRANCH = new Set(["真", "假", "循环体"]);
+    function isBranch(n) { return !!(n && BRANCH.has(n.name)); }
+    function isLastChild(n) {
+      if (!n || !n.parent) return true;
+      const kids = n.parent.kids;
+      return kids[kids.length - 1] === n;
+    }
+    function findBranchAncestor(n) {
+      let p = n && n.parent;
+      while (p) {
+        if (isBranch(p)) return p;
+        p = p.parent;
+      }
+      return null;
+    }
+    function widthBeforeIcon(n) {
+      if (!n) return 0;
+      const d = n._depth || 0;
+      if (d === 0) return 20;
+      if (isBranch(n)) return widthBeforeIcon(n.parent) + 20;
+      const anc = findBranchAncestor(n);
+      if (anc) {
+        let levels = n._depth - anc._depth;
+        if (levels < 1) levels = 1;
+        return widthBeforeIcon(anc) + 20 * levels;
+      }
+      return 20 * (d + 1);
+    }
+    function pad(w) {
+      return w > 0 ? `<span class="pad" style="width:${w}px;flex:0 0 ${w}px"></span>` : "";
+    }
+    function arrowBtn(n) {
+      const glyph = n.open ? "&#xE70D;" : "&#xE76C;";
+      return `<span class="slot"><button class="arrow" data-toggle="${n.id}">${glyph}</button></span>`;
+    }
+    function guideCol(last, hasChild, n) {
+      const cls = last ? "last" : "more";
+      const arr = hasChild ? `<button class="arrow" data-toggle="${n.id}">${n.open ? "&#xE70D;" : "&#xE76C;"}</button>` : "";
+      return `<span class="guide-col ${cls}"><i class="v"></i><i class="h"></i>${arr}</span>`;
+    }
+    function buildPrefix(n) {
+      const hasChild = n.kids.length > 0;
+      const d = n._depth || 0;
+      if (d === 0) return hasChild ? arrowBtn(n) : pad(20);
+      if (isBranch(n)) {
+        return pad(widthBeforeIcon(n.parent)) + (hasChild ? arrowBtn(n) : pad(20));
+      }
+      const anc = findBranchAncestor(n);
+      if (anc) {
+        let html = pad(widthBeforeIcon(anc));
+        const gap = n._depth - anc._depth - 1;
+        for (let i = 0; i < gap; i++)
+          html += `<span class="guide-col more"><i class="v"></i></span>`;
+        html += guideCol(isLastChild(n), hasChild, n);
+        return html;
+      }
+      let html = pad(widthBeforeIcon(n.parent));
+      if (hasChild) html += arrowBtn(n);
+      return html;
+    }
+    function attachTree(nodes, parent = null, d = 0) {
+      nodes.forEach(n => {
+        n.parent = parent;
+        n._depth = d;
+        attachTree(n.kids, n, d + 1);
+      });
+    }
+    function flattenVisible(nodes, acc = []) {
+      nodes.forEach(n => {
+        acc.push(n);
+        if (n.open && n.kids.length) flattenVisible(n.kids, acc);
+      });
+      return acc;
+    }
+
+    function findNode(id, nodes = treeData) {
+      for (const n of nodes) {
+        if (n.id === id) return n;
+        const hit = findNode(id, n.kids);
+        if (hit) return hit;
+      }
+      return null;
+    }
+
+    function setAllOpen(open, nodes = treeData) {
+      nodes.forEach(n => {
+        if (n.kids.length) n.open = open;
+        setAllOpen(open, n.kids);
+      });
+    }
+
+    function renderTree() {
+      attachTree(treeData);
+      const rows = flattenVisible(treeData);
+      $("tree").innerHTML = rows.map((n, idx) => {
+        const cls = [
+          "node",
+          idx % 2 ? "alt" : "",
+          n.id === state.selected ? "sel" : "",
+          n.skip ? "skip" : ""
+        ].filter(Boolean).join(" ");
+        return `<div class="${cls}" data-id="${n.id}"><div class="node-inner">
+          ${buildPrefix(n)}
+          <img src="${iconSrc(n.name)}" alt="" onerror="this.src=iconFallback">
+          ${n.debug ? `<span class="mark"><i class="keycap"></i></span>` : ""}
+          ${n.cur ? `<span class="mark"><i class="cur"></i></span>` : ""}
+          ${n.bp ? `<span class="mark"><i class="bp"></i></span>` : ""}
+          <span class="label">${n.text}</span>
+        </div></div>`;
+      }).join("");
+      $("macroText").value = flattenText(treeData).join("\n");
+    }
+
+    function flattenText(nodes, out = []) {
+      nodes.forEach(n => {
+        out.push(n.text);
+        if (n.open) flattenText(n.kids, out);
+      });
+      return out;
+    }
+
+    function bind() {
+      document.documentElement.dataset.theme = "WarmSun";
+      renderThemes();
+      renderCmds();
+      renderTree();
+
+      $("cmdFilter").addEventListener("input", e => {
+        state.filter = e.target.value;
+        renderCmds();
+      });
+
+      $("themeSwitch").addEventListener("click", e => {
+        const btn = e.target.closest("[data-theme]");
+        if (!btn) return;
+        document.documentElement.dataset.theme = btn.dataset.theme;
+        renderThemes();
+      });
+
+      $("cmdScroll").addEventListener("click", e => {
+        const sec = e.target.closest("[data-toggle-sec]");
+        if (sec) {
+          const key = sec.dataset.toggleSec;
+          if (key === "fav") state.favOpen = !state.favOpen;
+          else state.cats[key] = !state.cats[key];
+          renderCmds();
+          return;
+        }
+        const row = e.target.closest("[data-cmd]");
+        if (row) toast("添加指令：" + row.dataset.cmd);
+      });
+
+      $("cmdScroll").addEventListener("contextmenu", e => {
+        const row = e.target.closest("[data-cmd]");
+        if (!row) return;
+        e.preventDefault();
+        e.stopPropagation();
+        state.ctxCmd = row.dataset.cmd;
+        const fav = state.favs.has(state.ctxCmd);
+        $("cmdMenu").innerHTML = `<button data-fav="${fav ? "off" : "on"}">${fav ? "取消收藏" : "收藏"}</button>`;
+        showMenu($("cmdMenu"), e.clientX, e.clientY);
+      });
+
+      $("cmdMenu").addEventListener("click", e => {
+        const btn = e.target.closest("[data-fav]");
+        if (!btn || !state.ctxCmd) return;
+        if (btn.dataset.fav === "on") state.favs.add(state.ctxCmd);
+        else state.favs.delete(state.ctxCmd);
+        hideMenus();
+        renderCmds();
+        toast((btn.dataset.fav === "on" ? "已收藏：" : "已取消收藏：") + state.ctxCmd);
+      });
+
+      $("modeSeg").addEventListener("click", e => {
+        const btn = e.target.closest("[data-mode]");
+        if (!btn) return;
+        state.mode = btn.dataset.mode;
+        $("modeSeg").querySelectorAll("button").forEach(b => b.classList.toggle("on", b === btn));
+        $("treeWrap").style.display = state.mode === "tree" ? "block" : "none";
+        $("textWrap").style.display = state.mode === "text" ? "block" : "none";
+        $("graphWrap").style.display = state.mode === "graph" ? "flex" : "none";
+      });
+
+      document.querySelector(".toolbar").addEventListener("click", e => {
+        const tog = e.target.closest("[data-toggle]");
+        if (tog) {
+          const key = tog.dataset.toggle;
+          state.toggles[key] = !state.toggles[key];
+          tog.closest(".tool-slot").classList.toggle("on", state.toggles[key]);
+          toast((state.toggles[key] ? "已开启：" : "已关闭：") + tog.title);
+          return;
+        }
+        const act = e.target.closest("[data-act]");
+        if (!act) return;
+        if (act.dataset.act === "expand") {
+          state.allOpen = !state.allOpen;
+          setAllOpen(state.allOpen);
+          renderTree();
+          toast(state.allOpen ? "已展开全部" : "已缩放全部");
+          return;
+        }
+        toast(act.title || act.textContent.trim());
+      });
+
+      $("tree").addEventListener("click", e => {
+        const arrow = e.target.closest("[data-toggle]");
+        if (arrow) {
+          e.stopPropagation();
+          const n = findNode(arrow.dataset.toggle);
+          if (n) { n.open = !n.open; renderTree(); }
+          return;
+        }
+        const row = e.target.closest("[data-id]");
+        if (!row) return;
+        state.selected = row.dataset.id;
+        renderTree();
+      });
+
+      $("tree").addEventListener("contextmenu", e => {
+        const row = e.target.closest("[data-id]");
+        if (!row) return;
+        e.preventDefault();
+        e.stopPropagation();
+        state.selected = row.dataset.id;
+        renderTree();
+        showMenu($("treeMenu"), e.clientX, e.clientY);
+      });
+
+      $("treeMenu").addEventListener("click", e => {
+        const act = e.target.closest("[data-act]");
+        if (!act) return;
+        const n = findNode(state.selected);
+        hideMenus();
+        if (!n) return;
+        if (act.dataset.act === "skip") { n.skip = !n.skip; renderTree(); toast(n.skip ? "已跳过" : "已取消跳过"); return; }
+        if (act.dataset.act === "debug-start") { n.debug = !n.debug; renderTree(); toast(n.debug ? "已设为调试起点" : "已取消调试起点"); return; }
+        if (act.dataset.act === "bp") { n.bp = !n.bp; renderTree(); toast(n.bp ? "已设断点" : "已取消断点"); return; }
+        toast(act.textContent.trim() + "：" + n.text);
+      });
+
+      document.addEventListener("click", e => {
+        if (!e.target.closest(".menu")) hideMenus();
+      });
+      document.addEventListener("contextmenu", e => {
+        if (!e.target.closest("[data-cmd]") && !e.target.closest("[data-id]")) hideMenus();
+      });
+      document.addEventListener("keydown", e => { if (e.key === "Escape") hideMenus(); });
+    }
+
+    bind();
+  </script>
+</body>
+</html>

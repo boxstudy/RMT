@@ -875,29 +875,37 @@ class SoftData {
             return cmdStr
         paramArr := StrSplit(cmdStr, "_")
         if (paramArr.Length >= 2) {
-            keyPart := paramArr[2]
-            ; 通用 JoyN / 轴名
-            if (RegExMatch(keyPart, "^(Joy\d+|JoyAxisL?[XYZ]M(in|ax)|JoyAxisR[XYZ]M(in|ax)|JoyDpad(Up|Down|Left|Right|None)|AxisLT|AxisRT|AxisL?[XYZ]M(in|ax)|AxisR[XYZ]M(in|ax)|Dpad(Up|Down|Left|Right))$")) {
-                displayName := this.GetJoyNDisplayName(keyPart)
-                if (displayName != "" && displayName != keyPart)
-                    keyPart := "🎮" displayName
-            }
-            ; 友好键名 JoyA / JoyO / JoyL1 等（宏按键指令）
-            else if (InStr(keyPart, "Joy") == 1) {
-                keys := StrSplit(keyPart, "⎖")
-                newPart := ""
-                for i, k in keys {
-                    if (i > 1)
-                        newPart .= "⎖"
-                    label := this.GetJoyDisplayName(k)
-                    if (label != "" && label != k)
-                        newPart .= "🎮" label
-                    else
-                        newPart .= k
+            cmdHead := GetCmdOnlyText(paramArr[1])
+            if (cmdHead == GetLang("手柄")) {
+                loop paramArr.Length - 1 {
+                    idx := A_Index + 1
+                    paramArr[idx] := this._FormatJoyShortToken(paramArr[idx])
                 }
-                keyPart := newPart
+            } else {
+                keyPart := paramArr[2]
+                ; 通用 JoyN / 轴名
+                if (RegExMatch(keyPart, "^(Joy\d+|JoyAxisL?[XYZ]M(in|ax)|JoyAxisR[XYZ]M(in|ax)|JoyDpad(Up|Down|Left|Right|None)|AxisLT|AxisRT|AxisL?[XYZ]M(in|ax)|AxisR[XYZ]M(in|ax)|Dpad(Up|Down|Left|Right))$")) {
+                    displayName := this.GetJoyNDisplayName(keyPart)
+                    if (displayName != "" && displayName != keyPart)
+                        keyPart := "🎮" displayName
+                }
+                ; 友好键名 JoyA / JoyO / JoyL1 等（宏按键指令）
+                else if (InStr(keyPart, "Joy") == 1) {
+                    keys := StrSplit(keyPart, "⎖")
+                    newPart := ""
+                    for i, k in keys {
+                        if (i > 1)
+                            newPart .= "⎖"
+                        label := this.GetJoyDisplayName(k)
+                        if (label != "" && label != k)
+                            newPart .= "🎮" label
+                        else
+                            newPart .= k
+                    }
+                    keyPart := newPart
+                }
+                paramArr[2] := keyPart
             }
-            paramArr[2] := keyPart
         }
         result := ""
         for i, p in paramArr {
@@ -908,6 +916,27 @@ class SoftData {
         return result
     }
 
+    _FormatJoyShortToken(token) {
+        typeWords := Map(GetLang("按下"), true, GetLang("松开"), true, GetLang("点击"), true)
+        if (typeWords.Has(token) || IsNumber(token))
+            return token
+        if (RegExMatch(token, "^(LX|LY|RX|RY|LT|RT):(-?[0-9]+)$", &m))
+            return "🎮" m[1] ":" m[2]
+        parts := StrSplit(token, "+")
+        out := ""
+        for i, short in parts {
+            if (i > 1)
+                out .= "+"
+            inn := JoyShortToInternal(short)
+            if (inn != "") {
+                label := this.GetJoyDisplayName(inn)
+                out .= (label != "" && label != inn) ? "🎮" label : "🎮" short
+            } else
+                out .= (short == "上" || short == "下" || short == "左" || short == "右" || short == "无方向" || short == "无") ? "🎮" short : short
+        }
+        return out
+    }
+
     ; 从 🎮显示名 格式还原为键名（只还原第二个 _ 段）
     ParseCmdJoyDisplay(displayStr) {
         if (displayStr == "")
@@ -915,7 +944,14 @@ class SoftData {
         if !InStr(displayStr, "🎮")
             return displayStr
         paramArr := StrSplit(displayStr, "_")
-        if (paramArr.Length >= 2 && InStr(paramArr[2], "🎮")) {
+        cmdHead := paramArr.Length >= 1 ? GetCmdOnlyText(paramArr[1]) : ""
+        if (cmdHead == GetLang("手柄")) {
+            loop paramArr.Length - 1 {
+                idx := A_Index + 1
+                if (InStr(paramArr[idx], "🎮"))
+                    paramArr[idx] := this._ParseJoyShortToken(paramArr[idx])
+            }
+        } else if (paramArr.Length >= 2 && InStr(paramArr[2], "🎮")) {
             keyPart := paramArr[2]
             global MainSoftData
             joyType := MainSoftData.TriggerJoyType
@@ -953,6 +989,37 @@ class SoftData {
             result .= p
         }
         return result
+    }
+
+    _ParseJoyShortToken(token) {
+        global MainSoftData
+        typeWords := Map(GetLang("按下"), true, GetLang("松开"), true, GetLang("点击"), true)
+        if (typeWords.Has(token) || IsNumber(token))
+            return token
+        token := StrReplace(token, "🎮", "")
+        if (RegExMatch(token, "^(LX|LY|RX|RY|LT|RT):(-?[0-9]+)$"))
+            return token
+        joyType := MainSoftData.TriggerJoyType
+        parts := StrSplit(token, "+")
+        out := ""
+        for i, part in parts {
+            if (i > 1)
+                out .= "+"
+            mapped := ""
+            for btnKey in this.JoyBtnKeys {
+                disp := this.GetJoyDisplayName(btnKey, joyType)
+                if (disp != "" && disp == part) {
+                    mapped := JoyInternalToShort(btnKey)
+                    break
+                }
+            }
+            if (mapped == "") {
+                inn := JoyShortToInternal(part)
+                mapped := (inn != "") ? part : part
+            }
+            out .= mapped
+        }
+        return out
     }
 }
 

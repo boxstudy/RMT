@@ -72,7 +72,7 @@ class BGKeyGui {
         main.Rows(titleHeight, "30", "30", "*", "34", "44")
 
         ; === 标题栏 ===
-        chrome := XAMLHost.AddTitleBar(main, title, titleHeight)
+        chrome := XAMLHost.AddCmdTitleBar(main, title, titleHeight)
 
         ; === 顶部行1：模拟/检测/窗口信息 ===
         top := main.Add("StackPanel").Grid_Row(1).Orientation("Horizontal").Margin("10,4")
@@ -132,7 +132,7 @@ class BGKeyGui {
         ; === 底部按钮行 ===
         btnRow := main.Add("StackPanel").Grid_Row(5).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
         btnRow.Add("Button").Name("BtnClear").Content(GetLang("清空")).Width(100).Height(32).MinHeight(32).Margin("4,0").Cursor("Hand")
-        btnRow.Add("Button").Name("BtnOk").Content(GetLang("确定")).Width(100).Height(32).MinHeight(32).Margin("4,0").Cursor("Hand")
+        AddCmdOkBtn(btnRow, "BtnOk", "4,0")
 
         ; === 生成按键网格（加入 main，随后 main.ToString() 生效）===
         this._BuildKeyGrid()
@@ -151,6 +151,7 @@ class BGKeyGui {
         this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
         this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
         this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
+        BindCmdEditorChrome(this.ui, "#指令手册/22-后台按键")
         this.ui.OnEvent("BtnSim", "Click", (*) => this.TriggerMacro())
         this.ui.OnEvent("BtnHelp", "Click", ObjBindMethod(this, "OnClickHelpBtn"))
         this.ui.OnEvent("BtnDetect", "Click", ObjBindMethod(this, "OnSureHotkey"))

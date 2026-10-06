@@ -54,7 +54,7 @@ class VariableGui {
         main.Rows(titleHeight, "*")
 
         ; === 标题栏 ===
-        chrome := XAMLHost.AddTitleBar(main, title, titleHeight)
+        chrome := XAMLHost.AddCmdTitleBar(main, title, titleHeight)
 
         ; === 内容 ===
         body := main.Add("Grid").Grid_Row(1).Margin("10,6")
@@ -91,7 +91,7 @@ class VariableGui {
         ; 行2：添加 + 确定
         btnRow := body.Add("StackPanel").Grid_Row(2).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
         btnRow.Add("Button").Name("BtnAddVar").Content(GetLang("添加变量")).Width(90).Height(32).MinHeight(32).Margin("4,0").Cursor("Hand")
-        btnRow.Add("Button").Name("BtnOk").Content(GetLang("确定")).Width(100).Height(36).MinHeight(36).Margin("8,0")
+        AddCmdOkBtn(btnRow, "BtnOk", "8,0")
 
         ; === 创建 XAMLHost ===
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
@@ -104,6 +104,7 @@ class VariableGui {
         this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
         this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
         this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
+        BindCmdEditorChrome(this.ui, "#指令手册/11-变量")
         this.ui.OnEvent("BtnHelp", "Click", ObjBindMethod(this, "OnClickTypeHelpBtn"))
         this.ui.OnEvent("BtnAddVar", "Click", ObjBindMethod(this, "OnAddVarRow"))
         this.ui.OnEvent("BtnOk", "Click", ObjBindMethod(this, "OnClickSureBtn"))
