@@ -44,6 +44,7 @@ class MacroGraphFormalMixin {
             GetLang("后台按键"), this.BGKeyGui,
             GetLang("窗口管理"), this.WindowManageGui,
             GetLang("按键检测"), this.KeyCheckGui,
+            GetLang("手柄检测"), this.JoyCheckGui,
             GetLang("抓图"), this.ScreenShotGui,
             GetLang("注释"), this.CommentGui,
             GetLang("循环"), this.LoopGui,
@@ -263,7 +264,7 @@ class MacroGraphFormalMixin {
             this._FillBGKeyBody(id, d, body)
         else if (d.type == GetLang("窗口管理"))
             this._FillWindowManageBody(id, d, body)
-        else if (d.type == GetLang("按键检测"))
+        else if (d.type == GetLang("按键检测") || d.type == GetLang("手柄检测"))
             this._FillKeyCheckBody(id, d, body)
         else if (d.type == GetLang("抓图"))
             this._FillScreenShotBody(id, d, body)
@@ -971,7 +972,7 @@ class MacroGraphFormalMixin {
 
     _FillKeyCheckBody(id, d, body) {
         lw := this._FormalLW(), cw := this._FormalCW()
-        checkTypes := GetLangArr(["同时按下", "有一个按下"])
+        checkTypes := this._KeyCheckTypeArr(d)
         stateTypes := GetLangArr(["物理状态", "逻辑状态"])
         ct := d.HasOwnProp("kcCheckType") ? d.kcCheckType : 1
         st := d.HasOwnProp("kcStateType") ? d.kcStateType : 1
@@ -981,6 +982,19 @@ class MacroGraphFormalMixin {
         this._AddComboRow(body, "KcCheckRow_" id, GetLang("检测："), "KcCheckCmb_" id, checkTypes, ct - 1, true, true, lw, cw)
         this._AddComboRow(body, "KcStateRow_" id, GetLang("状态类型："), "KcStateCmb_" id, stateTypes, st - 1, true, true, lw, cw)
         this._AddEditableComboRow(body, "KcVarRow_" id, GetLang("变量："), "KcVar_" id, GetGuiVarArr(), vn, true, lw, cw)
+    }
+
+    _KeyCheckIsAnalog(d) {
+        if (d.type != GetLang("手柄检测"))
+            return false
+        ks := d.HasOwnProp("kcKeyStr") ? d.kcKeyStr : ""
+        return InStr(ks, "JoyAxis") || RegExMatch(ks, "(LX|LY|RX|RY|LT|RT):-?[0-9]+")
+    }
+
+    _KeyCheckTypeArr(d) {
+        if (this._KeyCheckIsAnalog(d))
+            return GetLangArr(["大于设定值", "大于等于", "等于设定值", "小于等于", "小于设定值"])
+        return GetLangArr(["同时按下", "有一个按下"])
     }
 
     _FillScreenShotBody(id, d, body) {
@@ -1561,7 +1575,7 @@ class MacroGraphFormalMixin {
             this._BindCtrl("WmWinEdit_" id, "Click", this._OnFormalWmWinEdit.Bind(this, id), runtime)
             for nm in ["WmX", "WmY", "WmW", "WmH", "WmTitle", "WmTrans"]
                 this._FormalTrackEditCombo(id, nm, h, runtime)
-        } else if (t == GetLang("按键检测")) {
+        } else if (t == GetLang("按键检测") || t == GetLang("手柄检测")) {
             h := this._OnFormalKeyCheck.Bind(this, id)
             this._FormalTrackCombo(id, "KcCheckCmb", h, runtime)
             this._FormalTrackCombo(id, "KcStateCmb", h, runtime)

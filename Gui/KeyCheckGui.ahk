@@ -1,9 +1,8 @@
 #Requires AutoHotkey v2.0
 
 ; =====================================================================
-; 按键检测编辑器 —— XAML 迁移版（独立实现，照 KeyGui 模式）
+; 按键检测编辑器 —— 键盘+鼠标布局与按键指令一致；不含手柄（见 JoyCheckGui）
 ; 公开接口保持：ShowGui(cmd) / SureBtnAction / OwnerHwnd / ParentTile
-; 与 KeyGui 差异：无模拟/F1；底部为检测模式/检测类型/结果变量；跳过悬停高亮
 ; =====================================================================
 
 class KeyCheckGui {
@@ -25,7 +24,7 @@ class KeyCheckGui {
         this._btnKeyMap := Map()      ; 控件名 → key
         this._keySeq := 0
 
-        this.SelectColor := "#19C930"
+        this.SelectColor := "{DynamicResource ActionBg}"
         this.UnSelectColor := "{DynamicResource InputBg}"
     }
 
@@ -67,35 +66,59 @@ class KeyCheckGui {
         titleHeight := "30"
 
         main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize(XAMLHost.FontSize())
-        main.Rows(titleHeight, "*", "34", "44")
+        main.Rows(titleHeight, "*")
 
         ; === 标题栏 ===
         chrome := XAMLHost.AddCmdTitleBar(main, title, titleHeight)
 
-        ; === 按键网格（GroupBox + ScrollViewer）===
-        keyGroup := main.Add("GroupBox").Grid_Row(1).Header(GetLang("请从下面按钮中选择要检测的按键：")).Margin("8,2,8,4")
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").Foreground("{DynamicResource TextMain}")
-            .ClipToBounds("True")
-        sv := keyGroup.Add("ScrollViewer").VerticalScrollBarVisibility("Auto").HorizontalScrollBarVisibility("Disabled").ClipToBounds("True")
-        this._keyGrid := sv.Add("Canvas").Width("1240").Height("410")
+        body := main.Add("Grid").Grid_Row(1).Margin("4,2,4,8")
+        body.Rows("Auto", "Auto", "44", "48")
+        body.Cols("Auto", "Auto", "Auto", "Auto", "Auto", "Auto", "Auto", "Auto", "Auto", "Auto", "*")
 
-        ; === 底部参数行 ===
-        bottom := main.Add("StackPanel").Grid_Row(2).Orientation("Horizontal").Margin("10,2").VerticalAlignment("Center")
-        bottom.Add("TextBlock").Text(GetLang("检测模式:")).VerticalAlignment("Center")
+        ; 行0：键盘（按键指令同款）
+        sv := body.Add("ScrollViewer").Grid_Row(0).Grid_ColumnSpan(11).Margin("0,4,0,0")
+            .VerticalScrollBarVisibility("Auto").HorizontalScrollBarVisibility("Disabled").ClipToBounds("True")
+        kbHost := sv.Add("Grid")
+        this._keyGrid := kbHost.Add("Canvas").Width("1109").Height("240").HorizontalAlignment("Center").VerticalAlignment("Top")
+
+        ; 行1：鼠标（居中，按键指令同款）
+        mouseBlock := body.Add("StackPanel").Grid_Row(1).Grid_ColumnSpan(11).HorizontalAlignment("Center").Margin("0,5,0,2")
+        mouseBlock.Add("TextBlock").Text(GetLang("鼠标")).FontWeight("SemiBold").FontSize(12)
+            .HorizontalAlignment("Center").Foreground("{DynamicResource TextMain}").Margin("0,0,0,6")
+        mouseKeys := mouseBlock.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Center")
+        mouseDefs := [
+            ["LButton", GetLang("左键"), 60], ["MButton", GetLang("中键"), 60], ["RButton", GetLang("右键"), 60],
+            ["WheelDown", GetLang("下滚轮"), 60], ["WheelUp", GetLang("上滚轮"), 60],
+            ["WheelLeft", GetLang("滚轮左键"), 70], ["WheelRight", GetLang("滚轮右键"), 70],
+            ["XButton1", GetLang("侧键1"), 60], ["XButton2", GetLang("侧键2"), 60]]
+        loop mouseDefs.Length {
+            this._PlaceFlowKey(mouseKeys, mouseDefs[A_Index][1], mouseDefs[A_Index][2], mouseDefs[A_Index][3], A_Index < mouseDefs.Length)
+        }
+
+        ; 行2：检测模式 / 检测类型 / 结果变量（居中）
+        bottom := body.Add("StackPanel").Grid_Row(2).Grid_ColumnSpan(11).Orientation("Horizontal").HorizontalAlignment("Center").Margin("10,12,10,2").VerticalAlignment("Center")
+        bottom.Add("TextBlock").Text(GetLang("检测模式:")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
         cc := bottom.Add("ComboBox").Name("CheckTypeCon").Width(120).Height(26).MinHeight(26).Margin("4,0,0,0")
+            .VerticalContentAlignment("Center").FontSize("11").Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
         for t in GetLangArr(["同时按下", "有一个按下"])
             cc.Add("ComboBoxItem").Content(t)
-        bottom.Add("TextBlock").Text(GetLang("检测类型:")).VerticalAlignment("Center").Margin("20,0,0,0")
+        bottom.Add("TextBlock").Text(GetLang("检测类型:")).VerticalAlignment("Center").Margin("20,0,0,0").Foreground("{DynamicResource TextMain}").FontSize("12")
         st := bottom.Add("ComboBox").Name("StateTypeCon").Width(120).Height(26).MinHeight(26).Margin("4,0,0,0")
+            .VerticalContentAlignment("Center").FontSize("11").Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
         for t in GetLangArr(["物理状态", "逻辑状态"])
             st.Add("ComboBoxItem").Content(t)
-        bottom.Add("TextBlock").Text(GetLang("结果变量：")).VerticalAlignment("Center").Margin("20,0,0,0")
+        bottom.Add("TextBlock").Text(GetLang("结果变量：")).VerticalAlignment("Center").Margin("20,0,0,0").Foreground("{DynamicResource TextMain}").FontSize("12")
         bottom.Add("ComboBox").Name("VarNameCon").Width(130).Height(26).MinHeight(26).Margin("4,0,0,0").IsEditable("True")
+            .VerticalContentAlignment("Center").FontSize("11").Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
 
-        ; === 底部按钮行 ===
-        btnRow := main.Add("StackPanel").Grid_Row(3).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
-        btnRow.Add("Button").Name("BtnClear").Content(GetLang("清空")).Width(100).Height(32).MinHeight(32).Margin("4,0").Cursor("Hand")
-        AddCmdOkBtn(btnRow, "BtnOk", "4,0")
+        ; 行3：清空 / 确定（清空与确定同款，间距 300px）
+        btnRow := body.Add("StackPanel").Grid_Row(3).Grid_ColumnSpan(11).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
+        clearBtn := btnRow.Add("Button").Name("BtnClear").Content(GetLang("清空")).Width(88).Height(32).MinHeight(32).Cursor("Hand")
+            .Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}")
+            .BorderBrush("{DynamicResource ActionStroke}").BorderThickness("1").FontSize(13).FontWeight("Bold")
+            .Margin("0,0,300,0")
+        clearBtn.InjectResources(FrontInfoGui._OkBtnHoverStyle())
+        AddCmdOkBtn(btnRow, "BtnOk")
 
         ; === 生成按键网格 ===
         this._BuildKeyGrid()
@@ -103,7 +126,7 @@ class KeyCheckGui {
         ; === 创建 XAMLHost ===
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", this.OwnerHwnd)
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="1280" Height="555" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="1130" Height="450" Opacity="0"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
         this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '')
 
@@ -120,21 +143,27 @@ class KeyCheckGui {
 
     }
 
-    ; ---------------- 按键网格（Canvas 绝对定位，复刻 KeyGui 键盘+鼠标+手柄布局）----------------
+    ; ---------------- 按键网格（Canvas 绝对定位，与按键指令键盘布局一致）----------------
 
     _PlaceLabel(text, x, y) {
         this._keyGrid.Add("TextBlock").Text(text).FontWeight("SemiBold").FontSize(12)
             .SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
     }
 
+    _SetKeyBtnState(con, selected) {
+        this.ui.Update(con, "Background", selected ? this.SelectColor : this.UnSelectColor)
+        this.ui.Update(con, "Tag", selected ? "1" : "0")
+    }
+
     _PlaceKey(value, display, x, y, width) {
         this._keySeq += 1
         name := "KeyBtn_" this._keySeq
         btn := this._keyGrid.Add("Button").Name(name).Width(width).Height(25)
-            .SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
-            .Content(display).FontSize(11).Cursor("Hand").Padding("2,0")
+            .SetProp("Canvas.Left", String(x - 10)).SetProp("Canvas.Top", String(y))
+            .Content(display).FontSize(11).Cursor("Hand").Padding("2,0").Tag("0")
             .Background("{DynamicResource InputBg}").Foreground("{DynamicResource TextMain}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+        btn.InjectResources(FrontInfoGui._KeyPickBtnStyle())
         this.ConMap.Set(value, name)
         this._btnKeyMap.Set(name, value)
     }
@@ -145,77 +174,69 @@ class KeyCheckGui {
         }
     }
 
+    _PlaceFlowKey(parent, value, display, width, hasGap) {
+        this._keySeq += 1
+        name := "KeyBtn_" this._keySeq
+        btn := parent.Add("Button").Name(name).Width(width).Height(25)
+            .Content(display).FontSize(11).Cursor("Hand").Padding("2,0").Tag("0")
+            .Background("{DynamicResource InputBg}").Foreground("{DynamicResource TextMain}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+        btn.InjectResources(FrontInfoGui._KeyPickBtnStyle())
+        if (hasGap)
+            btn.Margin("0,0,15,0")
+        this.ConMap.Set(value, name)
+        this._btnKeyMap.Set(name, value)
+    }
+
     _BuildKeyGrid() {
-        global MySoftData
-        this._PlaceLabel(GetLang("键盘"), 20, 0)
+        nx := 768, nw := 45, ng := 8
+        n1 := nx, n2 := nx + nw + ng, n3 := nx + 2 * (nw + ng)
+        px := n3 + nw + 14, pw := 35, pg := 12
+        p1 := px, p2 := px + pw + pg, p3 := px + 2 * (pw + pg), p4 := px + 3 * (pw + pg)
+
         this._AddKeyRow([
             ["Esc","Esc",20,40],["F1","F1",120,35],["F2","F2",170,35],["F3","F3",220,35],["F4","F4",270,35],
             ["F5","F5",345,35],["F6","F6",395,35],["F7","F7",445,35],["F8","F8",495,35],
             ["F9","F9",570,35],["F10","F10",620,35],["F11","F11",670,35],["F12","F12",720,35],
-            ["PrintScreen","PrtScr",795,45],["ScrollLock","Scroll",870,45],["Pause","Pause",945,45]], 20)
+            ["PrintScreen","PrtScr",n1,nw],["ScrollLock","Scroll",n2,nw],["Pause","Pause",n3,nw]], 0)
         this._AddKeyRow([
             ["``","~",20,35],["1","1",70,35],["2","2",120,35],["3","3",170,35],["4","4",220,35],
             ["5","5",270,35],["6","6",320,35],["7","7",370,35],["8","8",420,35],["9","9",470,35],
             ["0","0",520,35],["-","-",570,35],["=","=",620,35],["BS","Backspace",670,85],
-            ["Ins","Ins",795,45],["Home","Home",870,45],["PgUp","PgUp",945,45],
-            ["NumLock","Num",1045,35],["NumpadDiv","/",1095,35],["NumpadMult","*",1145,35],["NumpadSub","-",1195,35]], 50)
+            ["Ins","Ins",n1,nw],["Home","Home",n2,nw],["PgUp","PgUp",n3,nw],
+            ["NumLock","Num",p1,pw],["NumpadDiv","/",p2,pw],["NumpadMult","*",p3,pw],["NumpadSub","-",p4,pw]], 30)
         this._AddKeyRow([
             ["Tab","Tab",20,60],["q","Q",100,35],["w","W",150,35],["e","E",200,35],["r","R",250,35],
             ["t","T",300,35],["y","Y",350,35],["u","U",400,35],["i","I",450,35],["o","O",500,35],
             ["p","P",550,35],["[","[",600,35],["]","]",650,35],["\","\",705,50],
-            ["Del","Del",795,45],["End","End",870,45],["PgDn","PgDn",945,45],
-            ["Numpad7","7",1045,35],["Numpad8","8",1095,35],["Numpad9","9",1145,35],["NumpadAdd","+",1195,35]], 80)
+            ["Del","Del",n1,nw],["End","End",n2,nw],["PgDn","PgDn",n3,nw],
+            ["Numpad7","7",p1,pw],["Numpad8","8",p2,pw],["Numpad9","9",p3,pw],["NumpadAdd","+",p4,pw]], 60)
         this._AddKeyRow([
             ["CapsLock","CapsLock",20,75],["a","A",120,35],["s","S",170,35],["d","D",220,35],["f","F",270,35],
             ["g","G",320,35],["h","H",370,35],["j","J",420,35],["k","K",470,35],["l","L",520,35],
             [";",";",570,35],["'","'",620,35],["Enter","Enter",680,75],
-            ["Numpad4","4",1045,35],["Numpad5","5",1095,35],["Numpad6","6",1145,35]], 110)
+            ["Numpad4","4",p1,pw],["Numpad5","5",p2,pw],["Numpad6","6",p3,pw]], 90)
         this._AddKeyRow([
             ["LShift","LShift",20,85],["z","Z",130,35],["x","X",180,35],["c","C",230,35],["v","V",280,35],
             ["b","B",330,35],["n","N",380,35],["m","M",430,35],["逗号",",",480,35],[".",".",530,35],
-            ["/","/",580,35],["RShift","RShift",670,85],["Up","↑",870,45],
-            ["Numpad1","1",1045,35],["Numpad2","2",1095,35],["Numpad3","3",1145,35],["NumpadEnter","Enter",1195,35]], 140)
+            ["/","/",580,35],["RShift","RShift",670,85],["Up","↑",n2,nw],
+            ["Numpad1","1",p1,pw],["Numpad2","2",p2,pw],["Numpad3","3",p3,pw],["NumpadEnter","Enter",p4,pw]], 120)
         this._AddKeyRow([
             ["LCtrl","LCtrl",20,60],["LWin","LWin",95,60],["LAlt","LAlt",170,60],["Space","Space",245,210],
             ["RAlt","RAlt",470,60],["RWin","RWin",545,60],["AppsKey","AppsKey",620,60],["RCtrl","RCtrl",695,60],
-            ["Left","←",795,45],["Down","↓",870,45],["Right","→",945,45],["Numpad0","0",1045,35],["NumpadDot","Del",1145,35]], 170)
+            ["Left","←",n1,nw],["Down","↓",n2,nw],["Right","→",n3,nw],["Numpad0","0",p1,p2 + pw - p1],["NumpadDot","Del",p3,pw]], 150)
         this._AddKeyRow([
             ["Ctrl","Ctrl",20,60],["Shift","Shift",95,60],["Alt","Alt",170,60],
             ["Browser_Back",GetLang("后退"),245,60],["Browser_Forward",GetLang("前进"),320,60],
             ["Browser_Refresh",GetLang("刷新"),395,60],["Browser_Stop",GetLang("停止"),470,60],
             ["Browser_Search",GetLang("搜索"),545,60],["Browser_Favorites",GetLang("收藏夹"),620,60],
-            ["Browser_Home",GetLang("主页"),695,60],["Volume_Mute",GetLang("静音"),770,60],
-            ["Volume_Down",GetLang("调低音量"),845,60],["Volume_Up",GetLang("增加音量"),920,60],
-            ["Bright_Down",GetLang("降低亮度"),1028,60],["Bright_Up",GetLang("提高亮度"),1103,60]], 200)
+            ["Browser_Home",GetLang("主页"),695,60],
+            ["Volume_Mute",GetLang("静音"),n1,nw],["Volume_Down",GetLang("音量-"),n2,nw],["Volume_Up",GetLang("音量+"),n3,nw]], 180)
         this._AddKeyRow([
             ["Launch_App1",GetLang("此电脑"),20,60],["Launch_App2",GetLang("计算器"),95,60],
             ["Media_Next",GetLang("下一首"),170,60],["Media_Prev",GetLang("上一首"),245,60],
-            ["Media_Stop",GetLang("停止"),320,60],["Media_Play_Pause",GetLang("播放/暂停"),395,80]], 230)
-
-        this._PlaceLabel(GetLang("鼠标"), 20, 260)
-        this._AddKeyRow([
-            ["LButton",GetLang("左键"),20,60],["MButton",GetLang("中键"),95,60],["RButton",GetLang("右键"),170,60],
-            ["WheelDown",GetLang("下滚轮"),245,60],["WheelUp",GetLang("上滚轮"),320,60],
-            ["WheelLeft",GetLang("滚轮左键"),395,60],["WheelRight",GetLang("滚轮右键"),470,60],
-            ["XButton1",GetLang("侧键1"),545,60],["XButton2",GetLang("侧键2"),620,60]], 280)
-
-        this._PlaceLabel(GetLang("手柄-按键"), 20, 310)
-        this._AddKeyRow([
-            ["JoyA",MySoftData.GetJoyDisplayName("JoyA"),20,60],["JoyB",MySoftData.GetJoyDisplayName("JoyB"),95,60],
-            ["JoyX",MySoftData.GetJoyDisplayName("JoyX"),170,60],["JoyY",MySoftData.GetJoyDisplayName("JoyY"),245,60],
-            ["JoyLB",MySoftData.GetJoyDisplayName("JoyLB"),320,60],["JoyRB",MySoftData.GetJoyDisplayName("JoyRB"),395,60],
-            ["JoyLT",MySoftData.GetJoyDisplayName("JoyLT"),470,60],["JoyRT",MySoftData.GetJoyDisplayName("JoyRT"),545,60],
-            ["JoyLS",MySoftData.GetJoyDisplayName("JoyLS"),620,60],["JoyRS",MySoftData.GetJoyDisplayName("JoyRS"),695,60],
-            ["JoyBack",MySoftData.GetJoyDisplayName("JoyBack"),770,60],["JoyStart",MySoftData.GetJoyDisplayName("JoyStart"),845,60],
-            ["JoyHome",MySoftData.GetJoyDisplayName("JoyHome"),920,60],["JoyPad",MySoftData.GetJoyDisplayName("JoyPad"),995,60]], 330)
-
-        this._PlaceLabel(GetLang("手柄-方向键、摇杆"), 20, 360)
-        this._AddKeyRow([
-            ["JoyDpadUp",GetLang("上"),20,60],["JoyDpadDown",GetLang("下"),95,60],
-            ["JoyDpadLeft",GetLang("左"),170,60],["JoyDpadRight",GetLang("右"),245,60],
-            ["JoyDpadNone",GetLang("无方向"),320,60],["JoyAxisLXMin","LXMin",395,60],["JoyAxisLXMax","LXMax",470,60],
-            ["JoyAxisLYMin","LYMin",545,60],["JoyAxisLYMax","LYMax",620,60],["JoyAxisRXMin","RXMin",695,60],
-            ["JoyAxisRXMax","RXMax",770,60],["JoyAxisRYMin","RYMin",845,60],["JoyAxisRYMax","RYMax",920,60]], 380)
+            ["Media_Stop",GetLang("停止"),320,60],["Media_Play_Pause",GetLang("播放/暂停"),395,80],
+            ["Bright_Down",GetLang("亮度-"),545,60],["Bright_Up",GetLang("亮度+"),620,60]], 210)
     }
 
     _RegisterKeyEvents() {
@@ -239,11 +260,11 @@ class KeyCheckGui {
         }
 
         if (isSelected) {
-            this.ui.Update(con, "Background", this.UnSelectColor)
+            this._SetKeyBtnState(con, false)
             this.CheckedArr.RemoveAt(arrayIndex)
         }
         else {
-            this.ui.Update(con, "Background", this.SelectColor)
+            this._SetKeyBtnState(con, true)
             this.CheckedArr.Push(key)
         }
     }
@@ -251,7 +272,7 @@ class KeyCheckGui {
     ClearCheckedArr() {
         for index, value in this.CheckedArr {
             if (this.ConMap.Has(value))
-                this.ui.Update(this.ConMap[value], "Background", this.UnSelectColor)
+                this._SetKeyBtnState(this.ConMap[value], false)
         }
         this.CheckedArr := []
     }
@@ -269,23 +290,11 @@ class KeyCheckGui {
         this.CheckedArr := GetPressKeyArr(KeyArrStr)
 
         for key, name in this.ConMap
-            this.ui.Update(name, "Background", this.UnSelectColor)
+            this._SetKeyBtnState(name, false)
 
         for index, value in this.CheckedArr {
             if (this.ConMap.Has(value))
-                this.ui.Update(this.ConMap[value], "Background", this.SelectColor)
-        }
-
-        this.UpdateJoyBtnDisplay()
-    }
-
-    UpdateJoyBtnDisplay() {
-        global MySoftData
-        joyBtnKeys := ["JoyA", "JoyB", "JoyX", "JoyY", "JoyLB", "JoyRB", "JoyLT", "JoyRT",
-            "JoyLS", "JoyRS", "JoyBack", "JoyStart", "JoyPad", "JoyHome"]
-        for key in joyBtnKeys {
-            if (this.ConMap.Has(key))
-                this.ui.Update(this.ConMap[key], "Content", MySoftData.GetJoyDisplayName(key))
+                this._SetKeyBtnState(this.ConMap[value], true)
         }
     }
 

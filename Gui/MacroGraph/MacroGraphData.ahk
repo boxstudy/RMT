@@ -241,7 +241,7 @@ class MacroGraphDataMixin {
     ; §20 改名：加「鼠标移动/增量移动」新键（旧「移动」键保留兼容旧图）
     _FormalIniCmdKeys() {
         return ["宏操作", "变量", "变量提取", "如果", "如果Pro", "运算", "运行", "文件读写", "文本处理", "数组",
-            "后台鼠标", "后台按键", "窗口管理", "按键检测", "注释", "抓图", "循环",
+            "后台鼠标", "后台按键", "窗口管理", "按键检测", "手柄检测", "注释", "抓图", "循环",
             "间隔", "按键", "移动", "鼠标移动", "增量移动", "RMT指令"]
     }
 
@@ -274,6 +274,7 @@ class MacroGraphDataMixin {
                 "后台按键", BGKeyData,
                 "窗口管理", WindowManageData,
                 "按键检测", KeyCheckData,
+                "手柄检测", KeyCheckData,
                 "抓图", ScreenShotData,
                 "循环", LoopData,
                 "注释", CommentData,
@@ -552,7 +553,7 @@ class MacroGraphDataMixin {
             d.wmHeight := data.Height
             d.wmNewTitle := data.NewTitle
             d.wmTransparency := data.Transparency
-        } else if (cmdKey == "按键检测") {
+        } else if (cmdKey == "按键检测" || cmdKey == "手柄检测") {
             d.kcCheckType := data.CheckType
             d.kcStateType := data.StateType
             d.kcVarName := data.VarName
@@ -606,6 +607,8 @@ class MacroGraphDataMixin {
             ; §20 增量移动（游戏视角拆分）：相对位移
             d.posx := data.DeltaX
             d.posy := data.DeltaY
+            d.count := ObjHasOwnProp(data, "Count") ? data.Count : 1
+            d.interval := ObjHasOwnProp(data, "Interval") ? data.Interval : 0
         } else if (cmdKey == "RMT指令") {
             d.rmtCategory := data.Category
             d.rmtOp := data.CmdStr
@@ -972,6 +975,8 @@ class MacroGraphDataMixin {
                 if (IsObject(data)) {
                     d.posx := data.DeltaX
                     d.posy := data.DeltaY
+                    d.count := ObjHasOwnProp(data, "Count") ? data.Count : 1
+                    d.interval := ObjHasOwnProp(data, "Interval") ? data.Interval : 0
                 }
             }
         }
@@ -1116,6 +1121,8 @@ class MacroGraphDataMixin {
                         } else if (IsDeltaMoveCmd(d.type)) {
                             data.DeltaX := d.posx
                             data.DeltaY := d.posy
+                            data.Count := d.HasOwnProp("count") && d.count != "" ? d.count : 1
+                            data.Interval := d.HasOwnProp("interval") && d.interval != "" ? d.interval : 0
                             remark := data.DeltaX " " data.DeltaY
                         } else if (d.type == GetLang("RMT指令")) {
                             data.Category := d.HasOwnProp("rmtCategory") ? d.rmtCategory : GetLang("全部")

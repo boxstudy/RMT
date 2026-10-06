@@ -205,6 +205,7 @@ class ReplaceKeyGui {
     }
 
     _PlaceKey(value, display, x, y, width) {
+        global MySoftData
         this._keySeq += 1
         name := "KeyBtn_" this._keySeq
         btn := this._keyGrid.Add("Button").Name(name).Width(width).Height(25)
@@ -212,6 +213,9 @@ class ReplaceKeyGui {
             .Content(display).FontSize(11).Cursor("Hand").Padding("2,0")
             .Background("{DynamicResource InputBg}").Foreground("{DynamicResource TextMain}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+        ff := MySoftData.GetJoyBtnFontFamily(value)
+        if (ff != "")
+            btn.FontFamily(ff)
         this.ConMap.Set(value, name)
         this._btnKeyMap.Set(name, value)
     }

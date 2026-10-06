@@ -58,6 +58,19 @@ class FrontInfoGui {
         return '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3" SnapsToDevicePixels="True" UseLayoutRounding="False"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="bd" Property="Background" Value="{DynamicResource ActionHoverBg}"/><Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource ActionHoverStroke}"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
     }
 
+    ; 键盘按键格：Tag=1 选中 / Tag=0 未选中；hover 分别贴近选中色与未选中色
+    static _KeyPickBtnStyle() {
+        return '<Style TargetType="Button"><Setter Property="Tag" Value="0"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">'
+            . '<Border x:Name="bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3" SnapsToDevicePixels="True" UseLayoutRounding="False">'
+            . '<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>'
+            . '<ControlTemplate.Triggers>'
+            . '<MultiTrigger><MultiTrigger.Conditions><Condition Property="IsMouseOver" Value="True"/><Condition Property="Tag" Value="0"/></MultiTrigger.Conditions>'
+            . '<Setter TargetName="bd" Property="Background" Value="{DynamicResource EditHoverBg}"/><Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource EditHoverStroke}"/></MultiTrigger>'
+            . '<MultiTrigger><MultiTrigger.Conditions><Condition Property="IsMouseOver" Value="True"/><Condition Property="Tag" Value="1"/></MultiTrigger.Conditions>'
+            . '<Setter TargetName="bd" Property="Background" Value="{DynamicResource ActionHoverBg}"/><Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource ActionHoverStroke}"/></MultiTrigger>'
+            . '</ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
+    }
+
     _EscapeXml(s) {
         s := StrReplace(s, "&", "&amp;")
         s := StrReplace(s, "<", "&lt;")

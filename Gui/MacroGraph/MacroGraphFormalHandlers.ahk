@@ -1059,7 +1059,7 @@ class MacroGraphFormalHandlersMixin {
             return
         if (!IsObject(state))
             state := Map()
-        checkTypes := GetLangArr(["同时按下", "有一个按下"])
+        checkTypes := this._KeyCheckTypeArr(this._FormalDFromId(id))
         stateTypes := GetLangArr(["物理状态", "逻辑状态"])
         this._EnsureComboInState(state, "KcCheckCmb_" id, checkTypes)
         this._EnsureComboInState(state, "KcStateCmb_" id, stateTypes)
@@ -1772,7 +1772,11 @@ class MacroGraphFormalHandlersMixin {
         keyStr := d.HasOwnProp("kcKeyStr") ? d.kcKeyStr : ""
         varList := GetGuiVarArr()
         this.ui.Update("KcKeys_" id, "Text", keyStr)
-        this.ui.Update("KcCheckCmb_" id, "SelectedIndex", Max(0, ct - 1))
+        checkTypes := this._KeyCheckTypeArr(d)
+        this.ui.Update("KcCheckCmb_" id, "ClearItems", "")
+        for it in checkTypes
+            this.ui.Update("KcCheckCmb_" id, "AddItem", it)
+        this.ui.Update("KcCheckCmb_" id, "SelectedIndex", Max(0, Min(ct - 1, checkTypes.Length - 1)))
         this.ui.Update("KcStateCmb_" id, "SelectedIndex", Max(0, st - 1))
         this.ui.Update("KcVar_" id, "ClearItems", "")
         for item in varList
@@ -1924,7 +1928,7 @@ class MacroGraphFormalHandlersMixin {
             this._RefreshWindowManageInline(id, d)
             return true
         }
-        if (d.type == GetLang("按键检测")) {
+        if (d.type == GetLang("按键检测") || d.type == GetLang("手柄检测")) {
             this._RefreshKeyCheckInline(id, d)
             return true
         }
@@ -2264,10 +2268,11 @@ class MacroGraphFormalHandlersMixin {
         }
         if (d.type == GetLang("窗口管理"))
             return GetLang(d.HasOwnProp("wmActionType") ? d.wmActionType : "激活窗口")
-        if (d.type == GetLang("按键检测")) {
+        if (d.type == GetLang("按键检测") || d.type == GetLang("手柄检测")) {
             if (d.HasOwnProp("kcKeyStr") && d.kcKeyStr != "")
                 return d.kcKeyStr
-            return (d.HasOwnProp("kcVarName") && d.kcVarName != "") ? d.kcVarName : GetLang("按键检测")
+            fallback := (d.type == GetLang("手柄检测")) ? GetLang("手柄检测") : GetLang("按键检测")
+            return (d.HasOwnProp("kcVarName") && d.kcVarName != "") ? d.kcVarName : fallback
         }
         if (d.type == GetLang("抓图")) {
             ssKeys := ["屏幕抓图", "窗口抓图"]

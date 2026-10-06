@@ -55,7 +55,7 @@ SetGlobalData(macroStr, visitMap) {
                     VariableMap[Data.SaveName] := true
                 if (Data.SaveType == "数组")
                     MySoftData.GlobalArrMap[Data.SaveName] := true
-            case "按键检测":
+            case "按键检测", "手柄检测":
                 VariableMap[Data.VarName] := true
             case "运算":
                 loop Data.ToggleArr.Length {

@@ -456,7 +456,7 @@ OnClickMacroJoyTypeHelpBtn(*) {
 }
 
 OnClickTriggerJoyTypeHelpBtn(*) {
-    str1 := GetLang("手柄映射：触发键、按键指令、按键检测等所有手柄按键名称的显示统一使用此映射。")
+    str1 := GetLang("手柄映射：触发键、按键指令、按键检测、手柄检测等所有手柄按键名称的显示统一使用此映射。")
 
     MsgBox(str1, GetLang("手柄映射说明"))
 }

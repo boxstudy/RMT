@@ -185,6 +185,7 @@ ExecuteMacroCmdOnce(tableItem, cmdStr, index, graphNode := "") {
         "文件读写", OnFileIO,
         "窗口管理", OnWindowManage,
         "按键检测", OnKeyCheck,
+        "手柄检测", OnJoyCheck,
         "等待", OnWait,
         "时间", OnTimeData,
         "注释", (*) => "",
@@ -218,6 +219,9 @@ ExecuteMacroCmdOnce(tableItem, cmdStr, index, graphNode := "") {
     firstUnderscore := InStr(cleanCmdStr, "_")
     firstPart := firstUnderscore ? SubStr(cleanCmdStr, 1, firstUnderscore - 1) : cleanCmdStr
     cmdKey := RTrim(firstPart, "0123456789")
+    mappedKey := GetLangKey(cmdKey)
+    if (Actions.Has(mappedKey))
+        cmdKey := mappedKey
 
     if (MySoftData.CMDTip)
         MyCMDReportAciton(cleanCmdStr)
@@ -777,18 +781,45 @@ OnDeltaMove(tableItem, cmd, index) {
         Data := GetMacroCMDData(paramArr[1])
         deltaX := Data.DeltaX
         deltaY := Data.DeltaY
+        count := ObjHasOwnProp(Data, "Count") ? Data.Count : 1
+        interval := ObjHasOwnProp(Data, "Interval") ? Data.Interval : 0
     } else {
         deltaX := paramArr.Length >= 2 ? paramArr[2] : 0
         deltaY := paramArr.Length >= 3 ? paramArr[3] : 0
+        count := paramArr.Length >= 4 ? paramArr[4] : 1
+        interval := paramArr.Length >= 5 ? paramArr[5] : 0
     }
 
-    hasX := TryGetTabVarValue(&dX, tableItem, index, deltaX)
-    hasY := TryGetTabVarValue(&dY, tableItem, index, deltaY)
-    if (!hasX || !hasY)
+    hasCount := TryGetTabVarValue(&cnt, tableItem, index, count)
+    if (!hasCount)
         return
-    dX := GetFloatValue(dX, MainSoftData.CoordXFloat)
-    dY := GetFloatValue(dY, MainSoftData.CoordYFloat)
-    MouseMoveGameViewByKeyMode(GetMacroKeyMode(tableItem, index), dX, dY, 100)
+    if (!IsNumber(cnt) || Integer(cnt) <= 0)
+        cnt := 1
+    else
+        cnt := Integer(cnt)
+
+    keyMode := GetMacroKeyMode(tableItem, index)
+    loop cnt {
+        WaitIfPaused(tableItem, index)
+        item := tableItem.Items[index]
+        if (item && item.Killed)
+            return
+
+        hasX := TryGetTabVarValue(&dX, tableItem, index, deltaX)
+        hasY := TryGetTabVarValue(&dY, tableItem, index, deltaY)
+        if (!hasX || !hasY)
+            return
+        dX := GetFloatValue(dX, MainSoftData.CoordXFloat)
+        dY := GetFloatValue(dY, MainSoftData.CoordYFloat)
+        MouseMoveGameViewByKeyMode(keyMode, dX, dY, 100)
+
+        if (A_Index != cnt) {
+            hasInterval := TryGetTabVarValue(&iv, tableItem, index, interval)
+            if (!hasInterval)
+                return
+            Sleep(GetFloatTime(iv, MainSoftData.PreIntervalFloat))
+        }
+    }
 }
 
 OnOutput(tableItem, cmd, index) {
@@ -1902,7 +1933,14 @@ OnWindowManage(tableItem, cmd, index) {
 OnKeyCheck(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
     Data := GetMacroCMDData(paramArr[1])
+    ApplyKeyCheckResult(Data)
+}
 
+OnJoyCheck(tableItem, cmd, index) {
+    OnKeyCheck(tableItem, cmd, index)
+}
+
+ApplyKeyCheckResult(Data) {
     keyArr := Data.KeyArr
     if (keyArr.Length == 0)
         return
@@ -1910,15 +1948,32 @@ OnKeyCheck(tableItem, cmd, index) {
     checkType := Data.CheckType
     stateType := Data.StateType
     varName := Data.VarName
-    trueValue := 1
-    falseValue := 0
+    analogKeys := []
+    digitalKeys := []
+    for key in keyArr {
+        if (RegExMatch(key, "^(?:JoyAxis)?(L[XY]|R[XY]|LT|RT):(-?[0-9]+)$"))
+            analogKeys.Push(key)
+        else
+            digitalKeys.Push(key)
+    }
+
+    if (analogKeys.Length > 0) {
+        ok := true
+        for key in analogKeys {
+            if (!IsCheckKeyPressed(key, "", checkType)) {
+                ok := false
+                break
+            }
+        }
+        MySetGlobalVariable([varName], [ok ? 1 : 0], false)
+        return
+    }
 
     stateMode := stateType == 1 ? "P" : ""
     isAllPressed := true
     isAnyPressed := false
-
-    for index, key in keyArr {
-        isPressed := GetKeyState(key, stateMode)
+    for key in digitalKeys {
+        isPressed := IsCheckKeyPressed(key, stateMode)
         if (isPressed) {
             isAnyPressed := true
             if (checkType == 2)
@@ -1929,15 +1984,106 @@ OnKeyCheck(tableItem, cmd, index) {
                 break
         }
     }
+    result := (checkType == 1) ? (isAllPressed ? 1 : 0) : (isAnyPressed ? 1 : 0)
+    MySetGlobalVariable([varName], [result], false)
+}
 
-    result := ""
-    if (checkType == 1) {
-        result := isAllPressed ? trueValue : falseValue
-    } else {
-        result := isAnyPressed ? trueValue : falseValue
+IsCheckKeyPressed(key, stateMode, axisCmp := 2) {
+    global MySoftData
+    if (RegExMatch(key, "^(?:JoyAxis)?(L[XY]|R[XY]|LT|RT):(-?[0-9]+)$", &am))
+        return IsJoyAxisCompare(am[1], Integer(am[2]), axisCmp)
+
+    static shortMap := Map(
+        "A", "JoyA", "B", "JoyB", "X", "JoyX", "Y", "JoyY",
+        "LB", "JoyLB", "RB", "JoyRB", "LT", "JoyLT", "RT", "JoyRT",
+        "LS", "JoyLS", "RS", "JoyRS", "Back", "JoyBack", "Start", "JoyStart",
+        "Home", "JoyHome", "Pad", "JoyPad",
+        "上", "JoyDpadUp", "下", "JoyDpadDown", "左", "JoyDpadLeft", "右", "JoyDpadRight",
+        "无方向", "JoyDpadNone", "无", "JoyDpadNone")
+    inn := shortMap.Has(key) ? shortMap[key] : key
+
+    if (inn == "JoyDpadNone")
+        return IsJoyPovCentered()
+
+    map := IsObject(MySoftData) ? MySoftData.GetJoyToAhkMap() : Map()
+    ahkKey := map.Has(inn) ? map[inn] : inn
+    if (RegExMatch(ahkKey, "^JoyPOV_(\d+)$", &pm))
+        return IsJoyPovAt(Integer(pm[1]))
+
+    if (InStr(inn, "Joy") || InStr(inn, "Axis") || InStr(inn, "Dpad")) {
+        if (stateMode == "P")
+            return IsPhysicalKeyPressed(ahkKey)
+        try
+            return !!GetKeyState(ahkKey, stateMode)
+        catch
+            return IsPhysicalKeyPressed(ahkKey)
     }
 
-    MySetGlobalVariable([varName], [result], false)
+    try
+        return !!GetKeyState(key, stateMode)
+    catch
+        return false
+}
+
+IsJoyPovAt(target) {
+    loop 4 {
+        try {
+            pov := GetKeyState(A_Index "JoyPOV")
+            if (IsNumber(pov) && Integer(pov) == target)
+                return true
+        }
+    }
+    return false
+}
+
+IsJoyPovCentered() {
+    found := false
+    loop 4 {
+        try {
+            pov := GetKeyState(A_Index "JoyPOV")
+            found := true
+            if (pov == "" || pov == -1)
+                return true
+        }
+    }
+    return !found
+}
+
+IsJoyAxisCompare(name, stored, cmpType) {
+    static axisMap := Map("LX", "JoyX", "LY", "JoyY", "RX", "JoyU", "RY", "JoyR", "LT", "JoyZ", "RT", "JoyZ")
+    ahkAxis := axisMap.Has(name) ? axisMap[name] : ""
+    if (ahkAxis == "")
+        return false
+    isTrig := (name == "LT" || name == "RT")
+    loop 4 {
+        try {
+            raw := GetKeyState(A_Index ahkAxis)
+            if (!IsNumber(raw))
+                continue
+            cur := isTrig ? Integer(raw) : Integer((Float(raw) - 50) * 2)
+            switch Integer(cmpType) {
+                case 1:
+                    if (cur > stored)
+                        return true
+                case 2:
+                    if (cur >= stored)
+                        return true
+                case 3:
+                    if (cur == stored)
+                        return true
+                case 4:
+                    if (cur <= stored)
+                        return true
+                case 5:
+                    if (cur < stored)
+                        return true
+                default:
+                    if (cur >= stored)
+                        return true
+            }
+        }
+    }
+    return false
 }
 
 OnScreenShot(tableItem, cmd, index) {

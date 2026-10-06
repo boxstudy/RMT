@@ -22,7 +22,7 @@ class KeyGui {
 
         this.TriggerAction := (*) => this.TriggerMacro()
 
-        this.SelectColor := "#19C930"
+        this.SelectColor := "{DynamicResource ActionBg}"
         this.UnSelectColor := "{DynamicResource InputBg}"
     }
 
@@ -74,7 +74,7 @@ class KeyGui {
         ; 行0：键盘检测居中（执行改到标题栏 Fluent 播放钮）
         detect := body.Add("StackPanel").Grid_Row(0).Grid_ColumnSpan(11).Orientation("Horizontal")
             .HorizontalAlignment("Center").VerticalAlignment("Center").Margin("0,0,0,0")
-        detect.Add("TextBlock").Text(GetLang("键盘按键检测：")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
+        detect.Add("TextBlock").Text(GetLang("按键检测：")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
         detect.Add("TextBox").Name("HotkeyCon").Width(150).Height(26).MinHeight(26).Margin("4,0,0,0").VerticalContentAlignment("Center").FontSize("11").Padding("4,0")
             .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").IsReadOnly("True")
@@ -180,14 +180,20 @@ class KeyGui {
             .SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
     }
 
+    _SetKeyBtnState(con, selected) {
+        this.ui.Update(con, "Background", selected ? this.SelectColor : this.UnSelectColor)
+        this.ui.Update(con, "Tag", selected ? "1" : "0")
+    }
+
     _PlaceKey(value, display, x, y, width) {
         this._keySeq += 1
         name := "KeyBtn_" this._keySeq
         btn := this._keyGrid.Add("Button").Name(name).Width(width).Height(25)
             .SetProp("Canvas.Left", String(x - 10)).SetProp("Canvas.Top", String(y))
-            .Content(display).FontSize(11).Cursor("Hand").Padding("2,0")
+            .Content(display).FontSize(11).Cursor("Hand").Padding("2,0").Tag("0")
             .Background("{DynamicResource InputBg}").Foreground("{DynamicResource TextMain}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+        btn.InjectResources(FrontInfoGui._KeyPickBtnStyle())
         this.ConMap.Set(value, name)
         this._btnKeyMap.Set(name, value)
     }
@@ -206,9 +212,10 @@ class KeyGui {
         this._keySeq += 1
         name := "KeyBtn_" this._keySeq
         btn := parent.Add("Button").Name(name).Width(width).Height(25)
-            .Content(display).FontSize(11).Cursor("Hand").Padding("2,0")
+            .Content(display).FontSize(11).Cursor("Hand").Padding("2,0").Tag("0")
             .Background("{DynamicResource InputBg}").Foreground("{DynamicResource TextMain}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+        btn.InjectResources(FrontInfoGui._KeyPickBtnStyle())
         if (hasGap)
             btn.Margin("0,0,15,0")
         this.ConMap.Set(value, name)
@@ -287,11 +294,11 @@ class KeyGui {
         }
 
         if (isSelected) {
-            this.ui.Update(con, "Background", this.UnSelectColor)
+            this._SetKeyBtnState(con, false)
             this.CheckedArr.RemoveAt(arrayIndex)
         }
         else {
-            this.ui.Update(con, "Background", this.SelectColor)
+            this._SetKeyBtnState(con, true)
             this.CheckedArr.Push(key)
         }
 
@@ -301,7 +308,7 @@ class KeyGui {
     ClearCheckedArr() {
         for index, value in this.CheckedArr {
             if (this.ConMap.Has(value))
-                this.ui.Update(this.ConMap[value], "Background", this.UnSelectColor)
+                this._SetKeyBtnState(this.ConMap[value], false)
         }
         this.CheckedArr := []
         this.Refresh()
@@ -380,11 +387,11 @@ class KeyGui {
         this.CheckedArr := GetPressKeyArr(KeyArrStr)
 
         for key, name in this.ConMap
-            this.ui.Update(name, "Background", this.UnSelectColor)
+            this._SetKeyBtnState(name, false)
 
         for index, value in this.CheckedArr {
             if (this.ConMap.Has(value))
-                this.ui.Update(this.ConMap[value], "Background", this.SelectColor)
+                this._SetKeyBtnState(this.ConMap[value], true)
         }
     }
 
@@ -426,12 +433,12 @@ class KeyGui {
         isShowInterval := isShowCount && this.ui.Query("KeyCountCon") != 1
 
         this.ui.Update("TypeBox", "Visibility", "Visible")
-        this.ui.Update("HoldTimeTipCon", "Visibility", isShowHoldTime ? "Visible" : "Collapsed")
-        this.ui.Update("HoldTimeCon", "Visibility", isShowHoldTime ? "Visible" : "Collapsed")
-        this.ui.Update("KeyCountTipCon", "Visibility", isShowCount ? "Visible" : "Collapsed")
-        this.ui.Update("KeyCountCon", "Visibility", isShowCount ? "Visible" : "Collapsed")
-        this.ui.Update("PerIntervalTipCon", "Visibility", isShowInterval ? "Visible" : "Collapsed")
-        this.ui.Update("PerIntervalCon", "Visibility", isShowInterval ? "Visible" : "Collapsed")
+        this.ui.Update("HoldTimeTipCon", "Visibility", isShowHoldTime ? "Visible" : "Hidden")
+        this.ui.Update("HoldTimeCon", "Visibility", isShowHoldTime ? "Visible" : "Hidden")
+        this.ui.Update("KeyCountTipCon", "Visibility", isShowCount ? "Visible" : "Hidden")
+        this.ui.Update("KeyCountCon", "Visibility", isShowCount ? "Visible" : "Hidden")
+        this.ui.Update("PerIntervalTipCon", "Visibility", isShowInterval ? "Visible" : "Hidden")
+        this.ui.Update("PerIntervalCon", "Visibility", isShowInterval ? "Visible" : "Hidden")
 
         this.ui.Update("CommandStrCon", "Text", Format("{}{}", GetLang("当前指令："), this.CommandStr))
     }

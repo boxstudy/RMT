@@ -53,7 +53,7 @@ class MacroGraphGui {
         ; 若梦兔全部指令（§20 改名：移动→鼠标移动、移动Pro→鼠标移动Pro、新增 增量移动）
         this.CmdList := GetLangArr(["间隔", "按键", "手柄", "搜索", "搜索Pro", "鼠标移动", "鼠标移动Pro", "增量移动", "输入", "输出", "循环", "宏操作",
             "变量", "变量提取", "如果", "如果Pro", "运算", "运行", "文件读写", "文本处理", "数组", "RMT指令", "后台鼠标",
-            "后台按键", "窗口管理", "按键检测", "等待", "时间", "注释", "抓图"])
+            "后台按键", "窗口管理", "按键检测", "手柄检测", "等待", "时间", "注释", "抓图"])
 
         ; 各指令对应图标（顺序与 CmdList 一一对应，复用 MacroEditGui 的图标资源）
         this.CmdIconArr := ["Images\Soft\Interval.png", "Images\Soft\Key.png", "Images\Soft\Key.png",
@@ -67,7 +67,7 @@ class MacroGraphGui {
             "Images\Soft\FileIO.png", "Images\Soft\TextOps.png",
             "Images\Soft\Arr.png", "Images\Soft\rabit.png",
             "Images\Soft\Mouse.png", "Images\Soft\Key.png",
-            "Images\Soft\WindowManage.png", "Images\Soft\KeyCheck.png",
+            "Images\Soft\WindowManage.png", "Images\Soft\KeyCheck.png", "Images\Soft\KeyCheck.png",
             "Images\Soft\Control.png", "Images\Soft\Interval.png",
             "Images\Soft\Comment.png", "Images\Soft\ScreenShot.png"]
 
@@ -95,6 +95,7 @@ class MacroGraphGui {
         this.BGKeyGui := BGKeyGui()
         this.WindowManageGui := WindowManageGui()
         this.KeyCheckGui := KeyCheckGui()
+        this.JoyCheckGui := JoyCheckGui()
         this.WaitGui := WaitGui()
         this.TimeGui := TimeGui()
         this.ScreenShotGui := ScreenShotGui()
@@ -555,6 +556,12 @@ class MacroGraphGui {
                 return
         }
         nameMap := Map("time", "Time_", "time2", "Time2_", "hold", "Hold_", "count", "Count_", "inter", "Inter_", "posx", "PosX_", "posy", "PosY_", "speed", "Speed_")
+        ; §20 增量移动：控件前缀为 DPosX_/DPosY_/DCount_/DInterval_
+        try {
+            dType := this._Parse(this.cmdNodes[id].CurCMD).type
+            if (IsDeltaMoveCmd(dType))
+                nameMap := Map("posx", "DPosX_", "posy", "DPosY_", "count", "DCount_", "interval", "DInterval_")
+        }
         key := nameMap[field] id
         ; 优先 state；缺字段时用 Query 读当前控件（回车/失焦时 state 偶发不含该键）
         val := ""
@@ -582,6 +589,13 @@ class MacroGraphGui {
                 return
             if (IsNumber(val) && val + 0 < 1)
                 val := "1"
+        }
+        ; 增量移动每次间隔：允许 0，忽略空串，禁止负数
+        if (field == "interval") {
+            if (val == "")
+                return
+            if (IsNumber(val) && val + 0 < 0)
+                val := "0"
         }
         d := this._Parse(this.cmdNodes[id].CurCMD)
         d.%field% := val
@@ -770,6 +784,8 @@ class MacroGraphGui {
             else if (IsDeltaMoveCmd(d.type)) {
                 this.ui.Update("DPosX_" id, "Text", d.posx)
                 this.ui.Update("DPosY_" id, "Text", d.posy)
+                this.ui.Update("DCount_" id, "Text", d.HasOwnProp("count") && d.count != "" ? d.count : "1")
+                this.ui.Update("DInterval_" id, "Text", d.HasOwnProp("interval") && d.interval != "" ? d.interval : "0")
             }
             else if (IsMoveProCmd(d.type)) {
                 data := this._MMProData(id)

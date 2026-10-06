@@ -78,9 +78,12 @@ class MacroGraphNodeUIMixin {
                 , [GetLang("绝对移动"), GetLang("相对移动")], this._MoveModeIndex(d.mode), true)
         }
         else if (IsDeltaMoveCmd(d.type)) {
-            ; §20 增量移动：X/Y 相对位移
-            this._AddFieldRow(body, "DPosXRow_" id, GetLang("X偏移："), "DPosX_" id, d.posx, true, true, id, "posx")
-            this._AddFieldRow(body, "DPosYRow_" id, GetLang("Y偏移："), "DPosY_" id, d.posy, true, true, id, "posy")
+            ; §20 增量移动：X/Y 相对位移 + 偏移次数（可编辑下拉支持变量）
+            varList := GetGuiVarArr()
+            this._AddEditableComboRow(body, "DPosXRow_" id, GetLang("坐标偏移X:"), "DPosX_" id, varList, d.posx, true)
+            this._AddEditableComboRow(body, "DPosYRow_" id, GetLang("坐标偏移Y:"), "DPosY_" id, varList, d.posy, true)
+            this._AddEditableComboRow(body, "DCountRow_" id, GetLang("偏移次数："), "DCount_" id, varList, d.HasOwnProp("count") && d.count != "" ? d.count : "1", true)
+            this._AddEditableComboRow(body, "DIntervalRow_" id, GetLang("每次间隔："), "DInterval_" id, varList, d.HasOwnProp("interval") && d.interval != "" ? d.interval : "0", true)
         }
         else if (IsMoveProCmd(d.type)) {
             mmmode := d.HasOwnProp("mmmode") ? d.mmmode : 0

@@ -487,6 +487,7 @@ class TriggerKeyGui {
     }
 
     _PlaceKey(value, display, x, y, width) {
+        global MySoftData
         this._keySeq += 1
         name := "KeyBtn_" this._keySeq
         txtName := name "_Txt"
@@ -499,9 +500,12 @@ class TriggerKeyGui {
         ; Viewbox DownOnly：字号上限为当前 11，超出按钮宽度时自适应缩小
         vb := btn.Add("Viewbox").Stretch("Uniform").StretchDirection("DownOnly")
             .HorizontalAlignment("Center").VerticalAlignment("Center")
-        vb.Add("TextBlock").Name(txtName).Text(display).FontSize(11)
+        tb := vb.Add("TextBlock").Name(txtName).Text(display).FontSize(11)
             .Foreground("{DynamicResource TextMain}")
             .TextAlignment("Center").TextWrapping("NoWrap")
+        ff := MySoftData.GetJoyBtnFontFamily(value)
+        if (ff != "")
+            tb.FontFamily(ff)
         this.ConMap.Set(value, name)
         this._btnKeyMap.Set(name, value)
         this._btnTxtMap.Set(value, txtName)

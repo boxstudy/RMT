@@ -873,7 +873,7 @@ class MacroTreeAdapter {
         xml .= '<Grid Name="Brk_' node.id '" Width="10" Height="12" Margin="0,0,4,0" Visibility="' brkVis '" VerticalAlignment="Center">'
             . '<Ellipse Width="9" Height="9" Fill="#E53935" VerticalAlignment="Center" HorizontalAlignment="Center" IsHitTestVisible="False"/>'
             . '</Grid>'
-        xml .= '<TextBlock Name="Txt_' node.id '" Text="' dispText '" VerticalAlignment="Center" Foreground="{DynamicResource TextMain}"/>'
+        xml .= '<TextBlock Name="Txt_' node.id '" Text="' dispText '" VerticalAlignment="Center" Foreground="{DynamicResource TextMain}" FontFamily="' this._JoyListFont() '"/>'
         xml .= '</StackPanel></Border>'
         return xml
     }
@@ -891,6 +891,12 @@ class MacroTreeAdapter {
         s := StrReplace(s, ">", "&gt;")
         s := StrReplace(s, '"', "&quot;")
         return s
+    }
+
+    _JoyListFont() {
+        global MainSoftData
+        base := (IsSet(MainSoftData) && MainSoftData.HasProp("FontType") && MainSoftData.FontType != "") ? MainSoftData.FontType : "Microsoft YaHei UI"
+        return this._EscapeXml(base ", Segoe Fluent Icons, Segoe MDL2 Assets")
     }
 
     _IndexOf(arr, id) {

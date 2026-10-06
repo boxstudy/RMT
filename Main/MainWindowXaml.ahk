@@ -805,11 +805,13 @@ class MainWin {
     }
 
     PopulateAll() {
-        this.BuildToolTab()
-        this.BuildSettingTab()
-        this.BuildHelpTab()
-        this.BuildRewardTab()
-        this.BuildThankTab()
+        ; 各页签独立构建：任一失败不得阻断后续 RenderTab（否则主界面宏列表空白）
+        for fn in ["BuildToolTab", "BuildSettingTab", "BuildHelpTab", "BuildRewardTab", "BuildThankTab"] {
+            try
+                this.%fn%()
+            catch as e
+                XamlUiDiag(fn " 异常: " e.Message " @ " e.File ":" e.Line, "MainWin")
+        }
         ; 惰性渲染：只渲染当前 tab（旧路径全量渲染 7 tab 是启动 1.3s 的主因），切 tab 时由 OnTabChanged 补渲染
         this._renderedTabs := Map()
         cur := MainSoftData.TableIndex
@@ -5392,14 +5394,14 @@ class MainWin {
         dot(tip) {
             return tip == "" ? "" : '<Button Content="?" Width="24" Height="24" MinHeight="24" Padding="4,2" Margin="6,0,0,0" FontSize="11" FontWeight="Bold" VerticalAlignment="Center" Cursor="Hand" ToolTip="' this._XmlEsc(tip) '"/>'
         }
-        row(label, ctrl, tip := "", w := "104") {
+        row(label, ctrl, tip := "", w := "104", lblName := "") {
             return '<Border Height="48" MinHeight="48" Padding="0,5" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="0,0,0,0.5"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="' w '"/><ColumnDefinition Width="30"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>'
-                . '<DockPanel VerticalAlignment="Center" LastChildFill="True">' (tip == "" ? "" : StrReplace(dot(tip), "<Button ", '<Button DockPanel.Dock="Right" ')) '<TextBlock Text="' this._XmlEsc(label) '" TextWrapping="Wrap" FontWeight="SemiBold" Foreground="{DynamicResource TextMain}" FontSize="13"/></DockPanel>'
+                . '<DockPanel VerticalAlignment="Center" LastChildFill="True">' (tip == "" ? "" : StrReplace(dot(tip), "<Button ", '<Button DockPanel.Dock="Right" ')) '<TextBlock' (lblName == "" ? "" : ' Name="' lblName '"') ' Text="' this._XmlEsc(label) '" TextWrapping="Wrap" FontWeight="SemiBold" Foreground="{DynamicResource TextMain}" FontSize="13"/></DockPanel>'
                 . '<Grid Grid.Column="2" VerticalAlignment="Center">' ctrl '</Grid></Grid></Border>'
         }
-        tog(label, name, val, desc := "", tip := "", w := "104") {
-            inner := desc == "" ? "" : '<TextBlock Text="' this._XmlEsc(desc) '" FontSize="12" Foreground="{DynamicResource TextSub}" VerticalAlignment="Center" TextWrapping="Wrap"/>'
-            return row(label, '<CheckBox Name="' name '" IsChecked="' (val ? "True" : "False") '" Style="{StaticResource SetSwitch}">' inner '</CheckBox>', tip, w)
+        tog(label, name, val, desc := "", tip := "", w := "104", lblName := "") {
+            inner := desc == "" ? "" : '<TextBlock' (lblName == "" ? "" : ' Name="' lblName '_Desc"') ' Text="' this._XmlEsc(desc) '" FontSize="12" Foreground="{DynamicResource TextSub}" VerticalAlignment="Center" TextWrapping="Wrap"/>'
+            return row(label, '<CheckBox Name="' name '" IsChecked="' (val ? "True" : "False") '" Style="{StaticResource SetSwitch}">' inner '</CheckBox>', tip, w, lblName)
         }
         togI(label, name, val) {
             return '<CheckBox Name="' name '" Content="' this._XmlEsc(label) '" IsChecked="' (val ? "True" : "False") '" Style="{StaticResource SetTabButton}" ToolTip="' GetLang("隐藏的页签不影响宏触发，保存后重启生效。") '"/>'
@@ -5463,6 +5465,9 @@ class MainWin {
             . sld(GetLang("字体大小"), "ThemeFontSizeCon", "ThemeFontSizeVal", MainSoftData.FontSize, 0, 40, 1, GetLang("字号 0~40；保存后统一刷新界面。"))
 
         ; ---------- 页：系统（按参考稿逐行排列） ----------
+        ltRtIsPs5 := (MainSoftData.TriggerJoyType == "PS5")
+        ltRtLabel := GetLang(ltRtIsPs5 ? "L2、R2按键化" : "LT、RT按键化")
+        ltRtDesc := Format(GetLang("开启后 {} 当普通按键；关闭则当扳机轴，可设 0~100。"), ltRtIsPs5 ? "L2/R2" : "LT/RT")
         behaviorPage := page("behavior"
             , twoCol(
                 card(GetLang("启动与权限"), "&#xE72E;", tog(GetLang("开机自启"), "ChkBootStart", MainSoftData.IsBootStart, GetLang("Windows 登录后自动启动 RMT"))
@@ -5478,10 +5483,13 @@ class MainWin {
                 , card(GetLang("触发"), "&#xE8D4;", tog(GetLang("仅前台运行宏"), "ChkForeground", MainSoftData.CheckForeground, GetLang("窗口不匹配则终止运行的宏"))
                     . tog(GetLang("自动松开修饰键"), "ChkAutoLoosen", MainSoftData.AutoLoosenModifier, GetLang("组合键触发前先松开修饰键"))
                     . tog(GetLang("连续触发"), "ChkContinuous", MainSoftData.ContinuousTrigger, GetLang("按住触发键期间允许连续触发")), "0,18,0,0"))
-            . twoCol(card(GetLang("显示页签"), "&#xE8A5;", tabsBody, "0,18,0,0")
+            . twoCol(
+                card(GetLang("显示页签"), "&#xE8A5;", tabsBody, "0,18,0,0")
+                    . card(GetLang("网络宏"), "&#xE8D4;", num(GetLang("监听端口"), "EditNetPort", MainSoftData.NetworkPort, GetLang("网络宏端口 1-65535，默认 16888；仅监听本机回环地址。")), "0,18,0,0")
                 , card(GetLang("手柄"), "&#xE7FC;", cmb(GetLang("手柄映射"), "CmbTriggerJoyType", ["Xbox", "PS5"], MainSoftData.TriggerJoyType)
-                    . cmb(GetLang("宏手柄类型"), "CmbJoyType", ["Xbox", "PS5"], MainSoftData.JoyType), "0,18,0,0"))
-            . twoCol(card(GetLang("网络宏"), "&#xE8D4;", num(GetLang("监听端口"), "EditNetPort", MainSoftData.NetworkPort, GetLang("网络宏端口 1-65535，默认 16888；仅监听本机回环地址。")), "0"), ""), true)
+                    . cmb(GetLang("宏手柄类型"), "CmbJoyType", ["Xbox", "PS5"], MainSoftData.JoyType)
+                    . tog(ltRtLabel, "ChkJoyLtRtAsButton", MainSoftData.JoyLtRtAsButton, ltRtDesc, "", "128", "LblJoyLtRtAsButton"), "0,18,0,0")
+            ), true)
 
         ; ---------- 页：宏执行 ----------
         macroPage := page("macro", twoCol(
@@ -5656,8 +5664,9 @@ class MainWin {
         this._Bind("CmbLang", "SelectionChanged", ObjBindMethod(this, "OnComboText", "Lang"))
         this._Bind("CmbPreferredEditor", "SelectionChanged", ObjBindMethod(this, "OnComboIndex", "PreferredMacroEditor"))
         this._Bind("CmbScreenShot", "SelectionChanged", ObjBindMethod(this, "OnComboIndex", "ScreenShotType"))
-        this._Bind("CmbTriggerJoyType", "SelectionChanged", ObjBindMethod(this, "OnComboText", "TriggerJoyType"))
+        this._Bind("CmbTriggerJoyType", "SelectionChanged", ObjBindMethod(this, "OnTriggerJoyTypeChanged"))
         this._Bind("CmbJoyType", "SelectionChanged", ObjBindMethod(this, "OnComboText", "JoyType"))
+        this._Bind("ChkJoyLtRtAsButton", "Click", ObjBindMethod(this, "OnCheckEdit", "JoyLtRtAsButton"))
         this._Bind("CmbKeyDownDown", "SelectionChanged", ObjBindMethod(this, "OnComboIndex", "KeyDownDownType"))
         this._Bind("CmbRemarkAuto", "SelectionChanged", ObjBindMethod(this, "OnComboIndex", "RemarkAutoType"))
         this._Bind("CmbMacroStop", "SelectionChanged", ObjBindMethod(this, "OnComboIndex", "MacroStopType"))
@@ -5771,7 +5780,7 @@ class MainWin {
             pageId := ctrl == "ThemePresetCon" ? "appearance" : "ai"
         else if (RegExMatch(ctrl, "i)^(CmbFont|ThemeFont|Palette)") )
             pageId := "appearance"
-        else if (RegExMatch(ctrl, "i)^(ChkBoot|ChkAdmin|ChkForeground|ChkContinuous|CmbLang|CmbPreferred|CmbScreen|CmbTriggerJoy|CmbJoy|EditMuti|TabVisible)") )
+        else if (RegExMatch(ctrl, "i)^(ChkBoot|ChkAdmin|ChkForeground|ChkContinuous|CmbLang|CmbPreferred|CmbScreen|CmbTriggerJoy|CmbJoy|ChkJoy|EditMuti|TabVisible)") )
             pageId := "behavior"
         else if (ctrl == "EditNetPort")
             pageId := "behavior"
@@ -6333,6 +6342,28 @@ class MainWin {
         this.MarkSettingDirty(ctrl)
     }
 
+    OnTriggerJoyTypeChanged(state, ctrl, event) {
+        this.OnComboText("TriggerJoyType", state, ctrl, event)
+        this._RefreshJoyLtRtAsButtonText()
+    }
+
+    _JoyLtRtAsButtonLabel() {
+        isPs5 := (MainSoftData.TriggerJoyType == "PS5")
+        return GetLang(isPs5 ? "L2、R2按键化" : "LT、RT按键化")
+    }
+
+    _JoyLtRtAsButtonDesc() {
+        isPs5 := (MainSoftData.TriggerJoyType == "PS5")
+        return Format(GetLang("开启后 {} 当普通按键；关闭则当扳机轴，可设 0~100。"), isPs5 ? "L2/R2" : "LT/RT")
+    }
+
+    _RefreshJoyLtRtAsButtonText() {
+        if (!IsObject(this.ui))
+            return
+        this.ui.Update("LblJoyLtRtAsButton", "Text", this._JoyLtRtAsButtonLabel())
+        this.ui.Update("LblJoyLtRtAsButton_Desc", "Text", this._JoyLtRtAsButtonDesc())
+    }
+
     OnComboIndex(fieldName, state, ctrl, event) {
         MainSoftData.%fieldName% := Integer(this.ui.Query(ctrl ">SelectedIndex")) + 1
         this.MarkSettingDirty(ctrl)
@@ -6535,7 +6566,14 @@ class MainWin {
             return imagePath
         ; 第三个参数为覆盖：每次启动都用 exe 内嵌资源恢复二维码，避免运行目录文件被替换后生效。
         tempPath := A_Temp "\RMT_AiFaDian.png"
-        FileInstall("Images\Soft\AiFaDian.png", tempPath, 1)
+        try FileInstall("Images\Soft\AiFaDian.png", tempPath, 1)
+        if (!FileExist(tempPath)) {
+            ; 脚本模式 / 临时文件占用时回退到工作目录源图，避免赞助页拖垮 PopulateAll
+            src := A_WorkingDir "\Images\Soft\AiFaDian.png"
+            if (FileExist(src))
+                return StrReplace(src, "\", "/")
+            return ""
+        }
         imagePath := StrReplace(tempPath, "\", "/")
         return imagePath
     }

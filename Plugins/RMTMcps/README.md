@@ -56,7 +56,7 @@
   - `output`/`输出`、`run`/`运行`、`submacro`/`宏操作`、`operation`/`运算`
   - `mmpro`/`移动Pro`、`bg_mouse`/`后台鼠标`、`bg_key`/`后台按键`
   - `text_ops`/`文本处理`、`array`/`数组`、`input`/`输入`、`file_io`/`文件读写`
-  - `window`/`窗口管理`、`key_check`/`按键检测`、`comment`/`注释`、`screenshot`/`抓图`
+  - `window`/`窗口管理`、`key_check`/`按键检测`、`joy_check`/`手柄检测`、`comment`/`注释`、`screenshot`/`抓图`
   - `graph_node`/`图形节点`、`graph_start`/`图形开始节点`
   - 通用写法：`{"type":"loop","count":3,"body":"按键_a_点击"}` 或 `{"type":"如果","config":{...}}`
   - 也可 `data_configs` / `search_configs` / `loop_configs` 等按序列码 upsert

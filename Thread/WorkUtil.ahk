@@ -51,6 +51,7 @@
         global FileIOFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\FileIOFile.toml"
         global WindowManageFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\WindowManageFile.toml"
         global KeyCheckFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\KeyCheckFile.toml"
+        global JoyCheckFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\JoyCheckFile.toml"
         global CommentFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\CommentFile.toml"
         global GraphNodeFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\GraphNodeFile.toml"
         global GraphStartNodeFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\GraphStartNodeFile.toml"

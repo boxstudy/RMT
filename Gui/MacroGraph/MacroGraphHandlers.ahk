@@ -94,7 +94,7 @@ class MacroGraphHandlersMixin {
             keys := ["BgkTime_" id, "BgkCount_" id, "BgkInter_" id]
         else if (type == GetLang("窗口管理"))
             keys := ["WmX_" id, "WmY_" id, "WmW_" id, "WmH_" id, "WmTrans_" id]
-        else if (type == GetLang("按键检测"))
+        else if (type == GetLang("按键检测") || type == GetLang("手柄检测"))
             keys := ["KcVar_" id]
         else if (type == GetLang("抓图"))
             keys := ["SsSX_" id, "SsSY_" id, "SsEX_" id, "SsEY_" id, "SsResName_" id]
@@ -1591,7 +1591,7 @@ class MacroGraphHandlersMixin {
                 this._OnFormalBGKey(id, state, "", "Flush")
             else if (t == GetLang("窗口管理"))
                 this._OnFormalWindowManage(id, state, "", "Flush")
-            else if (t == GetLang("按键检测"))
+            else if (t == GetLang("按键检测") || t == GetLang("手柄检测"))
                 this._OnFormalKeyCheck(id, state, "", "Flush")
             else if (t == GetLang("抓图"))
                 this._OnFormalScreenShot(id, state, "", "Flush")
@@ -1674,10 +1674,10 @@ class MacroGraphHandlersMixin {
             this.cmdNodes[id].CurCMD := this._BuildCmd(d)
     }
 
-    ; §20 增量移动内联字段写回（X/Y 偏移）
+    ; §20 增量移动内联字段写回（X/Y 偏移 + 偏移次数）
     _FlushDeltaMoveInline(id, d, state) {
         dirty := false
-        for field, prefix in Map("posx", "DPosX_", "posy", "DPosY_") {
+        for field, prefix in Map("posx", "DPosX_", "posy", "DPosY_", "count", "DCount_", "interval", "DInterval_") {
             if (!this._InlineVal(state, prefix id, &val))
                 continue
             d.%field% := val

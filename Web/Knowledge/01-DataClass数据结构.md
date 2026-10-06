@@ -248,6 +248,7 @@
 | 文件读写 | FileIOFile.ini | FileIOData |
 | 窗口管理 | WindowManageFile.ini | WindowManageData |
 | 按键检测 | KeyCheckFile.ini | KeyCheckData |
+| 手柄检测 | JoyCheckFile.toml | KeyCheckData |
 | 注释 | CommentFile.ini | CommentData |
 | 抓图 | ScreenShotFile.ini | ScreenShotData |
 | 图形节点 | GraphNodeFile.ini | MacroGraphNode |
@@ -508,14 +509,16 @@ Excel 未打开时写入会很慢。
 `SearchValue`：`标题⎖类名⎖进程名`，可 `{变量}`；空或找不到可见窗口则本条无效（会解析成可见句柄，避免点到隐藏窗）。  
 移动用 `PosX/Y`，改大小用 `Width/Height`，改标题用 `NewTitle`，透明度如 `80%`，均可填变量。关闭窗口 ≠ 杀进程。
 
-### 6.21 KeyCheckData
+### 6.21 KeyCheckData（按键检测 / 手柄检测）
 
 | 字段 | 含义 |
 |------|------|
-| `KeyArr` | 检测的键 |
-| `CheckType` | `1` 同时按下 `2` 有一个按下 |
-| `StateType` | `1` 物理（手指/罗技驱动） `2` 逻辑（含宏模拟） |
+| `KeyArr` | 检测的键。按键检测为键盘鼠标名；手柄检测为 `JoyA` / `JoyDpadUp` / `JoyAxisLX:80` 等 |
+| `CheckType` | 按键：`1` 同时按下 `2` 有一个按下。摇杆：`1` 大于设定值 `2` 大于等于 `3` 等于 `4` 小于等于 `5` 小于 |
+| `StateType` | `1` 物理（手指/罗技驱动/真实手柄） `2` 逻辑（含宏模拟） |
 | `VarName` | 结果 1/0 |
+
+按键检测存 `KeyCheckFile.toml`，手柄检测存 `JoyCheckFile.toml`，结构相同。
 
 ### 6.22 CommentData
 

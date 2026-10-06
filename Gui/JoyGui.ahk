@@ -20,7 +20,7 @@ class JoyGui {
         this._closed := true
         this.TriggerAction := (*) => this.TriggerMacro()
 
-        this.SelectColor := "#19C930"
+        this.SelectColor := "{DynamicResource ActionBg}"
         this.CheckedArr := []          ; 数字按键短名：A、上、LB…
         this.AxisMap := Map()          ; 轴短名 → 数值  LX/LY/RX/RY/LT/RT
         this.Mode := "digital"         ; digital | analog
@@ -39,7 +39,7 @@ class JoyGui {
         this._dragStartX := 0
         this._dragStartY := 0
         this._stickTick := ObjBindMethod(this, "OnStickDragTick")
-        this._selBorder := "#FFE8C050"
+        this._selBorder := "{DynamicResource ActionStroke}"
         this._syncing := false
     }
 
@@ -89,9 +89,12 @@ class JoyGui {
         XAMLHost.AddCmdTitleBar(main, title, titleHeight)
 
         body := main.Add("Grid").Grid_Row(1).Margin("14,8,14,10")
-        body.Rows("Auto", "Auto", "Auto", "Auto")
+        body.Rows("Auto", "*", "120", "48")
 
-        body.Add("TextBlock").Grid_Row(0).Text(GetLang("点击按键可组合，再点取消；拖动摇杆设轴值，单击摇杆为按下，单击扳机为满行程，轴值在下方修改")).Margin("0,0,0,6")
+        hint := this._LtRtAsButton()
+            ? GetLang("点击按键可组合，再点取消；拖动摇杆设轴值，单击摇杆为按下，轴值在下方修改")
+            : GetLang("点击按键可组合，再点取消；拖动摇杆设轴值，单击摇杆为按下，单击扳机为满行程，轴值在下方修改")
+        body.Add("TextBlock").Grid_Row(0).Text(hint).Margin("0,0,0,6")
             .Foreground("{DynamicResource TextSub}").FontSize("11")
 
         padCard := body.Add("Border").Grid_Row(1).CornerRadius("10").Padding("4,2")
@@ -104,7 +107,7 @@ class JoyGui {
             .Background("{DynamicResource ControlBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
         param := paramCard.Add("StackPanel")
 
-        digitalRow := param.Add("StackPanel").Name("DigitalRow").Orientation("Horizontal").VerticalAlignment("Center").MinHeight("26")
+        digitalRow := param.Add("StackPanel").Name("DigitalRow").Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center").MinHeight("26")
         typeBox := digitalRow.Add("StackPanel").Name("TypeBox").Orientation("Horizontal").VerticalAlignment("Center").ToolTip(this._TypeHelpText())
         typeBox.Add("TextBlock").Text(GetLang("类型:")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
         kt := typeBox.Add("ComboBox").Name("KeyTypeCon").Width(80).Height(26).MinHeight(26).Margin("4,0,0,0")
@@ -119,7 +122,7 @@ class JoyGui {
         digitalRow.Add("TextBlock").Name("PerIntervalTipCon").Text(GetLang("每次间隔：")).VerticalAlignment("Center").Margin("14,0,0,0").Foreground("{DynamicResource TextMain}").FontSize("12")
         this._AddNumBox(digitalRow, "PerIntervalCon", "60")
 
-        analogRow := param.Add("StackPanel").Name("AnalogRow").Orientation("Horizontal").VerticalAlignment("Center").Margin("0,8,0,0").MinHeight("26")
+        analogRow := param.Add("StackPanel").Name("AnalogRow").Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center").Margin("0,8,0,0").MinHeight("26")
         analogRow.Add("TextBlock").Name("AxisTip1").Text("LX").VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12").Width("28")
         analogRow.Add("Slider").Name("AxisSlider1").Width("180").Height("26").Minimum("-100").Maximum("100").Value("100").IsMoveToPointEnabled("True").VerticalAlignment("Center")
         analogRow.Add("TextBox").Name("AxisVal1").Width("48").Height(26).MinHeight(26).Margin("6,0,16,0")
@@ -132,11 +135,11 @@ class JoyGui {
             .VerticalContentAlignment("Center").TextAlignment("Center").FontSize("11").Padding("2,0")
             .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-        analogRow.Add("TextBlock").Name("AxisRangeTip").Text("-100 ~ 100").VerticalAlignment("Center").Margin("12,0,0,0").Foreground("{DynamicResource TextSub}").FontSize("11")
 
-        param.Add("TextBlock").Name("CommandStrCon").Text(GetLang("当前指令：无")).Margin("0,8,0,0").Foreground("{DynamicResource TextMain}").FontSize("12")
+        param.Add("StackPanel").Name("CommandStrCon").Orientation("Horizontal").HorizontalAlignment("Center").Margin("0,8,0,0")
+            .VerticalAlignment("Center").MinHeight("22").Height("22")
 
-        btnRow := body.Add("StackPanel").Grid_Row(3).Orientation("Horizontal").HorizontalAlignment("Center").Margin("0,10,0,4")
+        btnRow := body.Add("StackPanel").Grid_Row(3).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
         clearBtn := btnRow.Add("Button").Name("BtnClear").Content(GetLang("清空")).Width(88).Height(32).MinHeight(32).Cursor("Hand")
             .Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}")
             .BorderBrush("{DynamicResource ActionStroke}").BorderThickness("1").FontSize(13).FontWeight("Bold")
@@ -166,6 +169,8 @@ class JoyGui {
         this.ui.OnEvent("AxisSlider2", "ValueChanged", ObjBindMethod(this, "OnAxisSlider", 2))
         this.ui.OnEvent("AxisVal1", "TextChanged", ObjBindMethod(this, "OnAxisText", 1))
         this.ui.OnEvent("AxisVal2", "TextChanged", ObjBindMethod(this, "OnAxisText", 2))
+        this.ui.OnEvent("AxisVal1", "LostFocus", ObjBindMethod(this, "OnAxisTextCommit", 1))
+        this.ui.OnEvent("AxisVal2", "LostFocus", ObjBindMethod(this, "OnAxisTextCommit", 2))
         this.ui.OnEvent("BtnClear", "Click", (*) => this.ClearAll())
         this.ui.OnEvent("BtnOk", "Click", ObjBindMethod(this, "OnSureBtnClick"))
         this.ui.Update("KeyTypeCon", "SelectedIndex", "2")
@@ -182,23 +187,47 @@ class JoyGui {
         return "Segoe Fluent Icons, Segoe MDL2 Assets"
     }
 
+    _Mdl2Font() {
+        return "Segoe MDL2 Assets, Segoe Fluent Icons"
+    }
+
+    _CommandFont() {
+        global MainSoftData
+        base := (IsSet(MainSoftData) && MainSoftData.HasProp("FontType") && MainSoftData.FontType != "") ? MainSoftData.FontType : "Microsoft YaHei UI"
+        return base ", Segoe Fluent Icons, Segoe MDL2 Assets"
+    }
+
     _PadBtnStyle(radius) {
-        return '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="' radius '" SnapsToDevicePixels="True" UseLayoutRounding="True"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="bd" Property="Opacity" Value="0.88"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
+        return '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="' radius '" SnapsToDevicePixels="True" UseLayoutRounding="False"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="bd" Property="Opacity" Value="0.88"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
     }
 
     _IconBtnStyle() {
-        return '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Grid SnapsToDevicePixels="True" UseLayoutRounding="True"><Ellipse x:Name="bd" Fill="{TemplateBinding Background}" Stroke="{TemplateBinding BorderBrush}" StrokeThickness="1" SnapsToDevicePixels="True"/><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Grid><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="bd" Property="Opacity" Value="0.88"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
+        return '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Grid ClipToBounds="False" SnapsToDevicePixels="True" UseLayoutRounding="False"><Ellipse x:Name="bd" Margin="1.5" Fill="{TemplateBinding Background}" Stroke="{TemplateBinding BorderBrush}" StrokeThickness="1.5" SnapsToDevicePixels="True"/><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Grid><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="bd" Property="Opacity" Value="0.88"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
     }
 
-    _PlacePadBtn(id, label, x, y, w, h, bg, fg := "{DynamicResource TextMain}", radius := 6, bd := "{DynamicResource ControlBorder}", fontSize := 11, fontFamily := "", tip := "") {
+    _PlacePadBtn(id, label, x, y, w, h, bg, fg := "{DynamicResource TextMain}", radius := 6, bd := "{DynamicResource ControlBorder}", fontSize := 11, fontFamily := "", tip := "", glyphMargin := "", rotate := 0) {
         name := "Pad_" id
-        btn := this._pad.Add("Button").Name(name).Content(label).Width(String(w)).Height(String(h))
+        btn := this._pad.Add("Button").Name(name).Width(String(w)).Height(String(h))
             .SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
             .FontSize(fontSize).FontWeight("SemiBold").Cursor("Hand").Padding("0")
-            .Background(bg).Foreground(fg).BorderBrush(bd).BorderThickness("1")
-            .SetProp("SnapsToDevicePixels", "True").SetProp("UseLayoutRounding", "True")
-        if (fontFamily != "")
-            btn.FontFamily(fontFamily)
+            .Background(bg).Foreground(fg).BorderBrush(bd).BorderThickness("1.5")
+            .SetProp("SnapsToDevicePixels", "True").SetProp("UseLayoutRounding", "False")
+        if (glyphMargin != "" || rotate != 0) {
+            tb := btn.Add("TextBlock").Text(label).FontSize(fontSize).FontWeight("SemiBold")
+                .HorizontalAlignment("Center").VerticalAlignment("Center")
+                .Margin(glyphMargin == "" ? "0" : glyphMargin).Padding("0").IsHitTestVisible("False")
+                .SetProp("LineStackingStrategy", "BlockLineHeight").LineHeight(String(fontSize))
+            if (fontFamily != "")
+                tb.FontFamily(fontFamily)
+            if (rotate != 0) {
+                tb.SetProp("RenderTransformOrigin", "0.5,0.5")
+                tb.Add("TextBlock.LayoutTransform").Add("RotateTransform").Angle(String(rotate))
+            }
+        } else {
+            btn.Content(label)
+            if (fontFamily != "")
+                btn.FontFamily(fontFamily)
+        }
         if (tip != "")
             btn.ToolTip(tip)
         btn.InjectResources(this._PadBtnStyle(radius))
@@ -211,29 +240,86 @@ class JoyGui {
         name := "Pad_" id
         bg := ring ? "{DynamicResource ControlBg}" : "#00FFFFFF"
         bd := ring ? "{DynamicResource ControlBorder}" : "#00FFFFFF"
-        btn := this._pad.Add("Button").Name(name).Content(glyph).Width(String(size)).Height(String(size))
+        btn := this._pad.Add("Button").Name(name).Width(String(size)).Height(String(size))
             .SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
-            .FontSize(fontSize).FontWeight("SemiBold").Cursor("Hand").Padding("0")
-            .Background(bg).Foreground("{DynamicResource TextMain}").BorderBrush(bd).BorderThickness("1")
-            .FontFamily(this._FluentFont()).ToolTip(tip)
-            .SetProp("SnapsToDevicePixels", "True").SetProp("UseLayoutRounding", "True")
+            .Cursor("Hand").Padding("0")
+            .Background(bg).Foreground("{DynamicResource TextMain}").BorderBrush(bd).BorderThickness("1.5")
+            .ToolTip(tip)
+            .SetProp("SnapsToDevicePixels", "True").SetProp("UseLayoutRounding", "False")
+        btn.Add("TextBlock").Text(glyph).FontFamily(this._FluentFont()).FontSize(fontSize).FontWeight("SemiBold")
+            .Foreground("{DynamicResource TextMain}").HorizontalAlignment("Center").VerticalAlignment("Center")
+            .Margin("0.5,-1,0,1").IsHitTestVisible("False")
         btn.InjectResources(this._IconBtnStyle())
         this._btnKeyMap.Set(name, id)
         this._btnDefBg.Set(name, bg)
         this._btnDefBd.Set(name, bd)
     }
 
-    _PlaceRectIconBtn(id, glyph, tip, x, y, w := 38, h := 22, fontSize := 12) {
-        this._PlacePadBtn(id, glyph, x, y, w, h, "{DynamicResource ControlBg}", "{DynamicResource TextMain}", 4, "{DynamicResource ControlBorder}", fontSize, this._FluentFont(), tip)
+    _PlacePs5Triangle(x, y, size, bg, fg, bd) {
+        name := "Pad_Y"
+        btn := this._pad.Add("Button").Name(name).Width(String(size)).Height(String(size))
+            .SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
+            .Cursor("Hand").Padding("0")
+            .Background(bg).Foreground(fg).BorderBrush(bd).BorderThickness("1.5")
+            .SetProp("SnapsToDevicePixels", "True").SetProp("UseLayoutRounding", "False")
+        side := 14
+        h := 12
+        btn.Add("Path").Name("Pad_YGlyph").Data("M " (side / 2) ",0.6 L " (side - 0.5) "," (h - 0.4) " L 0.5," (h - 0.4) " Z")
+            .Fill("#00FFFFFF").Stroke(fg).StrokeThickness("1").SetProp("StrokeLineJoin", "Miter")
+            .Stretch("Uniform").Width(String(side)).Height(String(h))
+            .HorizontalAlignment("Center").VerticalAlignment("Center")
+            .Margin("0,-1,0,1").IsHitTestVisible("False")
+            .SetProp("SnapsToDevicePixels", "True")
+        btn.InjectResources(this._PadBtnStyle(size / 2))
+        this._btnKeyMap.Set(name, "Y")
+        this._btnDefBg.Set(name, bg)
+        this._btnDefBd.Set(name, bd)
+    }
+
+    _PlacePs5Cross(x, y, size, bg, fg, bd) {
+        name := "Pad_A"
+        btn := this._pad.Add("Button").Name(name).Width(String(size)).Height(String(size))
+            .SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
+            .Cursor("Hand").Padding("0")
+            .Background(bg).Foreground(fg).BorderBrush(bd).BorderThickness("1.5")
+            .SetProp("SnapsToDevicePixels", "True").SetProp("UseLayoutRounding", "False")
+        g := 10
+        host := btn.Add("Grid").HorizontalAlignment("Stretch").VerticalAlignment("Stretch")
+            .IsHitTestVisible("False")
+        host.Add("Path").Name("Pad_AGlyph").Data("M 1,1 L " (g - 1) "," (g - 1))
+            .Fill("#00FFFFFF").Stroke(fg).StrokeThickness("1.2")
+            .SetProp("StrokeStartLineCap", "Round").SetProp("StrokeEndLineCap", "Round")
+            .Stretch("Fill").Width(String(g)).Height(String(g))
+            .HorizontalAlignment("Center").VerticalAlignment("Center")
+            .SetProp("SnapsToDevicePixels", "True")
+        host.Add("Path").Name("Pad_AGlyph2").Data("M " (g - 1) ",1 L 1," (g - 1))
+            .Fill("#00FFFFFF").Stroke(fg).StrokeThickness("1.2")
+            .SetProp("StrokeStartLineCap", "Round").SetProp("StrokeEndLineCap", "Round")
+            .Stretch("Fill").Width(String(g)).Height(String(g))
+            .HorizontalAlignment("Center").VerticalAlignment("Center")
+            .SetProp("SnapsToDevicePixels", "True")
+        btn.InjectResources(this._PadBtnStyle(size / 2))
+        this._btnKeyMap.Set(name, "A")
+        this._btnDefBg.Set(name, bg)
+        this._btnDefBd.Set(name, bd)
+    }
+
+    _PlaceRectIconBtn(id, glyph, tip, x, y, w := 38, h := 22, fontSize := 12, fontFamily := "") {
+        if (fontFamily == "")
+            fontFamily := this._FluentFont()
+        this._PlacePadBtn(id, glyph, x, y, w, h, "{DynamicResource ControlBg}", "{DynamicResource TextMain}", 4, "{DynamicResource ControlBorder}", fontSize, fontFamily, tip)
     }
 
     _PlaceStick(id, x, y, size, knob) {
+        pad := 4
+        hostSize := size + pad * 2
         maxR := Integer((size - knob) / 2)
-        host := this._pad.Add("Grid").Width(String(size)).Height(String(size)).Cursor("SizeAll")
-            .SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
-            .SetProp("Panel.ZIndex", "8").ClipToBounds("True")
+        host := this._pad.Add("Grid").Width(String(hostSize)).Height(String(hostSize)).Cursor("SizeAll")
+            .SetProp("Canvas.Left", String(x - pad)).SetProp("Canvas.Top", String(y - pad))
+            .SetProp("Panel.ZIndex", "8").ClipToBounds("False")
+            .SetProp("SnapsToDevicePixels", "True").SetProp("UseLayoutRounding", "False")
         host.Add("Ellipse").Width(String(size)).Height(String(size))
-            .Fill("{DynamicResource DropdownBg}").Stroke("{DynamicResource ControlBorder}").StrokeThickness("3")
+            .Fill("{DynamicResource DropdownBg}").Stroke("{DynamicResource ControlBorder}").StrokeThickness("2")
             .HorizontalAlignment("Center").VerticalAlignment("Center").IsHitTestVisible("False")
             .SetProp("SnapsToDevicePixels", "True")
         host.Add("Ellipse").Name("Pad_" id "Bg").Width(String(size - 6)).Height(String(size - 6))
@@ -241,16 +327,18 @@ class JoyGui {
             .HorizontalAlignment("Center").VerticalAlignment("Center")
             .SetProp("SnapsToDevicePixels", "True")
         knobBox := host.Add("Grid").Name("Pad_" id "Knob").Width(String(knob)).Height(String(knob))
-            .HorizontalAlignment("Left").VerticalAlignment("Top").Margin(maxR "," maxR ",0,0")
-        knobBox.Add("Ellipse").Width(String(knob)).Height(String(knob))
+            .HorizontalAlignment("Left").VerticalAlignment("Top").Margin((pad + maxR) "," (pad + maxR) ",0,0")
+        knobBox.Add("Ellipse").Name("Pad_" id "KnobFill").Width(String(knob)).Height(String(knob))
             .Fill("{DynamicResource ControlBg}").Stroke("{DynamicResource ControlBorder}").StrokeThickness("1.5")
             .SetProp("SnapsToDevicePixels", "True")
         tag := (id == "AxisLS") ? "L" : "R"
-        knobBox.Add("TextBlock").Text(tag).FontSize("12").FontWeight("Bold").Foreground("{DynamicResource TextMain}")
+        knobBox.Add("TextBlock").Name("Pad_" id "Tag").Text(tag).FontSize("12").FontWeight("Bold")
+            .Foreground("{DynamicResource TextMain}")
             .HorizontalAlignment("Center").VerticalAlignment("Center").IsHitTestVisible("False")
-        this._stickLayout[id] := { kind: "stick", x: x, y: y, size: size, knob: knob, maxR: maxR }
+        this._stickLayout[id] := { kind: "stick", x: x, y: y, size: size, knob: knob, maxR: maxR, pad: pad }
         this._btnKeyMap.Set("Pad_" id, id)
         this._btnDefBg.Set("Pad_" id "Bg", "{DynamicResource InputBg}")
+        this._btnDefBg.Set("Pad_" id "KnobFill", "{DynamicResource ControlBg}")
     }
 
     _PlaceTrigger(id, label, x, y, w, h) {
@@ -302,7 +390,7 @@ class JoyGui {
     }
 
     _PlaceAbxy(cx, cy) {
-        global MySoftData
+        global MySoftData, MainSoftData
         well := 92, btn := 28, d := 24
         wellC := "{DynamicResource ControlBg}"
         fg := "{DynamicResource TextMain}"
@@ -311,14 +399,23 @@ class JoyGui {
             .SetProp("Canvas.Left", String(cx - well / 2)).SetProp("Canvas.Top", String(cy - well / 2))
             .IsHitTestVisible("False")
         half := btn / 2
-        this._PlacePadBtn("Y", MySoftData.GetJoyDisplayName("JoyY"), cx - half, cy - d - half, btn, btn, wellC, fg, half, bd, 12)
-        this._PlacePadBtn("X", MySoftData.GetJoyDisplayName("JoyX"), cx - d - half, cy - half, btn, btn, wellC, fg, half, bd, 12)
-        this._PlacePadBtn("B", MySoftData.GetJoyDisplayName("JoyB"), cx + d - half, cy - half, btn, btn, wellC, fg, half, bd, 12)
-        this._PlacePadBtn("A", MySoftData.GetJoyDisplayName("JoyA"), cx - half, cy + d - half, btn, btn, wellC, fg, half, bd, 12)
+        isPs5 := (IsSet(MainSoftData) && MainSoftData.TriggerJoyType == "PS5")
+        if (isPs5) {
+            ff := this._FluentFont()
+            this._PlacePs5Triangle(cx - half, cy - d - half, btn, wellC, fg, bd)
+            this._PlacePadBtn("X", Chr(0xE739), cx - d - half, cy - half, btn, btn, wellC, fg, half, bd, 14, ff)
+            this._PlacePadBtn("B", Chr(0xECCA), cx + d - half, cy - half, btn, btn, wellC, fg, half, bd, 14, ff, "", "0,1,0,0")
+            this._PlacePs5Cross(cx - half, cy + d - half, btn, wellC, fg, bd)
+        } else {
+            this._PlacePadBtn("Y", MySoftData.GetJoyDisplayName("JoyY"), cx - half, cy - d - half, btn, btn, wellC, fg, half, bd, 12)
+            this._PlacePadBtn("X", MySoftData.GetJoyDisplayName("JoyX"), cx - d - half, cy - half, btn, btn, wellC, fg, half, bd, 12)
+            this._PlacePadBtn("B", MySoftData.GetJoyDisplayName("JoyB"), cx + d - half, cy - half, btn, btn, wellC, fg, half, bd, 12)
+            this._PlacePadBtn("A", MySoftData.GetJoyDisplayName("JoyA"), cx - half, cy + d - half, btn, btn, wellC, fg, half, bd, 12)
+        }
     }
 
     _BuildPad() {
-        global MySoftData
+        global MySoftData, MainSoftData
         shell := "{DynamicResource DropdownBg}"
         well := "{DynamicResource ControlBg}"
         bd := "{DynamicResource ControlBorder}"
@@ -334,24 +431,54 @@ class JoyGui {
             .Fill("#00FFFFFF").SetProp("StrokeStartLineCap", "Round").SetProp("StrokeEndLineCap", "Round")
             .SetProp("Panel.ZIndex", "1").IsHitTestVisible("False")
 
-        this._PlaceTrigger("AxisLT", "LT", 190, 14, 32, 42)
-        this._PlaceTrigger("AxisRT", "RT", 418, 14, 32, 42)
+        this._PlaceLtRt(190, 14, 32, 42)
         this._PlacePadBtn("LB", MySoftData.GetJoyDisplayName("JoyLB"), 178, 58, 56, 13, well, fg, 7, bd, 10)
         this._PlacePadBtn("RB", MySoftData.GetJoyDisplayName("JoyRB"), 406, 58, 56, 13, well, fg, 7, bd, 10)
 
         topY := 142
         lowY := 238
         stick := 76
-        this._PlaceStick("AxisLS", 198 - stick / 2, topY - stick / 2, stick, 42)
-        this._PlaceAbxy(442, topY)
+        isPs5 := (IsSet(MainSoftData) && MainSoftData.TriggerJoyType == "PS5")
+        if (isPs5) {
+            this._PlaceDpad(198, topY)
+            this._PlaceAbxy(442, topY)
+        } else {
+            this._PlaceStick("AxisLS", 198 - stick / 2, topY - stick / 2, stick, 42)
+            this._PlaceAbxy(442, topY)
+        }
 
-        this._PlaceIconBtn("Home", Chr(0xE80F), MySoftData.GetJoyDisplayName("JoyHome"), 306, 126, 28, 12, true)
-        this._PlacePadBtn("Back", Chr(0x2B8C), 255, 170, 38, 22, well, fg, 4, bd, 13, "Segoe UI Symbol, Segoe UI", MySoftData.GetJoyDisplayName("JoyBack"))
+        this._PlaceIconBtn("Home", Chr(0xE80F), MySoftData.GetJoyDisplayName("JoyHome"), 306, 126, 28, 13, true)
+        this._PlaceRectIconBtn("Back", Chr(0x2B8C), MySoftData.GetJoyDisplayName("JoyBack"), 255, 170, 38, 22, 12, "Segoe UI Symbol, Segoe UI")
         this._PlaceRectIconBtn("Pad", Chr(0xE74A), MySoftData.GetJoyDisplayName("JoyPad"), 301, 170)
         this._PlaceRectIconBtn("Start", Chr(0xE700), MySoftData.GetJoyDisplayName("JoyStart"), 347, 170)
 
-        this._PlaceDpad(238, lowY)
-        this._PlaceStick("AxisRS", 402 - stick / 2, lowY - stick / 2, stick, 42)
+        if (isPs5) {
+            this._PlaceStick("AxisLS", 238 - stick / 2, lowY - stick / 2, stick, 42)
+            this._PlaceStick("AxisRS", 402 - stick / 2, lowY - stick / 2, stick, 42)
+        } else {
+            this._PlaceDpad(238, lowY)
+            this._PlaceStick("AxisRS", 402 - stick / 2, lowY - stick / 2, stick, 42)
+        }
+    }
+
+    _LtRtAsButton() {
+        if (!IsSet(MainSoftData) || !IsObject(MainSoftData) || !MainSoftData.HasProp("JoyLtRtAsButton"))
+            return true
+        return !!MainSoftData.JoyLtRtAsButton
+    }
+
+    _PlaceLtRt(x, y, w, h) {
+        global MySoftData
+        if (this._LtRtAsButton()) {
+            well := "{DynamicResource ControlBg}"
+            fg := "{DynamicResource TextMain}"
+            bd := "{DynamicResource ControlBorder}"
+            this._PlacePadBtn("LT", MySoftData.GetJoyDisplayName("JoyLT"), x, y, w, h, well, fg, Integer(w / 2), bd, 10)
+            this._PlacePadBtn("RT", MySoftData.GetJoyDisplayName("JoyRT"), 418, y, w, h, well, fg, Integer(w / 2), bd, 10)
+            return
+        }
+        this._PlaceTrigger("AxisLT", MySoftData.GetJoyDisplayName("JoyLT"), x, y, w, h)
+        this._PlaceTrigger("AxisRT", MySoftData.GetJoyDisplayName("JoyRT"), 418, y, w, h)
     }
 
     _RegisterPadEvents() {
@@ -504,11 +631,23 @@ class JoyGui {
             this.AxisMap[a1] := this._ClampAxis(a1, Round(nx * 100))
             this.AxisMap[a2] := this._ClampAxis(a2, Round(-ny * 100))
         }
+        this._SyncAnalogRowVis()
         this._SyncAxisControls()
         this._UpdateAnalogVisuals()
         this._RefreshPadHighlight()
         this.UpdateCommandStr()
-        this.ui.Update("CommandStrCon", "Text", Format("{}{}", GetLang("当前指令："), this.CommandStr))
+    }
+
+    _SyncAnalogRowVis() {
+        if (!IsObject(this.ui))
+            return
+        hasAxis := this.AxisMap.Count > 0
+        dual := this._axisGroup == "AxisLS" || this._axisGroup == "AxisRS"
+        this.ui.Update("AnalogRow", "Visibility", hasAxis ? "Visible" : "Hidden")
+        vis2 := dual ? "Visible" : "Hidden"
+        this.ui.Update("AxisTip2", "Visibility", vis2)
+        this.ui.Update("AxisSlider2", "Visibility", vis2)
+        this.ui.Update("AxisVal2", "Visibility", vis2)
     }
 
     _CenterStickKnob(id, nx, ny) {
@@ -516,8 +655,9 @@ class JoyGui {
             return
         layout := this._stickLayout[id]
         maxR := layout.HasProp("maxR") ? layout.maxR : ((layout.size - layout.knob) / 2)
-        kx := maxR + nx * maxR
-        ky := maxR + ny * maxR
+        pad := layout.HasProp("pad") ? layout.pad : 0
+        kx := pad + maxR + nx * maxR
+        ky := pad + maxR + ny * maxR
         this.ui.Update("Pad_" id "Knob", "Margin", Round(kx) "," Round(ky) ",0,0")
     }
 
@@ -555,7 +695,11 @@ class JoyGui {
     }
 
     _IsAnalogId(id) {
-        return id == "AxisLS" || id == "AxisRS" || id == "AxisLT" || id == "AxisRT"
+        if (id == "AxisLS" || id == "AxisRS")
+            return true
+        if ((id == "AxisLT" || id == "AxisRT") && !this._LtRtAsButton())
+            return true
+        return false
     }
 
     _DpadSet() {
@@ -638,9 +782,11 @@ class JoyGui {
             else if (id == "AxisRT")
                 on := on || selected.Has("RT")
             if (id == "AxisLS" || id == "AxisRS") {
-                bgName := "Pad_" id "Bg"
-                this.ui.Update(bgName, "Stroke", on ? this._selBorder : "{DynamicResource ControlBorder}")
-                this.ui.Update(bgName, "StrokeThickness", on ? "2.5" : "1.5")
+                knobName := "Pad_" id "KnobFill"
+                tagName := "Pad_" id "Tag"
+                this.ui.Update(knobName, "Fill", on ? this.SelectColor : "{DynamicResource ControlBg}")
+                this.ui.Update(knobName, "Stroke", on ? this._selBorder : "{DynamicResource ControlBorder}")
+                this.ui.Update(tagName, "Foreground", on ? "{DynamicResource ActionText}" : "{DynamicResource TextMain}")
             } else if (id == "AxisLT" || id == "AxisRT") {
                 bgName := "Pad_" id "Bg"
                 this.ui.Update(bgName, "BorderBrush", on ? this._selBorder : "{DynamicResource ControlBorder}")
@@ -648,8 +794,15 @@ class JoyGui {
                 defBg := this._btnDefBg.Get(name, "{DynamicResource ControlBg}")
                 defBd := this._btnDefBd.Get(name, "{DynamicResource ControlBorder}")
                 this.ui.Update(name, "Background", on ? this.SelectColor : defBg)
+                this.ui.Update(name, "Foreground", on ? "{DynamicResource ActionText}" : "{DynamicResource TextMain}")
                 this.ui.Update(name, "BorderBrush", on ? this._selBorder : defBd)
-                this.ui.Update(name, "BorderThickness", on ? "2" : "1")
+                this.ui.Update(name, "BorderThickness", "1.5")
+                if (id == "Y")
+                    this.ui.Update("Pad_YGlyph", "Stroke", on ? "{DynamicResource ActionText}" : "{DynamicResource TextMain}")
+                if (id == "A") {
+                    this.ui.Update("Pad_AGlyph", "Stroke", on ? "{DynamicResource ActionText}" : "{DynamicResource TextMain}")
+                    this.ui.Update("Pad_AGlyph2", "Stroke", on ? "{DynamicResource ActionText}" : "{DynamicResource TextMain}")
+                }
             }
         }
     }
@@ -673,7 +826,6 @@ class JoyGui {
             this.ui.Update("AxisSlider2", "Value", String(v2))
             this.ui.Update("AxisVal1", "Text", String(v1))
             this.ui.Update("AxisVal2", "Text", String(v2))
-            this.ui.Update("AxisRangeTip", "Text", "-100 ~ 100")
         } else {
             a1 := (this._axisGroup == "AxisLT") ? "LT" : "RT"
             this.ui.Update("AxisTip1", "Text", a1)
@@ -682,7 +834,6 @@ class JoyGui {
             v1 := this.AxisMap.Get(a1, 100)
             this.ui.Update("AxisSlider1", "Value", String(v1))
             this.ui.Update("AxisVal1", "Text", String(v1))
-            this.ui.Update("AxisRangeTip", "Text", "0 ~ 100")
         }
         this._syncing := false
         this._UpdateAnalogVisuals()
@@ -718,34 +869,71 @@ class JoyGui {
         return v
     }
 
+    _StickFitOther(kept) {
+        kept := Integer(kept)
+        rem := 10000 - kept * kept
+        if (rem <= 0)
+            return 0
+        return Integer(Sqrt(rem))
+    }
+
+    _NormalizeStickPair(keepName := "") {
+        names := this._AxisNames()
+        if (names.Length != 2)
+            return
+        xName := names[1], yName := names[2]
+        x := this._ClampAxis(xName, this.AxisMap.Get(xName, 0))
+        y := this._ClampAxis(yName, this.AxisMap.Get(yName, 0))
+        if (keepName == yName) {
+            maxX := this._StickFitOther(y)
+            if (Abs(x) > maxX)
+                x := (x < 0) ? -maxX : maxX
+        } else {
+            maxY := this._StickFitOther(x)
+            if (Abs(y) > maxY)
+                y := (y < 0) ? -maxY : maxY
+        }
+        this.AxisMap[xName] := x
+        this.AxisMap[yName] := y
+    }
+
+    _ApplyAxisInput(which, raw) {
+        names := this._AxisNames()
+        if (which < 1 || which > names.Length)
+            return
+        name := names[which]
+        this.AxisMap[name] := this._ClampAxis(name, raw)
+        if (names.Length == 2)
+            this._NormalizeStickPair(name)
+        this._SyncAxisControls()
+        this.Refresh()
+    }
+
     OnAxisSlider(which, *) {
         if (this._syncing || this._axisGroup == "")
             return
-        names := this._AxisNames()
-        if (which > names.Length)
-            return
         raw := this.ui.Query("AxisSlider" which)
-        v := this._ClampAxis(names[which], IsNumber(raw) ? Round(Float(raw)) : 0)
-        this.AxisMap[names[which]] := v
-        this.ui.Update("AxisVal" which, "Text", String(v))
-        this._UpdateAnalogVisuals()
-        this.Refresh()
+        this._ApplyAxisInput(which, IsNumber(raw) ? Round(Float(raw)) : 0)
     }
 
     OnAxisText(which, *) {
         if (this._syncing || this._axisGroup == "")
             return
-        names := this._AxisNames()
-        if (which > names.Length)
-            return
         raw := this.ui.Query("AxisVal" which)
         if (!IsNumber(raw))
             return
-        v := this._ClampAxis(names[which], raw)
-        this.AxisMap[names[which]] := v
-        this.ui.Update("AxisSlider" which, "Value", String(v))
-        this._UpdateAnalogVisuals()
-        this.Refresh()
+        this._ApplyAxisInput(which, raw)
+    }
+
+    OnAxisTextCommit(which, *) {
+        if (this._syncing || this._axisGroup == "")
+            return
+        raw := this.ui.Query("AxisVal" which)
+        if (!IsNumber(raw)) {
+            this._SyncAxisControls()
+            return
+        }
+        this._ApplyAxisInput(which, raw)
     }
 
     ClearAll() {
@@ -793,7 +981,7 @@ class JoyGui {
                     this.ui.Update("PerIntervalCon", "Text", paramArr[i + 3])
                 break
             } else {
-                for short in StrSplit(p, "+") {
+                for short in StrSplit(StrReplace(p, "+", "⎖"), "⎖") {
                     short := Trim(short)
                     if (short != "")
                         this.CheckedArr.Push(JoyInternalToShort(short))
@@ -802,6 +990,7 @@ class JoyGui {
             i++
         }
 
+        this._ApplyLtRtMode()
         if (this.AxisMap.Count > 0) {
             if (this.AxisMap.Has("LX") || this.AxisMap.Has("LY"))
                 this._axisGroup := "AxisLS"
@@ -811,10 +1000,49 @@ class JoyGui {
                 this._axisGroup := "AxisLT"
             else if (this.AxisMap.Has("RT"))
                 this._axisGroup := "AxisRT"
+            this._NormalizeStickPair("")
             this._SyncAxisControls()
         }
         this._RefreshPadHighlight()
         this.Refresh()
+    }
+
+    _ApplyLtRtMode() {
+        if (this._LtRtAsButton()) {
+            for name in ["LT", "RT"] {
+                if (!this.AxisMap.Has(name))
+                    continue
+                if (Integer(this.AxisMap[name]) > 0) {
+                    found := false
+                    for v in this.CheckedArr {
+                        if (v == name) {
+                            found := true
+                            break
+                        }
+                    }
+                    if (!found)
+                        this.CheckedArr.Push(name)
+                }
+                this.AxisMap.Delete(name)
+            }
+            if (this._axisGroup == "AxisLT" || this._axisGroup == "AxisRT")
+                this._axisGroup := ""
+            return
+        }
+        kept := []
+        for v in this.CheckedArr {
+            if (v == "LT" || v == "RT") {
+                if (!this.AxisMap.Has(v))
+                    this.AxisMap[v] := 100
+            } else {
+                kept.Push(v)
+            }
+        }
+        this.CheckedArr := kept
+        if (this._axisGroup == "" && this.AxisMap.Has("LT"))
+            this._axisGroup := "AxisLT"
+        else if (this._axisGroup == "" && this.AxisMap.Has("RT"))
+            this._axisGroup := "AxisRT"
     }
 
     _KeyTypeIndex() {
@@ -875,11 +1103,9 @@ class JoyGui {
 
     Refresh() {
         this.UpdateCommandStr()
-        hasAxis := this.AxisMap.Count > 0
         isClick := this._KeyTypeIndex() == 3
         isCount := isClick
         isInter := isCount && this.ui.Query("KeyCountCon") != 1
-        dual := this._axisGroup == "AxisLS" || this._axisGroup == "AxisRS"
 
         this.ui.Update("HoldTimeTipCon", "Visibility", isClick ? "Visible" : "Collapsed")
         this.ui.Update("HoldTimeCon", "Visibility", isClick ? "Visible" : "Collapsed")
@@ -887,12 +1113,76 @@ class JoyGui {
         this.ui.Update("KeyCountCon", "Visibility", isCount ? "Visible" : "Collapsed")
         this.ui.Update("PerIntervalTipCon", "Visibility", isInter ? "Visible" : "Collapsed")
         this.ui.Update("PerIntervalCon", "Visibility", isInter ? "Visible" : "Collapsed")
-        this.ui.Update("AnalogRow", "Visibility", hasAxis ? "Visible" : "Hidden")
-        this.ui.Update("AxisTip2", "Visibility", dual ? "Visible" : "Hidden")
-        this.ui.Update("AxisSlider2", "Visibility", dual ? "Visible" : "Hidden")
-        this.ui.Update("AxisVal2", "Visibility", dual ? "Visible" : "Hidden")
-        this.ui.Update("CommandStrCon", "Text", Format("{}{}", GetLang("当前指令："), this.CommandStr))
+        this._SyncAnalogRowVis()
+        this._ShowCommandStr()
         this._UpdateAnalogVisuals()
+    }
+
+    _ShowCommandStr() {
+        global MySoftData
+        if (!IsObject(this.ui))
+            return
+        disp := IsObject(MySoftData) ? MySoftData.FormatCmdJoyDisplay(this.CommandStr) : this.CommandStr
+        full := (this.CommandStr == "")
+            ? GetLang("当前指令：无")
+            : Format("{}{}", GetLang("当前指令："), disp)
+        this.ui.Update("CommandStrCon", "ClearItems", "")
+        this.ui.Update("CommandStrCon", "AddXamlItem", this._CommandStrXaml(full))
+    }
+
+    _CommandGlyphKind(ch) {
+        c := Ord(ch)
+        if (c == 0x25B3 || c == 0x25B2 || c == 0xF13A || c == 0xF139 || c == 0xEA82 || c == 0xE768)
+            return "tri"
+        if (c == 0xE711 || c == 0xE8BB || c == 0xD7 || c == 0x2715)
+            return "cross"
+        if (c >= 0xE000 && c <= 0xF8FF)
+            return "fluent"
+        return ""
+    }
+
+    _CommandTextXaml(s) {
+        return '<TextBlock Text="' this._EscapeXml(s) '" FontSize="12" VerticalAlignment="Center"'
+            . ' Foreground="{DynamicResource TextMain}" FontFamily="' this._EscapeXml(this._CommandFont()) '"/>'
+    }
+
+    _CommandGlyphXaml(kind, ch) {
+        fg := "{DynamicResource TextMain}"
+        if (kind == "tri")
+            return '<Grid Width="12" Height="11" Margin="1,-1,1,1" VerticalAlignment="Center">'
+                . '<Path Data="M 6,0.8 L 11.2,10.2 L 0.8,10.2 Z" Fill="#00FFFFFF" Stroke="' fg '"'
+                . ' StrokeThickness="1" Stretch="Uniform" Width="12" Height="11"'
+                . ' StrokeLineJoin="Miter"/>'
+                . '</Grid>'
+        if (kind == "cross")
+            return '<Grid Width="10" Height="10" Margin="1,1,1,-1" VerticalAlignment="Center">'
+                . '<Path Data="M 1,1 L 9,9" Fill="#00FFFFFF" Stroke="' fg '" StrokeThickness="1.2"'
+                . ' Stretch="Fill" Width="10" Height="10" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>'
+                . '<Path Data="M 9,1 L 1,9" Fill="#00FFFFFF" Stroke="' fg '" StrokeThickness="1.2"'
+                . ' Stretch="Fill" Width="10" Height="10" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>'
+                . '</Grid>'
+        return '<TextBlock Text="&#x' Format("{:X}", Ord(ch)) ';" FontSize="12" VerticalAlignment="Center" Margin="0,1,0,0"'
+            . ' Foreground="' fg '" FontFamily="' this._EscapeXml(this._FluentFont()) '"/>'
+    }
+
+    _CommandStrXaml(text) {
+        ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"'
+        inner := "", buf := ""
+        Loop Parse text {
+            kind := this._CommandGlyphKind(A_LoopField)
+            if (kind == "") {
+                buf .= A_LoopField
+                continue
+            }
+            if (buf != "") {
+                inner .= this._CommandTextXaml(buf)
+                buf := ""
+            }
+            inner .= this._CommandGlyphXaml(kind, A_LoopField)
+        }
+        if (buf != "")
+            inner .= this._CommandTextXaml(buf)
+        return '<StackPanel ' ns ' Orientation="Horizontal" VerticalAlignment="Center">' inner '</StackPanel>'
     }
 
     CheckIfValid() {
@@ -1121,7 +1411,7 @@ JoyCmdToPressKeyParts(cmd) {
             }
             break
         } else {
-            for short in StrSplit(p, "+") {
+            for short in StrSplit(StrReplace(p, "+", "⎖"), "⎖") {
                 inn := JoyShortToInternal(Trim(short))
                 if (inn != "")
                     buttons.Push(inn)

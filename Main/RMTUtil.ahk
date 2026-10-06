@@ -127,6 +127,7 @@ OnSaveSetting(*) {
     CheckAndAddDirty("FontSize", MainSoftData.HasProp("FontSize") ? MainSoftData.FontSize : 15)
     CheckAndAddDirty("JoyType", MainSoftData.JoyType)
     CheckAndAddDirty("TriggerJoyType", MainSoftData.TriggerJoyType)
+    CheckAndAddDirty("JoyLtRtAsButton", MainSoftData.HasProp("JoyLtRtAsButton") ? MainSoftData.JoyLtRtAsButton : true)
     CheckAndAddDirty("PreferredMacroEditor", MainSoftData.PreferredMacroEditor)
     CheckAndAddDirty("MacroTotalCount", MySoftData.MacroTotalCount)
     CheckAndAddDirty("LastShowMonth", MainSoftData.LastShowMonth)
@@ -552,6 +553,7 @@ InitFilePath() {
     global FileIOFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\FileIOFile.toml"
     global WindowManageFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\WindowManageFile.toml"
     global KeyCheckFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\KeyCheckFile.toml"
+    global JoyCheckFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\JoyCheckFile.toml"
     global CommentFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\CommentFile.toml"
     global ScreenShotFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\ScreenShotFile.toml"
     global GraphNodeFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\GraphNodeFile.toml"
@@ -1496,7 +1498,7 @@ DiscardRecordTriggerKey(MacroStr, isFront) {
 
 CheckIfDiscardCMD(triggerMap, cmd) {
     isKey := InStr(cmd, GetLang("按键")) && !InStr(cmd, GetLang("按键检测"))
-    isJoy := InStr(cmd, GetLang("手柄"))
+    isJoy := InStr(cmd, GetLang("手柄")) && !InStr(cmd, GetLang("手柄检测"))
     if (!isKey && !isJoy)
         return false
 

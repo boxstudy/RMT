@@ -269,7 +269,8 @@ class MainConfig {
 
         ; ========== 手柄 ==========
         this.JoyType := "Xbox"          ; 宏手柄类型 (Xbox/DS4)，实际模拟输出到 ViGEm 虚拟手柄的类型
-        this.TriggerJoyType := "Xbox"   ; 手柄映射 (Xbox/PS5)，触发键、按键指令、按键检测等所有手柄按键名称显示统一使用此设置
+        this.TriggerJoyType := "Xbox"   ; 手柄映射 (Xbox/PS5)，触发键、按键指令、按键检测、手柄检测等所有手柄按键名称显示统一使用此设置
+        this.JoyLtRtAsButton := true    ; LT/RT 按键化：编辑器当按键处理；关闭则当扳机轴处理
 
         ; ========== 宏编辑器 ==========
         ; 新建空宏时的首选编辑器：1=逻辑树，2=图形节点
@@ -527,9 +528,9 @@ class SoftData {
         ; JoyN = 按物理位置编号的通用键名（与设备无关）
         ; Joy1=下, Joy2=右, Joy3=左, Joy4=上
         this.JoyToDispMap := Map(
-            "Joy1", Map("Xbox", "A", "PS5", "×"),
-            "Joy2", Map("Xbox", "B", "PS5", "○"),
-            "Joy3", Map("Xbox", "X", "PS5", "□"),
+            "Joy1", Map("Xbox", "A", "PS5", Chr(0xE711)),
+            "Joy2", Map("Xbox", "B", "PS5", Chr(0xECCA)),
+            "Joy3", Map("Xbox", "X", "PS5", Chr(0xE739)),
             "Joy4", Map("Xbox", "Y", "PS5", "△"),
             "Joy5", Map("Xbox", "LB", "PS5", "L1"),
             "Joy6", Map("Xbox", "RB", "PS5", "R1"),
@@ -650,9 +651,9 @@ class SoftData {
 
         ; 手柄按键统一按 Xbox 友好键名存盘；显示时按当前类型（宏手柄类型/手柄类型）映射显示名
         this.JoyBtnDisplayMap := Map(
-            "JoyA", Map("Xbox", "A", "PS5", "×"),
-            "JoyB", Map("Xbox", "B", "PS5", "○"),
-            "JoyX", Map("Xbox", "X", "PS5", "□"),
+            "JoyA", Map("Xbox", "A", "PS5", Chr(0xE711)),
+            "JoyB", Map("Xbox", "B", "PS5", Chr(0xECCA)),
+            "JoyX", Map("Xbox", "X", "PS5", Chr(0xE739)),
             "JoyY", Map("Xbox", "Y", "PS5", "△"),
             "JoyLB", Map("Xbox", "LB", "PS5", "L1"),
             "JoyRB", Map("Xbox", "RB", "PS5", "R1"),
@@ -822,6 +823,13 @@ class SoftData {
         return joyKey
     }
 
+    GetJoyBtnFontFamily(joyKey) {
+        static face := Map("JoyA", true, "JoyB", true, "JoyX", true, "JoyY", true)
+        if (face.Has(joyKey))
+            return "Segoe Fluent Icons, Segoe MDL2 Assets, Segoe UI Symbol"
+        return ""
+    }
+
     ; 触发键显示/解析所需的手柄键名列表（按钮键 + 方向键/摇杆固定键名）
     GetJoyTriggerKeyList() {
         keys := ["JoyDpadUp", "JoyDpadDown", "JoyDpadLeft", "JoyDpadRight",
@@ -866,22 +874,22 @@ class SoftData {
         return result
     }
 
-    ; 格式化宏指令字符串中的 Joy 键名为 🎮× 格式（只替换第二个 _ 段）
-    ; 格式化宏指令字符串中的 通用键名 为 🎮显示名 格式（只替换第二个 _ 段）
+    ; 手柄指令列表显示：按键组合用 ⎆，摇杆保持 LX:n；不加重手柄图标
+    ; 按键指令中的 Joy 键名仍为 🎮显示名（只替换第二个 _ 段）
     FormatCmdJoyDisplay(cmdStr) {
         if (cmdStr == "")
-            return cmdStr
-        if InStr(cmdStr, "🎮")
             return cmdStr
         paramArr := StrSplit(cmdStr, "_")
         if (paramArr.Length >= 2) {
             cmdHead := GetCmdOnlyText(paramArr[1])
-            if (cmdHead == GetLang("手柄")) {
+            if (cmdHead == GetLang("手柄") || cmdHead == GetLang("手柄检测")) {
                 loop paramArr.Length - 1 {
                     idx := A_Index + 1
                     paramArr[idx] := this._FormatJoyShortToken(paramArr[idx])
                 }
             } else {
+                if InStr(cmdStr, "🎮")
+                    return cmdStr
                 keyPart := paramArr[2]
                 ; 通用 JoyN / 轴名
                 if (RegExMatch(keyPart, "^(Joy\d+|JoyAxisL?[XYZ]M(in|ax)|JoyAxisR[XYZ]M(in|ax)|JoyDpad(Up|Down|Left|Right|None)|AxisLT|AxisRT|AxisL?[XYZ]M(in|ax)|AxisR[XYZ]M(in|ax)|Dpad(Up|Down|Left|Right))$")) {
@@ -917,39 +925,45 @@ class SoftData {
     }
 
     _FormatJoyShortToken(token) {
+        token := StrReplace(token, "🎮", "")
         typeWords := Map(GetLang("按下"), true, GetLang("松开"), true, GetLang("点击"), true)
         if (typeWords.Has(token) || IsNumber(token))
             return token
-        if (RegExMatch(token, "^(LX|LY|RX|RY|LT|RT):(-?[0-9]+)$", &m))
-            return "🎮" m[1] ":" m[2]
-        parts := StrSplit(token, "+")
+        if (RegExMatch(token, "^(LX|LY|RX|RY|LT|RT):(-?[0-9]+)$", &m)) {
+            name := m[1]
+            inn := JoyShortToInternal(name)
+            if (inn != "") {
+                label := this.GetJoyDisplayName(inn)
+                if (label != "" && label != inn && label != name)
+                    name := label
+            }
+            return name ":" m[2]
+        }
+        parts := StrSplit(StrReplace(token, "+", "⎖"), "⎖")
         out := ""
         for i, short in parts {
             if (i > 1)
-                out .= "+"
+                out .= "⎖"
             inn := JoyShortToInternal(short)
             if (inn != "") {
                 label := this.GetJoyDisplayName(inn)
-                out .= (label != "" && label != inn) ? "🎮" label : "🎮" short
+                out .= (label != "" && label != inn) ? label : short
             } else
-                out .= (short == "上" || short == "下" || short == "左" || short == "右" || short == "无方向" || short == "无") ? "🎮" short : short
+                out .= short
         }
         return out
     }
 
-    ; 从 🎮显示名 格式还原为键名（只还原第二个 _ 段）
+    ; 从列表显示名还原为内部键名（手柄指令去图标、⎖→+；按键指令还原 🎮）
     ParseCmdJoyDisplay(displayStr) {
         if (displayStr == "")
-            return displayStr
-        if !InStr(displayStr, "🎮")
             return displayStr
         paramArr := StrSplit(displayStr, "_")
         cmdHead := paramArr.Length >= 1 ? GetCmdOnlyText(paramArr[1]) : ""
         if (cmdHead == GetLang("手柄")) {
             loop paramArr.Length - 1 {
                 idx := A_Index + 1
-                if (InStr(paramArr[idx], "🎮"))
-                    paramArr[idx] := this._ParseJoyShortToken(paramArr[idx])
+                paramArr[idx] := this._ParseJoyShortToken(paramArr[idx])
             }
         } else if (paramArr.Length >= 2 && InStr(paramArr[2], "🎮")) {
             keyPart := paramArr[2]
@@ -981,6 +995,8 @@ class SoftData {
                 }
             }
             paramArr[2] := keyPart
+        } else {
+            return displayStr
         }
         result := ""
         for i, p in paramArr {
@@ -997,20 +1013,40 @@ class SoftData {
         if (typeWords.Has(token) || IsNumber(token))
             return token
         token := StrReplace(token, "🎮", "")
-        if (RegExMatch(token, "^(LX|LY|RX|RY|LT|RT):(-?[0-9]+)$"))
-            return token
-        joyType := MainSoftData.TriggerJoyType
-        parts := StrSplit(token, "+")
+        if (RegExMatch(token, "^(.+):(-?[0-9]+)$", &am)) {
+            name := am[1]
+            if (RegExMatch(name, "^(LX|LY|RX|RY|LT|RT)$"))
+                return name ":" am[2]
+            for axis in ["LT", "RT"] {
+                inn := JoyShortToInternal(axis)
+                for jt in ["Xbox", "PS5"] {
+                    if (this.GetJoyDisplayName(inn, jt) == name)
+                        return axis ":" am[2]
+                }
+            }
+        }
+        static legacyPs5 := Map(
+            "×", "A", "✕", "A", Chr(0xE711), "A", Chr(0xE8BB), "A",
+            "○", "B", Chr(0xE91F), "B", Chr(0xECCA), "B", Chr(0x25CB), "B",
+            "□", "X", Chr(0xE739), "X", Chr(0x25A1), "X",
+            "△", "Y", "▲", "Y", Chr(0xE0E5), "Y", Chr(0xE814), "Y", Chr(0xF0E0), "Y", Chr(0xF365), "Y", Chr(0xF138), "Y", Chr(0xF13A), "Y", Chr(0xEA82), "Y", Chr(0x25B3), "Y", Chr(0xE768), "Y")
+        parts := StrSplit(StrReplace(token, "+", "⎖"), "⎖")
         out := ""
         for i, part in parts {
             if (i > 1)
                 out .= "+"
             mapped := ""
-            for btnKey in this.JoyBtnKeys {
-                disp := this.GetJoyDisplayName(btnKey, joyType)
-                if (disp != "" && disp == part) {
-                    mapped := JoyInternalToShort(btnKey)
-                    break
+            if (legacyPs5.Has(part))
+                mapped := legacyPs5[part]
+            if (mapped == "") {
+                for btnKey in this.JoyBtnKeys {
+                    for jt in ["Xbox", "PS5"] {
+                        disp := this.GetJoyDisplayName(btnKey, jt)
+                        if (disp != "" && disp == part) {
+                            mapped := JoyInternalToShort(btnKey)
+                            break 2
+                        }
+                    }
                 }
             }
             if (mapped == "") {
@@ -1187,6 +1223,8 @@ class DeltaMoveData {
         this.SerialStr := ""
         this.DeltaX := 0            ;X 相对位移（支持 {变量}）
         this.DeltaY := 0            ;Y 相对位移（支持 {变量}）
+        this.Count := 1             ;偏移次数（支持 {变量}）
+        this.Interval := 0          ;每次间隔 ms（支持 {变量}）
         ; 错误处理（影刀模式，阶段5）
         this.ErrMode := "stop"
         this.ErrRetryCount := 3
@@ -1615,8 +1653,8 @@ class WindowManageData {
 class KeyCheckData {
     __New() {
         this.SerialStr := ""
-        this.KeyArr := []                   ;检测的按键数组
-        this.CheckType := 1                 ;1同时按下 2有一个按下
+        this.KeyArr := []                   ;检测的按键数组（按键检测=键鼠；手柄检测=JoyA / JoyAxisLX:80 等）
+        this.CheckType := 1                 ;按键：1同时按下 2有一个按下；摇杆：1大于设定值 2大于等于 3等于设定值 4小于等于 5小于设定值
         this.StateType := 1                 ;1物理状态 2逻辑状态
         this.VarName := ""                  ;变量名
     }

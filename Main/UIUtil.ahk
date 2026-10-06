@@ -316,6 +316,7 @@ CmdEditorTitleIcon(title) {
             ["文件读写", "Images\Soft\FileIO.png"],
             ["窗口管理", "Images\Soft\WindowManage.png"],
             ["按键检测", "Images\Soft\KeyCheck.png"],
+            ["手柄检测", "Images\Soft\KeyCheck.png"],
             ["后台鼠标", "Images\Soft\Mouse.png"],
             ["后台按键", "Images\Soft\Key.png"],
             ["增量移动", "Images\Soft\Move.png"],

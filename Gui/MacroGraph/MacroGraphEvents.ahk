@@ -105,13 +105,23 @@ class MacroGraphEventsMixin {
             this._BindCtrl("ModeCmb_" id, "DropDownClosed", this._OnMoveMode.Bind(this, id), runtime)
         }
         else if (IsDeltaMoveCmd(d.type)) {
-            ; §20 增量移动：X/Y 偏移字段
+            ; §20 增量移动：X/Y 偏移 + 偏移次数
             this._TrackCtrl("DPosX_" id, runtime)
             this._TrackCtrl("DPosY_" id, runtime)
+            this._TrackCtrl("DCount_" id, runtime)
+            this._TrackCtrl("DInterval_" id, runtime)
             this._BindCtrl("DPosX_" id, "LostFocus", this._OnField.Bind(this, id, "posx"), runtime)
             this._BindCtrl("DPosX_" id, "KeyDown", this._OnField.Bind(this, id, "posx"), runtime)
+            this._BindCtrl("DPosX_" id, "SelectionChanged", this._OnField.Bind(this, id, "posx"), runtime)
             this._BindCtrl("DPosY_" id, "LostFocus", this._OnField.Bind(this, id, "posy"), runtime)
             this._BindCtrl("DPosY_" id, "KeyDown", this._OnField.Bind(this, id, "posy"), runtime)
+            this._BindCtrl("DPosY_" id, "SelectionChanged", this._OnField.Bind(this, id, "posy"), runtime)
+            this._BindCtrl("DCount_" id, "LostFocus", this._OnField.Bind(this, id, "count"), runtime)
+            this._BindCtrl("DCount_" id, "KeyDown", this._OnField.Bind(this, id, "count"), runtime)
+            this._BindCtrl("DCount_" id, "SelectionChanged", this._OnField.Bind(this, id, "count"), runtime)
+            this._BindCtrl("DInterval_" id, "LostFocus", this._OnField.Bind(this, id, "interval"), runtime)
+            this._BindCtrl("DInterval_" id, "KeyDown", this._OnField.Bind(this, id, "interval"), runtime)
+            this._BindCtrl("DInterval_" id, "SelectionChanged", this._OnField.Bind(this, id, "interval"), runtime)
         }
         else if (IsMoveProCmd(d.type)) {
             this._TrackCtrl("MPPosX_" id, runtime)

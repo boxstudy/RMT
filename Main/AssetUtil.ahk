@@ -385,7 +385,7 @@ InitData() {
         "输出", OutputFile, "运行", RunFile, "循环", LoopFile, "宏操作", SubMacroFile, "变量", VariableFile,
         "变量提取", ExVariableFile, "如果", CompareFile, "如果Pro", CompareProFile, "运算", OperationFile,
         "后台鼠标", BGMouseFile, "后台按键", BGKeyFile, "文本处理", TextOpsFile, "Timing", TimingFile, "数组", ArrayFile,
-        "输入", InputFile, "文件读写", FileIOFile, "窗口管理", WindowManageFile, "按键检测", KeyCheckFile,
+        "输入", InputFile, "文件读写", FileIOFile, "窗口管理", WindowManageFile, "按键检测", KeyCheckFile, "手柄检测", JoyCheckFile,
         "注释", CommentFile, "抓图", ScreenShotFile, "图形节点", GraphNodeFile, "图形开始节点", GraphStartNodeFile,
         "间隔", IntervalFile, "按键", KeyDataFile, "移动", MoveDataFile, "RMT指令", RMTCMDFile,
         "等待", WaitFile, "时间", TimeDataFile,
@@ -395,7 +395,7 @@ InitData() {
         "输出", OutputData, "运行", RunData, "循环", LoopData, "宏操作", SubMacroData, "变量", VariableData,
         "变量提取", ExVariableData, "如果", CompareData, "如果Pro", CompareProData, "运算", OperationData,
         "后台鼠标", BGMouseData, "后台按键", BGKeyData, "文本处理", TextOpsData, "Timing", TimingData, "数组", ArrayData,
-        "输入", InputData, "文件读写", FileIOData, "窗口管理", WindowManageData, "按键检测", KeyCheckData,
+        "输入", InputData, "文件读写", FileIOData, "窗口管理", WindowManageData, "按键检测", KeyCheckData, "手柄检测", KeyCheckData,
         "注释", CommentData, "抓图", ScreenShotData, "图形节点", MacroGraphNode, "图形开始节点", MacroGraphStartNode,
         "间隔", IntervalData, "按键", KeyDataConfig, "移动", MoveDataConfig, "RMT指令", RMTCMDData,
         "等待", WaitData, "时间", TimeData,
@@ -674,6 +674,8 @@ LoadMainSetting() {
     if (MainSoftData.JoyType == "PS5")
         MainSoftData.JoyType := "DS4"   ; 兼容旧配置：ViGEm 仅有 DS4（DualShock 4），无 PS5 类型
     MainSoftData.TriggerJoyType := CfgRead(SettingFile, SettingSection, "TriggerJoyType", "Xbox")
+    rawLtRt := CfgRead(SettingFile, SettingSection, "JoyLtRtAsButton", true)
+    MainSoftData.JoyLtRtAsButton := !(rawLtRt == 0 || rawLtRt == "0" || rawLtRt == "false" || rawLtRt == "False")
     MainSoftData.PreferredMacroEditor := Integer(CfgRead(SettingFile, SettingSection, "PreferredMacroEditor", 1))
     MainSoftData.SharedCopy := !!CfgRead(SettingFile, SettingSection, "SharedCopy", false)
     MainSoftData.GeneralContextMenu := CfgRead(SettingFile, SettingSection, "GeneralContextMenu", "")

@@ -32,7 +32,7 @@ $root.SetValue([Windows.Documents.TextElement]::FontFamilyProperty, [Windows.Med
 $root.SetValue([Windows.Documents.TextElement]::ForegroundProperty, $root.Resources['TextMain'])
 $pages = 'behavior','macro','record','trigger','hotkey','appearance','ai','diagnostic'
 $expected = @{
-    behavior=@('ChkBootStart','CmbLang','CmbScreenShot','ChkForeground','TabVisible_Normal','CmbJoyType')
+    behavior=@('ChkBootStart','CmbLang','CmbScreenShot','ChkForeground','TabVisible_Normal','CmbJoyType','ChkJoyLtRtAsButton')
     macro=@('EditHoldFloat','CmbKeyDownDown','CmbRemarkAuto','ChkNoVariable')
     record=@('ShowBorderCon','MouseTrailModeCon','KeyboardTogCon','JoyTogCon')
     trigger=@('WheelScaleCon','UIPanelBtnWidthCon')
