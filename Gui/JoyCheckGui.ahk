@@ -17,37 +17,35 @@ class JoyCheckGui extends JoyGui {
     _BuildAndShow() {
         global MySoftData
         this._closed := false
+        this._analogVis := "Hidden"
         this._btnDefBg := Map()
         this._btnDefBd := Map()
         this._btnKeyMap := Map()
+        this._padBtnLayout := Map()
         this._stickLayout := Map()
         this._stickDrag := ""
         this._trigClick := ""
+        this._pendingPadClick := ""
         try SetTimer(this._stickTick, 0)
         title := this.ParentTile GetLang("手柄检测")
         this._title := title
-        titleHeight := "30"
+        titleHeight := XAMLHost.CmdTitleBarHeight()
 
         main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize(XAMLHost.FontSize())
         main.Rows(titleHeight, "*")
         XAMLHost.AddCmdTitleBar(main, title, titleHeight)
 
-        body := main.Add("Grid").Grid_Row(1).Margin("14,8,14,10")
-        body.Rows("Auto", "*", "96", "48")
+        body := main.Add("Grid").Grid_Row(1).Margin("14")
+        body.Rows("*", "Auto", "48")
 
-        hint := this._LtRtAsButton()
-            ? GetLang("点击按键可组合检测，再点取消；拖动摇杆设检测轴值，单击摇杆为按下")
-            : GetLang("点击按键可组合检测，再点取消；拖动摇杆设检测轴值，单击摇杆为按下，单击扳机为满行程")
-        body.Add("TextBlock").Grid_Row(0).Text(hint).Margin("0,0,0,6")
-            .Foreground("{DynamicResource TextSub}").FontSize("11")
-
-        padCard := body.Add("Border").Grid_Row(1).CornerRadius("10").Padding("4,2")
+        padCard := body.Add("Border").Grid_Row(0).CornerRadius("10").Padding("12")
             .Background("{DynamicResource ControlBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
-        padHost := padCard.Add("Grid")
-        this._pad := padHost.Add("Canvas").Name("JoyPadCanvas").Width("640").Height("370").HorizontalAlignment("Center").Background("Transparent")
+        vb := padCard.Add("Viewbox").Stretch("Uniform").Margin("0,0,0,16")
+        padHost := vb.Add("Grid").Width("640").Height("340")
+        this._pad := padHost.Add("Canvas").Name("JoyPadCanvas").Width("640").Height("340").Background("Transparent")
         this._BuildPad()
 
-        paramCard := body.Add("Border").Grid_Row(2).CornerRadius("8").Padding("12,8").Margin("0,10,0,0")
+        paramCard := body.Add("Border").Grid_Row(1).CornerRadius("8").Padding("12").Margin("0,14,0,0")
             .Background("{DynamicResource ControlBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
         param := paramCard.Add("StackPanel")
 
@@ -69,7 +67,7 @@ class JoyCheckGui extends JoyGui {
             .VerticalContentAlignment("Center").FontSize("11").Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
 
-        analogRow := param.Add("StackPanel").Name("AnalogRow").Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center").Margin("0,8,0,0").MinHeight("26")
+        analogRow := param.Add("StackPanel").Name("AnalogRow").Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center").Margin("0,8,0,0").MinHeight("26").Height("26").Visibility("Hidden")
         analogRow.Add("TextBlock").Name("AxisTip1").Text("LX").VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12").Width("28")
         analogRow.Add("Slider").Name("AxisSlider1").Width("180").Height("26").Minimum("-100").Maximum("100").Value("100").IsMoveToPointEnabled("True").VerticalAlignment("Center")
         analogRow.Add("TextBox").Name("AxisVal1").Width("48").Height(26).MinHeight(26).Margin("6,0,16,0")
@@ -83,17 +81,17 @@ class JoyCheckGui extends JoyGui {
             .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
 
-        btnRow := body.Add("StackPanel").Grid_Row(3).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
+        btnRow := body.Add("StackPanel").Grid_Row(2).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
         clearBtn := btnRow.Add("Button").Name("BtnClear").Content(GetLang("清空")).Width(88).Height(32).MinHeight(32).Cursor("Hand")
             .Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}")
             .BorderBrush("{DynamicResource ActionStroke}").BorderThickness("1").FontSize(13).FontWeight("Bold")
-            .Margin("0,0,300,0")
+            .Margin("0,0,250,0")
         clearBtn.InjectResources(FrontInfoGui._OkBtnHoverStyle())
         AddCmdOkBtn(btnRow, "BtnOk")
 
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", this.OwnerHwnd)
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="720" Height="620" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="720" Height="590" Opacity="0"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
         this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '')
 
@@ -196,15 +194,17 @@ class JoyCheckGui extends JoyGui {
         analog := this.AxisMap.Count > 0
         if (this._comboAnalog != "" && this._comboAnalog == analog)
             return
-        this._FillCheckTypeCombo(analog, 0)
+        try this._FillCheckTypeCombo(analog, 0)
+    }
+
+    _OnLiveAnalogPicked() {
+        this.CheckedArr := []
     }
 
     OnPadClick(id, *) {
-        if (this._ignoreClick)
-            return
         if (this._IsAnalogId(id)) {
             this.CheckedArr := []
-        } else if (this.AxisMap.Count > 0) {
+        } else if (this.AxisMap.Count > 0 && !this._AnalogSelected(id)) {
             this.AxisMap := Map()
             this._axisGroup := ""
         }
@@ -226,9 +226,13 @@ class JoyCheckGui extends JoyGui {
     }
 
     Refresh() {
-        this._EnsureCheckModeCombo()
+        this._JoyLog("JoyCheck Refresh begin")
+        try this._EnsureCheckModeCombo()
+        catch as e
+            this._JoyLog("JoyCheck combo FAIL " e.Message " L" e.Line)
         this._SyncAnalogRowVis()
         this._UpdateAnalogVisuals()
+        this._JoyLog("JoyCheck Refresh end")
     }
 
     CheckIfValid() {

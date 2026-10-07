@@ -70,7 +70,7 @@ class OutputGui {
         this._closed := false
         title := this.ParentTile GetLang("输出编辑器")
         this._title := title
-        titleHeight := "30"
+        titleHeight := XAMLHost.CmdTitleBarHeight()
 
         main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize(XAMLHost.FontSize())
         main.Rows(titleHeight, "*")
@@ -79,52 +79,53 @@ class OutputGui {
         chrome := XAMLHost.AddCmdTitleBar(main, title, titleHeight)
 
         ; === 内容 ===
-        body := main.Add("Grid").Grid_Row(1).Margin("10,8")
-        body.Rows("30", "30", "82", "34", "*")
-        body.Cols("80", "150", "90", "150")
+        body := main.Add("Grid").Grid_Row(1).Margin("16,10,16,12")
+        body.Rows("36", "22", "*", "36", "56")
+        body.Cols("80", "150", "12", "80", "*")
 
-        ; 行0：备注
-        row0 := body.Add("StackPanel").Grid_Row(0).Grid_ColumnSpan(4).Orientation("Horizontal").VerticalAlignment("Center")
-        row0.Add("TextBlock").Text(GetLang("备注：")).VerticalAlignment("Center")
-        row0.Add("TextBox").Name("RemarkCon").Width(130).Height(24).MinHeight(24).Margin("4,0,0,0")
-
-        ; 行1：输出类型 + 保存变量
-        row1 := body.Add("StackPanel").Grid_Row(1).Grid_ColumnSpan(4).Orientation("Horizontal").VerticalAlignment("Center")
-        row1.Add("TextBlock").Text(GetLang("输出类型:")).VerticalAlignment("Center")
-        ot := row1.Add("ComboBox").Name("OutputTypeCombo").Width(140).Height(26).MinHeight(26).Margin("4,0,0,0")
+        ; 行0：输出类型 + 备注（白底，内边距与下拉框一致）
+        body.Add("TextBlock").Grid_Row(0).Grid_Column(0).Text(GetLang("输出类型:")).VerticalAlignment("Center").Margin("8,0,0,0")
+        ot := body.Add("ComboBox").Grid_Row(0).Grid_Column(1).Name("OutputTypeCombo").Height(26).MinHeight(26).VerticalAlignment("Center")
         ; §21.4：字符变量类型已移除（改由 变量指令-字符 的「编辑」按钮构建）
         for t in GetLangArr(["发送内容", "粘贴内容", "临时提示", "指令窗口", "软件弹窗", "系统语音", "复制到剪切板"])
             ot.Add("ComboBoxItem").Content(t)
-        varNameRow := row1.Add("StackPanel").Name("VarNameRow").Orientation("Horizontal").Margin("12,0,0,0").Visibility("Collapsed")
-        varNameRow.Add("TextBlock").Text(GetLang("保存变量") "：").VerticalAlignment("Center")
-        varNameRow.Add("ComboBox").Name("VariableNameCombo").Width(110).Height(26).MinHeight(26).Margin("4,0,0,0").IsEditable("True")
+        body.Add("TextBlock").Grid_Row(0).Grid_Column(3).Text(GetLang("备注：")).VerticalAlignment("Center")
+        body.Add("TextBox").Grid_Row(0).Grid_Column(4).Name("RemarkCon").Height(26).MinHeight(26).MaxHeight(26).VerticalAlignment("Center")
+            .VerticalContentAlignment("Center").Padding("2,0")
+            .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
 
-        ; 行2：输出内容
-        body.Add("TextBlock").Grid_Row(2).Grid_Column(0).Text(GetLang("输出内容：")).VerticalAlignment("Top").Margin("0,4,0,0")
-        body.Add("TextBox").Grid_Row(2).Grid_Column(1).Grid_ColumnSpan(3).Name("TextCon").AcceptsReturn("True").TextWrapping("Wrap")
-            .VerticalContentAlignment("Top").Margin("4,2,0,0")
+        ; 隐藏：旧「保存变量」仍供 Init/Save 读写，字符变量类型已移除故不展示
+        hidden := body.Add("StackPanel").Grid_Row(4).Name("VarNameRow").Visibility("Collapsed")
+        hidden.Add("ComboBox").Name("VariableNameCombo").IsEditable("True")
+
+        ; 行1-2：输出内容换行；标签右移，与文本框内文字左对齐（内容边距保持不变）
+        body.Add("TextBlock").Grid_Row(1).Grid_Column(0).Text(GetLang("输出内容：")).VerticalAlignment("Bottom").Margin("8,0,0,0")
+        body.Add("TextBox").Grid_Row(2).Grid_Column(0).Grid_ColumnSpan(5).Name("TextCon").AcceptsReturn("True").TextWrapping("Wrap")
+            .VerticalContentAlignment("Top").HorizontalContentAlignment("Left").Padding("2,4").MinHeight(72).Margin("0,4,0,4")
             .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
             .ScrollViewer_VerticalScrollBarVisibility("Auto")
 
-        ; 行3：变量数组
-        row3 := body.Add("StackPanel").Grid_Row(3).Grid_ColumnSpan(4).Orientation("Horizontal").VerticalAlignment("Center")
-        row3.Add("TextBlock").Text(GetLang("变量数组：")).VerticalAlignment("Center")
-        vt := row3.Add("ComboBox").Name("VarTypeCombo").Width(80).Height(26).MinHeight(26).Margin("4,0,0,0")
+        ; 行3：变量数组（标签与输出类型对齐）
+        body.Add("TextBlock").Grid_Row(3).Grid_Column(0).Text(GetLang("变量数组：")).VerticalAlignment("Center").Margin("8,0,0,0")
+        varRow := body.Add("Grid").Grid_Row(3).Grid_Column(1).Grid_ColumnSpan(4)
+        varRow.Cols("90", "8", "*", "8", "70", "8", "70")
+        vt := varRow.Add("ComboBox").Grid_Column(0).Name("VarTypeCombo").Height(26).MinHeight(26).VerticalAlignment("Center").SelectedIndex("0")
         vt.Add("ComboBoxItem").Content(GetLang("变量"))
         vt.Add("ComboBoxItem").Content(GetLang("数组"))
-        row3.Add("ComboBox").Name("VariCombo").Width(120).Height(26).MinHeight(26).Margin("4,0,0,0")
-        row3.Add("Button").Name("BtnAddName").Content(GetLang("追加名")).Height(26).MinHeight(26).Margin("8,0,0,0")
-        row3.Add("Button").Name("BtnAddValue").Content(GetLang("追加值")).Height(26).MinHeight(26).Margin("4,0,0,0")
+        varRow.Add("ComboBox").Grid_Column(2).Name("VariCombo").Height(26).MinHeight(26).VerticalAlignment("Center")
+        varRow.Add("Button").Grid_Column(4).Name("BtnAddName").Content(GetLang("追加名")).Height(26).MinHeight(26).VerticalAlignment("Center")
+        varRow.Add("Button").Grid_Column(6).Name("BtnAddValue").Content(GetLang("追加值")).Height(26).MinHeight(26).VerticalAlignment("Center")
 
         ; 行4：确定
-        btnRow := body.Add("StackPanel").Grid_Row(4).Grid_ColumnSpan(4).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
+        btnRow := body.Add("StackPanel").Grid_Row(4).Grid_ColumnSpan(5).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Bottom").Margin("0,0,0,6")
         AddCmdOkBtn(btnRow)
 
         ; === 创建 XAMLHost ===
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", this.OwnerHwnd)
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="500" Height="252" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="520" Height="292" Opacity="0"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
         this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '')
 
@@ -214,6 +215,7 @@ class OutputGui {
         this.ui.Update("TextCon", "Text", GetLangStr(this.Data.Text, 1))
         this._SetDDL("OutputTypeCombo", GetLangArr(["发送内容", "粘贴内容", "临时提示", "指令窗口", "软件弹窗", "系统语音", "复制到剪切板"]), GetLang(this.Data.OutputType))
         this._SetCombo("VariableNameCombo", GetGuiVarArr(), GetLang(this.Data.VariableName))
+        this._SetDDL("VarTypeCombo", GetLangArr(["变量", "数组"]), GetLang("变量"))
         this._SetDDL("VariCombo", this.DLVariableArr, "")
         this.ui.Update("VariCombo", "SelectedIndex", "0")
 

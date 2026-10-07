@@ -76,7 +76,7 @@ class SearchProGui {
         this._closed := false
         title := this.ParentTile GetLang("搜索Pro编辑器")
         this._title := title
-        titleHeight := "30"
+        titleHeight := XAMLHost.CmdTitleBarHeight()
 
         main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize(XAMLHost.FontSize())
         main.Rows(titleHeight, "30", "24", "*", "44")

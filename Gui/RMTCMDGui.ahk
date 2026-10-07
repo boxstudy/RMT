@@ -109,7 +109,7 @@ class RMTCMDGui {
         this._closed := false
         title := this.ParentTile GetLang("RMT指令编辑器")
         this._title := title
-        titleHeight := "30"
+        titleHeight := XAMLHost.CmdTitleBarHeight()
 
         main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize(XAMLHost.FontSize())
         main.Rows(titleHeight, "*")

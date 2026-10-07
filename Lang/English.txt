@@ -1486,6 +1486,7 @@ RMT文档=RMT Doc
 物理状态=Physical
 逻辑状态=Logical
 结果保存=Result Save
+结果变量：=Result Var:
 开关=Switch
 变量名=Var Name
 真值:=True Value:

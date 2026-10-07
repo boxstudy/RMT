@@ -367,12 +367,55 @@ class XAMLHost {
         return XAMLHost.FontSize(2)
     }
 
-    ; 标题栏关闭钮：与主界面 BtnWinClose 同款（46×标题栏高、TitleBarCloseButton、右上圆角 hover）
-    static AddTitleCloseBtn(parent, name := "BtnClosePanel", titleHeight := "30", btnWidth := "46") {
-        return XAMLHost.AddTitleChromeBtn(parent, name, titleHeight, Chr(0xE8BB), "Visible", "{StaticResource TitleBarCloseButton}", btnWidth)
+    ; 指令编辑器标题栏：主题字号、略矮。宏指令标题栏：更大字/图标/高度（对齐间隔窗当前视觉）
+    static CmdTitleBarHeight() {
+        return 26
     }
 
-    static AddTitleChromeBtn(parent, name, titleHeight := "30", glyph := "", visibility := "Visible", style := "{StaticResource TitleBarChromeButton}", btnWidth := "46") {
+    static MacroTitleBarHeight() {
+        scale := XAMLHost.GetMainViewboxScale()
+        if (!IsNumber(scale) || scale < 1)
+            scale := 1
+        return Integer(Max(38, Round(30 * scale)))
+    }
+
+    static MacroTitleGlyphSize() {
+        ; 与主界面标题栏 rabit 图标 20×20 一致
+        return 20
+    }
+
+    static CmdTitleFontSize() {
+        return XAMLHost.FormatFontSize(XAMLHost.GetThemeFontSize() - 2)
+    }
+
+    static CmdChromeBtnWidth() {
+        ; 指令窗会再乘 Viewbox；比宏指令 46 再收一档，避免看起来过宽
+        scale := XAMLHost.GetMainViewboxScale()
+        if (!IsNumber(scale) || scale < 1)
+            scale := 1
+        return Integer(Max(24, Round(38 / scale)))
+    }
+
+    static CmdTitleGlyphSize() {
+        scale := XAMLHost.GetMainViewboxScale()
+        if (!IsNumber(scale) || scale < 1)
+            scale := 1
+        return XAMLHost.FormatFontSize(Max(10, XAMLHost.MacroTitleGlyphSize() / scale))
+    }
+
+    static MacroBodyFontSize() {
+        ; 写入声明字号；经 ScaleFontSize 后等于主题 × 主窗 Viewbox
+        return XAMLHost.VisualFontSizeDeclared()
+    }
+
+    ; 标题栏关闭钮：与主界面 BtnWinClose 同款（46×标题栏高、TitleBarCloseButton、右上圆角 hover）
+    static AddTitleCloseBtn(parent, name := "BtnClosePanel", titleHeight := "30", btnWidth := "46", glyphSize := 10) {
+        btn := XAMLHost.AddTitleChromeBtn(parent, name, titleHeight, Chr(0xE8BB), "Visible", "{StaticResource TitleBarCloseButton}", btnWidth, glyphSize)
+        try btn.Margin("0")
+        return btn
+    }
+
+    static AddTitleChromeBtn(parent, name, titleHeight := "30", glyph := "", visibility := "Visible", style := "{StaticResource TitleBarChromeButton}", btnWidth := "46", glyphSize := 10) {
         btn := parent.Add("Button").Name(name)
             .Style(style)
             .WindowChrome_IsHitTestVisibleInChrome("True")
@@ -380,13 +423,13 @@ class XAMLHost {
             .VerticalAlignment("Stretch").Background("Transparent")
             .Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
             .Visibility(visibility)
-        btn.Add("TextBlock").Text(glyph).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets")
-            .FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
+        btn.Add("TextBlock").Name(name "Glyph").Text(glyph).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets")
+            .FontSize(glyphSize).VerticalAlignment("Center").HorizontalAlignment("Center")
         return btn
     }
 
     ; 标题栏骨架（铬钮不进 DragArea）。titleIcon 画在标题文字左侧。返回 { Root, Drag, Btns }
-    static AddTitleBarChrome(main, title, titleName := "", titleIcon := "", titleIconColor := "") {
+    static AddTitleBarChrome(main, title, titleName := "", titleIcon := "", titleIconColor := "", iconSize := 16) {
         tb := main.Add("Grid").Grid_Row(0).Background("{DynamicResource TitleBarColor}")
             .VerticalAlignment("Stretch").HorizontalAlignment("Stretch")
         tb.Cols("*", "Auto")
@@ -399,12 +442,12 @@ class XAMLHost {
                 if (!InStr(src, ":") && SubStr(src, 1, 1) != "/")
                     src := A_WorkingDir "\" src
                 src := StrReplace(src, "\", "/")
-                row.Add("Image").Source(src).Width(16).Height(16).Margin("0,0,10,0").VerticalAlignment("Center").Stretch("Uniform")
+                row.Add("Image").Source(src).Width(iconSize).Height(iconSize).Margin("0,0,10,0").VerticalAlignment("Center").Stretch("Uniform")
             } else {
                 icColor := (titleIconColor != "") ? titleIconColor : "{DynamicResource TitleBarForeground}"
                 icHost := row.Add("Border").Margin("0,1,10,0").VerticalAlignment("Center")
-                icHost.Add("TextBlock").Text(titleIcon).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets")
-                    .FontSize(XAMLHost.TitleFontSize()).Foreground(icColor)
+                icHost.Add("TextBlock").Name("TitleIconGlyph").Text(titleIcon).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets")
+                    .FontSize(iconSize).Foreground(icColor)
                     .VerticalAlignment("Center")
             }
         }
@@ -428,33 +471,61 @@ class XAMLHost {
         return chrome
     }
 
-    ; 指令编辑器标题栏：手册、视频、关闭（与宏指令编辑器同款，铬钮收窄以减少间距）
-    static AddCmdTitleBar(main, title, titleHeight := "30", closeName := "BtnClosePanel", titleName := "", titleIcon := "", titleIconColor := "") {
+    ; 指令编辑器标题栏：主题字号 15、加粗、略矮（26）。宏指令用 AddMacroTitleBar。
+    static AddCmdTitleBar(main, title, titleHeight := "", closeName := "BtnClosePanel", titleName := "", titleIcon := "", titleIconColor := "") {
+        return XAMLHost._AddEditorTitleBar(main, title, titleHeight, closeName, titleName, titleIcon, titleIconColor, false)
+    }
+
+    ; 宏指令编辑器标题栏：更大字号/图标/高度（对齐当前间隔窗的视觉）
+    static AddMacroTitleBar(main, title, titleHeight := "", closeName := "BtnClosePanel", titleName := "", titleIcon := "", titleIconColor := "") {
+        return XAMLHost._AddEditorTitleBar(main, title, titleHeight, closeName, titleName, titleIcon, titleIconColor, true)
+    }
+
+    static _AddEditorTitleBar(main, title, titleHeight, closeName, titleName, titleIcon, titleIconColor, macroStyle) {
         if (titleIcon == "") {
             try titleIcon := CmdEditorTitleIcon(title)
         }
-        cmdBtnW := "32"
+        if (macroStyle) {
+            if (titleName == "")
+                titleName := "MacroEditorTitle"
+            if (titleHeight == "" || titleHeight == "30")
+                titleHeight := XAMLHost.MacroTitleBarHeight()
+            titleFs := XAMLHost.TitleFontSize()
+            glyphSize := XAMLHost.MacroTitleGlyphSize()
+            cmdBtnW := "46"
+            iconSize := 20
+        } else {
+            if (titleName == "")
+                titleName := "CmdEditorTitle"
+            if (titleHeight == "" || titleHeight == "30")
+                titleHeight := XAMLHost.CmdTitleBarHeight()
+            titleFs := XAMLHost.FontSize(-2)
+            glyphSize := XAMLHost.CmdTitleGlyphSize()
+            cmdBtnW := XAMLHost.CmdChromeBtnWidth()
+            iconSize := 14
+        }
         dispTitle := title
         try dispTitle := CmdEditorDisplayTitle(title)
-        chrome := XAMLHost.AddTitleBarChrome(main, dispTitle, titleName, titleIcon, titleIconColor)
+        chrome := XAMLHost.AddTitleBarChrome(main, dispTitle, titleName, titleIcon, titleIconColor, iconSize)
+        try chrome.Title.FontSize(titleFs).FontWeight("Bold")
         f1Tip := "F1：选取当前坐标"
         try {
             t := GetLang("F1:选取当前坐标")
             if (t != "")
                 f1Tip := StrReplace(t, "F1:", "F1：")
         }
-        chrome.F1 := XAMLHost.AddTitleChromeBtn(chrome.Btns, "BtnCmdF1", titleHeight, Chr(0xE707), "Collapsed", "{StaticResource TitleBarChromeButton}", cmdBtnW)
+        chrome.F1 := XAMLHost.AddTitleChromeBtn(chrome.Btns, "BtnCmdF1", titleHeight, Chr(0xE707), "Collapsed", "{StaticResource TitleBarChromeButton}", cmdBtnW, glyphSize)
         chrome.F1.ToolTip(f1Tip)
         tgtTip := "定位取色器"
         try tgtTip := GetLang("定位取色器")
-        chrome.Targeter := XAMLHost.AddTitleChromeBtn(chrome.Btns, "BtnCmdTargeter", titleHeight, Chr(0xEF3C), "Collapsed", "{StaticResource TitleBarChromeButton}", cmdBtnW)
+        chrome.Targeter := XAMLHost.AddTitleChromeBtn(chrome.Btns, "BtnCmdTargeter", titleHeight, Chr(0xEF3C), "Collapsed", "{StaticResource TitleBarChromeButton}", cmdBtnW, glyphSize)
         chrome.Targeter.ToolTip(tgtTip)
         playTip := "Alt + L：执行"
         try playTip := CmdEditorPlayTip("!l")
-        chrome.Play := XAMLHost.AddTitleChromeBtn(chrome.Btns, "BtnCmdPlay", titleHeight, Chr(0xE768), "Collapsed", "{StaticResource TitleBarChromeButton}", cmdBtnW)
+        chrome.Play := XAMLHost.AddTitleChromeBtn(chrome.Btns, "BtnCmdPlay", titleHeight, Chr(0xE768), "Collapsed", "{StaticResource TitleBarChromeButton}", cmdBtnW, glyphSize)
         chrome.Play.ToolTip(playTip)
-        chrome.Help := XAMLHost.AddTitleChromeBtn(chrome.Btns, "BtnCmdHelp", titleHeight, Chr(0xE8F1), "Visible", "{StaticResource TitleBarChromeButton}", cmdBtnW)
-        chrome.Video := XAMLHost.AddTitleChromeBtn(chrome.Btns, "BtnCmdVideo", titleHeight, Chr(0xE786), "Visible", "{StaticResource TitleBarChromeButton}", cmdBtnW)
+        chrome.Help := XAMLHost.AddTitleChromeBtn(chrome.Btns, "BtnCmdHelp", titleHeight, Chr(0xE8F1), "Visible", "{StaticResource TitleBarChromeButton}", cmdBtnW, glyphSize)
+        chrome.Video := XAMLHost.AddTitleChromeBtn(chrome.Btns, "BtnCmdVideo", titleHeight, Chr(0xE786), "Visible", "{StaticResource TitleBarChromeButton}", cmdBtnW, glyphSize)
         helpTip := "手册"
         videoTip := "视频"
         try {
@@ -463,10 +534,20 @@ class XAMLHost {
         }
         chrome.Help.ToolTip(helpTip)
         chrome.Video.ToolTip(videoTip)
-        chrome.Minimize := XAMLHost.AddTitleChromeBtn(chrome.Btns, "BtnMinimize", titleHeight, Chr(0xE921), "Collapsed")
-        chrome.Maximize := XAMLHost.AddTitleChromeBtn(chrome.Btns, "BtnMaximize", titleHeight, Chr(0xE922), "Collapsed")
-        chrome.Pin := XAMLHost.AddTitleChromeBtn(chrome.Btns, "BtnPin", titleHeight, Chr(0xE840), "Collapsed")
-        chrome.Close := XAMLHost.AddTitleCloseBtn(chrome.Btns, closeName, titleHeight, cmdBtnW)
+        chrome.Minimize := XAMLHost.AddTitleChromeBtn(chrome.Btns, "BtnMinimize", titleHeight, Chr(0xE921), "Collapsed", "{StaticResource TitleBarChromeButton}", "46", glyphSize)
+        chrome.Maximize := XAMLHost.AddTitleChromeBtn(chrome.Btns, "BtnMaximize", titleHeight, Chr(0xE922), "Collapsed", "{StaticResource TitleBarChromeButton}", "46", glyphSize)
+        chrome.Pin := XAMLHost.AddTitleChromeBtn(chrome.Btns, "BtnPin", titleHeight, Chr(0xE840), "Collapsed", "{StaticResource TitleBarChromeButton}", "46", glyphSize)
+        chrome.Close := XAMLHost.AddTitleCloseBtn(chrome.Btns, closeName, titleHeight, cmdBtnW, glyphSize)
+        if (!macroStyle) {
+            try chrome.Btns.VerticalAlignment("Stretch")
+            sq := cmdBtnW
+            for btn in [chrome.F1, chrome.Targeter, chrome.Play, chrome.Help, chrome.Video] {
+                try btn.Width(sq).MinWidth(sq).Height(sq).MinHeight(sq).VerticalAlignment("Center").Margin("0")
+            }
+            ; 关闭钮贴齐标题栏右上角：全高 Stretch + TitleBarCloseButton 圆角，hover 才贴窗口弧
+            try chrome.Close.Width(sq).MinWidth(sq).Height(titleHeight).MinHeight(titleHeight)
+                .VerticalAlignment("Stretch").Margin("0")
+        }
         return chrome
     }
 
@@ -668,18 +749,31 @@ class XAMLHost {
         if (skip)
             return xaml
         try {
+            frozen := []
+            xaml := RegExReplace(xaml, 'Name="(\w+Glyph)"([^>]*?)FontSize="(\d+(?:\.\d+)?)"'
+                , (m) => (frozen.Push(m[3]), 'Name="' m[1] '"' m[2] 'FontSize="@@GLYPH' frozen.Length '@@"'))
+            xaml := RegExReplace(xaml, 'FontSize="(\d+(?:\.\d+)?)"([^>]*?)Name="(\w+Glyph)"'
+                , (m) => (frozen.Push(m[1]), 'FontSize="@@GLYPH' frozen.Length '@@"' m[2] 'Name="' m[3] '"'))
             scale(s) => RegExReplace(s, 'FontSize="\K\d+(?:\.\d+)?'
                 , (m) => XAMLHost.FormatFontSize(XAMLHost.ScaleFontSize(m[0])))
             dragPos := InStr(xaml, 'Name="DragArea"')
+            result := ""
             if (!dragPos)
-                return scale(xaml)
-            tagStart := InStr(SubStr(xaml, 1, dragPos), "<", , -1)
-            endPos := XAMLHost._FindMatchingClose(xaml, tagStart)
-            if (!tagStart || !endPos)
-                return scale(xaml)
-            mid := SubStr(xaml, tagStart, endPos - tagStart + 1)
-            mid := XAMLHost._PatchTitleBarXaml(mid)
-            return scale(SubStr(xaml, 1, tagStart - 1)) mid scale(SubStr(xaml, endPos + 1))
+                result := scale(xaml)
+            else {
+                tagStart := InStr(SubStr(xaml, 1, dragPos), "<", , -1)
+                endPos := XAMLHost._FindMatchingClose(xaml, tagStart)
+                if (!tagStart || !endPos)
+                    result := scale(xaml)
+                else {
+                    mid := SubStr(xaml, tagStart, endPos - tagStart + 1)
+                    mid := XAMLHost._PatchTitleBarXaml(mid)
+                    result := scale(SubStr(xaml, 1, tagStart - 1)) mid scale(SubStr(xaml, endPos + 1))
+                }
+            }
+            loop frozen.Length
+                result := StrReplace(result, "@@GLYPH" A_Index "@@", frozen[A_Index])
+            return result
         } catch {
             return xaml
         }
@@ -730,9 +824,10 @@ class XAMLHost {
             || InStr(tag, 'Name="BtnMinimize"') || InStr(tag, 'Name="BtnMaximize"') || InStr(tag, 'Name="BtnPin"')
     }
 
-    ; 标题栏：窗口标题 = 主题字号+2 且粗体；铬钮统一 TitleBarCloseButton
+    ; 标题栏：主窗标题 = 主题字号+2 且粗体；指令/宏指令编辑器标题 = 主题字号
     static _PatchTitleBarXaml(mid) {
         titleFs := XAMLHost.FormatFontSize(XAMLHost.GetThemeFontSize() + 2)
+        cmdTitleFs := XAMLHost.FormatFontSize(XAMLHost.GetThemeFontSize())
         out := ""
         pos := 1
         while (RegExMatch(mid, "i)<(TextBlock|Button|StackPanel)\b[^>]*>", &m, pos)) {
@@ -756,10 +851,15 @@ class XAMLHost {
                     if (InStr(tag, "Margin="))
                         tag := RegExReplace(tag, '\bMargin="[^"]*"', 'Margin="0"')
                 } else {
+                    useFs := titleFs
+                    if (InStr(tag, 'Name="CmdEditorTitle"'))
+                        useFs := XAMLHost.FormatFontSize(XAMLHost.GetThemeFontSize() - 2)
+                    else if (InStr(tag, 'Name="MacroEditorTitle"'))
+                        useFs := titleFs
                     if (RegExMatch(tag, 'FontSize="\d+(?:\.\d+)?"'))
-                        tag := RegExReplace(tag, 'FontSize="\d+(?:\.\d+)?"', 'FontSize="' titleFs '"')
+                        tag := RegExReplace(tag, 'FontSize="\d+(?:\.\d+)?"', 'FontSize="' useFs '"')
                     else
-                        tag := RegExReplace(tag, ">$", ' FontSize="' titleFs '">')
+                        tag := RegExReplace(tag, ">$", ' FontSize="' useFs '">')
                     if (InStr(tag, "FontWeight="))
                         tag := RegExReplace(tag, 'FontWeight="[^"]*"', 'FontWeight="Bold"')
                     else
@@ -830,7 +930,82 @@ class XAMLHost {
                 continue
             try host.Update("Window", "ApplyFonts", payload)
             XAMLHost.SyncChatFontResources(host)
+            XAMLHost.SyncCmdEditorTitleFont(host)
         }
+    }
+
+    ; ApplyFonts 会把 DragArea 标题写成主题+2、铬钮高度写成 30。开窗后再按两类编辑器钉回去。
+    static SyncCmdEditorTitleFont(host) {
+        if (!IsObject(host) || !host.HasProp("xaml"))
+            return
+        oldSkip := host.HasProp("skipFontScale") ? host.skipFontScale : false
+        host.skipFontScale := true
+        try {
+            if (InStr(host.xaml, 'Name="CmdEditorTitle"')) {
+                try host.Update("CmdEditorTitle", "FontSize", String(XAMLHost.CmdTitleFontSize()))
+                XAMLHost._SyncEditorTitleGlyphs(host, XAMLHost.CmdTitleGlyphSize())
+                XAMLHost._SyncCmdChromeCentered(host)
+                return
+            }
+            if (InStr(host.xaml, 'Name="MacroEditorTitle"')) {
+                try host.Update("MacroEditorTitle", "FontSize", String(XAMLHost.GetThemeFontSize() + 2))
+                XAMLHost._SyncEditorTitleBarSize(host, XAMLHost.MacroTitleBarHeight(), 46)
+                XAMLHost._SyncEditorTitleGlyphs(host, XAMLHost.MacroTitleGlyphSize())
+                XAMLHost._SyncChromeBtnWidth(host, 46)
+            }
+        } finally {
+            host.skipFontScale := oldSkip
+        }
+    }
+
+    static _SyncEditorTitleGlyphs(host, glyphSize) {
+        gs := String(glyphSize)
+        for name in ["BtnClosePanelGlyph", "BtnMinimizeGlyph", "BtnMaximizeGlyph", "BtnPinGlyph", "BtnCmdF1Glyph", "BtnCmdTargeterGlyph", "BtnCmdPlayGlyph", "BtnCmdHelpGlyph", "BtnCmdVideoGlyph"] {
+            try host.Update(name, "FontSize", gs)
+        }
+        iconFs := InStr(host.xaml, 'Name="MacroEditorTitle"') ? "20" : "14"
+        try host.Update("TitleIconGlyph", "FontSize", iconFs)
+    }
+
+    static _SyncCmdChromeCentered(host) {
+        w := String(XAMLHost.CmdChromeBtnWidth())
+        h := String(XAMLHost.CmdTitleBarHeight())
+        for name in ["BtnCmdF1", "BtnCmdTargeter", "BtnCmdPlay", "BtnCmdHelp", "BtnCmdVideo"] {
+            try host.Update(name, "Width", w)
+            try host.Update(name, "MinWidth", w)
+            try host.Update(name, "Height", w)
+            try host.Update(name, "MinHeight", w)
+            try host.Update(name, "VerticalAlignment", "Center")
+            try host.Update(name, "Margin", "0")
+        }
+        try host.Update("BtnClosePanel", "Width", w)
+        try host.Update("BtnClosePanel", "MinWidth", w)
+        try host.Update("BtnClosePanel", "Height", h)
+        try host.Update("BtnClosePanel", "MinHeight", h)
+        try host.Update("BtnClosePanel", "VerticalAlignment", "Stretch")
+        try host.Update("BtnClosePanel", "Margin", "0")
+        ; 叉号相对按钮中心左移，避开窗口右上圆弧
+        try host.Update("BtnClosePanelGlyph", "Margin", "0,0,0,0")
+    }
+
+    static _SyncChromeBtnWidth(host, w) {
+        ws := String(w)
+        for name in ["BtnClosePanel", "BtnCmdF1", "BtnCmdTargeter", "BtnCmdPlay", "BtnCmdHelp", "BtnCmdVideo"] {
+            try host.Update(name, "Width", ws)
+            try host.Update(name, "MinWidth", ws)
+            try host.Update(name, "Margin", "0")
+            try host.Update(name, "VerticalAlignment", "Stretch")
+        }
+    }
+
+    static _SyncEditorTitleBarSize(host, h, closeW) {
+        h := String(h)
+        for name in ["BtnClosePanel", "BtnMinimize", "BtnMaximize", "BtnPin", "BtnCmdF1", "BtnCmdTargeter", "BtnCmdPlay", "BtnCmdHelp", "BtnCmdVideo"] {
+            try host.Update(name, "Height", h)
+            try host.Update(name, "MinHeight", h)
+        }
+        try host.Update("BtnClosePanel", "Width", String(closeW))
+        try host.Update("BtnClosePanel", "MinWidth", String(closeW))
     }
 
     ; 进程内 CLR 宿主时，daemon HWND 属于当前 AHK/RMT 进程，绝不能 ProcessClose 自身
@@ -2169,6 +2344,7 @@ class XAMLHost {
                     themeFs := XAMLHost.GetThemeFontSize()
                     instance.Update("Window", "ApplyFonts", XAMLHost.BuildApplyFontsPayload(0, themeFs))
                     XAMLHost.SyncChatFontResources(instance)
+                    XAMLHost.SyncCmdEditorTitleFont(instance)
                 }
             }
             ; 配置管理同款：队列和字号刷完立刻揭盖。再等 OnWindowLoad 只会让已在屏上的黑框更久。

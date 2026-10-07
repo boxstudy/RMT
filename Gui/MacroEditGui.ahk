@@ -655,39 +655,57 @@ class MacroEditGui {
         return ""
     }
 
+    ; 左侧列表列宽：折叠 | 间距 | Fluent | 间距 | 文本。指令图标左缘 = Fluent 左缘
+    _CmdListCol() {
+        return { padL: 6, arrowW: 18, iconW: 18, gap: 6, rowIcon: 16 }
+    }
+
+    _CmdRowPadLeft() {
+        c := this._CmdListCol()
+        return Integer(c.padL + c.arrowW + c.gap)
+    }
+
     ; 构建一行指令：图标 + 名称（收藏改右键，无星标）
-    _AddCmdRowBtn(row, config, cmdBtnName, padLeft) {
-        b := row.Add("Button").Name(cmdBtnName).Height(26).MinHeight(26).Margin("0,1")
+    _AddCmdRowBtn(row, config, cmdBtnName, padLeft := "") {
+        if (padLeft == "")
+            padLeft := this._CmdRowPadLeft()
+        c := this._CmdListCol()
+        b := row.Add("Button").Name(cmdBtnName).Height(28).MinHeight(28).Margin("0,1")
             .HorizontalAlignment("Stretch").Cursor("Hand")
             .Style("{StaticResource RmtCmdRowBtn}")
             .Padding(padLeft ",0,6,0")
             .HorizontalContentAlignment("Left").VerticalContentAlignment("Center")
         sp := b.Add("StackPanel").Orientation("Horizontal").VerticalAlignment("Center")
-        sp.Add("Image").Source(StrReplace(A_WorkingDir "\" config.icon, "\", "/")).Width(16).Height(16).Margin("0,0,6,0")
-        sp.Add("TextBlock").Text(GetLang(config.name)).FontSize(12).VerticalAlignment("Center")
+        sp.Add("Image").Source(StrReplace(A_WorkingDir "\" config.icon, "\", "/")).Width(c.rowIcon).Height(c.rowIcon).Margin("0,0," c.gap ",0")
+        sp.Add("TextBlock").Text(GetLang(config.name)).FontSize(XAMLHost.MacroBodyFontSize()).VerticalAlignment("Center")
             .TextTrimming("CharacterEllipsis").Foreground("{DynamicResource TextMain}")
     }
 
     _AddCmdSectionHead(parent, btnName, arrowName, countName, iconGlyph, title, expanded, count, extraMargin := "0") {
+        c := this._CmdListCol()
         btn := parent.Add("Button").Name(btnName).Style("{StaticResource RmtCatHeadBtn}")
-            .HorizontalAlignment("Stretch").Height(24).MinHeight(24).Cursor("Hand")
-            .HorizontalContentAlignment("Left").Margin(extraMargin)
-        g := btn.Add("Grid").HorizontalAlignment("Stretch")
-        g.Cols("Auto", "Auto", "*", "Auto")
+            .HorizontalAlignment("Stretch").Height(32).MinHeight(32).Cursor("Hand")
+            .HorizontalContentAlignment("Left").Margin(extraMargin).ClipToBounds("False")
+        g := btn.Add("Grid").HorizontalAlignment("Stretch").ClipToBounds("False")
+        g.Cols(String(c.arrowW), String(c.gap), String(c.iconW), String(c.gap), "*", "Auto")
+        iconFs := XAMLHost.FormatFontSize(XAMLHost.FontSize() + 2)
         g.Add("TextBlock").Name(arrowName).Grid_Column(0).Text(expanded ? Chr(0xE70D) : Chr(0xE76C))
-            .FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(12).Width(16)
-            .VerticalAlignment("Center").HorizontalAlignment("Center")
-            .Margin("0,0,4,0")
+            .FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(iconFs)
+            .Width(c.arrowW).Height(c.arrowW)
+            .VerticalAlignment("Center").HorizontalAlignment("Center").TextAlignment("Center")
+            .Padding("0").Margin("0")
             .Foreground("{DynamicResource TextMain}")
-        g.Add("TextBlock").Grid_Column(1).Text(iconGlyph)
-            .FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(12).Width(16).Margin("0,0,6,0")
-            .VerticalAlignment("Center").HorizontalAlignment("Center")
+        g.Add("TextBlock").Grid_Column(2).Text(iconGlyph)
+            .FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(iconFs)
+            .Width(c.iconW).Height(c.iconW)
+            .VerticalAlignment("Center").HorizontalAlignment("Center").TextAlignment("Center")
+            .Padding("0").Margin("0")
             .Foreground("{DynamicResource TextMain}")
-        g.Add("TextBlock").Grid_Column(2).Text(title).FontSize(12).FontWeight("Normal")
+        g.Add("TextBlock").Grid_Column(4).Text(title).FontSize(XAMLHost.MacroBodyFontSize()).FontWeight("Normal")
             .VerticalAlignment("Center").Foreground("{DynamicResource TextMain}")
             .TextTrimming("CharacterEllipsis")
-        g.Add("TextBlock").Name(countName).Grid_Column(3).Text(String(count)).FontSize(10)
-            .VerticalAlignment("Center").Margin("4,0,2,0").Foreground("{DynamicResource TextSub}")
+        g.Add("TextBlock").Name(countName).Grid_Column(5).Text(String(count)).FontSize(10)
+            .VerticalAlignment("Center").Margin("8,0,2,0").Foreground("{DynamicResource TextSub}")
         return btn
     }
 
@@ -700,11 +718,12 @@ class MacroEditGui {
         filterHost := box.Add("Grid").Grid_Row(0).Margin("0,0,6,8")
         filterHost.Add("TextBox").Name("CmdFilter").Height(26).MinHeight(26)
             .VerticalContentAlignment("Center").Padding("8,0")
+            .FontSize(XAMLHost.MacroBodyFontSize())
             .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
         filterHost.Add("TextBlock").Name("CmdFilterHint").Text(GetLang("筛选指令"))
             .IsHitTestVisible("False").VerticalAlignment("Center").Margin("10,0,0,0")
-            .Foreground("{DynamicResource TextSub}").FontSize(12)
+            .Foreground("{DynamicResource TextSub}").FontSize(XAMLHost.MacroBodyFontSize())
 
         sv := box.Add("ScrollViewer").Grid_Row(1).VerticalScrollBarVisibility("Auto")
             .HorizontalScrollBarVisibility("Disabled").Padding("0").Margin("0")
@@ -718,7 +737,7 @@ class MacroEditGui {
 
         favBlock := panel.Add("Border").Background("{DynamicResource EditHoverBg}")
             .BorderBrush("{DynamicResource OutlineStroke}").BorderThickness("1").CornerRadius("4")
-            .Padding("4,4,2,6").Margin("0,0,0,8")
+            .Padding("0,4,2,6").Margin("0,0,0,8")
         favInner := favBlock.Add("StackPanel")
         this._AddCmdSectionHead(favInner, "FavToggle", "FavArrow", "FavCount", Chr(0xE734), GetLang("收藏"), this._favOpen, favCnt)
         favPanel := favInner.Add("StackPanel").Name("CmdFavPanel").Visibility(this._favOpen ? "Visible" : "Collapsed")
@@ -726,9 +745,9 @@ class MacroEditGui {
             isFav := this._favSet.Has(config.name)
             row := favPanel.Add("Grid").Name("FavRow_" config.propName).HorizontalAlignment("Stretch")
                 .Visibility(isFav ? "Visible" : "Collapsed")
-            this._AddCmdRowBtn(row, config, "CmdBtnFav_" config.propName, "22")
+            this._AddCmdRowBtn(row, config, "CmdBtnFav_" config.propName)
         }
-        favInner.Add("TextBlock").Name("FavEmptyHint").FontSize(11).Margin("6,4,4,2")
+        favInner.Add("TextBlock").Name("FavEmptyHint").FontSize(XAMLHost.MacroBodyFontSize()).Margin("6,4,4,2")
             .Foreground("{DynamicResource TextSub}")
             .Text(GetLang("右键指令即可加入收藏"))
             .Visibility((this._favOpen && favCnt == 0) ? "Visible" : "Collapsed")
@@ -742,7 +761,7 @@ class MacroEditGui {
                 if (config == "")
                     continue
                 row := catPanel.Add("Grid").Name("CmdRowCat_" config.propName).HorizontalAlignment("Stretch")
-                this._AddCmdRowBtn(row, config, "CmdBtn_" config.propName, "22")
+                this._AddCmdRowBtn(row, config, "CmdBtn_" config.propName)
             }
         }
     }
@@ -861,6 +880,7 @@ class MacroEditGui {
     }
 
     _EditLayoutStyles() {
+        bodyFs := XAMLHost.MacroBodyFontSize()
         fold := '<Style x:Key="RmtFoldToolBtn" TargetType="Button">'
             . '<Setter Property="Width" Value="31"/><Setter Property="Height" Value="31"/><Setter Property="MinHeight" Value="31"/>'
             . '<Setter Property="Padding" Value="0"/><Setter Property="Cursor" Value="Hand"/>'
@@ -883,7 +903,7 @@ class MacroEditGui {
             . '<Setter Property="BorderBrush" Value="{DynamicResource Accent}"/>'
             . '<Setter Property="BorderThickness" Value="1.5"/>'
             . '<Setter Property="Foreground" Value="{DynamicResource ActionText}"/>'
-            . '<Setter Property="FontSize" Value="13"/>'
+            . '<Setter Property="FontSize" Value="' bodyFs '"/>'
             . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">'
             . '<Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True" UseLayoutRounding="False">'
             . '<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>'
@@ -892,7 +912,7 @@ class MacroEditGui {
             . '<Trigger Property="IsPressed" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource BtnPressBg}"/></Trigger>'
             . '</ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
         modeTab := '<Style x:Key="RmtEditModeTab" TargetType="Button">'
-            . '<Setter Property="Height" Value="31"/><Setter Property="MinHeight" Value="31"/><Setter Property="MaxHeight" Value="31"/>'
+            . '<Setter Property="Height" Value="36"/><Setter Property="MinHeight" Value="36"/><Setter Property="MaxHeight" Value="36"/>'
             . '<Setter Property="Padding" Value="12,0"/><Setter Property="Cursor" Value="Hand"/>'
             . '<Setter Property="Background" Value="Transparent"/>'
             . '<Setter Property="BorderThickness" Value="0"/>'
@@ -902,7 +922,7 @@ class MacroEditGui {
             . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">'
             . '<Grid ClipToBounds="False">'
             . '<Border x:Name="Bd" Background="Transparent" BorderThickness="0" Padding="{TemplateBinding Padding}" Cursor="Hand">'
-            . '<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" TextElement.Foreground="{DynamicResource TextMain}" TextElement.FontSize="13" TextElement.FontWeight="SemiBold"/>'
+            . '<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" TextElement.Foreground="{DynamicResource TextMain}" TextElement.FontSize="' bodyFs '" TextElement.FontWeight="SemiBold"/>'
             . '</Border>'
             . '<Ellipse x:Name="SelDot" Width="6" Height="6" Fill="{DynamicResource Accent}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,3,3,0" Visibility="Collapsed" IsHitTestVisible="False"/>'
             . '</Grid>'
@@ -925,12 +945,11 @@ class MacroEditGui {
             . '<Setter Property="BorderBrush" Value="{DynamicResource ControlBorder}"/>'
             . '<Setter Property="BorderThickness" Value="1.5"/>'
             . '<Setter Property="Foreground" Value="{DynamicResource TextMain}"/>'
-            . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Grid>'
+            . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">'
             . '<Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True" UseLayoutRounding="False">'
-            . '<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" TextElement.Foreground="{DynamicResource TextMain}" TextElement.FontSize="13"/>'
-            . '</Border><Rectangle x:Name="BottomLine" Height="1.5" VerticalAlignment="Bottom" Margin="4,0,4,0" Fill="{TemplateBinding BorderBrush}" IsHitTestVisible="False"/>'
-            . '</Grid><ControlTemplate.Triggers>'
-            . '<Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource ControlBorder}"/><Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}"/><Setter TargetName="BottomLine" Property="Fill" Value="{DynamicResource Accent}"/><Setter Property="Opacity" Value="1"/></Trigger>'
+            . '<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" TextElement.Foreground="{DynamicResource TextMain}" TextElement.FontSize="' bodyFs '"/>'
+            . '</Border><ControlTemplate.Triggers>'
+            . '<Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource ControlBorder}"/><Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}"/><Setter Property="Opacity" Value="1"/></Trigger>'
             . '<Trigger Property="IsPressed" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource BtnPressBg}"/><Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}"/></Trigger>'
             . '</ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
         sbThumb := '<ControlTemplate x:Key="RmtSbThumb" TargetType="Thumb">'
@@ -976,10 +995,11 @@ class MacroEditGui {
         catHead := '<Style x:Key="RmtCatHeadBtn" TargetType="Button">'
             . '<Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/>'
             . '<Setter Property="HorizontalContentAlignment" Value="Stretch"/>'
-            . '<Setter Property="Padding" Value="2,0"/>'
+            . '<Setter Property="Padding" Value="6,0,4,0"/>'
+            . '<Setter Property="ClipToBounds" Value="False"/>'
             . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">'
-            . '<Border x:Name="Bd" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}" CornerRadius="3">'
-            . '<ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center"/>'
+            . '<Border x:Name="Bd" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}" CornerRadius="3" ClipToBounds="False">'
+            . '<ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center" ClipToBounds="False"/>'
             . '</Border><ControlTemplate.Triggers>'
             . '<Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource EditHoverBg}"/></Trigger>'
             . '</ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
@@ -1014,22 +1034,22 @@ class MacroEditGui {
     }
 
     _AddEditModeSeg(bar) {
-        seg := bar.Add("Border").Height(31).MinHeight(31).Margin("0,0,8,0").VerticalAlignment("Center")
+        seg := bar.Add("Border").Height(36).MinHeight(36).Margin("0,0,8,0").VerticalAlignment("Center")
             .Background("{DynamicResource ControlBg}")
             .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1.5").CornerRadius("3")
             .SnapsToDevicePixels("True")
         inner := seg.Add("Grid")
         inner.Cols("Auto", "Auto", "Auto")
-        this._AddEditModeBtn(inner, "BtnModeTree", GetLang("逻辑树"), 80, "sel-first").Grid_Column(0)
+        this._AddEditModeBtn(inner, "BtnModeTree", GetLang("逻辑树"), 92, "sel-first").Grid_Column(0)
         inner.Add("Rectangle").Grid_Column(1).Width("1.5").Fill("{DynamicResource ControlBorder}")
-            .VerticalAlignment("Stretch").Margin("0,6,0,6").IsHitTestVisible("False").SnapsToDevicePixels("True")
-        this._AddEditModeBtn(inner, "BtnModeText", GetLang("文本"), 56, "last").Grid_Column(2)
+            .VerticalAlignment("Stretch").Margin("0,7,0,7").IsHitTestVisible("False").SnapsToDevicePixels("True")
+        this._AddEditModeBtn(inner, "BtnModeText", GetLang("文本"), 68, "last").Grid_Column(2)
         return seg
     }
 
     _AddEditModeBtn(parent, name, text, w, tag) {
         return parent.Add("Button").Name(name).Style("{StaticResource RmtEditModeTab}")
-            .Content(text).Width(w).MinWidth(w).MaxWidth(w).Height(31).MinHeight(31).MaxHeight(31).Tag(tag)
+            .Content(text).Width(w).MinWidth(w).MaxWidth(w).Height(36).MinHeight(36).MaxHeight(36).Tag(tag)
             .Foreground("{DynamicResource TextMain}")
     }
 
@@ -1109,12 +1129,12 @@ class MacroEditGui {
         this.Gui := MacroEditGuiFacade(this)
         title := this.ParentTile GetLang("宏指令编辑器")
         this._title := title
-        titleHeight := "30"
+        titleHeight := XAMLHost.MacroTitleBarHeight()
 
-        main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize(XAMLHost.FontSize())
+        main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize(XAMLHost.VisualFontSizeDeclared())
         main.Rows(titleHeight, "*")
 
-        chrome := XAMLHost.AddCmdTitleBar(main, title)
+        chrome := XAMLHost.AddMacroTitleBar(main, title)
 
         ; === 主体：左指令列表贯穿全高，右为工具栏 + 树 ===
         body := main.Add("Grid").Grid_Row(1)
@@ -1192,7 +1212,7 @@ class MacroEditGui {
 
         content := body.Add("Grid")
         content.Cols("228", "*")
-        content.Rows("52", "*")
+        content.Rows("56", "*")
 
         ; 左侧指令面板（无左边框，右边框作分割线）
         left := content.Add("Border").Grid_Column(0).Grid_RowSpan(2)
@@ -1246,6 +1266,7 @@ class MacroEditGui {
         ; 关虚拟化（注入真实 ListBoxItem，虚拟化会导致插入后滚动条复位）+ 去 ListBoxItem 默认内边距/选中高亮
         lbStyle := '<Style TargetType="ListBoxItem"><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0"/><Setter Property="BorderThickness" Value="0"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem"><Border x:Name="Bd" Background="Transparent" SnapsToDevicePixels="True"><ContentPresenter/></Border></ControlTemplate></Setter.Value></Setter></Style>'
         view.Add("ListBox").Name("MacroTree").Background("{DynamicResource BgColor}").Foreground("{DynamicResource TextMain}")
+            .FontSize(XAMLHost.MacroBodyFontSize())
             .BorderThickness("0").Padding("0")
             .VirtualizingPanel_IsVirtualizing("False")
             .ScrollViewer_HorizontalScrollBarVisibility("Auto").ScrollViewer_VerticalScrollBarVisibility("Auto")
@@ -1260,8 +1281,8 @@ class MacroEditGui {
         ghostBd := ghostPop.Add("Border").CornerRadius("3").BorderThickness("1").Padding("10,5")
             .Background("{DynamicResource ControlBg}").BorderBrush("{DynamicResource Accent}").Opacity("0.94")
         ghostBd.Add("TextBlock").Name("DragGhostTxt").MaxWidth("280").TextTrimming("CharacterEllipsis")
-            .Foreground("{DynamicResource TextMain}").FontSize("12")
-        view.Add("TextBox").Name("MacroText").AcceptsReturn("True").FontSize("12").Visibility("Collapsed")
+            .Foreground("{DynamicResource TextMain}").FontSize(XAMLHost.MacroBodyFontSize())
+        view.Add("TextBox").Name("MacroText").AcceptsReturn("True").FontSize(XAMLHost.MacroBodyFontSize()).Visibility("Collapsed")
             .VerticalContentAlignment("Top")
             .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("0")
@@ -1276,7 +1297,7 @@ class MacroEditGui {
         ; === 创建 XAMLHost ===
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", this.OwnerHwnd)
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="1400" Height="837" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="1400" Height="867" Opacity="0"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
         this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', this._EditLayoutStyles())
 

@@ -66,7 +66,7 @@ class BGKeyGui {
         this._keySeq := 0
         title := this.ParentTile GetLang("后台按键编辑器")
         this._title := title
-        titleHeight := "30"
+        titleHeight := XAMLHost.CmdTitleBarHeight()
 
         main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize(XAMLHost.FontSize())
         main.Rows(titleHeight, "*")
@@ -78,21 +78,11 @@ class BGKeyGui {
         body := main.Add("Grid").Grid_Row(1).Margin("8,4,8,8")
         body.Rows("Auto", "Auto", "Auto", "48")
 
-        ; 行0：按键检测 | 窗口信息(居中) | 备注；左右两组整体宽 250，间距 90px
-        top := body.Add("Grid").Grid_Row(0).Margin("0,2,0,4")
-        top.Cols("*", "Auto", "*")
+        ; 行0：窗口信息 + 备注居中，间距 200px
+        top := body.Add("StackPanel").Grid_Row(0).Orientation("Horizontal")
+            .HorizontalAlignment("Center").VerticalAlignment("Center").Margin("0,2,0,4")
 
-        detect := top.Add("Grid").Grid_Column(0).Width("250")
-            .HorizontalAlignment("Right").VerticalAlignment("Center").Margin("0,0,90,0")
-        detect.Cols("Auto", "*", "Auto")
-        detect.Add("TextBlock").Grid_Column(0).Text(GetLang("按键检测：")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
-        detect.Add("TextBox").Grid_Column(1).Name("HotkeyCon").Height(26).MinHeight(26).Margin("4,0,0,0")
-            .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
-            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").VerticalContentAlignment("Center").Padding("4,0")
-        detect.Add("Button").Grid_Column(2).Name("BtnDetect").Content(GetLang("确定")).Width(50).Height(28).MinHeight(28).Margin("6,0,0,0").Cursor("Hand")
-
-        front := top.Add("StackPanel").Grid_Column(1).Orientation("Horizontal")
-            .HorizontalAlignment("Center").VerticalAlignment("Center")
+        front := top.Add("StackPanel").Orientation("Horizontal").VerticalAlignment("Center")
         front.Add("TextBlock").Text(GetLang("窗口信息:")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
             .ToolTip(this._BGHelpText())
         front.Add("TextBox").Name("FrontCon").Width(200).Height(26).MinHeight(26).Margin("4,0,0,0")
@@ -100,11 +90,9 @@ class BGKeyGui {
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").VerticalContentAlignment("Center").Padding("4,0")
         front.Add("Button").Name("BtnEdit").Content(GetLang("编辑")).Height(28).MinHeight(28).Padding("14,0").Margin("6,0,0,0").Cursor("Hand")
 
-        remark := top.Add("Grid").Grid_Column(2).Width("250")
-            .HorizontalAlignment("Left").VerticalAlignment("Center").Margin("90,0,0,0")
-        remark.Cols("Auto", "*")
-        remark.Add("TextBlock").Grid_Column(0).Text(GetLang("备注：")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
-        remark.Add("TextBox").Grid_Column(1).Name("RemarkCon").Height(26).MinHeight(26).Margin("4,0,0,0")
+        remark := top.Add("StackPanel").Orientation("Horizontal").VerticalAlignment("Center").Margin("200,0,0,0")
+        remark.Add("TextBlock").Text(GetLang("备注：")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
+        remark.Add("TextBox").Name("RemarkCon").Width(200).Height(26).MinHeight(26).Margin("4,0,0,0")
             .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").VerticalContentAlignment("Center").Padding("4,0")
 
@@ -112,7 +100,7 @@ class BGKeyGui {
         sv := body.Add("ScrollViewer").Grid_Row(1).Margin("0,4,0,0")
             .VerticalScrollBarVisibility("Auto").HorizontalScrollBarVisibility("Disabled").ClipToBounds("True")
         kbHost := sv.Add("Grid")
-        this._keyGrid := kbHost.Add("Canvas").Width("1109").Height("240").HorizontalAlignment("Center").VerticalAlignment("Top")
+        this._keyGrid := kbHost.Add("Canvas").Width("1109").Height("270").HorizontalAlignment("Center").VerticalAlignment("Top")
 
         ; 行2：类型 / 点击时长 / 点击次数 / 每次间隔（居中）
         bottom := body.Add("StackPanel").Grid_Row(2).Orientation("Horizontal").HorizontalAlignment("Center").Margin("10,12,10,2").VerticalAlignment("Center")
@@ -152,7 +140,7 @@ class BGKeyGui {
         ; === 创建 XAMLHost ===
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", this.OwnerHwnd)
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="1140" Height="430" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="1140" Height="460" Opacity="0"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
         this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '')
 
@@ -164,7 +152,6 @@ class BGKeyGui {
         this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
         this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
         BindCmdEditorChrome(this.ui, "#指令手册/22-后台按键", ObjBindMethod(this, "TriggerMacro"), "!l")
-        this.ui.OnEvent("BtnDetect", "Click", ObjBindMethod(this, "OnSureHotkey"))
         this.ui.OnEvent("BtnEdit", "Click", ObjBindMethod(this, "OnClickEditBtn"))
         this.ui.OnEvent("KeyTypeCon", "SelectionChanged", ObjBindMethod(this, "OnChangeEditValue"))
         this.ui.OnEvent("HoldTimeCon", "TextChanged", ObjBindMethod(this, "OnChangeEditValue"))
@@ -210,48 +197,52 @@ class BGKeyGui {
         p1 := px, p2 := px + pw + pg, p3 := px + 2 * (pw + pg), p4 := px + 3 * (pw + pg)
 
         this._AddKeyRow([
+            ["F13","F13",120,35],["F14","F14",170,35],["F15","F15",220,35],["F16","F16",270,35],
+            ["F17","F17",345,35],["F18","F18",395,35],["F19","F19",445,35],["F20","F20",495,35],
+            ["F21","F21",570,35],["F22","F22",620,35],["F23","F23",670,35],["F24","F24",720,35]], 0)
+        this._AddKeyRow([
             ["Esc","Esc",20,40],["F1","F1",120,35],["F2","F2",170,35],["F3","F3",220,35],["F4","F4",270,35],
             ["F5","F5",345,35],["F6","F6",395,35],["F7","F7",445,35],["F8","F8",495,35],
             ["F9","F9",570,35],["F10","F10",620,35],["F11","F11",670,35],["F12","F12",720,35],
-            ["PrintScreen","PrtScr",n1,nw],["ScrollLock","Scroll",n2,nw],["Pause","Pause",n3,nw]], 0)
+            ["PrintScreen","PrtScr",n1,nw],["ScrollLock","Scroll",n2,nw],["Pause","Pause",n3,nw]], 30)
         this._AddKeyRow([
             ["``","~",20,35],["1","1",70,35],["2","2",120,35],["3","3",170,35],["4","4",220,35],
             ["5","5",270,35],["6","6",320,35],["7","7",370,35],["8","8",420,35],["9","9",470,35],
             ["0","0",520,35],["-","-",570,35],["=","=",620,35],["BS","Backspace",670,85],
             ["Ins","Ins",n1,nw],["Home","Home",n2,nw],["PgUp","PgUp",n3,nw],
-            ["NumLock","Num",p1,pw],["NumpadDiv","/",p2,pw],["NumpadMult","*",p3,pw],["NumpadSub","-",p4,pw]], 30)
+            ["NumLock","Num",p1,pw],["NumpadDiv","/",p2,pw],["NumpadMult","*",p3,pw],["NumpadSub","-",p4,pw]], 60)
         this._AddKeyRow([
             ["Tab","Tab",20,60],["q","Q",100,35],["w","W",150,35],["e","E",200,35],["r","R",250,35],
             ["t","T",300,35],["y","Y",350,35],["u","U",400,35],["i","I",450,35],["o","O",500,35],
             ["p","P",550,35],["[","[",600,35],["]","]",650,35],["\","\",705,50],
             ["Del","Del",n1,nw],["End","End",n2,nw],["PgDn","PgDn",n3,nw],
-            ["Numpad7","7",p1,pw],["Numpad8","8",p2,pw],["Numpad9","9",p3,pw],["NumpadAdd","+",p4,pw]], 60)
+            ["Numpad7","7",p1,pw],["Numpad8","8",p2,pw],["Numpad9","9",p3,pw],["NumpadAdd","+",p4,pw]], 90)
         this._AddKeyRow([
             ["CapsLock","CapsLock",20,75],["a","A",120,35],["s","S",170,35],["d","D",220,35],["f","F",270,35],
             ["g","G",320,35],["h","H",370,35],["j","J",420,35],["k","K",470,35],["l","L",520,35],
             [";",";",570,35],["'","'",620,35],["Enter","Enter",680,75],
-            ["Numpad4","4",p1,pw],["Numpad5","5",p2,pw],["Numpad6","6",p3,pw]], 90)
+            ["Numpad4","4",p1,pw],["Numpad5","5",p2,pw],["Numpad6","6",p3,pw]], 120)
         this._AddKeyRow([
             ["LShift","LShift",20,85],["z","Z",130,35],["x","X",180,35],["c","C",230,35],["v","V",280,35],
             ["b","B",330,35],["n","N",380,35],["m","M",430,35],["逗号",",",480,35],[".",".",530,35],
             ["/","/",580,35],["RShift","RShift",670,85],["Up","↑",n2,nw],
-            ["Numpad1","1",p1,pw],["Numpad2","2",p2,pw],["Numpad3","3",p3,pw],["NumpadEnter","Enter",p4,pw]], 120)
+            ["Numpad1","1",p1,pw],["Numpad2","2",p2,pw],["Numpad3","3",p3,pw],["NumpadEnter","Enter",p4,pw]], 150)
         this._AddKeyRow([
             ["LCtrl","LCtrl",20,60],["LWin","LWin",95,60],["LAlt","LAlt",170,60],["Space","Space",245,210],
             ["RAlt","RAlt",470,60],["RWin","RWin",545,60],["AppsKey","AppsKey",620,60],["RCtrl","RCtrl",695,60],
-            ["Left","←",n1,nw],["Down","↓",n2,nw],["Right","→",n3,nw],["Numpad0","0",p1,p2 + pw - p1],["NumpadDot","Del",p3,pw]], 150)
+            ["Left","←",n1,nw],["Down","↓",n2,nw],["Right","→",n3,nw],["Numpad0","0",p1,p2 + pw - p1],["NumpadDot","Del",p3,pw]], 180)
         this._AddKeyRow([
             ["Ctrl","Ctrl",20,60],["Shift","Shift",95,60],["Alt","Alt",170,60],
             ["Browser_Back",GetLang("后退"),245,60],["Browser_Forward",GetLang("前进"),320,60],
             ["Browser_Refresh",GetLang("刷新"),395,60],["Browser_Stop",GetLang("停止"),470,60],
             ["Browser_Search",GetLang("搜索"),545,60],["Browser_Favorites",GetLang("收藏夹"),620,60],
             ["Browser_Home",GetLang("主页"),695,60],
-            ["Volume_Mute",GetLang("静音"),n1,nw],["Volume_Down",GetLang("音量-"),n2,nw],["Volume_Up",GetLang("音量+"),n3,nw]], 180)
+            ["Volume_Mute",GetLang("静音"),n1,nw],["Volume_Down",GetLang("音量-"),n2,nw],["Volume_Up",GetLang("音量+"),n3,nw]], 210)
         this._AddKeyRow([
             ["Launch_App1",GetLang("此电脑"),20,60],["Launch_App2",GetLang("计算器"),95,60],
             ["Media_Next",GetLang("下一首"),170,60],["Media_Prev",GetLang("上一首"),245,60],
             ["Media_Stop",GetLang("停止"),320,60],["Media_Play_Pause",GetLang("播放/暂停"),395,80],
-            ["Bright_Down",GetLang("亮度-"),545,60],["Bright_Up",GetLang("亮度+"),620,60]], 210)
+            ["Bright_Down",GetLang("亮度-"),545,60],["Bright_Up",GetLang("亮度+"),620,60]], 240)
     }
 
     _RegisterKeyEvents() {
@@ -303,15 +294,6 @@ class BGKeyGui {
             if (this.ConMap.Has(value))
                 this._SetKeyBtnState(this.ConMap[value], true)
         }
-    }
-
-    OnSureHotkey(state, ctrl, event) {
-        triggerKey := this.ui.Query("HotkeyCon")
-        triggerKey := StrReplace(triggerKey, ",", "逗号")
-        triggerKey := StrReplace(triggerKey, "Insert", "Ins")
-        this.CheckedArr := GetComboKeyArr(triggerKey)
-        this.RefreshCheckCon()
-        this.Refresh()
     }
 
     OnClickEditBtn(*) {
@@ -374,7 +356,7 @@ class BGKeyGui {
         }
 
         if (this.CheckedArr == "" || this.CheckedArr.Length == 0) {
-            MsgBox(GetLang("请选择按键！"))
+            RmtDialog.Info(GetLang("请选择按键！"), , this.Hwnd())
             return false
         }
 
@@ -444,9 +426,11 @@ class BGKeyGui {
 
     OnWindowLoad(state, ctrl, event) {
         XamlWin.OnLoadTheme(this.ui)
+        KeyPickerHook.Attach(this, false, ["HoldTimeCon", "KeyCountCon", "PerIntervalCon"])
     }
 
     OnWindowClosing(state, ctrl, event) {
+        KeyPickerHook.Detach(this)
         try this.ToggleFunc(false)
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
@@ -460,6 +444,7 @@ class BGKeyGui {
     }
 
     _CloseWindow() {
+        KeyPickerHook.Detach(this)
         try this.ToggleFunc(false)
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")

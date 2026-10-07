@@ -6,20 +6,20 @@
 ; =============================================================================
 class RmtDialog {
     ; 单按钮提示（确定）
-    static Info(msg, title := "") {
+    static Info(msg, title := "", owner := 0) {
         RmtDialog._Trace("Info enter msg=" RmtDialog._Clip(msg))
         try {
-            RmtDialog._Show(String(msg), title != "" ? title : GetLang("提示"), [GetLang("确定")], Chr(0xE946), "{DynamicResource TextMain}", true)
+            RmtDialog._Show(String(msg), title != "" ? title : GetLang("提示"), [GetLang("确定")], Chr(0xE946), "{DynamicResource TextMain}", true, owner)
         } catch as e {
             RmtDialog._Log("Info", e)
         }
     }
 
     ; 确定/取消，返回是否点了确定
-    static Confirm(msg, title := "") {
+    static Confirm(msg, title := "", owner := 0) {
         RmtDialog._Trace("Confirm enter msg=" RmtDialog._Clip(msg))
         try {
-            btn := RmtDialog._Show(String(msg), title != "" ? title : GetLang("提示"), [GetLang("确定"), GetLang("取消")], Chr(0xE814), "{DynamicResource Accent}", false)
+            btn := RmtDialog._Show(String(msg), title != "" ? title : GetLang("提示"), [GetLang("确定"), GetLang("取消")], Chr(0xE814), "{DynamicResource Accent}", false, owner)
             ok := (btn == GetLang("确定"))
             RmtDialog._Trace("Confirm result ok=" ok " btn=" btn)
             return ok
@@ -31,10 +31,10 @@ class RmtDialog {
 
     ; 多按钮选择（XAML 版 CustomMsgBox）。返回按钮序号（1 起）；点关闭/按 Esc → 0。
     ; 返回值语义与旧 CustomMsgBox 一致，方便调用处 1:1 替换。
-    static Choose(msg, title := "", buttons := []) {
+    static Choose(msg, title := "", buttons := [], owner := 0) {
         RmtDialog._Trace("Choose enter msg=" RmtDialog._Clip(msg) " n=" buttons.Length)
         try {
-            btn := RmtDialog._Show(String(msg), title != "" ? title : GetLang("提示"), buttons, Chr(0xE814), "{DynamicResource Accent}", true)
+            btn := RmtDialog._Show(String(msg), title != "" ? title : GetLang("提示"), buttons, Chr(0xE814), "{DynamicResource Accent}", true, owner)
             if (btn == "" || btn == "Closed")
                 return 0
             loop buttons.Length {
@@ -93,11 +93,12 @@ class RmtDialog {
         return { Tall: tall, WinW: w, Lines: nl }
     }
 
-    static _Show(msg, title, buttons, iconChar, iconColor, offsetMsg := false) {
-        owner := 0
-        try {
-            if (IsSet(MyMainWin) && IsObject(MyMainWin) && IsObject(MyMainWin.ui) && MyMainWin.ui.wpfHwnd)
-                owner := MyMainWin.ui.wpfHwnd
+    static _Show(msg, title, buttons, iconChar, iconColor, offsetMsg := false, owner := 0) {
+        if (!owner) {
+            try {
+                if (IsSet(MyMainWin) && IsObject(MyMainWin) && IsObject(MyMainWin.ui) && MyMainWin.ui.wpfHwnd)
+                    owner := MyMainWin.ui.wpfHwnd
+            }
         }
         try XAMLHost.EnsureDaemonHealthy()
 
@@ -212,6 +213,7 @@ class RmtDialog {
             resultObj.Button := "Closed"
         if (owner) {
             try WinSetEnabled(1, "ahk_id " owner)
+            try WinActivate("ahk_id " owner)
         }
         RmtDialog._Trace("Show done btn=" resultObj.Button)
         return resultObj.Button
@@ -226,6 +228,7 @@ class RmtDialog {
             resultObj.Button := "Closed"
         if (owner) {
             try WinSetEnabled(1, "ahk_id " owner)
+            try WinActivate("ahk_id " owner)
         }
     }
 
@@ -233,6 +236,7 @@ class RmtDialog {
         resultObj.Button := btnText
         if (owner) {
             try WinSetEnabled(1, "ahk_id " owner)
+            try WinActivate("ahk_id " owner)
         }
         try ui.Update("Window", "Close", "")
     }

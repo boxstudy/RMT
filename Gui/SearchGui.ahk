@@ -58,7 +58,7 @@ class SearchGui {
         this._closed := false
         title := this.ParentTile GetLang("搜索编辑器")
         this._title := title
-        titleHeight := "30"
+        titleHeight := XAMLHost.CmdTitleBarHeight()
 
         main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize(XAMLHost.FontSize())
         main.Rows(titleHeight, "30", "30", "26", "86", "30", "30", "30", "28", "*", "44")

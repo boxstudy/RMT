@@ -70,7 +70,7 @@ class InputGui {
         this._closed := false
         title := this.ParentTile GetLang("输入编辑器")
         this._title := title
-        titleHeight := "30"
+        titleHeight := XAMLHost.CmdTitleBarHeight()
 
         main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize(XAMLHost.FontSize())
         main.Rows(titleHeight, "*")
@@ -79,49 +79,49 @@ class InputGui {
         chrome := XAMLHost.AddCmdTitleBar(main, title, titleHeight)
 
         ; === 内容 ===
-        body := main.Add("Grid").Grid_Row(1).Margin("10,8")
-        body.Rows("32", "36", "34", "*", "52")
-        body.Cols("80", "150", "60", "150")
+        body := main.Add("Grid").Grid_Row(1).Margin("16,10,16,12")
+        body.Rows("36", "36", "60")
+        body.Cols("80", "150", "12", "80", "150")
 
-        ; 行0：备注
-        row0 := body.Add("StackPanel").Grid_Row(0).Grid_ColumnSpan(4).Orientation("Horizontal").VerticalAlignment("Center")
-        row0.Add("TextBlock").Text(GetLang("备注：")).VerticalAlignment("Center")
-        row0.Add("TextBox").Name("RemarkCon").Width(130).Height(24).MinHeight(24).Margin("4,0,0,0")
-
-        ; 行1：输入类型
-        row1 := body.Add("StackPanel").Grid_Row(1).Grid_ColumnSpan(4).Orientation("Horizontal").VerticalAlignment("Center")
-        row1.Add("TextBlock").Text(GetLang("输入类型:")).VerticalAlignment("Center")
-        tc := row1.Add("ComboBox").Name("TypeCombo").Width(130).Height(26).MinHeight(26).Margin("4,0,0,0")
+        ; 行0：输入类型 + 备注（白底，内边距与下拉框一致）
+        body.Add("TextBlock").Grid_Row(0).Grid_Column(0).Text(GetLang("输入类型:")).VerticalAlignment("Center")
+        tc := body.Add("ComboBox").Grid_Row(0).Grid_Column(1).Name("TypeCombo").Height(26).MinHeight(26).VerticalAlignment("Center")
         for t in GetLangArr(["弹窗", "状态", "继续", "继续&取消"])
             tc.Add("ComboBoxItem").Content(t)
+        body.Add("TextBlock").Grid_Row(0).Grid_Column(3).Text(GetLang("备注：")).VerticalAlignment("Center")
+        body.Add("TextBox").Grid_Row(0).Grid_Column(4).Name("RemarkCon").Height(26).MinHeight(26).MaxHeight(26).VerticalAlignment("Center")
+            .VerticalContentAlignment("Center").Padding("2,0")
+            .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
 
-        ; 行2：交互时 + 取消时（取消时按类型显隐）
-        row2 := body.Add("StackPanel").Grid_Row(2).Grid_ColumnSpan(4).Orientation("Horizontal").VerticalAlignment("Center")
-        row2.Add("TextBlock").Text(GetLang("交互时:")).VerticalAlignment("Center")
-        pt := row2.Add("ComboBox").Name("PauseTypeCombo").Width(120).Height(26).MinHeight(26).Margin("4,0,0,0")
+        ; 行1：交互时 + 结果变量 / 取消时（互斥，同一位置顺延）
+        body.Add("TextBlock").Grid_Row(1).Grid_Column(0).Text(GetLang("交互时:")).VerticalAlignment("Center")
+        pt := body.Add("ComboBox").Grid_Row(1).Grid_Column(1).Name("PauseTypeCombo").Height(26).MinHeight(26).VerticalAlignment("Center")
         for t in GetLangArr(["暂停当前宏", "暂停所有宏"])
             pt.Add("ComboBoxItem").Content(t)
-        cancelRow := row2.Add("StackPanel").Name("CancelRow").Orientation("Horizontal").Margin("18,0,0,0")
-        cancelRow.Add("TextBlock").Text(GetLang("取消时:")).VerticalAlignment("Center")
-        ct := cancelRow.Add("ComboBox").Name("CancelTypeCombo").Width(120).Height(26).MinHeight(26).Margin("4,0,0,0")
+
+        slot := body.Add("Grid").Grid_Row(1).Grid_Column(3).Grid_ColumnSpan(2)
+
+        resultRow := slot.Add("Grid").Name("ResultRow")
+        resultRow.Cols("80", "150")
+        resultRow.Add("TextBlock").Grid_Column(0).Text(GetLang("结果变量：")).VerticalAlignment("Center")
+        resultRow.Add("ComboBox").Grid_Column(1).Name("SaveNameCombo").Height(26).MinHeight(26).IsEditable("True").VerticalAlignment("Center")
+
+        cancelRow := slot.Add("Grid").Name("CancelRow").Visibility("Collapsed")
+        cancelRow.Cols("80", "150")
+        cancelRow.Add("TextBlock").Grid_Column(0).Text(GetLang("取消时:")).VerticalAlignment("Center")
+        ct := cancelRow.Add("ComboBox").Grid_Column(1).Name("CancelTypeCombo").Height(26).MinHeight(26).VerticalAlignment("Center")
         for t in GetLangArr(["终止当前宏", "终止所有宏"])
             ct.Add("ComboBoxItem").Content(t)
 
-        ; 行3：结果保存 GroupBox
-        resultGroup := body.Add("GroupBox").Grid_Row(3).Grid_ColumnSpan(4).Name("ResultGroup").Header(GetLang("结果保存"))
-            .Margin("0,2,0,2").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").Foreground("{DynamicResource TextMain}")
-        resInner := resultGroup.Add("StackPanel").Orientation("Horizontal").Margin("12,8")
-        resInner.Add("TextBlock").Text(GetLang("变量：")).VerticalAlignment("Center")
-        resInner.Add("ComboBox").Name("SaveNameCombo").Width(130).Height(26).MinHeight(26).Margin("4,0,0,0").IsEditable("True")
-
-        ; 行4：确定
-        btnRow := body.Add("StackPanel").Grid_Row(4).Grid_ColumnSpan(4).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
+        ; 行2：确定
+        btnRow := body.Add("StackPanel").Grid_Row(2).Grid_ColumnSpan(5).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Bottom").Margin("0,0,0,6")
         AddCmdOkBtn(btnRow)
 
         ; === 创建 XAMLHost ===
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", this.OwnerHwnd)
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="510" Height="282" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="520" Height="204" Opacity="0"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
         this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '')
 
@@ -223,9 +223,9 @@ class InputGui {
         HasCancel := IsGoOnAndCancel
         HasRes := IsPopUp || IsState
 
-        ; 交互时恒显示；取消时/结果保存按类型
+        ; 交互时恒显示；结果变量 / 取消时按类型互斥，同一位置顺延
         this.ui.Update("CancelRow", "Visibility", HasCancel ? "Visible" : "Collapsed")
-        this.ui.Update("ResultGroup", "Visibility", HasRes ? "Visible" : "Collapsed")
+        this.ui.Update("ResultRow", "Visibility", HasRes ? "Visible" : "Collapsed")
     }
 
     OnClickSureBtn(state, ctrl, event) {
@@ -239,8 +239,10 @@ class InputGui {
     }
 
     CheckIfValid() {
-        if (!CheckVarNameIfValid(this.ui.Query("SaveNameCombo")))
-            return false
+        if (this.ui.Query("ResultRow>Visibility") != "Collapsed") {
+            if (!CheckVarNameIfValid(this.ui.Query("SaveNameCombo")))
+                return false
+        }
         return true
     }
 
@@ -284,7 +286,7 @@ class InputGui {
         this.Data.CancelType := GetLangKey(this.ui.Query("CancelTypeCombo"))
         this.Data.SaveName := GetVarName(this.ui.Query("SaveNameCombo"))
 
-        if (this.ui.Query("ResultGroup>Visibility") != "Collapsed") {
+        if (this.ui.Query("ResultRow>Visibility") != "Collapsed") {
             MySoftData.GlobalVariMap[this.Data.SaveName] := true
         }
         SaveMacroCMDData(this.Data)

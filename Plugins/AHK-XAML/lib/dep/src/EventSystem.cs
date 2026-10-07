@@ -519,6 +519,10 @@ public partial class AhkWpfEngine
             case System.Windows.Input.Key.F4: case System.Windows.Input.Key.F5: case System.Windows.Input.Key.F6:
             case System.Windows.Input.Key.F7: case System.Windows.Input.Key.F8: case System.Windows.Input.Key.F9:
             case System.Windows.Input.Key.F10: case System.Windows.Input.Key.F11: case System.Windows.Input.Key.F12:
+            case System.Windows.Input.Key.F13: case System.Windows.Input.Key.F14: case System.Windows.Input.Key.F15:
+            case System.Windows.Input.Key.F16: case System.Windows.Input.Key.F17: case System.Windows.Input.Key.F18:
+            case System.Windows.Input.Key.F19: case System.Windows.Input.Key.F20: case System.Windows.Input.Key.F21:
+            case System.Windows.Input.Key.F22: case System.Windows.Input.Key.F23: case System.Windows.Input.Key.F24:
                 return key.ToString();
             case System.Windows.Input.Key.Space: return "Space";
             case System.Windows.Input.Key.Enter: return "Enter";

@@ -853,7 +853,7 @@ class MacroTreeAdapter {
         brkVis := (node.HasProp("debugBp") && node.debugBp) ? "Visible" : "Collapsed"
         dispText := this._EscapeXml(CmdStripDebug(node.text))
         xml := '<Border Name="CardBd_' node.id '" Tag="' node.id '" CornerRadius="0" BorderThickness="0" Background="' cardBg '" Margin="0" Padding="' this._CardPad() '" HorizontalAlignment="Stretch">'
-            . '<StackPanel Name="CardInner_' node.id '" Orientation="Horizontal" VerticalAlignment="Stretch" MinHeight="24" Opacity="' skipOp '">'
+            . '<StackPanel Name="CardInner_' node.id '" Orientation="Horizontal" VerticalAlignment="Stretch" MinHeight="28" Opacity="' skipOp '">'
             . prefix
         if (node.icon != "")
             xml .= '<Image Source="' this._EscapeXml(node.icon) '" Width="16" Height="16" Margin="0,0,4,0" VerticalAlignment="Center"/>'
@@ -873,7 +873,7 @@ class MacroTreeAdapter {
         xml .= '<Grid Name="Brk_' node.id '" Width="10" Height="12" Margin="0,0,4,0" Visibility="' brkVis '" VerticalAlignment="Center">'
             . '<Ellipse Width="9" Height="9" Fill="#E53935" VerticalAlignment="Center" HorizontalAlignment="Center" IsHitTestVisible="False"/>'
             . '</Grid>'
-        xml .= '<TextBlock Name="Txt_' node.id '" Text="' dispText '" VerticalAlignment="Center" Foreground="{DynamicResource TextMain}" FontFamily="' this._JoyListFont() '"/>'
+        xml .= '<TextBlock Name="Txt_' node.id '" Text="' dispText '" VerticalAlignment="Center" Foreground="{DynamicResource TextMain}" FontSize="' XAMLHost.MacroBodyFontSize() '" FontFamily="' this._JoyListFont() '"/>'
         xml .= '</StackPanel></Border>'
         return xml
     }

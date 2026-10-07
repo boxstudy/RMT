@@ -90,11 +90,53 @@ GI_CollectStates() {
                 sThumbRY:       Integer(p[8]),
                 ; vid/pid 透传（原 wrapper 每行末尾字段），供调用方按设备身份过滤
                 vid:            (p.Length >= 10 && p[9] ~= "^\d+$") ? Integer(p[9]) : 0,
-                pid:            (p.Length >= 10 && p[10] ~= "^\d+$") ? Integer(p[10]) : 0
+                pid:            (p.Length >= 10 && p[10] ~= "^\d+$") ? Integer(p[10]) : 0,
+                giButtons:      (p.Length >= 11 && p[11] ~= "^\d+$") ? Integer(p[11]) : 0
             })
         }
     }
     return states
+}
+
+; 非官方 XInputGetStateEx（ordinal 100）带 Guide/Home 位 0x0400；读不到则退回 XInputGetState
+JoyXInputEx(index := 0) {
+    static proc := 0
+    if (proc == 0) {
+        for dll in ["xinput1_4.dll", "xinput1_3.dll"] {
+            hMod := DllCall("GetModuleHandle", "Str", dll, "Ptr")
+            if (!hMod)
+                hMod := DllCall("LoadLibrary", "Str", dll, "Ptr")
+            if (!hMod)
+                continue
+            proc := DllCall("GetProcAddress", "Ptr", hMod, "Ptr", 100, "Ptr")
+            if (proc)
+                break
+            proc := DllCall("GetProcAddress", "Ptr", hMod, "AStr", "XInputGetState", "Ptr")
+            if (proc)
+                break
+        }
+        if (!proc)
+            proc := -1
+    }
+    if (proc == -1)
+        return 0
+    buf := Buffer(16, 0)
+    if (DllCall(proc, "UInt", index, "Ptr", buf) != 0)
+        return 0
+    lx := Integer(Round(NumGet(buf, 8, "Short") * 100 / 32768))
+    ly := Integer(Round(NumGet(buf, 10, "Short") * 100 / 32768))
+    rx := Integer(Round(NumGet(buf, 12, "Short") * 100 / 32768))
+    ry := Integer(Round(NumGet(buf, 14, "Short") * 100 / 32768))
+    clamp(v) => (v < -100 ? -100 : (v > 100 ? 100 : v))
+    return {
+        wButtons: NumGet(buf, 4, "UShort"),
+        lt: NumGet(buf, 6, "UChar"),
+        rt: NumGet(buf, 7, "UChar"),
+        lx: clamp(lx),
+        ly: clamp(ly),
+        rx: clamp(rx),
+        ry: clamp(ry)
+    }
 }
 
 RecordJoyAxises := Map("JoyXMin", 0, "JoyXMax", 100, "JoyYMin", 0, "JoyYMax", 100, "JoyZMin", 0, "JoyZMax", 100,

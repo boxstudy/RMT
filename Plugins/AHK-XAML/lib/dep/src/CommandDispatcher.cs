@@ -3833,7 +3833,8 @@ public partial class AhkWpfEngine
             string fam = tb.FontFamily != null ? tb.FontFamily.Source : "";
             if (fam.IndexOf("Segoe Fluent") < 0 && fam.IndexOf("MDL2") < 0)
             {
-                tb.FontSize = themeSize + 2;
+                // 指令/宏指令编辑器标题跟主题字号；主窗等其它标题仍是主题+2
+                tb.FontSize = (tb.Name == "CmdEditorTitle") ? Math.Max(6, themeSize - 2) : themeSize + 2;
                 tb.FontWeight = FontWeights.Bold;
             }
             else
@@ -3842,6 +3843,18 @@ public partial class AhkWpfEngine
                 tb.Padding = new Thickness(0);
                 tb.VerticalAlignment = VerticalAlignment.Center;
                 tb.HorizontalAlignment = HorizontalAlignment.Center;
+                try
+                {
+                    Window owner = Window.GetWindow(tb);
+                    if (owner != null)
+                    {
+                        if (tb.Name == "TitleIconGlyph")
+                            tb.FontSize = (owner.FindName("MacroEditorTitle") != null) ? 20 : 14;
+                        else
+                            tb.FontSize = (owner.FindName("MacroEditorTitle") != null) ? 20 : themeSize;
+                    }
+                }
+                catch { }
             }
             return;
         }
@@ -3852,10 +3865,30 @@ public partial class AhkWpfEngine
             && btn.Name != "BtnClosePicker"
             && btn.Name != "BtnMinimize" && btn.Name != "BtnMaximize" && btn.Name != "BtnPin")
             return;
-        btn.Width = 46;
-        btn.Height = 30;
-        btn.MinWidth = 46;
-        btn.MinHeight = 30;
+        double barH = 30;
+        double closeW = 46;
+        try
+        {
+            Window owner = Window.GetWindow(btn);
+            if (owner != null)
+            {
+                if (owner.FindName("CmdEditorTitle") != null)
+                {
+                    barH = 26;
+                    closeW = 31;
+                }
+                else if (owner.FindName("MacroEditorTitle") != null)
+                {
+                    barH = 38;
+                    closeW = 46;
+                }
+            }
+        }
+        catch { }
+        btn.Width = (btn.Name == "BtnClosePanel" || btn.Name == "BtnClose") ? closeW : 46;
+        btn.Height = barH;
+        btn.MinWidth = btn.Width;
+        btn.MinHeight = barH;
         btn.Padding = new Thickness(0);
         btn.Margin = new Thickness(0);
         btn.VerticalAlignment = VerticalAlignment.Stretch;
@@ -3886,10 +3919,10 @@ public partial class AhkWpfEngine
             {
                 bd.ClearValue(FrameworkElement.WidthProperty);
                 bd.ClearValue(FrameworkElement.HeightProperty);
+                bd.ClearValue(FrameworkElement.MinWidthProperty);
+                bd.ClearValue(FrameworkElement.MinHeightProperty);
                 bd.HorizontalAlignment = HorizontalAlignment.Stretch;
                 bd.VerticalAlignment = VerticalAlignment.Stretch;
-                bd.MinWidth = 46;
-                bd.MinHeight = 30;
                 if (btn.Name == "BtnMinimize" || btn.Name == "BtnMaximize" || btn.Name == "BtnPin")
                     bd.CornerRadius = new CornerRadius(0);
             }
@@ -3902,12 +3935,17 @@ public partial class AhkWpfEngine
 
     static bool IsTitleChromeNamed(DependencyObject node)
     {
+        FrameworkElement fe = node as FrameworkElement;
+        if (fe != null && !string.IsNullOrEmpty(fe.Name) && fe.Name.EndsWith("Glyph"))
+            return true;
         Button btn = node as Button;
         if (btn == null || string.IsNullOrEmpty(btn.Name))
             return false;
         return btn.Name == "BtnClosePanel" || btn.Name == "BtnClose" || btn.Name == "BtnWinClose"
             || btn.Name == "BtnClosePicker"
-            || btn.Name == "BtnMinimize" || btn.Name == "BtnMaximize" || btn.Name == "BtnPin";
+            || btn.Name == "BtnMinimize" || btn.Name == "BtnMaximize" || btn.Name == "BtnPin"
+            || btn.Name == "BtnCmdF1" || btn.Name == "BtnCmdTargeter" || btn.Name == "BtnCmdPlay"
+            || btn.Name == "BtnCmdHelp" || btn.Name == "BtnCmdVideo";
     }
 
     static bool IsInTitleBar(DependencyObject node)

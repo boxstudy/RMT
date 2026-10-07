@@ -54,7 +54,7 @@ class WaitGui {
         this._closed := false
         title := this.ParentTile GetLang("等待编辑器")
         this._title := title
-        titleHeight := "30"
+        titleHeight := XAMLHost.CmdTitleBarHeight()
 
         main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize(XAMLHost.FontSize())
         main.Rows(titleHeight, "34", "Auto", "40")

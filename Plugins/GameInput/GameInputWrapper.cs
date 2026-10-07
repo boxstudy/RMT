@@ -315,9 +315,9 @@ namespace GameInputTest
                 short ry = ClampShort(r.RightThumbstickY);
                 lines[i] = string.Format(
                     System.Globalization.CultureInfo.InvariantCulture,
-                    "{0};{1};{2};{3};{4};{5};{6};{7};{8};{9}",
+                    "{0};{1};{2};{3};{4};{5};{6};{7};{8};{9};{10}",
                     r.DeviceId, wb, lt, rt, lx, ly, rx, ry,
-                    r.VendorId, r.ProductId);
+                    r.VendorId, r.ProductId, r.Buttons);
             }
             return string.Join("\n", lines);
         }
