@@ -240,7 +240,7 @@ class MacroGraphDataMixin {
     ; 形式化 INI 指令的 cmdKey 列表（与 AssetUtil 中 CMD 映射一致；阶段5 含新配置化 间隔/按键/移动/RMT指令）
     ; §20 改名：加「鼠标移动/增量移动」新键（旧「移动」键保留兼容旧图）
     _FormalIniCmdKeys() {
-        return ["宏操作", "变量", "变量提取", "如果", "如果Pro", "运算", "运行", "文件读写", "文本处理", "数组",
+        return ["宏操作", "变量", "变量提取", "如果", "如果Pro", "运算", "运行", "运行Pro", "文件读写", "文本处理", "数组",
             "后台鼠标", "后台按键", "窗口管理", "按键检测", "手柄检测", "注释", "抓图", "循环",
             "间隔", "按键", "移动", "鼠标移动", "增量移动", "RMT指令"]
     }
@@ -267,6 +267,7 @@ class MacroGraphDataMixin {
                 "如果Pro", CompareProData,
                 "运算", OperationData,
                 "运行", RunData,
+                "运行Pro", RunData,
                 "文件读写", FileIOData,
                 "文本处理", TextOpsData,
                 "数组", ArrayData,
@@ -443,7 +444,7 @@ class MacroGraphDataMixin {
             d.saveName := data.SaveName
             d.trueValue := data.TrueValue
             d.falseValue := data.FalseValue
-            loop 4 {
+            loop data.ToggleArr.Length {
                 i := A_Index
                 d["ifTog" i] := data.ToggleArr[i]
                 d["ifName" i] := data.NameArr[i]
@@ -474,7 +475,7 @@ class MacroGraphDataMixin {
                 d["updateName" i] := data.UpdateNameArr[i]
                 d["expression" i] := data.ExpressionArr[i]
             }
-        } else if (cmdKey == "运行") {
+        } else if (cmdKey == "运行" || cmdKey == "运行Pro") {
             d.runTarget := data.Target
             d.runMode := data.Mode
             d.option := ObjHasOwnProp(data, "Option") ? data.Option : 1
@@ -579,7 +580,7 @@ class MacroGraphDataMixin {
             d.condiType := data.CondiType
             d.logicType := data.LogicType
             d.loopBody := data.LoopBody
-            loop 4 {
+            loop data.ToggleArr.Length {
                 i := A_Index
                 d["loopTog" i] := data.ToggleArr[i]
                 d["loopName" i] := data.NameArr[i]

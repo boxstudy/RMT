@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>如果Pro · 改版参考</title>
+  <style>
+    :root {
+      --bg: #f3e6cf;
+      --paper: #fbf4e6;
+      --ink: #5c3d24;
+      --ink-soft: #8a6240;
+      --line: #d7b48a;
+      --title: #f3d7a8;
+      --accent: #f97316;
+      --accent-dark: #ea580c;
+      --if: #ea580c;
+      --elif: #c2410c;
+      --else: #78716c;
+      --ok: #16a34a;
+      --chip: #fffdf8;
+      --shadow: 0 18px 50px rgba(92, 61, 36, .18);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      font-family: "Segoe UI", "Microsoft YaHei UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(900px 420px at 10% -10%, #fff6e4, transparent 55%),
+        linear-gradient(180deg, #f7ead3, #ead7b4);
+    }
+    .page {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 28px 24px 48px;
+      display: grid;
+      grid-template-columns: minmax(520px, 640px) 1fr;
+      gap: 28px;
+      align-items: start;
+    }
+    h1 { font-size: 22px; margin: 0 0 8px; }
+    .lead { margin: 0 0 18px; color: var(--ink-soft); line-height: 1.55; font-size: 14px; }
+    .win {
+      background: var(--paper);
+      border: 1px solid #e0bf8d;
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .chrome {
+      height: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 10px 0 12px;
+      background: linear-gradient(180deg, #f8e2b6, #f0cc8d);
+      border-bottom: 1px solid #e0bf8d;
+      color: var(--ink);
+      font-weight: 650;
+      font-size: 14px;
+    }
+    .chrome-left { display: flex; align-items: center; gap: 8px; }
+    .dot {
+      width: 16px; height: 16px; border-radius: 4px;
+      background: #f59e0b; color: #fff; font-size: 11px;
+      display: grid; place-items: center;
+    }
+    .chrome-btns { display: flex; gap: 6px; color: var(--ink-soft); font-size: 13px; }
+    .chrome-btns span { width: 22px; text-align: center; opacity: .75; }
+    .body { padding: 14px 16px 16px; }
+    .meta {
+      display: grid;
+      grid-template-columns: 64px 1fr auto;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .meta label { font-size: 13px; }
+    .input {
+      height: 28px; border: 1px solid var(--line); border-radius: 6px;
+      background: #fff; color: var(--ink); padding: 0 8px; font: inherit;
+    }
+    .hint {
+      font-size: 12px; color: var(--ink-soft);
+      background: #fff7ea; border: 1px dashed var(--line);
+      border-radius: 999px; padding: 4px 10px;
+    }
+    .rail { position: relative; }
+    .card {
+      position: relative;
+      background: #fffdf8;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 12px 12px;
+      margin-bottom: 10px;
+    }
+    .card:hover { border-color: #c9843a; }
+    .card.active { border-color: var(--accent); background: #fff8ef; }
+    .card.else { background: #f7f4ef; }
+    .ops { display: flex; gap: 4px; margin-left: auto; opacity: 0; flex-shrink: 0; }
+    .card:hover .ops, .card.active .ops { opacity: 1; }
+    .iconbtn {
+      border: 1px solid var(--line); background: #fff; color: var(--ink-soft);
+      border-radius: 5px; height: 22px; padding: 0 6px; font-size: 11px; cursor: pointer;
+    }
+    .iconbtn:hover { color: var(--ink); border-color: var(--accent); }
+    .iconbtn.danger:hover { color: #b91c1c; border-color: #fca5a5; }
+    .when, .then { display: flex; align-items: flex-start; gap: 8px; }
+    .k {
+      flex: 0 0 40px; font-size: 12px; font-weight: 700; color: var(--ink-soft);
+      padding-top: 5px;
+    }
+    .chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; flex: 1; }
+    .chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: var(--chip); border: 1px solid var(--line);
+      border-radius: 7px; padding: 3px 7px; font-size: 12px;
+    }
+    .chip b { font-weight: 650; }
+    .chip .op { color: var(--accent-dark); }
+    .join {
+      border: 0; background: #fff1e0; color: var(--accent-dark);
+      border-radius: 999px; font-size: 11px; font-weight: 700;
+      padding: 3px 8px; cursor: pointer;
+    }
+    .join.or { background: #ecfeff; color: #0e7490; }
+    .action {
+      flex: 1; display: flex; align-items: center;
+      border: 1px solid var(--line); background: #fff; border-radius: 7px;
+      padding: 6px 8px; font-size: 12px; cursor: pointer;
+    }
+    .action:hover { border-color: var(--accent); background: #fff8ef; }
+    .action code { font-family: Consolas, "Cascadia Mono", monospace; color: var(--ink); }
+    .flow-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+    .flow-row select {
+      height: 26px; border: 1px solid var(--line); border-radius: 6px;
+      background: #fff; color: var(--ink); font: inherit; font-size: 12px; padding: 0 6px;
+    }
+    .add {
+      width: 100%; margin: 2px 0 12px; height: 34px;
+      border: 1px dashed #c9843a; background: #fffaf2; color: var(--accent-dark);
+      border-radius: 8px; font-weight: 650; cursor: pointer;
+    }
+    .add:hover { background: #fff3e0; }
+    .foot { display: flex; justify-content: center; }
+    .ok {
+      min-width: 88px; height: 32px; border: 0; border-radius: 8px;
+      background: var(--accent); color: #fff; font-weight: 700; cursor: pointer;
+    }
+    .notes h2 { font-size: 16px; margin: 0 0 10px; }
+    .notes ol { margin: 0; padding-left: 18px; }
+    .notes li { margin: 0 0 12px; line-height: 1.55; font-size: 13.5px; }
+    .notes b { color: var(--accent-dark); }
+    .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 14px 0 4px; }
+    .pair div {
+      background: #fffaf2; border: 1px solid var(--line); border-radius: 8px;
+      padding: 10px; font-size: 12.5px; line-height: 1.5;
+    }
+    .pair .bad { color: #9a3412; }
+    .pair .good { color: #166534; }
+    .toast {
+      position: fixed; right: 20px; bottom: 20px; background: #1c1917; color: #fff;
+      padding: 8px 12px; border-radius: 8px; font-size: 12px; opacity: 0;
+      transition: opacity .2s; pointer-events: none;
+    }
+    .toast.show { opacity: 1; }
+    @media (max-width: 980px) {
+      .page { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div>
+      <h1>如果Pro · 改版参考窗</h1>
+      <p class="lead">用同一套数据（你截图里的 3 条分支）重画成「判断阶梯」。这不是现成 AHK 实现，是调整方向稿：能点选分支、切换且/或、添加分支。</p>
+      <div class="win">
+        <div class="chrome">
+          <div class="chrome-left"><span class="dot">?</span> 宏指令-如果Pro</div>
+          <div class="chrome-btns"><span>▷</span><span>☰</span><span>▶</span><span>×</span></div>
+        </div>
+        <div class="body">
+          <div class="meta">
+            <label>备注：</label>
+            <input class="input" placeholder="可选，给这条如果取个名字" />
+            <span class="hint">从上到下，命中第一条就执行</span>
+          </div>
+          <div class="rail" id="rail"></div>
+          <button class="add" id="addBtn">+ 在兜底前插入分支</button>
+          <div class="foot"><button class="ok">确定</button></div>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <h2>现版缺什么</h2>
+      <div class="pair">
+        <div class="bad">三列白表，没有表头；且/或夹在条件和指令中间，像是在连后面的按键。</div>
+        <div class="good">每张卡片只有「条件 / 指令 / 流程控制」；且/或只出现在多个条件之间。</div>
+        <div class="bad">指令是生串，旁边还挂「编辑指令」；流程控制完全藏在子窗口。</div>
+        <div class="good">点指令模块直接进分支编辑器；流程控制下拉就放在卡片上。</div>
+        <div class="bad">增删靠右键，空列表一大块白，左边还要一排装饰圆点。</div>
+        <div class="good">添加按钮放在阶梯上；上移/下移/删除悬停才出现，界面更干净。</div>
+      </div>
+      <h2>建议落地时保留的交互</h2>
+      <ol>
+        <li><b>卡片 = 一条分支。</b> 点指令模块打开现有分支编辑器；主界面只展示条件和关系。</li>
+        <li><b>条件拆成碎片。</b> <code>Var1 等于 1</code> 显示成变量 / 比较 / 值三块。</li>
+        <li><b>兜底永远钉在最底。</b> 不能上移、不能删除，条件固定为「以上都不是」。</li>
+        <li><b>流程控制在主界面。</b> 无 / 循环-跳过本轮 / 循环-跳出 / 分支-跳出。</li>
+        <li><b>宽度可到 640+。</b> 现 540 把条件和指令挤成一行，信息全糊了。</li>
+      </ol>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+  <script>
+    const flows = ["无", "循环-跳过本轮", "循环-跳出", "分支-跳出"];
+    const data = [
+      { kind: "if", conds: [{ l: "Var1", op: "等于", r: "1" }], join: "且", then: "按键_a_点击_100", flow: "无" },
+      { kind: "elif", conds: [{ l: "Var2", op: "等于", r: "2" }], join: "或", then: "按键_b_点击_100", flow: "循环-跳出" },
+      { kind: "else", conds: [], join: "", then: "按键_c_点击_100", flow: "无" }
+    ];
+    let sel = 0;
+    const rail = document.getElementById("rail");
+    const toast = document.getElementById("toast");
+    function say(t) {
+      toast.textContent = t;
+      toast.classList.add("show");
+      clearTimeout(say._t);
+      say._t = setTimeout(() => toast.classList.remove("show"), 1400);
+    }
+    function flowSelect(i, cur) {
+      return flows.map(f => `<option${f===cur?" selected":""}>${f}</option>`).join("");
+    }
+    function render() {
+      rail.innerHTML = data.map((b, i) => {
+        const condHtml = b.kind === "else"
+          ? `<span class="chip">以上都不是</span>`
+          : b.conds.map((c, ci) => {
+              const join = ci < b.conds.length - 1
+                ? `<button class="join ${b.join === "或" ? "or" : ""}" data-i="${i}">${b.join}</button>` : "";
+              return `<span class="chip"><b>${c.l}</b><span class="op">${c.op}</span><b>${c.r}</b></span>${join}`;
+            }).join("");
+        return `<article class="card ${b.kind}${sel===i?" active":""}" data-i="${i}">
+          <div class="when">
+            <span class="k">条件</span>
+            <div class="chips">${condHtml}</div>
+            <span class="ops">
+              <button class="iconbtn" data-act="up" ${b.kind==="else"||i===0?"disabled":""}>上移</button>
+              <button class="iconbtn" data-act="down" ${b.kind==="else"||i===data.length-2?"disabled":""}>下移</button>
+              <button class="iconbtn danger" data-act="del" ${b.kind==="else"?"disabled":""}>删除</button>
+            </span>
+          </div>
+          <div class="then" style="margin-top:8px">
+            <span class="k">指令</span>
+            <div class="action" data-act="edit"><code>${b.then}</code></div>
+          </div>
+          <div class="flow-row">
+            <span class="k">流程</span>
+            <select data-act="flow">${flowSelect(i, b.flow)}</select>
+          </div>
+        </article>`;
+      }).join("");
+    }
+    rail.addEventListener("click", (e) => {
+      const card = e.target.closest(".card");
+      if (!card) return;
+      const i = +card.dataset.i;
+      const join = e.target.closest(".join");
+      const act = e.target.closest("[data-act]");
+      const flowSel = e.target.closest("select[data-act=flow]");
+      if (join) {
+        data[i].join = data[i].join === "且" ? "或" : "且";
+        say("该分支内条件改为「" + data[i].join + "」关系");
+        render();
+        return;
+      }
+      if (flowSel) {
+        data[i].flow = flowSel.value;
+        say("流程控制：" + flowSel.value);
+        return;
+      }
+      if (act) {
+        const a = act.dataset.act;
+        if (a === "edit") {
+          say("打开分支编辑器");
+          sel = i;
+          render();
+          return;
+        }
+        if (a === "del" && data[i].kind !== "else") {
+          data.splice(i, 1);
+          data[0].kind = "if";
+          data.slice(1, -1).forEach(x => x.kind = "elif");
+          sel = Math.min(sel, data.length - 1);
+          say("已删除分支");
+        } else if (a === "up" && i > 0 && data[i].kind !== "else") {
+          [data[i-1], data[i]] = [data[i], data[i-1]];
+          data[0].kind = "if";
+          data.slice(1, -1).forEach(x => x.kind = "elif");
+          sel = i - 1;
+        } else if (a === "down" && data[i].kind !== "else" && i < data.length - 2) {
+          [data[i+1], data[i]] = [data[i], data[i+1]];
+          data[0].kind = "if";
+          data.slice(1, -1).forEach(x => x.kind = "elif");
+          sel = i + 1;
+        }
+        render();
+        return;
+      }
+      sel = i;
+      render();
+    });
+    rail.addEventListener("dblclick", (e) => {
+      if (e.target.closest(".card") && !e.target.closest("select,button"))
+        say("打开分支编辑器");
+    });
+    document.getElementById("addBtn").onclick = () => {
+      data.splice(data.length - 1, 0, {
+        kind: data.length === 1 ? "if" : "elif",
+        conds: [{ l: "Var3", op: "等于", r: "0" }],
+        join: "且",
+        then: "（未填写指令）",
+        flow: "无"
+      });
+      data[0].kind = "if";
+      data.slice(1, -1).forEach(x => x.kind = "elif");
+      sel = data.length - 2;
+      render();
+      say("已在兜底前插入一条否则如果");
+    };
+    render();
+  </script>
+</body>
+</html>

@@ -70,7 +70,7 @@ SetGlobalData(macroStr, visitMap) {
                     VariableMap[Data.SaveName] := true
             case "文件读写":
                 SetFileIOGlobalData(Data)
-            case "运行":
+            case "运行", "运行Pro":
                 if (Data.Mode = 2) {
                     if (Data.SaveNameArr[1] != "")
                         VariableMap[Data.SaveNameArr[1]] := true

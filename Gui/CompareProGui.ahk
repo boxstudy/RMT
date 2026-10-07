@@ -4,9 +4,8 @@
 ; =====================================================================
 ; 如果Pro编辑器 —— XAML 迁移版（独立实现）
 ; 公开接口保持：ShowGui(cmd) / SureBtnAction / OwnerHwnd / ParentTile / Hwnd()
-; 原生 ListView（三列：条件/关系/指令）→ ListBox 行模型 this.LVRowArr（[condiStr, logicStr, macro]），
-;   每行 AddXamlItem 注入 ListBoxItem（Tag=行号，Grid 三列 TextBlock），行命中用桥接 ListBox HitTest；
-;   双击/右键经 PreviewMouseLeft/RightButtonDown + 延迟处理（同 UseExplainGui 模式）。
+; 卡片阶梯：ScrollViewer + BranchPanel，每张卡 条件碎片 / 点指令编辑 / 流程下拉；
+;   行模型 this.LVRowArr（[condiStr, logicStr, macro, controlType]），最后一行永远是兜底。
 ; 与 CompareProEditItemGui（分支编辑器）联动契约不变：ShowGui(EditType, DataArr, logicStr, macro, controlType) /
 ;   SureBtnAction(condiStr, logicStr, macro, controlType) / DLVariableArr / ParentTile / OwnerHwnd。
 ; =====================================================================
@@ -23,19 +22,18 @@ class CompareProGui {
         this.FocusCon := ""     ; 原生确定按钮占位（XAML 版无原生控件可传，见 OnEditItem）
         this.ItemEditGui := ""
         this.ContextMenu := ""
-        this.LVCon := ""        ; 原生 ListView 占位（XAML 版为 ListBox 控件名 "LVCon"）
+        this.LVCon := ""        ; 兼容占位
         this._closed := true
+        this._syncing := false
+        this._title := ""
 
-        this.LVRowArr := []     ; 列表行模型：[condiStr, logicStr, macro]
+        this.LVRowArr := []     ; [condiStr, logicStr, macro, controlType]
         this.CurItme := 0       ; 右键目标行（保留原生拼写）
-        this._clickCoord := ""
-        this._rightClickCoord := ""
 
         this.CompareTypeStrArr := GetLangArr(["大于", "大于等于", "等于", "小于等于",
-            "小于", "字符包含", "变量存在", "正则匹配"])
+            "小于", "字符包含", "变量存在", "正则匹配", "不等于"])
 
-        this.CompareTypeStrMap := Map(GetLang("大于"), 1, GetLang("大于等于"), 2, GetLang("等于"), 3, GetLang("小于等于"),
-        4, GetLang("小于"), 5, GetLang("字符包含"), 6, GetLang("变量存在"), 7, GetLang("正则匹配"), 8)
+        this.CompareTypeStrMap := GetCompareTypeStrMap()
 
         this.Data := ""
     }
@@ -74,154 +72,374 @@ class CompareProGui {
         titleHeight := XAMLHost.CmdTitleBarHeight()
 
         main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize(XAMLHost.FontSize())
-        main.Rows(titleHeight, "38", "*", "52")
+        main.Rows(titleHeight, "*")
 
-        ; === 标题栏 ===
-        chrome := XAMLHost.AddCmdTitleBar(main, title, titleHeight)
+        XAMLHost.AddCmdTitleBar(main, title, titleHeight)
 
-        ; === 顶部工具行 ===
-        top := main.Add("StackPanel").Grid_Row(1).Orientation("Horizontal").Margin("10,5")
-        top.Add("TextBlock").Text(GetLang("备注：")).VerticalAlignment("Center")
-        top.Add("TextBox").Name("RemarkCon").Width(150).Height(26).MinHeight(26).Margin("4,0,0,0")
-            .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
-            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").VerticalContentAlignment("Center").Padding("4,0")
+        body := main.Add("Grid").Grid_Row(1).Margin("16,8,16,12")
+        body.Rows("*", "44")
 
-        ; === 条件列表（三列：条件/关系/指令）===
-        lvWrap := main.Add("Grid").Grid_Row(2).Margin("10,2,10,0")
-        ; 去 ListBoxItem 默认内边距/外边距，内容横向拉伸（保留默认选中高亮）
-        lbStyle := '<Style TargetType="ListBoxItem"><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/></Style>'
-        lvWrap.Add("ListBox").Name("LVCon")
-            .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
-            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-            .VirtualizingPanel_IsVirtualizing("False")
-            .ScrollViewer_HorizontalScrollBarVisibility("Disabled").ScrollViewer_VerticalScrollBarVisibility("Auto")
-            .InjectResources(lbStyle)
+        ; 全部分支包在同一边框内；备注放进框顶，避免和外框错位
+        box := body.Add("Border").Grid_Row(0).Margin("0,4,0,4").Padding("10,10")
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1.5").CornerRadius("4")
+            .Background("{DynamicResource ControlBg}")
+            .SnapsToDevicePixels("True").UseLayoutRounding("False")
+        inner := box.Add("Grid")
+        inner.Rows("Auto", "*")
 
-        ; === 底部按钮 ===
-        btnRow := main.Add("StackPanel").Grid_Row(3).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
+        meta := inner.Add("Grid").Grid_Row(0).Margin("0,0,0,8")
+        meta.Cols("48", "*")
+        meta.Add("TextBlock").Grid_Column(0).Text(GetLang("备注：")).VerticalAlignment("Center")
+            .Foreground("{DynamicResource TextMain}").FontSize("12").FontWeight("Bold")
+        ; TextBox 默认模板会裁掉上下边，用外层 Border 画四边
+        remarkBd := meta.Add("Border").Grid_Column(1).Height("28").MinHeight("28").VerticalAlignment("Center")
+            .Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource ControlBorder}")
+            .BorderThickness("1.5").CornerRadius("3")
+            .SnapsToDevicePixels("True").UseLayoutRounding("False")
+        remarkBd.Add("TextBox").Name("RemarkCon").BorderThickness("0").Background("Transparent")
+            .Foreground("{DynamicResource InputText}").VerticalContentAlignment("Center").Padding("4,0")
+            .VerticalAlignment("Stretch")
+
+        sv := inner.Add("ScrollViewer").Grid_Row(1).MinHeight("0").VerticalAlignment("Stretch")
+            .VerticalScrollBarVisibility("Auto").HorizontalScrollBarVisibility("Disabled")
+        sv.Add("StackPanel").Name("BranchPanel")
+
+        btnRow := body.Add("StackPanel").Grid_Row(1).Orientation("Horizontal")
+            .HorizontalAlignment("Center").VerticalAlignment("Center")
         AddCmdOkBtn(btnRow, "BtnSure", "4,0")
 
-        ; === 创建 XAMLHost ===
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", this.OwnerHwnd)
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="540" Height="440" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="640" Height="540" Opacity="0"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
         this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '')
 
-        ; === 事件 ===
         this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
         this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
         this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
         BindCmdEditorChrome(this.ui, "#指令手册/14-如果Pro", (*) => this.TriggerMacro())
         this.ui.OnEvent("BtnSure", "Click", ObjBindMethod(this, "OnClickSureBtn"))
-        ; 列表行：双击编辑、右键菜单（桥接 ListBox HitTest 命中行，Tag=行号）
-        this.ui.OnEvent("LVCon", "PreviewMouseLeftButtonDown", ObjBindMethod(this, "_OnLVLeftDown"))
-        this.ui.OnEvent("LVCon", "PreviewMouseRightButtonDown", ObjBindMethod(this, "_OnLVRightDown"))
-
     }
 
-    ; ---------------- 列表行模型（等价原生 ListView） ----------------
+    ; ---------------- 卡片阶梯 ----------------
+
+    _FlowKeys() {
+        return ["无", "循环-跳过本轮", "循环-跳出", "分支-跳出"]
+    }
+
+    _FlowTypes() {
+        return GetLangArr(this._FlowKeys())
+    }
+
+    _IsFinally(i) {
+        if (i < 1 || i > this.LVRowArr.Length)
+            return false
+        return this.LVRowArr[i][1] == GetLang("以上都不是") || i == this.LVRowArr.Length
+    }
+
+    _RowControlType(i) {
+        row := this.LVRowArr[i]
+        if (row.Length >= 4 && row[4] != "")
+            return row[4]
+        return "无"
+    }
+
+    _FlowIndex(ct) {
+        key := GetLangKey(ct)
+        keys := this._FlowKeys()
+        loop keys.Length {
+            if (keys[A_Index] == key || GetLang(keys[A_Index]) == ct)
+                return A_Index - 1
+        }
+        return 0
+    }
+
+    _DefaultBranchRow() {
+        return [GetLang("Var1 大于 Var1"), GetLang("且"), "", "无"]
+    }
+
+    _ParseChipCondi(itemStr) {
+        itemStr := Trim(itemStr)
+        for op in this.CompareTypeStrArr {
+            needle := " " op " "
+            p := InStr(itemStr, needle)
+            if (p) {
+                return [Trim(SubStr(itemStr, 1, p - 1)), op, Trim(SubStr(itemStr, p + StrLen(needle)))]
+            }
+        }
+        parts := StrSplit(itemStr, " ")
+        name := parts.Length >= 1 ? parts[1] : itemStr
+        op := parts.Length >= 2 ? parts[2] : ""
+        val := parts.Length >= 3 ? parts[3] : ""
+        return [name, op, val]
+    }
+
+    _FlatBtnTemplate() {
+        return '<Button.Template><ControlTemplate TargetType="Button">'
+            . '<Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"'
+            . ' BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3"'
+            . ' SnapsToDevicePixels="True" UseLayoutRounding="False">'
+            . '<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>'
+            . '</Border>'
+            . '<ControlTemplate.Triggers>'
+            . '<Trigger Property="IsMouseOver" Value="True">'
+            . '<Setter TargetName="Bd" Property="Background" Value="{DynamicResource EditHoverBg}"/>'
+            . '<Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}"/>'
+            . '</Trigger>'
+            . '<Trigger Property="IsPressed" Value="True">'
+            . '<Setter TargetName="Bd" Property="Background" Value="{DynamicResource ControlBorder}"/>'
+            . '</Trigger>'
+            . '<Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4"/></Trigger>'
+            . '</ControlTemplate.Triggers>'
+            . '</ControlTemplate></Button.Template>'
+    }
+
+    _ChipXml(name, op := "", val := "", hideVal := false) {
+        xml := '<Border Margin="0,0,4,2" Padding="3,1" CornerRadius="3" BorderThickness="1.5"'
+            . ' BorderBrush="{DynamicResource ControlBorder}" Background="{DynamicResource InputBg}"'
+            . ' SnapsToDevicePixels="True" UseLayoutRounding="False">'
+            . '<StackPanel Orientation="Horizontal">'
+            . '<TextBlock Text="' this._EscapeXml(name) '" FontWeight="SemiBold"'
+            . ' Foreground="{DynamicResource TextMain}" VerticalAlignment="Center"/>'
+        if (op != "")
+            xml .= '<TextBlock Text="' this._EscapeXml(op) '" Foreground="{DynamicResource Accent}"'
+                . ' Margin="4,0,0,0" VerticalAlignment="Center"/>'
+        if (!hideVal && val != "")
+            xml .= '<TextBlock Text="' this._EscapeXml(val) '" FontWeight="SemiBold"'
+                . ' Foreground="{DynamicResource TextMain}" Margin="4,0,0,0" VerticalAlignment="Center"/>'
+        xml .= '</StackPanel></Border>'
+        return xml
+    }
+
+    _JoinXml(i, j, logicStr) {
+        return '<Button Name="BtnJoin' i '_' j '" Content="' this._EscapeXml(logicStr) '"'
+            . ' Height="20" MinHeight="20" Padding="6,0" Margin="0,0,4,2" Cursor="Hand"'
+            . ' FontWeight="Bold" Foreground="{DynamicResource Accent}"'
+            . ' Background="{DynamicResource ControlBg}" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1.5">'
+            . this._FlatBtnTemplate()
+            . '</Button>'
+    }
+
+    _InsertCondiXml() {
+        return this._IconBtnXml("BtnInsertCondi", "&#xE710;", GetLang("插入条件"))
+    }
+
+    _CondiPanelXml(i, condiStr, logicStr, isFinally) {
+        if (isFinally)
+            return this._ChipXml(GetLang("以上都不是"))
+        xml := ""
+        parts := StrSplit(condiStr, "⎖")
+        loop parts.Length {
+            j := A_Index
+            item := Trim(parts[j])
+            if (item == "")
+                continue
+            parsed := this._ParseChipCondi(item)
+            hideVal := this.CompareTypeStrMap.Has(parsed[2]) && IsCompareExistVar(this.CompareTypeStrMap[parsed[2]])
+            xml .= this._ChipXml(parsed[1], parsed[2], parsed[3], hideVal)
+            if (j < parts.Length)
+                xml .= this._JoinXml(i, j, logicStr)
+        }
+        if (xml == "")
+            xml := this._ChipXml(GetLang("条件"))
+        return xml
+    }
+
+    _IconBtnXml(name, glyph, tip, enabled := true) {
+        en := enabled ? "True" : "False"
+        return '<Button Name="' name '" Width="22" Height="22" MinHeight="22" Padding="0" Margin="4,0,0,0" Cursor="Hand"'
+            . ' FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" Content="' glyph '"'
+            . ' ToolTip="' this._EscapeXml(tip) '" IsEnabled="' en '"'
+            . ' Foreground="{DynamicResource TextMain}" Background="{DynamicResource ControlBg}"'
+            . ' BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1.5"'
+            . ' HorizontalAlignment="Center" VerticalAlignment="Center">'
+            . this._FlatBtnTemplate()
+            . '</Button>'
+    }
+
+    _OpsXml(i) {
+        xml := ""
+        if (i != 1)
+            xml .= this._IconBtnXml("BtnUp" i, "&#xE74A;", GetLang("上移"))
+        if (i < this.LVRowArr.Length - 1)
+            xml .= this._IconBtnXml("BtnDown" i, "&#xE74B;", GetLang("下移"))
+        xml .= this._IconBtnXml("BtnDel" i, "&#xE74D;", GetLang("删除"))
+        return xml
+    }
+
+    _CardXml(i) {
+        row := this.LVRowArr[i]
+        isFinally := this._IsFinally(i)
+        ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
+        macro := row[3]
+        actionText := (macro == "") ? GetLang("（未填写指令）") : macro
+        flowItems := ""
+        for t in this._FlowTypes()
+            flowItems .= '<ComboBoxItem Content="' this._EscapeXml(t) '"/>'
+        editBtn := this._IconBtnXml("BtnEdit" i, "&#xE70F;", GetLang("编辑"), true)
+        flowOps := editBtn . (isFinally ? "" : this._OpsXml(i))
+        cardPad := isFinally ? "0" : "0,0,0,8"
+        return '<Border ' ns ' Margin="' cardPad '" Padding="8,6" CornerRadius="4" BorderThickness="1.5"'
+            . ' BorderBrush="{DynamicResource ControlBorder}" Background="{DynamicResource ControlBg}"'
+            . ' SnapsToDevicePixels="True" UseLayoutRounding="False">'
+            . '<Grid>'
+            . '<Grid.RowDefinitions>'
+            . '<RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>'
+            . '</Grid.RowDefinitions>'
+            . '<Grid Grid.Row="0">'
+            . '<Grid.ColumnDefinitions>'
+            . '<ColumnDefinition Width="40"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>'
+            . '</Grid.ColumnDefinitions>'
+            . '<TextBlock Text="' this._EscapeXml(GetLang("条件")) '" FontWeight="Bold"'
+            . ' Foreground="{DynamicResource TextMain}" VerticalAlignment="Center"/>'
+            . '<WrapPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">'
+            . this._CondiPanelXml(i, row[1], row[2], isFinally)
+            . '</WrapPanel>'
+            . (isFinally ? '<StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0,0,0">' this._InsertCondiXml() '</StackPanel>' : "")
+            . '</Grid>'
+            . '<Grid Grid.Row="1" Margin="0,4,0,0">'
+            . '<Grid.ColumnDefinitions>'
+            . '<ColumnDefinition Width="40"/><ColumnDefinition Width="*"/>'
+            . '</Grid.ColumnDefinitions>'
+            . '<TextBlock Text="' this._EscapeXml(GetLang("指令")) '" FontWeight="Bold"'
+            . ' Foreground="{DynamicResource TextMain}" VerticalAlignment="Center"/>'
+            . '<Border Grid.Column="1" MinHeight="26" MaxHeight="40" Padding="6,4" CornerRadius="3"'
+            . ' Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1.5"'
+            . ' SnapsToDevicePixels="True" UseLayoutRounding="False" ToolTip="' this._EscapeXml(actionText) '">'
+            . '<TextBlock Text="' this._EscapeXml(actionText) '" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"'
+            . ' Foreground="{DynamicResource InputText}" TextAlignment="Left" VerticalAlignment="Center"/>'
+            . '</Border>'
+            . '</Grid>'
+            . '<Grid Grid.Row="2" Margin="0,4,0,0">'
+            . '<Grid.ColumnDefinitions>'
+            . '<ColumnDefinition Width="40"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/>'
+            . '</Grid.ColumnDefinitions>'
+            . '<TextBlock Text="' this._EscapeXml(GetLang("流程")) '" FontWeight="Bold"'
+            . ' Foreground="{DynamicResource TextMain}" VerticalAlignment="Center"/>'
+            . '<ComboBox Grid.Column="1" Name="Flow' i '" Width="160" Height="26" MinHeight="26"'
+            . ' VerticalContentAlignment="Center"'
+            . ' Background="{DynamicResource InputBg}" Foreground="{DynamicResource InputText}"'
+            . ' BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1.5"'
+            . ' SnapsToDevicePixels="True" UseLayoutRounding="False">'
+            . flowItems
+            . '</ComboBox>'
+            . '<StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">'
+            . flowOps
+            . '</StackPanel>'
+            . '</Grid>'
+            . '</Grid></Border>'
+    }
+
+    _RebuildCards() {
+        if (!IsObject(this.ui))
+            return
+        this._syncing := true
+        batch := []
+        batch.Push({ControlName: "BranchPanel", PropertyName: "ClearItems", Value: ""})
+        loop this.LVRowArr.Length
+            batch.Push({ControlName: "BranchPanel", PropertyName: "AddXamlItem", Value: this._CardXml(A_Index)})
+        this.ui.BatchUpdate(batch)
+        this._BindCardEvents()
+        this._FillFlows()
+        this._syncing := false
+    }
 
     _RefreshLV() {
-        if (!IsObject(this.ui))
-            return
-        this.ui.Update("LVCon", "ClearItems", "")
+        this._RebuildCards()
+    }
+
+    _Bind(name, evt, cb) {
+        if (this.ui.events.Has(name) && this.ui.events[name].Has(evt))
+            this.ui.events[name][evt] := []
+        this.ui.OnEvent(name, evt, cb)
+        try this.ui.Update(name, "BindEvent", evt)
+    }
+
+    _BindCardEvents() {
         loop this.LVRowArr.Length {
-            row := this.LVRowArr[A_Index]
-            this.ui.Update("LVCon", "AddXamlItem", this._LVRowXml(A_Index, row[1], row[2], row[3]))
+            i := A_Index
+            this._Bind("BtnEdit" i, "Click", ObjBindMethod(this, "OnActionClick", i))
+            this._Bind("Flow" i, "SelectionChanged", ObjBindMethod(this, "OnFlowChange", i))
+            if (this._IsFinally(i)) {
+                this._Bind("BtnInsertCondi", "Click", ObjBindMethod(this, "OnAddBranch"))
+                continue
+            }
+            if (i != 1)
+                this._Bind("BtnUp" i, "Click", ObjBindMethod(this, "OnMoveUp", i))
+            if (i < this.LVRowArr.Length - 1)
+                this._Bind("BtnDown" i, "Click", ObjBindMethod(this, "OnMoveDown", i))
+            this._Bind("BtnDel" i, "Click", ObjBindMethod(this, "OnDelBranch", i))
+            parts := StrSplit(this.LVRowArr[i][1], "⎖")
+            loop parts.Length - 1
+                this._Bind("BtnJoin" i "_" A_Index, "Click", ObjBindMethod(this, "OnJoinToggle", i))
         }
     }
 
-    _LVRowXml(index, condiStr, logicStr, macro) {
-        return '<ListBoxItem xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
-            . ' Tag="' index '" HorizontalContentAlignment="Stretch">'
-            . '<Grid Margin="8,2">'
-            . '<Grid.ColumnDefinitions>'
-            . '<ColumnDefinition Width="250"/>'
-            . '<ColumnDefinition Width="50"/>'
-            . '<ColumnDefinition Width="*"/>'
-            . '</Grid.ColumnDefinitions>'
-            . '<TextBlock Grid.Column="0" Text="' this._EscapeXml(condiStr) '" TextTrimming="CharacterEllipsis"'
-            . ' ToolTip="' this._EscapeXml(condiStr) '" VerticalAlignment="Center" FontSize="12"/>'
-            . '<TextBlock Grid.Column="1" Text="' this._EscapeXml(logicStr) '" HorizontalAlignment="Center"'
-            . ' VerticalAlignment="Center" FontSize="12"/>'
-            . '<TextBlock Grid.Column="2" Text="' this._EscapeXml(macro) '" TextTrimming="CharacterEllipsis"'
-            . ' ToolTip="' this._EscapeXml(macro) '" VerticalAlignment="Center" FontSize="12" Margin="8,0,0,0"/>'
-            . '</Grid></ListBoxItem>'
-    }
-
-    ; ---------------- 列表行命中测试（桥接 ListBox HitTest） ----------------
-
-    _EventCoord(state, ctrlName) {
-        coord := ""
-        if (IsObject(state) && state.Has(ctrlName))
-            coord := state[ctrlName]
-        if (coord == "")
-            return ""
-        parts := StrSplit(coord, ",")
-        if (parts.Length != 2)
-            return ""
-        return Trim(parts[1]) ";" Trim(parts[2])
-    }
-
-    _HitTest(ctrlName, coord) {
-        if (!IsObject(this.ui) || coord == "")
-            return ""
-        return this.ui.Query(ctrlName ">HitTest:" coord)
-    }
-
-    _OnLVLeftDown(state, ctrl, event) {
+    _FillFlows() {
         if (!IsObject(this.ui))
             return
-        clickCount := 1
-        if (IsObject(state) && state.Has("ClickCount")) {
-            cc := state["ClickCount"]
-            if (IsNumber(cc))
-                clickCount := Integer(cc)
+        batch := []
+        loop this.LVRowArr.Length
+            batch.Push({ControlName: "Flow" A_Index, PropertyName: "SelectedIndex", Value: String(this._FlowIndex(this._RowControlType(A_Index)))})
+        if (batch.Length)
+            this.ui.BatchUpdate(batch)
+    }
+
+    OnAddBranch(*) {
+        this.LVRowArr.InsertAt(this.LVRowArr.Length, this._DefaultBranchRow())
+        this._RebuildCards()
+    }
+
+    OnActionClick(i, *) {
+        this.OnEditItem(i)
+    }
+
+    OnJoinToggle(i, *) {
+        if (this._IsFinally(i))
+            return
+        this.LVRowArr[i][2] := this.LVRowArr[i][2] == GetLang("且") ? GetLang("或") : GetLang("且")
+        this._RebuildCards()
+    }
+
+    OnFlowChange(i, *) {
+        if (this._syncing || i < 1 || i > this.LVRowArr.Length)
+            return
+        keys := this._FlowKeys()
+        idx := this.ui.Query("Flow" i ">SelectedIndex")
+        if (IsNumber(idx) && Integer(idx) >= 0 && Integer(idx) < keys.Length) {
+            this.LVRowArr[i][4] := keys[Integer(idx) + 1]
+            return
         }
-        if (clickCount < 2)
-            return
-        this._clickCoord := this._EventCoord(state, "LVCon")
-        SetTimer(ObjBindMethod(this, "_ProcessLVLeftClick"), -20)
+        t := this.ui.Query("Flow" i)
+        if (t != "")
+            this.LVRowArr[i][4] := GetLangKey(t)
     }
 
-    _ProcessLVLeftClick() {
-        if (!IsObject(this.ui))
+    OnMoveUp(i, *) {
+        if (this._IsFinally(i) || i <= 1)
             return
-        coord := this._clickCoord
-        this._clickCoord := ""
-        if (coord == "")
-            return
-        tagSlot := this._HitTest("LVCon", coord)
-        if (tagSlot == "")
-            return
-        row := StrSplit(tagSlot, "|")[1]
-        if (!IsNumber(row) || Integer(row) < 1)
-            return
-        this.OnDoubleClick("", Integer(row))
+        row := this.LVRowArr.RemoveAt(i)
+        this.LVRowArr.InsertAt(i - 1, row)
+        this._RebuildCards()
     }
 
-    _OnLVRightDown(state, ctrl, event) {
-        if (!IsObject(this.ui))
+    OnMoveDown(i, *) {
+        if (this._IsFinally(i) || i >= this.LVRowArr.Length - 1)
             return
-        this._rightClickCoord := this._EventCoord(state, "LVCon")
-        SetTimer(ObjBindMethod(this, "_ProcessLVRightClick"), -20)
+        row := this.LVRowArr.RemoveAt(i)
+        this.LVRowArr.InsertAt(i + 1, row)
+        this._RebuildCards()
     }
 
-    _ProcessLVRightClick() {
-        if (!IsObject(this.ui))
+    OnDelBranch(i, *) {
+        if (this._IsFinally(i)) {
+            RmtDialog.Info(GetLang("最后的分支不能删除，若无需该分支请清空分支指令"), , this.Hwnd())
             return
-        coord := this._rightClickCoord
-        this._rightClickCoord := ""
-        if (coord == "")
+        }
+        if (!RmtDialog.Confirm(GetLang("确定删除该分支？"), GetLang("提示"), this.Hwnd()))
             return
-        tagSlot := this._HitTest("LVCon", coord)
-        if (tagSlot == "")
-            return
-        row := StrSplit(tagSlot, "|")[1]
-        if (!IsNumber(row) || Integer(row) < 1)
-            return
-        this.ShowContextMenu("", Integer(row), true, 0, 0)
+        this.LVRowArr.RemoveAt(i)
+        this._RebuildCards()
     }
 
     OnGuiClose() {
@@ -276,13 +494,12 @@ class CompareProGui {
             condiStr := Trim(condiStr, "⎖")
             logicStr := this.Data.LogicTypeArr[A_Index] == 1 ? GetLang("且") : GetLang("或")
             macro := GetLangMacro(this.Data.MacroArr[A_Index], 1)
-
-            this.LVRowArr.Push([condiStr, logicStr, macro])
+            controlType := (this.Data.ControlTypeArr.Length >= A_Index) ? this.Data.ControlTypeArr[A_Index] : "无"
+            this.LVRowArr.Push([condiStr, logicStr, macro, controlType])
         }
-        this.LVRowArr.Push([GetLang("以上都不是"), "", GetLangMacro(this.Data.DefaultMacro, 1)])
-        this._RefreshLV()
-        ; 原生 Init 末尾 LVCon.Focus() 用于解决原生 ListView 第一次双击无效；
-        ; XAML 版双击走 PreviewMouseLeftButtonDown + ClickCount 命中，不依赖焦点，省略。
+        defCtl := this.Data.HasProp("DefaultControlType") && this.Data.DefaultControlType != "" ? this.Data.DefaultControlType : "无"
+        this.LVRowArr.Push([GetLang("以上都不是"), "", GetLangMacro(this.Data.DefaultMacro, 1), defCtl])
+        this._RebuildCards()
     }
 
     ToggleFunc(state) {
@@ -312,8 +529,6 @@ class CompareProGui {
             this.ContextMenu.Add(GetLang("删除"), (*) => this.MenuHandler(GetLang("删除")))
         }
         this.CurItme := item
-        ; 原生 ListView ContextMenu 事件给屏幕坐标；XAML 版右键事件只有控件相对坐标，
-        ; 用当前鼠标位置（右键按下时即点击点）作为菜单坐标，等价。
         MouseGetPos(&mx, &my)
         this.ContextMenu.Show(mx, my)
     }
@@ -325,7 +540,7 @@ class CompareProGui {
     }
 
     MenuHandler(cmdStr) {
-        isFinally := this.LVRowArr[this.CurItme][1] == GetLang("以上都不是")
+        isFinally := this._IsFinally(this.CurItme)
         switch cmdStr {
             case GetLang("编辑"):
             {
@@ -333,9 +548,8 @@ class CompareProGui {
             }
             case GetLang("向上插入分支"):
             {
-                this.Data.ControlTypeArr.InsertAt(this.CurItme, "无")
-                this.LVRowArr.InsertAt(this.CurItme, [GetLang("Var1 大于 Var1"), GetLang("且"), ""])
-                this._RefreshLV()
+                this.LVRowArr.InsertAt(this.CurItme, this._DefaultBranchRow())
+                this._RebuildCards()
             }
             case GetLang("向下插入分支"):
             {
@@ -343,43 +557,20 @@ class CompareProGui {
                     MsgBox(GetLang("不可向最后的分支插入"))
                     return
                 }
-                this.Data.ControlTypeArr.InsertAt(this.CurItme + 1, "无")
-                this.LVRowArr.InsertAt(this.CurItme + 1, [GetLang("Var1 大于 Var1"), GetLang("且"), ""])
-                this._RefreshLV()
+                this.LVRowArr.InsertAt(this.CurItme + 1, this._DefaultBranchRow())
+                this._RebuildCards()
             }
             case GetLang("向上移动"):
             {
-                if (isFinally) {
-                    MsgBox(GetLang("最后的分支不能变更顺序"))
-                    return
-                }
-                if (this.CurItme == 1) {
-                    MsgBox(GetLang("第一个分支不能上移"))
-                    return
-                }
-                row := this.LVRowArr.RemoveAt(this.CurItme)
-                this.LVRowArr.InsertAt(this.CurItme - 1, row)
-                this._RefreshLV()
+                this.OnMoveUp(this.CurItme)
             }
             case GetLang("向下移动"):
             {
-                if (isFinally || this.LVRowArr.Length == this.CurItme + 1) {
-                    MsgBox(GetLang("最后的分支不能变更顺序"))
-                    return
-                }
-
-                row := this.LVRowArr.RemoveAt(this.CurItme)
-                this.LVRowArr.InsertAt(this.CurItme + 1, row)
-                this._RefreshLV()
+                this.OnMoveDown(this.CurItme)
             }
             case GetLang("删除"):
             {
-                if (isFinally) {
-                    MsgBox(GetLang("最后的分支不能删除，若无需该分支请清空分支指令"))
-                    return
-                }
-                this.LVRowArr.RemoveAt(this.CurItme)
-                this._RefreshLV()
+                this.OnDelBranch(this.CurItme)
             }
         }
     }
@@ -401,20 +592,20 @@ class CompareProGui {
 
         this.ItemEditGui.DLVariableArr := this.DLVariableArr
         NumberIndex := item
-        EditType := this.LVRowArr[item][1] == GetLang("以上都不是") ? 2 : 1
+        EditType := this._IsFinally(item) ? 2 : 1
         DataArr := this.GetCondiStrDataArr(this.LVRowArr[item][1])
         logicStr := this.LVRowArr[item][2]
         macro := this.LVRowArr[item][3]
-        controlType := EditType == 1 ? this.Data.ControlTypeArr[NumberIndex] : this.Data.DefaultControlType
+        controlType := this._RowControlType(NumberIndex)
         this.ItemEditGui.ShowGui(EditType, DataArr, logicStr, macro, controlType)
         this.ItemEditGui.SureBtnAction := this.OnSureEditItem.Bind(this, item)
     }
 
     OnSureEditItem(item, condiStr, logicStr, macro, controlType) {
-        this.LVRowArr[item] := [condiStr, logicStr, macro]
-        this._RefreshLV()
+        this.LVRowArr[item] := [condiStr, logicStr, macro, controlType]
+        this._RebuildCards()
         NumberIndex := item
-        EditType := this.LVRowArr[item][1] == GetLang("以上都不是") ? 2 : 1
+        EditType := this._IsFinally(item) ? 2 : 1
         if (EditType == 1)
             this.Data.ControlTypeArr[NumberIndex] := controlType
         else
@@ -451,8 +642,6 @@ class CompareProGui {
     }
 
     GetItemNumber(nodeItemID) {
-        ; 原生基于 ListView.GetPrev 逐行上溯（NoSort 下行号即行数）；
-        ; XAML 版行模型按索引等价，保留接口。
         if (!IsNumber(nodeItemID))
             return 1
         n := Integer(nodeItemID)
@@ -470,10 +659,13 @@ class CompareProGui {
         VariableArr := []
         if (condiStr != GetLang("以上都不是")) {
             loop condiStrArr.Length {
-                itemCondiArr := StrSplit(condiStrArr[A_Index], " ")
-                Variable := itemCondiArr.Length >= 3 ? itemCondiArr[3] : ""
-                VariNameArr.Push(itemCondiArr[1])
-                CompareTypeArr.Push(this.CompareTypeStrMap[itemCondiArr[2]])
+                parsed := this._ParseChipCondi(condiStrArr[A_Index])
+                Variable := parsed[3]
+                VariNameArr.Push(parsed[1])
+                if (this.CompareTypeStrMap.Has(parsed[2]))
+                    CompareTypeArr.Push(this.CompareTypeStrMap[parsed[2]])
+                else
+                    CompareTypeArr.Push(3)
                 VariableArr.Push(Variable)
             }
         }
@@ -487,9 +679,11 @@ class CompareProGui {
         this.Data.VariableArr := []
         this.Data.LogicTypeArr := []
         this.Data.MacroArr := []
+        this.Data.ControlTypeArr := []
         loop this.LVRowArr.Length {
             if (A_Index == this.LVRowArr.Length) {
                 this.Data.DefaultMacro := GetLangMacro(this.LVRowArr[A_Index][3], 2)
+                this.Data.DefaultControlType := GetLangKey(this._RowControlType(A_Index))
                 break
             }
             CondiDataArr := this.GetCondiStrDataArr(this.LVRowArr[A_Index][1])
@@ -499,6 +693,7 @@ class CompareProGui {
             this.Data.VariableArr.Push(GetLangKey(CondiDataArr[3]))
             this.Data.LogicTypeArr.Push(LogicType)
             this.Data.MacroArr.Push(GetLangMacro(this.LVRowArr[A_Index][3], 2))
+            this.Data.ControlTypeArr.Push(GetLangKey(this._RowControlType(A_Index)))
         }
 
         SaveMacroCMDData(this.Data)

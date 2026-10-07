@@ -168,6 +168,7 @@ ExecuteMacroCmdOnce(tableItem, cmdStr, index, graphNode := "") {
         "鼠标移动Pro", OnMMPro,
         "增量移动", OnDeltaMove,
         "运行", OnRunFile,
+        "运行Pro", OnRunFile,
         "如果", OnCompare,
         "如果Pro", OnComparePro,
         "输出", OnOutput,
@@ -932,7 +933,7 @@ GetLoopState(tableItem, cmd, index, Data) {
         return true
 
     result := Data.LogicType == 1 ? true : false
-    loop 4 {
+    loop Data.ToggleArr.Length {
         if (!Data.ToggleArr[A_Index])
             continue
         CompareType := Data.CompareTypeArr[A_Index]

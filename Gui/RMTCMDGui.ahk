@@ -15,6 +15,7 @@ class RMTCMDGui {
         this._closed := true
         this._batch := []
         this._batching := false
+        this._cmdType := ""
         this.CategoriesArr := [GetLang("全部"), GetLang("图文"), GetLang("输入控制"),
         GetLang("宏控制"), GetLang("调试"), GetLang("软件自身")]
         this.CategoriesMap := Map(
@@ -74,6 +75,8 @@ class RMTCMDGui {
         this.OnCmdChange()
         if (!XamlWin.Open(this.ui, "", XamlWin.Owner(this)))
             this._closed := true
+        else
+            this.ToggleFunc(true)
     }
 
     Hwnd() {
@@ -117,49 +120,46 @@ class RMTCMDGui {
         ; === 标题栏 ===
         chrome := XAMLHost.AddCmdTitleBar(main, title, titleHeight)
 
-        ; === 内容 ===
-        body := main.Add("Grid").Grid_Row(1).Margin("15,14,15,14")
-        body.Rows("40", "40", "40", "40", "40", "*")
+        ; === 内容：固定为「类别+指令+页签+模块」高度，切换指令不改窗口尺寸 ===
+        body := main.Add("Grid").Grid_Row(1).Margin("15,9,15,6")
+        body.Rows("34", "34", "34", "34", "38")
         body.Cols("80", "*")
 
-        ; 备注（放选项卡第一个位置）
-        body.Add("TextBlock").Grid_Row(0).Grid_Column(0).Text(GetLang("备注：")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
-        body.Add("TextBox").Grid_Row(0).Grid_Column(1).Name("RemarkCon").Width(180).Height(26).MinHeight(26).HorizontalAlignment("Left")
-            .VerticalContentAlignment("Center").FontSize("11").Padding("4,0")
-            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
-            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-
-        body.Add("TextBlock").Grid_Row(1).Grid_Column(0).Text(GetLang("类别：")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
-        cat := body.Add("ComboBox").Grid_Row(1).Grid_Column(1).Name("CategoryCombo").Width(180).Height(26).MinHeight(26).HorizontalAlignment("Left")
+        body.Add("TextBlock").Grid_Row(0).Grid_Column(0).Text(GetLang("类别：")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
+        cat := body.Add("ComboBox").Grid_Row(0).Grid_Column(1).Name("CategoryCombo").Width(180).Height(26).MinHeight(26).HorizontalAlignment("Left").VerticalAlignment("Center")
             .VerticalContentAlignment("Center").FontSize("11").Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
         for c in this.CategoriesArr
             cat.Add("ComboBoxItem").Content(c)
 
-        body.Add("TextBlock").Grid_Row(2).Grid_Column(0).Text(GetLang("指令：")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
-        body.Add("ComboBox").Grid_Row(2).Grid_Column(1).Name("CmdTypeCombo").Width(180).Height(26).MinHeight(26).HorizontalAlignment("Left")
+        body.Add("TextBlock").Grid_Row(1).Grid_Column(0).Text(GetLang("指令：")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
+        body.Add("ComboBox").Grid_Row(1).Grid_Column(1).Name("CmdTypeCombo").Width(180).Height(26).MinHeight(26).HorizontalAlignment("Left").VerticalAlignment("Center")
             .VerticalContentAlignment("Center").FontSize("11").Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
 
-        menuRow := body.Add("StackPanel").Name("MenuRow").Grid_Row(3).Grid_Column(1).Orientation("Horizontal").VerticalAlignment("Center")
-        menuRow.Add("TextBlock").Text(GetLang("菜单序号：")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
-        menuRow.Add("ComboBox").Name("MenuDLCombo").Width(120).Height(26).MinHeight(26).Margin("4,0,0,0")
+        menuRow := body.Add("Grid").Name("MenuRow").Grid_Row(2).Grid_ColumnSpan(2).Visibility("Collapsed")
+        menuRow.Cols("80", "*")
+        menuRow.Add("TextBlock").Grid_Column(0).Text(GetLang("菜单序号：")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
+        menuRow.Add("ComboBox").Grid_Column(1).Name("MenuDLCombo").Width(180).Height(26).MinHeight(26).HorizontalAlignment("Left").VerticalAlignment("Center")
             .VerticalContentAlignment("Center").FontSize("11").Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
 
-        ; §2 禁用模块/取消禁用模块：目标页签 + 目标模块 两个下拉（指令选中时显示）
-        foldParamRow := body.Add("StackPanel").Name("FoldParamRow").Grid_Row(4).Grid_Column(1).Orientation("Horizontal").VerticalAlignment("Center")
-        foldParamRow.Add("TextBlock").Text(GetLang("页签：")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
-        foldParamRow.Add("ComboBox").Name("TabCombo").Width(110).Height(26).MinHeight(26).Margin("4,0,0,0")
-            .VerticalContentAlignment("Center").FontSize("11").Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-        foldParamRow.Add("TextBlock").Text(GetLang("模块：")).VerticalAlignment("Center").Margin("10,0,0,0").Foreground("{DynamicResource TextMain}").FontSize("12")
-        foldParamRow.Add("ComboBox").Name("FoldCombo").Width(150).Height(26).MinHeight(26).Margin("4,0,0,0")
+        tabRow := body.Add("Grid").Name("TabRow").Grid_Row(2).Grid_ColumnSpan(2).Visibility("Collapsed")
+        tabRow.Cols("80", "*")
+        tabRow.Add("TextBlock").Grid_Column(0).Text(GetLang("页签：")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
+        tabRow.Add("ComboBox").Grid_Column(1).Name("TabCombo").Width(180).Height(26).MinHeight(26).HorizontalAlignment("Left").VerticalAlignment("Center")
             .VerticalContentAlignment("Center").FontSize("11").Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
 
-        btnRow := body.Add("StackPanel").Grid_Row(5).Grid_ColumnSpan(2).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
+        foldRow := body.Add("Grid").Name("FoldRow").Grid_Row(3).Grid_ColumnSpan(2).Visibility("Collapsed")
+        foldRow.Cols("80", "*")
+        foldRow.Add("TextBlock").Grid_Column(0).Text(GetLang("模块：")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
+        foldRow.Add("ComboBox").Grid_Column(1).Name("FoldCombo").Width(180).Height(26).MinHeight(26).HorizontalAlignment("Left").VerticalAlignment("Center")
+            .VerticalContentAlignment("Center").FontSize("11").Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+
+        btnRow := body.Add("StackPanel").Grid_Row(4).Grid_ColumnSpan(2).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
         AddCmdOkBtn(btnRow)
 
         ; === 创建 XAMLHost ===
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", this.OwnerHwnd)
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="310" SizeToContent="Height" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="310" Height="' this._FitHeight() '" Opacity="0"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
         this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '')
 
@@ -167,7 +167,7 @@ class RMTCMDGui {
         this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
         this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
         this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
-        BindCmdEditorChrome(this.ui, "#指令手册/20-RMT指令")
+        BindCmdEditorChrome(this.ui, "#指令手册/20-RMT指令", ObjBindMethod(this, "TriggerMacro"), "!l")
         this.ui.OnEvent("CategoryCombo", "SelectionChanged", ObjBindMethod(this, "OnTypeChane"))
         this.ui.OnEvent("CmdTypeCombo", "SelectionChanged", ObjBindMethod(this, "OnCmdChange"))
         this.ui.OnEvent("TabCombo", "SelectionChanged", ObjBindMethod(this, "OnTabComboChange"))
@@ -180,6 +180,7 @@ class RMTCMDGui {
     }
 
     OnWindowClosing(state, ctrl, event) {
+        this.ToggleFunc(false)
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
         }
@@ -192,6 +193,7 @@ class RMTCMDGui {
     }
 
     _CloseWindow() {
+        this.ToggleFunc(false)
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
         }
@@ -226,7 +228,6 @@ class RMTCMDGui {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
         this.Data := RMTCMDData()
         ; 备注：指令串第二段（RMT指令<serial>_备注 或 旧 RMT指令_类别_指令 取第二段）
-        this.ui.Update("RemarkCon", "Text", cmdArr.Length >= 2 ? cmdArr[2] : "")
         SplitSerialTextAndNumbers(cmdArr.Length >= 1 ? cmdArr[1] : "", &textOnly, &numbersOnly)
         if (numbersOnly != "") {
             ; 新格式：读配置文件 Data
@@ -293,6 +294,11 @@ class RMTCMDGui {
             }
         }
         this._SetDDL("FoldCombo", foldItems, foldSelText != "" ? foldSelText : (foldItems.Length >= 1 ? foldItems[1] : ""))
+        this._cmdType := cmdStr
+    }
+
+    _FitHeight() {
+        return Integer(XAMLHost.CmdTitleBarHeight()) + 9 + 6 + 34 * 4 + 38
     }
 
     OnTypeChane(state := "", ctrl := "", event := "") {
@@ -308,12 +314,21 @@ class RMTCMDGui {
     OnCmdChange(state := "", ctrl := "", event := "") {
         if (!IsObject(this.ui))
             return
-        CmdStr := this.ui.Query("CmdTypeCombo")
+        CmdStr := ""
+        hwndReady := this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd
+        if (hwndReady) {
+            try CmdStr := this.ui.Query("CmdTypeCombo")
+        }
+        if (CmdStr == "" && this.HasProp("_cmdType"))
+            CmdStr := this._cmdType
+        this._cmdType := CmdStr
         IsShowMenuDL := CmdStr == GetLang("显示菜单")
         this.ui.Update("MenuRow", "Visibility", IsShowMenuDL ? "Visible" : "Collapsed")
         ; §2 禁用模块/取消禁用模块：显示目标页签+模块参数行
         IsShowFoldParam := CmdStr == GetLang("禁用模块") || CmdStr == GetLang("取消禁用模块")
-        this.ui.Update("FoldParamRow", "Visibility", IsShowFoldParam ? "Visible" : "Collapsed")
+        vis := IsShowFoldParam ? "Visible" : "Collapsed"
+        this.ui.Update("TabRow", "Visibility", vis)
+        this.ui.Update("FoldRow", "Visibility", vis)
     }
 
     ; §2 页签下拉切换：刷新模块下拉为该页签下的模块列表
@@ -347,6 +362,22 @@ class RMTCMDGui {
         return symbols
     }
 
+    ToggleFunc(state) {
+        if (state) {
+            try Hotkey("!l", (*) => this.TriggerMacro(), "On")
+        } else {
+            try Hotkey("!l", (*) => this.TriggerMacro(), "Off")
+        }
+    }
+
+    TriggerMacro(state := "", ctrl := "", event := "") {
+        if (!IsObject(this.ui) || (this.HasProp("_closed") && this._closed))
+            return
+        if (!this.CheckIfValid())
+            return
+        OnTriggerSepcialItemMacro(this.GetCmdStr())
+    }
+
     OnSureBtnClick(state, ctrl, event) {
         if (!this.CheckIfValid())
             return
@@ -378,10 +409,7 @@ class RMTCMDGui {
         if (this.Data.SerialStr == "")
             this.Data.SerialStr := GetCMDSerialStr(GetLang("RMT指令"))
         SaveMacroCMDData(this.Data)
-        ; 备注：用户备注优先，为空则自动生成操作内容
-        remark := Trim(this.ui.Query("RemarkCon"))
-        if (remark == "")
-            remark := this.Data.CmdStr
+        remark := this.Data.CmdStr
         return CorrectRemark(this.Data.SerialStr, remark)
     }
 

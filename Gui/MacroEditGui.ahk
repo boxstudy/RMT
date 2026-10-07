@@ -7,6 +7,7 @@
 #Include SearchProGui.ahk
 #Include ScreenShotGui.ahk
 #Include RunGui.ahk
+#Include RunProGui.ahk
 #Include CompareGui.ahk
 #Include MMProGui.ahk
 #Include OutputGui.ahk
@@ -168,7 +169,7 @@ class MacroEditGui {
             {name: "输入/输出", icon: Chr(0xE8A1), cmds: ["输入", "输出", "文件读写"]},
             {name: "变量/数据", icon: Chr(0xE8EF), cmds: ["变量", "变量提取", "运算", "数组", "文本处理"]},
             {name: "流程控制", icon: Chr(0xE8FD), cmds: ["间隔", "如果", "如果Pro", "循环", "等待"]},
-            {name: "调控", icon: Chr(0xE713), cmds: ["运行", "宏操作", "窗口管理", "RMT指令"]},
+            {name: "调控", icon: Chr(0xE713), cmds: ["运行", "运行Pro", "宏操作", "窗口管理", "RMT指令"]},
             {name: "其他", icon: Chr(0xE712), cmds: ["抓图", "注释", "时间"]}
         ]
         this._favSet := Map()            ; 收藏指令名（中文）→ true
@@ -200,7 +201,7 @@ class MacroEditGui {
     InitCommandConfigs() {
         ; §20 指令改名：移动→鼠标移动、移动Pro→鼠标移动Pro、新增 增量移动（原游戏视角）
         this.CMDStrArr := GetLangArr(["间隔", "按键", "手柄", "搜索", "搜索Pro", "鼠标移动", "鼠标移动Pro", "增量移动", "输入", "输出", "循环", "宏操作", "变量", "变量提取",
-            "如果", "如果Pro", "运算", "运行", "文件读写", "文本处理", "数组", "RMT指令", "后台鼠标", "后台按键", "窗口管理", "按键检测", "手柄检测", "等待", "时间", "注释", "抓图"])
+            "如果", "如果Pro", "运算", "运行", "运行Pro", "文件读写", "文本处理", "数组", "RMT指令", "后台鼠标", "后台按键", "窗口管理", "按键检测", "手柄检测", "等待", "时间", "注释", "抓图"])
 
         this.CMDIconFileArr := ["Images\Soft\Interval.png", "Images\Soft\Key.png", "Images\Soft\Key.png",
             "Images\Soft\Search.png", "Images\Soft\SearchPro.png",
@@ -209,7 +210,7 @@ class MacroEditGui {
             "Images\Soft\Loop.png", "Images\Soft\Sub.png",
             "Images\Soft\Var.png", "Images\Soft\Extract.png",
             "Images\Soft\If.png", "Images\Soft\IfPro.png",
-            "Images\Soft\Operation.png", "Images\Soft\Run.png",
+            "Images\Soft\Operation.png", "Images\Soft\Run.png", "Images\Soft\Run.png",
             "Images\Soft\FileIO.png", "Images\Soft\TextOps.png",
             "Images\Soft\Arr.png", "Images\Soft\rabit.png",
             "Images\Soft\Mouse.png", "Images\Soft\Key.png",
@@ -219,7 +220,7 @@ class MacroEditGui {
 
         this.IconMap := Map(GetLang("间隔"), "Icon1", GetLang("按键"), "Icon2", GetLang("手柄"), "Icon2", GetLang("搜索"), "Icon3",
         GetLang("搜索Pro"), "Icon4", GetLang("鼠标移动"), "Icon5", GetLang("鼠标移动Pro"), "Icon6", GetLang("增量移动"), "Icon34", GetLang("输出"), "Icon7",
-        GetLang("运行"), "Icon8", GetLang("循环"), "Icon9", GetLang("宏操作"), "Icon10", GetLang("变量"), "Icon11",
+        GetLang("运行"), "Icon8", GetLang("运行Pro"), "Icon8", GetLang("循环"), "Icon9", GetLang("宏操作"), "Icon10", GetLang("变量"), "Icon11",
         GetLang("变量提取"), "Icon12", GetLang("如果"), "Icon13", GetLang("如果Pro"), "Icon14", GetLang("运算"), "Icon15",
         GetLang("RMT指令"), "Icon16", GetLang("后台鼠标"), "Icon17", GetLang("后台按键"), "Icon18", GetLang("真"), "Icon19",
         GetLang("假"), "Icon20", GetLang("循环次数"), "Icon21", GetLang("条件"), "Icon22", GetLang("循环体"), "Icon23",
@@ -273,6 +274,7 @@ class MacroEditGui {
             {class: CompareProGui, name: "如果Pro", icon: "Images\Soft\IfPro.png", propName: "CompareProGui"},
             {class: OperationGui, name: "运算", icon: "Images\Soft\Operation.png", propName: "OperationGui"},
             {class: RunGui, name: "运行", icon: "Images\Soft\Run.png", propName: "RunGui"},
+            {class: RunProGui, name: "运行Pro", icon: "Images\Soft\Run.png", propName: "RunProGui"},
             {class: FileIOGui, name: "文件读写", icon: "Images\Soft\FileIO.png", propName: "FileIOGui"},
             {class: TextOpsGui, name: "文本处理", icon: "Images\Soft\TextOps.png", propName: "TextOpsGui"},
             {class: ArrayGui, name: "数组", icon: "Images\Soft\Arr.png", propName: "ArrayGui"},
@@ -2592,10 +2594,29 @@ class MacroEditGui {
         itemCmd := MySoftData.CmdJoyNToJoyFriendly(itemCmd)
         if (cmd == GetLang("按键") && IsJoyLegacyKeyCmd(itemCmd))
             cmd := GetLang("手柄")
+        if (cmd == GetLang("运行") && this._RunNeedsProEditor(GetCmdStr(cleanText)))
+            cmd := GetLang("运行Pro")
         if (!this.SubGuiMap.Has(cmd))
             return
         subGui := this.SubGuiMap[cmd]
         this.OnOpenSubGui(subGui, 2)
+    }
+
+    ; 旧「运行」若带 Pro 字段（模式/窗口/管道），编辑时打开运行Pro，避免保存时丢掉参数
+    _RunNeedsProEditor(cmdStr) {
+        paramArr := StrSplit(GetCmdStr(cmdStr), "_")
+        if (paramArr.Length < 1)
+            return false
+        try data := GetMacroCMDData(paramArr[1])
+        catch
+            return false
+        if (!IsObject(data))
+            return false
+        if (ObjHasOwnProp(data, "Mode") && IsNumber(data.Mode) && Integer(data.Mode) > 1)
+            return true
+        if (ObjHasOwnProp(data, "Option") && IsNumber(data.Option) && Integer(data.Option) != 1)
+            return true
+        return ObjHasOwnProp(data, "StdIn") || ObjHasOwnProp(data, "SaveNameArr") || ObjHasOwnProp(data, "Encoding")
     }
 
     ; 是否为「图形开始节点」序列码（逻辑树中的图入口指令）
@@ -2820,6 +2841,8 @@ class MacroEditGui {
                     this._OpenGraphNodeEditor(GetCmdStr(paramsArr[1]), GetCmdSymbol(paramsArr[1]))
                     return
                 }
+                if (cmd == GetLang("运行") && this._RunNeedsProEditor(GetCmdStr(paramsArr[1])))
+                    cmd := GetLang("运行Pro")
                 if (!this.SubGuiMap.Has(cmd))
                     return
                 subGui := this.SubGuiMap[cmd]

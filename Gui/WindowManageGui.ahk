@@ -17,6 +17,11 @@ class WindowManageGui {
         this.OwnerHwnd := ""
         this.MyFrontInfoGui := ""
         this._closed := true
+        this._batch := []
+        this._batching := false
+        this._syncing := false
+        this.Data := ""
+        this.SerialStr := ""
 
         this.ActionTypeArr := [
             GetLang("激活窗口"), GetLang("最大化窗口"), GetLang("最小化窗口"), GetLang("还原窗口"), GetLang("关闭窗口"),
@@ -50,11 +55,32 @@ class WindowManageGui {
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try SafeGuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
         }
-        this.Init(cmd)
-        this.OnActionChange()
+        this._syncing := true
+        this._batching := true
+        try {
+            this.Init(cmd)
+            this.OnActionChange()
+        } finally {
+            this._flushBatch()
+        }
         if (!XamlWin.Open(this.ui, "", XamlWin.Owner(this)))
             this._closed := true
         this.ToggleFunc(true)
+    }
+
+    _ComboPush(comboName, propertyName, value) {
+        if (this._batching)
+            this._batch.Push({ControlName: comboName, PropertyName: propertyName, Value: value})
+        else
+            this.ui.Update(comboName, propertyName, value)
+    }
+
+    _flushBatch() {
+        this._batching := false
+        if (IsObject(this.ui) && this._batch.Length > 0) {
+            this.ui.BatchUpdate(this._batch)
+            this._batch := []
+        }
     }
 
     _BuildAndShow() {
@@ -65,72 +91,76 @@ class WindowManageGui {
         titleHeight := XAMLHost.CmdTitleBarHeight()
 
         main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize(XAMLHost.FontSize())
-        main.Rows(titleHeight, "32", "32", "34", "30", "30", "30", "30", "44")
+        main.Rows(titleHeight, "Auto")
 
         ; === 标题栏 ===
         chrome := XAMLHost.AddCmdTitleBar(main, title, titleHeight)
 
-        ; === 备注 ===
-        top := main.Add("StackPanel").Grid_Row(1).Orientation("Horizontal").Margin("10,2").VerticalAlignment("Center")
-        top.Add("TextBlock").Text(GetLang("备注：")).VerticalAlignment("Center")
-        top.Add("TextBox").Name("RemarkCon").Width(150).Height(26).MinHeight(26).Margin("4,0,0,0").VerticalContentAlignment("Center").FontSize(11).Padding("4,0")
-            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
-            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+        ; === 内容 ===
+        body := main.Add("Grid").Grid_Row(1).Margin("16,8,16,36")
+        body.Rows("36", "36", "Auto", "48")
+        body.Cols("108", "*", "16", "80", "*")
 
-        ; === 操作类型 ===
-        atRow := main.Add("StackPanel").Grid_Row(2).Orientation("Horizontal").Margin("10,2").VerticalAlignment("Center")
-        atRow.Add("TextBlock").Text(GetLang("操作类型：")).VerticalAlignment("Center")
-        act := atRow.Add("ComboBox").Name("ActionTypeCon").Width(200).Height(26).MinHeight(26).Margin("4,0,0,0")
-            .VerticalContentAlignment("Center").FontSize(11).Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+        ; 行0：操作类型 + 备注（白底，内边距与下拉框一致）
+        body.Add("TextBlock").Grid_Row(0).Grid_Column(0).Text(GetLang("操作类型：")).VerticalAlignment("Center")
+        act := body.Add("ComboBox").Grid_Row(0).Grid_Column(1).Name("ActionTypeCon").Height(26).MinHeight(26).VerticalAlignment("Center")
         for t in this.ActionTypeArr
             act.Add("ComboBoxItem").Content(t)
-
-        ; === 窗口信息 ===
-        wiRow := main.Add("StackPanel").Grid_Row(3).Orientation("Horizontal").Margin("10,2").VerticalAlignment("Center")
-        wiRow.Add("TextBlock").Text(GetLang("窗口信息:")).VerticalAlignment("Center").Width(75)
-        wiRow.Add("TextBox").Name("SearchValueCon").Width(340).Height(26).MinHeight(26).Margin("4,0,0,0").VerticalContentAlignment("Center").FontSize(11).Padding("4,0")
-            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
+        body.Add("TextBlock").Grid_Row(0).Grid_Column(3).Text(GetLang("备注：")).VerticalAlignment("Center")
+        body.Add("TextBox").Grid_Row(0).Grid_Column(4).Name("RemarkCon").Height(26).MinHeight(26).MaxHeight(26).VerticalAlignment("Center")
+            .VerticalContentAlignment("Center").Padding("2,0")
+            .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-        wiRow.Add("Button").Name("WinInfoEditBtn").Content(GetLang("编辑")).Height(26).MinHeight(26).Margin("6,0,0,0").Cursor("Hand")
 
-        ; === 移动窗口：坐标X / 坐标Y ===
-        posRow := main.Add("StackPanel").Name("PosRelateRow").Grid_Row(4).Orientation("Horizontal").Margin("10,2").VerticalAlignment("Center")
-        posRow.Add("TextBlock").Text(GetLang("坐标X：")).VerticalAlignment("Center").Width(70)
-        posRow.Add("ComboBox").Name("PosXCon").Width(130).Height(26).MinHeight(26).Margin("4,0,0,0").IsEditable("True")
-            .VerticalContentAlignment("Center").FontSize(11).Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-        posRow.Add("TextBlock").Text(GetLang("坐标Y：")).VerticalAlignment("Center").Width(70).Margin("20,0,0,0")
-        posRow.Add("ComboBox").Name("PosYCon").Width(130).Height(26).MinHeight(26).Margin("4,0,0,0").IsEditable("True")
-            .VerticalContentAlignment("Center").FontSize(11).Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+        ; 行1：窗口信息
+        wiRow := body.Add("Grid").Grid_Row(1).Grid_ColumnSpan(5)
+        wiRow.Cols("108", "*", "8", "70")
+        wiRow.Add("TextBlock").Grid_Column(0).Text(GetLang("窗口信息:")).VerticalAlignment("Center")
+        wiRow.Add("TextBox").Grid_Column(1).Name("SearchValueCon").Height(26).MinHeight(26).MaxHeight(26).VerticalAlignment("Center")
+            .VerticalContentAlignment("Center").Padding("2,0")
+            .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+        wiRow.Add("Button").Grid_Column(3).Name("WinInfoEditBtn").Content(GetLang("编辑")).Height(26).MinHeight(26).VerticalAlignment("Center")
 
-        ; === 调整大小：宽度 / 高度 ===
-        sizeRow := main.Add("StackPanel").Name("SizeRelateRow").Grid_Row(5).Orientation("Horizontal").Margin("10,2").VerticalAlignment("Center")
-        sizeRow.Add("TextBlock").Text(GetLang("宽度：")).VerticalAlignment("Center").Width(70)
-        sizeRow.Add("ComboBox").Name("WidthCon").Width(130).Height(26).MinHeight(26).Margin("4,0,0,0").IsEditable("True")
-            .VerticalContentAlignment("Center").FontSize(11).Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-        sizeRow.Add("TextBlock").Text(GetLang("高度：")).VerticalAlignment("Center").Width(70).Margin("20,0,0,0")
-        sizeRow.Add("ComboBox").Name("HeightCon").Width(130).Height(26).MinHeight(26).Margin("4,0,0,0").IsEditable("True")
-            .VerticalContentAlignment("Center").FontSize(11).Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+        ; 行2：按操作类型顺序展开的附加项（Collapsed 后不占位）
+        extra := body.Add("StackPanel").Grid_Row(2).Grid_ColumnSpan(5)
 
-        ; === 修改标题：新标题 ===
-        titleRow := main.Add("StackPanel").Name("TitleRelateRow").Grid_Row(6).Orientation("Horizontal").Margin("10,2").VerticalAlignment("Center")
-        titleRow.Add("TextBlock").Text(GetLang("新标题：")).VerticalAlignment("Center").Width(70)
-        titleRow.Add("ComboBox").Name("NewTitleCon").Width(340).Height(26).MinHeight(26).Margin("4,0,0,0").IsEditable("True")
-            .VerticalContentAlignment("Center").FontSize(11).Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+        posRow := extra.Add("Grid").Name("PosRelateRow").Visibility("Collapsed")
+        posRow.Rows("36")
+        posRow.Cols("108", "*", "16", "108", "*")
+        posRow.Add("TextBlock").Grid_Column(0).Text(GetLang("坐标X：")).VerticalAlignment("Center")
+        posRow.Add("ComboBox").Grid_Column(1).Name("PosXCon").Height(26).MinHeight(26).IsEditable("True").VerticalAlignment("Center")
+        posRow.Add("TextBlock").Grid_Column(3).Text(GetLang("坐标Y：")).VerticalAlignment("Center")
+        posRow.Add("ComboBox").Grid_Column(4).Name("PosYCon").Height(26).MinHeight(26).IsEditable("True").VerticalAlignment("Center")
 
-        ; === 修改透明度：透明度 ===
-        transRow := main.Add("StackPanel").Name("TransparencyRelateRow").Grid_Row(7).Orientation("Horizontal").Margin("10,2").VerticalAlignment("Center")
-        transRow.Add("TextBlock").Text(GetLang("透明度：")).VerticalAlignment("Center").Width(70)
-        transRow.Add("ComboBox").Name("TransparencyCon").Width(130).Height(26).MinHeight(26).Margin("4,0,0,0").IsEditable("True")
-            .VerticalContentAlignment("Center").FontSize(11).Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+        sizeRow := extra.Add("Grid").Name("SizeRelateRow").Visibility("Collapsed")
+        sizeRow.Rows("36")
+        sizeRow.Cols("108", "*", "16", "108", "*")
+        sizeRow.Add("TextBlock").Grid_Column(0).Text(GetLang("宽度：")).VerticalAlignment("Center")
+        sizeRow.Add("ComboBox").Grid_Column(1).Name("WidthCon").Height(26).MinHeight(26).IsEditable("True").VerticalAlignment("Center")
+        sizeRow.Add("TextBlock").Grid_Column(3).Text(GetLang("高度：")).VerticalAlignment("Center")
+        sizeRow.Add("ComboBox").Grid_Column(4).Name("HeightCon").Height(26).MinHeight(26).IsEditable("True").VerticalAlignment("Center")
 
-        ; === 底部按钮 ===
-        btnRow := main.Add("StackPanel").Grid_Row(8).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
-        AddCmdOkBtn(btnRow, "BtnSure", "4,0")
+        titleRow := extra.Add("Grid").Name("TitleRelateRow").Visibility("Collapsed")
+        titleRow.Rows("36")
+        titleRow.Cols("108", "*", "16", "108", "*")
+        titleRow.Add("TextBlock").Grid_Column(0).Text(GetLang("新标题：")).VerticalAlignment("Center")
+        titleRow.Add("ComboBox").Grid_Column(1).Grid_ColumnSpan(4).Name("NewTitleCon").Height(26).MinHeight(26).IsEditable("True").VerticalAlignment("Center")
+
+        transRow := extra.Add("Grid").Name("TransparencyRelateRow").Visibility("Collapsed")
+        transRow.Rows("36")
+        transRow.Cols("108", "*", "16", "108", "*")
+        transRow.Add("TextBlock").Grid_Column(0).Text(GetLang("透明度：")).VerticalAlignment("Center")
+        transRow.Add("ComboBox").Grid_Column(1).Name("TransparencyCon").Height(26).MinHeight(26).IsEditable("True").VerticalAlignment("Center")
+
+        ; 行3：确定
+        btnRow := body.Add("StackPanel").Grid_Row(3).Grid_ColumnSpan(5).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
+        AddCmdOkBtn(btnRow)
 
         ; === 创建 XAMLHost ===
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", this.OwnerHwnd)
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="560" Height="310" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="540" SizeToContent="Height" Opacity="0"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
         this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '')
 
@@ -141,27 +171,27 @@ class WindowManageGui {
         BindCmdEditorChrome(this.ui, "#指令手册/23-窗口管理", ObjBindMethod(this, "TriggerMacro"))
         this.ui.OnEvent("ActionTypeCon", "SelectionChanged", ObjBindMethod(this, "OnActionChange"))
         this.ui.OnEvent("WinInfoEditBtn", "Click", ObjBindMethod(this, "OnClickWinEditBtn"))
-        this.ui.OnEvent("BtnSure", "Click", ObjBindMethod(this, "OnClickSureBtn"))
+        this.ui.OnEvent("BtnOk", "Click", ObjBindMethod(this, "OnClickSureBtn"))
 
     }
 
     ; ---------------- 数据填充辅助 ----------------
 
     _SetCombo(comboName, items, text) {
-        this.ui.Update(comboName, "ClearItems", "")
+        this._ComboPush(comboName, "ClearItems", "")
         for it in items {
             if (it == "")
                 continue
-            this.ui.Update(comboName, "AddItem", it)
+            this._ComboPush(comboName, "AddItem", it)
         }
-        this.ui.Update(comboName, "Text", text)
+        this._ComboPush(comboName, "Text", text)
     }
 
     SetConArrState(ConArr, isEnabled, state) {
         prop := isEnabled ? "IsEnabled" : "Visibility"
         val := isEnabled ? (state ? "True" : "False") : (state ? "Visible" : "Collapsed")
         for name in ConArr
-            this.ui.Update(name, prop, val)
+            this._ComboPush(name, prop, val)
     }
 
     ; ---------------- 数据 ----------------
@@ -170,7 +200,7 @@ class WindowManageGui {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
         DLVariableArr := GetGuiVarArr()
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("窗口管理")
-        this.ui.Update("RemarkCon", "Text", cmdArr.Length >= 2 ? cmdArr[2] : "")
+        this._ComboPush("RemarkCon", "Text", cmdArr.Length >= 2 ? cmdArr[2] : "")
         this.Data := GetMacroCMDData(this.SerialStr)
 
         ; 操作类型：按 GetLangKey 匹配选中项（兼容非中文语言）；无匹配保持未选中（与原生 DDL.Text 行为一致）
@@ -181,8 +211,8 @@ class WindowManageGui {
                 break
             }
         }
-        this.ui.Update("ActionTypeCon", "SelectedIndex", String(actIdx))
-        this.ui.Update("SearchValueCon", "Text", this.Data.SearchValue)
+        this._ComboPush("ActionTypeCon", "SelectedIndex", String(actIdx))
+        this._ComboPush("SearchValueCon", "Text", this.Data.SearchValue)
         this._SetCombo("PosXCon", DLVariableArr, this.Data.PosX)
         this._SetCombo("PosYCon", DLVariableArr, this.Data.PosY)
         this._SetCombo("WidthCon", DLVariableArr, this.Data.Width)
@@ -191,13 +221,17 @@ class WindowManageGui {
         this._SetCombo("TransparencyCon", DLVariableArr, this.Data.Transparency)
         ; 透明度：原生在变量项之后追加 0%~100% 列表
         for p in ["0%", "10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%", "90%", "100%"]
-            this.ui.Update("TransparencyCon", "AddItem", p)
+            this._ComboPush("TransparencyCon", "AddItem", p)
     }
 
-    OnActionChange(*) {
-        ; Query 在窗口未加载时返回空串：空串与任何 GetLang 均不相等，行全部收起；
-        ; 加载后程序化 SelectedIndex 触发的 SelectionChanged 会再跑一次修正（同 SearchProGui.OnChangeType）
-        actionType := IsObject(this.ui) ? this.ui.Query("ActionTypeCon") : ""
+    OnActionChange(state := "", ctrl := "", event := "") {
+        if (!IsObject(this.ui) || (this._syncing && state != ""))
+            return
+        ; 同步阶段 Query 可能尚未生效，改用 Data；加载后 SelectionChanged 再按控件值刷新
+        if (this._syncing && IsObject(this.Data) && this.Data.ActionType != "")
+            actionType := GetLang(this.Data.ActionType)
+        else
+            actionType := this.ui.Query("ActionTypeCon")
         isShowPos := (actionType == GetLang("移动窗口"))
         isShowSize := (actionType == GetLang("调整大小"))
         isShowTitle := (actionType == GetLang("修改标题"))
@@ -286,6 +320,7 @@ class WindowManageGui {
 
     OnWindowLoad(state, ctrl, event) {
         XamlWin.OnLoadTheme(this.ui)
+        this._syncing := false
     }
 
     OnWindowClosing(state, ctrl, event) {

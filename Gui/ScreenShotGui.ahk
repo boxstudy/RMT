@@ -17,6 +17,7 @@ class ScreenShotGui {
         this._closed := true
         this._batch := []
         this._batching := false
+        this._syncing := false
         this.PosAction := () => this.RefreshMouseInfo()
         this.F1Action := (x1, y1, x2, y2) => this.OnF1SetAreaAction(x1, y1, x2, y2)
         this.Data := ""
@@ -32,6 +33,7 @@ class ScreenShotGui {
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try SafeGuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
         }
+        this._syncing := true
         this._batching := true
         try this.Init(cmd)
         finally {
@@ -78,69 +80,73 @@ class ScreenShotGui {
         titleHeight := XAMLHost.CmdTitleBarHeight()
 
         main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize(XAMLHost.FontSize())
-        main.Rows(titleHeight, "*")
+        main.Rows(titleHeight, "Auto")
 
         ; === 标题栏 ===
         chrome := XAMLHost.AddCmdTitleBar(main, title, titleHeight)
 
         ; === 内容 ===
-        body := main.Add("Grid").Grid_Row(1).Margin("10,6")
-        body.Rows("34", "30", "34", "34", "34", "34", "Auto", "*")
-        body.Cols("90", "120", "100", "130")
+        body := main.Add("Grid").Grid_Row(1).Margin("16,0,16,16")
+        body.Rows("36", "36", "36", "36", "36", "36", "48")
+        body.Cols("108", "*", "16", "108", "*")
 
-        ; 行0：备注
-        row0 := body.Add("StackPanel").Grid_Row(0).Grid_ColumnSpan(4).Orientation("Horizontal").VerticalAlignment("Center")
-        row0.Add("TextBlock").Text(GetLang("备注：")).VerticalAlignment("Center")
-        row0.Add("TextBox").Name("RemarkCon").Width(150).Height(24).MinHeight(24).Margin("4,0,0,0")
+        ; 行0：备注（白底，内边距与下拉框一致）
+        body.Add("TextBlock").Grid_Row(0).Grid_Column(0).Text(GetLang("备注：")).VerticalAlignment("Center")
+        body.Add("TextBox").Grid_Row(0).Grid_Column(1).Grid_ColumnSpan(4).Name("RemarkCon").Height(26).MinHeight(26).MaxHeight(26).VerticalAlignment("Center")
+            .VerticalContentAlignment("Center").Padding("2,0")
+            .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
 
-        ; 行1：F1 框选 + 坐标
-        row1 := body.Add("StackPanel").Grid_Row(1).Grid_ColumnSpan(4).Orientation("Horizontal").VerticalAlignment("Center")
-        row1.Add("TextBox").Width(25).Height(22).MinHeight(22).Text("F1").IsReadOnly("True")
-        row1.Add("CheckBox").Name("SelectToggle").Content(GetLang("左键框选截图范围")).VerticalAlignment("Center").Margin("4,0,0,0")
-        row1.Add("TextBlock").Name("MousePosCon").Text(GetLang("屏幕坐标：0,0")).VerticalAlignment("Center").Margin("12,0,0,0")
-        row1.Add("TextBlock").Name("MouseWinPosCon").Text(GetLang("窗口坐标：0,0")).VerticalAlignment("Center").Margin("12,0,0,0")
-
-        ; 行2：抓图类型 + 固定名称
-        body.Add("TextBlock").Grid_Row(2).Grid_Column(0).Text(GetLang("抓图类型：")).VerticalAlignment("Center")
-        st := body.Add("ComboBox").Grid_Row(2).Grid_Column(1).Name("ScreenShotTypeCombo").Height(26).MinHeight(26)
+        ; 行1：抓图类型 + 屏幕/窗口坐标（整体跟在类型后面）
+        body.Add("TextBlock").Grid_Row(1).Grid_Column(0).Text(GetLang("抓图类型：")).VerticalAlignment("Center")
+        st := body.Add("ComboBox").Grid_Row(1).Grid_Column(1).Name("ScreenShotTypeCombo").Height(26).MinHeight(26).VerticalAlignment("Center")
         st.Add("ComboBoxItem").Content(GetLang("屏幕抓图")).Tag("1")
         st.Add("ComboBoxItem").Content(GetLang("窗口抓图")).Tag("2")
-        body.Add("CheckBox").Grid_Row(2).Grid_Column(2).Name("NameType").Content(GetLang("固定名称：")).VerticalAlignment("Center")
-        body.Add("TextBox").Grid_Row(2).Grid_Column(3).Name("FixedNameCon").Height(24).MinHeight(24).VerticalContentAlignment("Center")
+        posGroup := body.Add("StackPanel").Grid_Row(1).Grid_Column(3).Grid_ColumnSpan(2).Orientation("Horizontal").VerticalAlignment("Center")
+        screenPos := posGroup.Add("StackPanel").Name("ScreenPosGroup").Orientation("Horizontal").VerticalAlignment("Center")
+        screenPos.Add("TextBlock").Text(GetLang("屏幕坐标：")).VerticalAlignment("Center")
+        screenPos.Add("TextBlock").Name("MousePosCon").Text("0,0").VerticalAlignment("Center")
+        winPos := posGroup.Add("StackPanel").Name("WinPosGroup").Orientation("Horizontal").VerticalAlignment("Center").Visibility("Collapsed")
+        winPos.Add("TextBlock").Text(GetLang("窗口坐标：")).VerticalAlignment("Center")
+        winPos.Add("TextBlock").Name("MouseWinPosCon").Text("0,0").VerticalAlignment("Center")
 
-        ; 行3：窗口信息
-        winRow := body.Add("StackPanel").Name("WinInfoRow").Grid_Row(3).Grid_ColumnSpan(4).Orientation("Horizontal").VerticalAlignment("Center")
-        winRow.Add("TextBlock").Text(GetLang("窗口信息:")).VerticalAlignment("Center").Width(75)
-        winRow.Add("TextBox").Name("WinInfoCon").Width(275).Height(24).MinHeight(24)
-        winRow.Add("Button").Name("BtnWinEdit").Content(GetLang("编辑")).Height(26).MinHeight(26).Margin("4,0,0,0")
+        ; 行2：窗口信息（屏幕抓图时 Hidden 占位，避免下面行上移）
+        winRow := body.Add("Grid").Name("WinInfoRow").Grid_Row(2).Grid_ColumnSpan(5).Visibility("Hidden")
+        winRow.Cols("108", "*", "8", "70")
+        winRow.Add("TextBlock").Grid_Column(0).Text(GetLang("窗口信息:")).VerticalAlignment("Center")
+        winRow.Add("TextBox").Grid_Column(1).Name("WinInfoCon").Height(26).MinHeight(26).MaxHeight(26).VerticalAlignment("Center")
+            .VerticalContentAlignment("Center").Padding("2,0")
+            .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+        winRow.Add("Button").Grid_Column(3).Name("BtnWinEdit").Content(GetLang("编辑")).Height(26).MinHeight(26).VerticalAlignment("Center")
 
-        ; 行4-5：起始/终止坐标
-        body.Add("TextBlock").Grid_Row(4).Grid_Column(0).Text(GetLang("起始坐标X：")).VerticalAlignment("Center")
-        body.Add("ComboBox").Grid_Row(4).Grid_Column(1).Name("StartPosX").Height(26).MinHeight(26).IsEditable("True")
-        body.Add("TextBlock").Grid_Row(4).Grid_Column(2).Text(GetLang("起始坐标Y：")).VerticalAlignment("Center")
-        body.Add("ComboBox").Grid_Row(4).Grid_Column(3).Name("StartPosY").Height(26).MinHeight(26).IsEditable("True")
-        body.Add("TextBlock").Grid_Row(5).Grid_Column(0).Text(GetLang("终止坐标X：")).VerticalAlignment("Center")
-        body.Add("ComboBox").Grid_Row(5).Grid_Column(1).Name("EndPosX").Height(26).MinHeight(26).IsEditable("True")
-        body.Add("TextBlock").Grid_Row(5).Grid_Column(2).Text(GetLang("终止坐标Y：")).VerticalAlignment("Center")
-        body.Add("ComboBox").Grid_Row(5).Grid_Column(3).Name("EndPosY").Height(26).MinHeight(26).IsEditable("True")
+        ; 行3-4：起始/终止坐标
+        body.Add("TextBlock").Grid_Row(3).Grid_Column(0).Text(GetLang("起始坐标X：")).VerticalAlignment("Center")
+        body.Add("ComboBox").Grid_Row(3).Grid_Column(1).Name("StartPosX").Height(26).MinHeight(26).IsEditable("True").VerticalAlignment("Center")
+        body.Add("TextBlock").Grid_Row(3).Grid_Column(3).Text(GetLang("起始坐标Y：")).VerticalAlignment("Center")
+        body.Add("ComboBox").Grid_Row(3).Grid_Column(4).Name("StartPosY").Height(26).MinHeight(26).IsEditable("True").VerticalAlignment("Center")
+        body.Add("TextBlock").Grid_Row(4).Grid_Column(0).Text(GetLang("终止坐标X：")).VerticalAlignment("Center")
+        body.Add("ComboBox").Grid_Row(4).Grid_Column(1).Name("EndPosX").Height(26).MinHeight(26).IsEditable("True").VerticalAlignment("Center")
+        body.Add("TextBlock").Grid_Row(4).Grid_Column(3).Text(GetLang("终止坐标Y：")).VerticalAlignment("Center")
+        body.Add("ComboBox").Grid_Row(4).Grid_Column(4).Name("EndPosY").Height(26).MinHeight(26).IsEditable("True").VerticalAlignment("Center")
 
-        ; 行6：结果保存 GroupBox
-        rGroup := body.Add("GroupBox").Name("ResultGroup").Grid_Row(6).Grid_ColumnSpan(4).Header(GetLang("结果保存"))
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").Foreground("{DynamicResource TextMain}").Margin("0,2,0,2")
-        r := rGroup.Add("Grid").Margin("10,6")
-        r.Cols("30", "*")
-        r.Rows("30")
-        r.Add("CheckBox").Grid_Row(0).Grid_Column(0).Name("ResultToggle").VerticalAlignment("Center")
-        r.Add("ComboBox").Grid_Row(0).Grid_Column(1).Name("ResultSaveNameCombo").Width(200).Height(24).MinHeight(24).HorizontalAlignment("Left").IsEditable("True")
+        ; 行5：固定名称（终止坐标X下）+ 结果变量（终止坐标Y下）
+        body.Add("CheckBox").Grid_Row(5).Grid_Column(0).Name("NameType").Content(GetLang("固定名称：")).VerticalAlignment("Center")
+        body.Add("TextBox").Grid_Row(5).Grid_Column(1).Name("FixedNameCon").Height(26).MinHeight(26).MaxHeight(26).VerticalAlignment("Center")
+            .VerticalContentAlignment("Center").Padding("2,0")
+            .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+        body.Add("CheckBox").Grid_Row(5).Grid_Column(3).Name("ResultToggle").Content(GetLang("结果变量：")).VerticalAlignment("Center")
+        body.Add("ComboBox").Grid_Row(5).Grid_Column(4).Name("ResultSaveNameCombo").Height(26).MinHeight(26).IsEditable("True").VerticalAlignment("Center")
 
-        ; 行7：确定
-        btnRow := body.Add("StackPanel").Grid_Row(7).Grid_ColumnSpan(4).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
+        ; 行6：确定
+        btnRow := body.Add("StackPanel").Grid_Row(6).Grid_ColumnSpan(5).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
         AddCmdOkBtn(btnRow)
 
         ; === 创建 XAMLHost ===
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", this.OwnerHwnd)
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="520" Height="360" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="560" SizeToContent="Height" Opacity="0"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
         this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '')
 
@@ -148,11 +154,11 @@ class ScreenShotGui {
         this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
         this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
         this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
-        BindCmdEditorChrome(this.ui, "#指令手册/26-抓图", ObjBindMethod(this, "TriggerMacro"))
+        BindCmdEditorChrome(this.ui, "#指令手册/26-抓图", ObjBindMethod(this, "TriggerMacro"), "!l", "", ObjBindMethod(this, "OnF1"))
+        try this.ui.Update("BtnCmdF1", "ToolTip", GetLang("F1：框选范围"))
         this.ui.OnEvent("ScreenShotTypeCombo", "SelectionChanged", ObjBindMethod(this, "OnChangeType"))
         this.ui.OnEvent("NameType", "Click", ObjBindMethod(this, "OnChangeNameType"))
         this.ui.OnEvent("ResultToggle", "Click", ObjBindMethod(this, "OnChangeResultToggle"))
-        this.ui.OnEvent("SelectToggle", "Click", ObjBindMethod(this, "OnClickSelectToggle"))
         this.ui.OnEvent("BtnWinEdit", "Click", ObjBindMethod(this, "OnClickWinEditBtn"))
         this.ui.OnEvent("BtnOk", "Click", ObjBindMethod(this, "OnClickSureBtn"))
 
@@ -160,6 +166,7 @@ class ScreenShotGui {
 
     OnWindowLoad(state, ctrl, event) {
         XamlWin.OnLoadTheme(this.ui)
+        this._syncing := false
     }
 
     OnWindowClosing(state, ctrl, event) {
@@ -207,7 +214,7 @@ class ScreenShotGui {
     Init(cmd) {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("抓图")
-        this.ui.Update("RemarkCon", "Text", cmdArr.Length >= 2 ? cmdArr[2] : "")
+        this._ComboPush("RemarkCon", "Text", cmdArr.Length >= 2 ? cmdArr[2] : "")
         this.Data := GetMacroCMDData(this.SerialStr)
         this.DLVariableArr := GetGuiVarArr()
         if (!this.CheckIfDataValid())
@@ -294,30 +301,32 @@ class ScreenShotGui {
         try {
             CoordMode("Mouse", "Screen")
             MouseGetPos &mouseX, &mouseY
-            this.ui.Update("MousePosCon", "Text", Format("{}{},{}", GetLang("屏幕坐标："), mouseX, mouseY))
+            this.ui.Update("MousePosCon", "Text", Format("{},{}", mouseX, mouseY))
             PosArr := GetCurWinPos()
-            this.ui.Update("MouseWinPosCon", "Text", Format("{}{},{}", GetLang("窗口坐标："), PosArr[1], PosArr[2]))
+            this.ui.Update("MouseWinPosCon", "Text", Format("{},{}", PosArr[1], PosArr[2]))
         }
     }
 
     OnChangeType(state := "", ctrl := "", event := "") {
-        if (!IsObject(this.ui))
+        if (!IsObject(this.ui) || (this._syncing && state != ""))
             return
         isWin := this._ShotType() == 2
-        this.ui.Update("WinInfoRow", "IsEnabled", isWin ? "True" : "False")
+        this._ComboPush("WinInfoRow", "Visibility", isWin ? "Visible" : "Hidden")
+        this._ComboPush("ScreenPosGroup", "Visibility", isWin ? "Collapsed" : "Visible")
+        this._ComboPush("WinPosGroup", "Visibility", isWin ? "Visible" : "Collapsed")
     }
 
     OnChangeNameType(state := "", ctrl := "", event := "") {
-        if (!IsObject(this.ui))
+        if (!IsObject(this.ui) || (this._syncing && state != ""))
             return
-        this.ui.Update("FixedNameCon", "IsEnabled", (this.ui.Query("NameType") == "True") ? "True" : "False")
+        this._ComboPush("FixedNameCon", "IsEnabled", (this.ui.Query("NameType") == "True") ? "True" : "False")
     }
 
     OnChangeResultToggle(state := "", ctrl := "", event := "") {
-        if (!IsObject(this.ui))
+        if (!IsObject(this.ui) || (this._syncing && state != ""))
             return
         isSave := this.ui.Query("ResultToggle") == "True"
-        this.ui.Update("ResultSaveNameCombo", "IsEnabled", isSave ? "True" : "False")
+        this._ComboPush("ResultSaveNameCombo", "IsEnabled", isSave ? "True" : "False")
     }
 
     TriggerMacro(state := "", ctrl := "", event := "") {
@@ -327,26 +336,13 @@ class ScreenShotGui {
         OnTriggerSepcialItemMacro(this.GetCommandStr())
     }
 
-    OnClickSelectToggle(state := "", ctrl := "", event := "") {
-        if (!IsObject(this.ui))
-            return
-        state := this.ui.Query("SelectToggle") == "True"
-        if (state)
-            TogSelectArea(true, this.F1Action)
-        else
-            TogSelectArea(false)
-    }
-
-    OnF1() {
-        if (IsObject(this.ui))
-            this.ui.Update("SelectToggle", "IsChecked", "True")
+    OnF1(state := "", ctrl := "", event := "") {
         TogSelectArea(true, this.F1Action)
     }
 
     OnF1SetAreaAction(x1, y1, x2, y2) {
         if (!IsObject(this.ui))
             return
-        this.ui.Update("SelectToggle", "IsChecked", "False")
         curType := this._ShotType()
         isWin := curType == 2
         Point1 := isWin ? GetWinPos(x1, y1) : [x1, y1]

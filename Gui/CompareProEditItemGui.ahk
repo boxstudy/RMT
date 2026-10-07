@@ -28,11 +28,10 @@ class CompareProEditItemGui {
         this.CondiNumber := 1
 
         this.EditType := 1  ;1正常分支 2兜底分支
-        ; 控件名数组（XAML 控件以名字字符串访问）
-        this.ToggleConArr := ["ToggleCon1", "ToggleCon2", "ToggleCon3", "ToggleCon4"]
-        this.NameConArr := ["NameCon1", "NameCon2", "NameCon3", "NameCon4"]
-        this.CompareTypeConArr := ["CompareTypeCon1", "CompareTypeCon2", "CompareTypeCon3", "CompareTypeCon4"]
-        this.VariableConArr := ["VariableCon1", "VariableCon2", "VariableCon3", "VariableCon4"]
+        this.ToggleArr := [1, 0]
+        this.NameArr := ["Var1", "Var2"]
+        this.CompareTypeArr := [1, 1]
+        this.VariableArr := ["Var1", "Var2"]
         this.LogicalTypeCon := "LogicalTypeCon"
         this.ControlTypeCon := "ControlTypeCon"
         this.MacroCon := "MacroCon"
@@ -91,7 +90,7 @@ class CompareProEditItemGui {
     _BuildAndShow() {
         global MySoftData
         this._closed := false
-        title := this.ParentTile GetLang("如果Pro分支编辑器")
+        title := this.ParentTile GetLang("分支")
         this._title := title
         this.Gui := CompareProEditItemGuiFacade(this)
         titleHeight := "30"
@@ -103,57 +102,49 @@ class CompareProEditItemGui {
         chrome := XAMLHost.AddTitleBar(main, title, titleHeight)
 
         ; === 内容区 ===
-        body := main.Add("Grid").Grid_Row(1).Margin("10,4,10,0")
-        body.Rows("30", "24", "34", "34", "34", "34", "28", "*", "34")
+        body := main.Add("Grid").Grid_Row(1).Margin("16,10,16,8")
+        body.Rows("34", this._CondiBoxRowH(), "28", "*", "34")
 
         ; 行0：逻辑关系
         logicRow := body.Add("StackPanel").Grid_Row(0).Orientation("Horizontal").VerticalAlignment("Center")
-        logicRow.Add("TextBlock").Text(GetLang("逻辑关系：")).VerticalAlignment("Center")
-        lc := logicRow.Add("ComboBox").Name("LogicalTypeCon").Width(80).Height(26).MinHeight(26).Margin("6,0,0,0")
+        logicRow.Add("TextBlock").Text(GetLang("逻辑关系：")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
+        lc := logicRow.Add("ComboBox").Name("LogicalTypeCon").Width(70).Height(26).MinHeight(26).Margin("4,0,0,0")
             .VerticalContentAlignment("Center").FontSize("11").Foreground("{DynamicResource InputText}")
             .Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
         for t in GetLangArr(["且", "或"])
             lc.Add("ComboBoxItem").Content(t)
 
-        ; 行1：列头（开关 / 选择/输入 / 选择/输入）
-        hdr := body.Add("Grid").Grid_Row(1)
-        hdr.Cols("Auto", "Auto", "Auto", "Auto")
-        hdr.Add("TextBlock").Text(GetLang("开关")).Grid_Column(0).VerticalAlignment("Center")
-        hdr.Add("TextBlock").Text(GetLang("选择/输入")).Grid_Column(1).VerticalAlignment("Center").Margin("8,0,0,0")
-        hdr.Add("TextBlock").Text(GetLang("选择/输入")).Grid_Column(3).VerticalAlignment("Center").Margin("8,0,0,0")
+        ; 行1：条件（与「如果」编辑器一致：任意数量、删除、加号、4 行高度）
+        bd := body.Add("Border").Name("CondiBox").Grid_Row(1)
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").CornerRadius("4")
+            .Padding("8,6,0,6").Margin("0,4,0,4").ClipToBounds("True")
+        sv := bd.Add("ScrollViewer").Name("CondiScroll").Height(this._CondiViewH())
+            .VerticalScrollBarVisibility("Auto").HorizontalScrollBarVisibility("Disabled")
+            .Padding("0").Margin("0").Style("{StaticResource IfThemedSV}")
+        condiHost := sv.Add("StackPanel")
+        condiHost.Add("StackPanel").Name("CondiRowsPanel")
+        plusRow := condiHost.Add("Grid").Name("BtnAddCondiRow").Margin("0,2,0,0")
+        plusRow.Cols("28", "*", "8", "90", "8", "*", "28")
+        plusRow.Add("Button").Name("BtnAddCondi").Grid_Column(3).Width(24).Height(24).MinHeight(24)
+            .HorizontalAlignment("Center").VerticalAlignment("Center").Cursor("Hand").ToolTip(GetLang("添加"))
+            .FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize("12").Content(Chr(0xE710))
+            .Foreground("{DynamicResource TextMain}").Background("{DynamicResource ControlBg}")
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").Padding("0")
 
-        ; 行2-5：四个条件行
-        loop 4 {
-            row := body.Add("Grid").Grid_Row(A_Index + 1)
-            row.Cols("Auto", "Auto", "Auto", "Auto")
-            row.Add("CheckBox").Name("ToggleCon" A_Index).Grid_Column(0).Width(30).VerticalAlignment("Center")
-            row.Add("ComboBox").Name("NameCon" A_Index).Grid_Column(1).Width(120).Height(26).MinHeight(26).Margin("8,0,0,0").IsEditable("True")
-                .VerticalContentAlignment("Center").FontSize("11").Foreground("{DynamicResource InputText}")
-                .Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-            ct := row.Add("ComboBox").Name("CompareTypeCon" A_Index).Grid_Column(2).Width(80).Height(26).MinHeight(26).Margin("8,0,0,0")
-                .VerticalContentAlignment("Center").FontSize("11").Foreground("{DynamicResource InputText}")
-                .Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-            for t in GetLangArr(["大于", "大于等于", "等于", "小于等于", "小于", "字符包含", "变量存在", "正则匹配"])
-                ct.Add("ComboBoxItem").Content(t)
-            row.Add("ComboBox").Name("VariableCon" A_Index).Grid_Column(3).Width(120).Height(26).MinHeight(26).Margin("8,0,0,0").IsEditable("True")
-                .VerticalContentAlignment("Center").FontSize("11").Foreground("{DynamicResource InputText}")
-                .Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-        }
-
-        ; 行6：分支指令 + 编辑按钮
-        macroLabelRow := body.Add("StackPanel").Grid_Row(6).Orientation("Horizontal").VerticalAlignment("Center")
-        macroLabelRow.Add("TextBlock").Text(GetLang("分支指令:")).VerticalAlignment("Center")
+        ; 行2：分支指令 + 编辑按钮
+        macroLabelRow := body.Add("StackPanel").Grid_Row(2).Orientation("Horizontal").VerticalAlignment("Center")
+        macroLabelRow.Add("TextBlock").Text(GetLang("分支指令:")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
         macroLabelRow.Add("Button").Name("BtnEditMacro").Content(GetLang("编辑")).Height(26).MinHeight(26).Margin("10,0,0,0").Padding("12,0").Cursor("Hand")
 
-        ; 行7：分支指令内容（多行）
-        body.Add("TextBox").Name("MacroCon").Grid_Row(7).AcceptsReturn("True").TextWrapping("Wrap").FontSize("11")
-            .VerticalContentAlignment("Top").Padding("4,2")
+        ; 行3：分支指令内容（多行）
+        body.Add("TextBox").Name("MacroCon").Grid_Row(3).AcceptsReturn("True").TextWrapping("Wrap").FontSize("11")
+            .VerticalContentAlignment("Top").Padding("4,2").Margin("0,2,0,0")
             .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
 
-        ; 行8：流程控制
-        ctrlRow := body.Add("StackPanel").Grid_Row(8).Orientation("Horizontal").VerticalAlignment("Center")
-        ctrlRow.Add("TextBlock").Text(GetLang("流程控制：")).VerticalAlignment("Center")
+        ; 行4：流程控制（固定宽度，不拉满）
+        ctrlRow := body.Add("StackPanel").Grid_Row(4).Orientation("Horizontal").VerticalAlignment("Center")
+        ctrlRow.Add("TextBlock").Text(GetLang("流程控制：")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
         cc := ctrlRow.Add("ComboBox").Name("ControlTypeCon").Width(150).Height(26).MinHeight(26).Margin("6,0,0,0")
             .VerticalContentAlignment("Center").FontSize("11").Foreground("{DynamicResource InputText}")
             .Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
@@ -167,19 +158,206 @@ class CompareProEditItemGui {
         ; === 创建 XAMLHost ===
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", this.OwnerHwnd)
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="440" Height="430" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="540" Height="' this._FitHeight() '" Opacity="0"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
-        this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '')
+        this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', this._CondiScrollStyles())
 
         ; === 事件 ===
         this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
         this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
         this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
-        loop 4
-            this.ui.OnEvent("CompareTypeCon" A_Index, "SelectionChanged", ObjBindMethod(this, "OnRefresh"))
+        this.ui.OnEvent("BtnAddCondi", "Click", ObjBindMethod(this, "OnAddCondi"))
         this.ui.OnEvent("BtnEditMacro", "Click", ObjBindMethod(this, "OnEditMacroBtnClick"))
         this.ui.OnEvent("BtnSure", "Click", ObjBindMethod(this, "OnClickSureBtn"))
 
+    }
+
+    _CondiScrollStyles() {
+        return '<ControlTemplate x:Key="IfSbThumb" TargetType="Thumb">'
+            . '<Border x:Name="bd" Background="{DynamicResource ControlBorder}" CornerRadius="3" Opacity="0.7" Margin="1"/>'
+            . '<ControlTemplate.Triggers>'
+            . '<Trigger Property="IsMouseOver" Value="True"><Setter TargetName="bd" Property="Background" Value="{DynamicResource Accent}"/><Setter TargetName="bd" Property="Opacity" Value="1"/></Trigger>'
+            . '</ControlTemplate.Triggers></ControlTemplate>'
+            . '<Style x:Key="IfSbVertical" TargetType="ScrollBar">'
+            . '<Setter Property="OverridesDefaultStyle" Value="True"/>'
+            . '<Setter Property="Background" Value="Transparent"/>'
+            . '<Setter Property="Width" Value="8"/><Setter Property="MinWidth" Value="8"/>'
+            . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ScrollBar">'
+            . '<Grid Background="Transparent"><Track x:Name="PART_Track" IsDirectionReversed="true">'
+            . '<Track.Thumb><Thumb Template="{StaticResource IfSbThumb}"/></Track.Thumb>'
+            . '</Track></Grid></ControlTemplate></Setter.Value></Setter></Style>'
+            . '<Style x:Key="IfThemedSV" TargetType="ScrollViewer">'
+            . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ScrollViewer"><Grid>'
+            . '<Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/></Grid.ColumnDefinitions>'
+            . '<ScrollContentPresenter x:Name="PART_ScrollContentPresenter" Grid.Column="0" Margin="{TemplateBinding Padding}" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" CanContentScroll="{TemplateBinding CanContentScroll}"/>'
+            . '<ScrollBar x:Name="PART_VerticalScrollBar" Width="8" MinWidth="8" Grid.Column="1" Value="{TemplateBinding VerticalOffset}" Maximum="{TemplateBinding ScrollableHeight}" ViewportSize="{TemplateBinding ViewportHeight}" Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}" Style="{StaticResource IfSbVertical}"/>'
+            . '</Grid></ControlTemplate></Setter.Value></Setter></Style>'
+    }
+
+    _CondiViewH() {
+        return 30 * 4
+    }
+
+    _CondiBoxRowH() {
+        return 8 + 2 + 12 + this._CondiViewH()
+    }
+
+    _FitHeight() {
+        return 30 + 10 + 8 + 34 + this._CondiBoxRowH() + 28 + 80 + 34 + 48
+    }
+
+    _EnsureCondiDataLen() {
+        if (this.ToggleArr.Length == 0) {
+            this.ToggleArr := [1]
+            this.NameArr := ["Var1"]
+            this.CompareTypeArr := [1]
+            this.VariableArr := ["Var1"]
+        }
+        n := this.ToggleArr.Length
+        while (this.NameArr.Length < n)
+            this.NameArr.Push("Var" (this.NameArr.Length + 1))
+        while (this.CompareTypeArr.Length < n)
+            this.CompareTypeArr.Push(1)
+        while (this.VariableArr.Length < n)
+            this.VariableArr.Push("Var" (this.VariableArr.Length + 1))
+        while (this.NameArr.Length > n)
+            this.NameArr.RemoveAt(this.NameArr.Length)
+        while (this.CompareTypeArr.Length > n)
+            this.CompareTypeArr.RemoveAt(this.CompareTypeArr.Length)
+        while (this.VariableArr.Length > n)
+            this.VariableArr.RemoveAt(this.VariableArr.Length)
+    }
+
+    _CondiRowXml(i) {
+        ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
+        cmpItems := ""
+        for t in GetCompareTypeLangArr()
+            cmpItems .= '<ComboBoxItem Content="' this._EscapeXml(t) '"/>'
+        tip := this._EscapeXml(GetLang("删除"))
+        return '<Grid ' ns ' Margin="0,2">'
+            . '<Grid.ColumnDefinitions>'
+            . '<ColumnDefinition Width="28"/><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/>'
+            . '<ColumnDefinition Width="90"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/><ColumnDefinition Width="28"/>'
+            . '</Grid.ColumnDefinitions>'
+            . '<CheckBox Grid.Column="0" Name="ToggleCon_' i '" VerticalAlignment="Center" HorizontalAlignment="Center"/>'
+            . '<ComboBox Grid.Column="1" Name="NameCon_' i '" Height="26" MinHeight="26" IsEditable="True" VerticalContentAlignment="Center"'
+            . ' Foreground="{DynamicResource InputText}" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1"/>'
+            . '<ComboBox Grid.Column="3" Name="CompareTypeCon_' i '" Height="26" MinHeight="26" VerticalContentAlignment="Center"'
+            . ' Foreground="{DynamicResource InputText}" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1">' cmpItems '</ComboBox>'
+            . '<ComboBox Grid.Column="5" Name="VariableCon_' i '" Height="26" MinHeight="26" IsEditable="True" VerticalContentAlignment="Center"'
+            . ' Foreground="{DynamicResource InputText}" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1"/>'
+            . '<Button Grid.Column="6" Name="DelCondi_' i '" Width="24" Height="24" MinHeight="24" Padding="0" Cursor="Hand"'
+            . ' FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" Content="&#xE74D;" ToolTip="' tip '"'
+            . ' Foreground="{DynamicResource TextMain}" Background="{DynamicResource ControlBg}"'
+            . ' BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" HorizontalAlignment="Center" VerticalAlignment="Center"/>'
+            . '</Grid>'
+    }
+
+    _Bind(name, evt, cb) {
+        if (this.ui.events.Has(name) && this.ui.events[name].Has(evt))
+            this.ui.events[name][evt] := []
+        this.ui.OnEvent(name, evt, cb)
+        this.ui.Update(name, "BindEvent", evt)
+    }
+
+    _BindRowEvents() {
+        loop this.ToggleArr.Length {
+            i := A_Index
+            this._Bind("ToggleCon_" i, "Click", ObjBindMethod(this, "OnRefresh"))
+            this._Bind("CompareTypeCon_" i, "SelectionChanged", ObjBindMethod(this, "OnRefresh"))
+            this._Bind("DelCondi_" i, "Click", ObjBindMethod(this, "OnDelCondi", i))
+        }
+    }
+
+    _BatchSetCombo(batch, comboName, items, text) {
+        batch.Push({ControlName: comboName, PropertyName: "ClearItems", Value: ""})
+        for it in items {
+            if (it == "")
+                continue
+            batch.Push({ControlName: comboName, PropertyName: "AddItem", Value: it})
+        }
+        batch.Push({ControlName: comboName, PropertyName: "Text", Value: text})
+    }
+
+    _RebuildRows() {
+        if (!IsObject(this.ui))
+            return
+        this._EnsureCondiDataLen()
+        batch := []
+        batch.Push({ControlName: "CondiRowsPanel", PropertyName: "ClearItems", Value: ""})
+        loop this.ToggleArr.Length
+            batch.Push({ControlName: "CondiRowsPanel", PropertyName: "AddXamlItem", Value: this._CondiRowXml(A_Index)})
+        this.ui.BatchUpdate(batch)
+        this._BindRowEvents()
+        this._FillRows()
+    }
+
+    _FillRows() {
+        if (!IsObject(this.ui))
+            return
+        batch := []
+        canEdit := this.EditType == 1
+        loop this.ToggleArr.Length {
+            i := A_Index
+            tog := this.ToggleArr[i] ? "True" : "False"
+            batch.Push({ControlName: "ToggleCon_" i, PropertyName: "IsChecked", Value: tog})
+            this._BatchSetCombo(batch, "NameCon_" i, this.DLVariableArr, GetLang(this.NameArr[i]))
+            ct := this.CompareTypeArr[i]
+            if (!IsNumber(ct) || Integer(ct) < 1 || Integer(ct) > 9)
+                ct := 1
+            batch.Push({ControlName: "CompareTypeCon_" i, PropertyName: "SelectedIndex", Value: String(CompareTypeToComboIndex(ct))})
+            this._BatchSetCombo(batch, "VariableCon_" i, this.DLVariableArr, GetLang(this.VariableArr[i]))
+            onlyOne := this.ToggleArr.Length <= 1
+            batch.Push({ControlName: "DelCondi_" i, PropertyName: "IsEnabled", Value: (canEdit && !onlyOne) ? "True" : "False"})
+            batch.Push({ControlName: "ToggleCon_" i, PropertyName: "IsEnabled", Value: canEdit ? "True" : "False"})
+        }
+        batch.Push({ControlName: "BtnAddCondi", PropertyName: "IsEnabled", Value: canEdit ? "True" : "False"})
+        this.ui.BatchUpdate(batch)
+    }
+
+    _SaveCondiFromUi() {
+        n := this.ToggleArr.Length
+        this.ToggleArr := []
+        this.NameArr := []
+        this.CompareTypeArr := []
+        this.VariableArr := []
+        loop n {
+            i := A_Index
+            this.ToggleArr.Push(this.ui.Query("ToggleCon_" i) == "True" ? 1 : 0)
+            this.NameArr.Push(GetLangKey(this.ui.Query("NameCon_" i)))
+            this.CompareTypeArr.Push(this._CompareTypeIndex(i))
+            this.VariableArr.Push(GetLangKey(this.ui.Query("VariableCon_" i)))
+        }
+    }
+
+    OnAddCondi(*) {
+        if (!IsObject(this.ui) || this.EditType != 1)
+            return
+        this._SaveCondiFromUi()
+        n := this.ToggleArr.Length + 1
+        this.ToggleArr.Push(1)
+        this.NameArr.Push("Var" n)
+        this.CompareTypeArr.Push(1)
+        this.VariableArr.Push("Var" n)
+        this._RebuildRows()
+        try this.ui.Update("CondiScroll", "ScrollToEnd", "")
+        this.OnRefresh()
+    }
+
+    OnDelCondi(n, *) {
+        if (!IsObject(this.ui) || this.EditType != 1)
+            return
+        if (this.ToggleArr.Length <= 1) {
+            MsgBox(GetLang("至少保留一个条件"), , "Owner" this.Hwnd())
+            return
+        }
+        this._SaveCondiFromUi()
+        this.ToggleArr.RemoveAt(n)
+        this.NameArr.RemoveAt(n)
+        this.CompareTypeArr.RemoveAt(n)
+        this.VariableArr.RemoveAt(n)
+        this._RebuildRows()
+        this.OnRefresh()
     }
 
     ; ---------------- 数据读写辅助 ----------------
@@ -202,12 +380,11 @@ class CompareProEditItemGui {
         return Integer(v) + 1
     }
 
-    ; 比较类型下拉 1-8（原生 DropDownList.Value 为 1-based 索引）
     _CompareTypeIndex(i) {
-        v := IsObject(this.ui) ? this.ui.Query("CompareTypeCon" i ">SelectedIndex") : ""
+        v := IsObject(this.ui) ? this.ui.Query("CompareTypeCon_" i ">SelectedIndex") : ""
         if (!IsNumber(v) || Integer(v) < 0)
             return 1
-        return Integer(v) + 1
+        return ComboIndexToCompareType(Integer(v))
     }
 
     Init(EditType, DataArr, logicStr, macro, controlType) {
@@ -220,21 +397,28 @@ class CompareProEditItemGui {
         VariNameArr := DataArr[1]
         CompareTypeArr := DataArr[2]
         VariableArr := DataArr[3]
-        loop 4 {
-            this.ui.Update("ToggleCon" A_Index, "IsChecked", VariNameArr.Length >= A_Index ? "True" : "False")
-            this._SetCombo("NameCon" A_Index, this.DLVariableArr, VariNameArr.Length >= A_Index ? VariNameArr[A_Index] : "Var" A_Index)
-            this.ui.Update("CompareTypeCon" A_Index, "SelectedIndex", String((CompareTypeArr.Length >= A_Index ? CompareTypeArr[A_Index] : 1) - 1))
-            this._SetCombo("VariableCon" A_Index, this.DLVariableArr, VariableArr.Length >= A_Index ? VariableArr[A_Index] : "Var" A_Index)
+        if (VariNameArr.Length == 0) {
+            this.ToggleArr := [1, 0]
+            this.NameArr := ["Var1", "Var2"]
+            this.CompareTypeArr := [1, 1]
+            this.VariableArr := ["Var1", "Var2"]
         }
+        else {
+            this.ToggleArr := []
+            this.NameArr := []
+            this.CompareTypeArr := []
+            this.VariableArr := []
+            loop VariNameArr.Length {
+                this.ToggleArr.Push(1)
+                this.NameArr.Push(VariNameArr[A_Index])
+                this.CompareTypeArr.Push(CompareTypeArr.Length >= A_Index ? CompareTypeArr[A_Index] : 1)
+                this.VariableArr.Push(VariableArr.Length >= A_Index ? VariableArr[A_Index] : "Var" A_Index)
+            }
+        }
+        this._RebuildRows()
 
         isEnabled := EditType == 1
         this.ui.Update("LogicalTypeCon", "IsEnabled", isEnabled ? "True" : "False")
-        loop 4 {
-            this.ui.Update("ToggleCon" A_Index, "IsEnabled", isEnabled ? "True" : "False")
-            this.ui.Update("NameCon" A_Index, "IsEnabled", isEnabled ? "True" : "False")
-            this.ui.Update("CompareTypeCon" A_Index, "IsEnabled", isEnabled ? "True" : "False")
-            this.ui.Update("VariableCon" A_Index, "IsEnabled", isEnabled ? "True" : "False")
-        }
         ; 程序化填值不触发 SelectionChanged，需显式刷新联动（§4.3）
         this.OnRefresh()
     }
@@ -242,10 +426,14 @@ class CompareProEditItemGui {
     OnRefresh(state := "", ctrl := "", event := "") {
         if (!IsObject(this.ui))
             return
-        loop 4 {
-            OperaTypeValue := this._CompareTypeIndex(A_Index)
-            EnableVari := OperaTypeValue != 7 && this.EditType == 1
-            this.ui.Update("VariableCon" A_Index, "IsEnabled", EnableVari ? "True" : "False")
+        canEdit := this.EditType == 1
+        loop this.ToggleArr.Length {
+            i := A_Index
+            isEnable := canEdit && this.ui.Query("ToggleCon_" i) == "True"
+            this.ui.Update("NameCon_" i, "IsEnabled", isEnable ? "True" : "False")
+            this.ui.Update("CompareTypeCon_" i, "IsEnabled", isEnable ? "True" : "False")
+            enableVari := isEnable && !IsCompareExistVar(this._CompareTypeIndex(i))
+            this.ui.Update("VariableCon_" i, "IsEnabled", enableVari ? "True" : "False")
         }
     }
 
@@ -258,15 +446,16 @@ class CompareProEditItemGui {
                 this.Data.DefaultControlType := GetLangKey(this.ui.Query("ControlTypeCon"))
             }
             else {
+                this._SaveCondiFromUi()
                 VariNameArr := []
                 CompareTypeArr := []
                 VariableArr := []
-                loop 4 {
-                    if (this.ui.Query("ToggleCon" A_Index) == "True") {
-                        VariNameArr.Push(this.ui.Query("NameCon" A_Index))
-                        CompareTypeArr.Push(this._CompareTypeIndex(A_Index))
-                        VariableArr.Push(this.ui.Query("VariableCon" A_Index))
-                    }
+                loop this.ToggleArr.Length {
+                    if (!this.ToggleArr[A_Index])
+                        continue
+                    VariNameArr.Push(this.NameArr[A_Index])
+                    CompareTypeArr.Push(this.CompareTypeArr[A_Index])
+                    VariableArr.Push(this.VariableArr[A_Index])
                 }
                 this.Data.VariNameArr[this.CondiNumber] := GetLangKeyArr(VariNameArr)
                 this.Data.CompareTypeArr[this.CondiNumber] := GetLangKeyArr(CompareTypeArr)
@@ -283,19 +472,19 @@ class CompareProEditItemGui {
             action(this.ui.Query("MacroCon"))
         }
         else if (this.EditType == 1) {
+            this._SaveCondiFromUi()
             condiStr := ""
-            loop 4 {
-                if (this.ui.Query("ToggleCon" A_Index) == "True") {
-                    if (this.ui.Query("CompareTypeCon" A_Index) != GetLang("变量存在")) {
-                        condiStr .= this.ui.Query("NameCon" A_Index) " " this.ui.Query("CompareTypeCon" A_Index) " " this.ui.Query(
-                            "VariableCon" A_Index)
-                    }
-                    else {
-                        condiStr .= this.ui.Query("NameCon" A_Index) " " this.ui.Query("CompareTypeCon" A_Index)
-                    }
-
-                    condiStr .= "⎖"
+            loop this.ToggleArr.Length {
+                i := A_Index
+                if (!this.ToggleArr[i])
+                    continue
+                if (this.ui.Query("CompareTypeCon_" i) != GetLang("变量存在")) {
+                    condiStr .= this.ui.Query("NameCon_" i) " " this.ui.Query("CompareTypeCon_" i) " " this.ui.Query("VariableCon_" i)
                 }
+                else {
+                    condiStr .= this.ui.Query("NameCon_" i) " " this.ui.Query("CompareTypeCon_" i)
+                }
+                condiStr .= "⎖"
             }
             condiStr := Trim(condiStr, "⎖")
             logicStr := this.ui.Query("LogicalTypeCon")

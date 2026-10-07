@@ -78,10 +78,13 @@ class MacroGraphHandlersMixin {
         } else if (type == GetLang("运算")) {
             loop 4
                 keys.Push("OpS" A_Index "Target_" id)
-        } else if (type == GetLang("运行")) {
-            keys := ["RunTarget_" id, "RunStdIn_" id]
-            loop 3
-                keys.Push("RunSave" A_Index "_" id)
+        } else if (type == GetLang("运行") || type == GetLang("运行Pro")) {
+            keys := ["RunTarget_" id]
+            if (type == GetLang("运行Pro")) {
+                keys.Push("RunStdIn_" id)
+                loop 3
+                    keys.Push("RunSave" A_Index "_" id)
+            }
         } else if (type == GetLang("文件读写"))
             keys := ["FIORow_" id, "FIOCol_" id, "FIORowEnd_" id, "FIOColEnd_" id, "FIOTxtRow_" id, "FIOSave_" id, "FIOArr_" id, "FIOSheet_" id]
         else if (type == GetLang("文本处理"))
@@ -1574,7 +1577,7 @@ class MacroGraphHandlersMixin {
                 this._OnFormalExVariable(id, state, "", "Flush")
             else if (t == GetLang("运算"))
                 this._OnFormalOperation(id, state, "", "Flush")
-            else if (t == GetLang("运行"))
+            else if (t == GetLang("运行") || t == GetLang("运行Pro"))
                 this._OnFormalRun(id, state, "", "Flush")
             else if (t == GetLang("文件读写"))
                 this._OnFIOField(id, state, "", "Flush")

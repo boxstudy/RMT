@@ -1017,11 +1017,10 @@ class MacroGraphIfProMixin {
         if (slot < 1 || slot > condiN)
             return res
         res.on := true
-        cmpTypes := GetLangArr(["大于", "大于等于", "等于", "小于等于", "小于", "字符包含", "变量存在", "正则匹配"])
         nm := GetLang(data.VariNameArr[caseIdx][slot])
         cmp := data.CompareTypeArr[caseIdx][slot]
-        typeStr := (cmp >= 1 && cmp <= cmpTypes.Length) ? cmpTypes[cmp] : cmpTypes[3]
-        res.text := (cmp != 7) ? nm " " typeStr " " GetLang(data.VariableArr[caseIdx][slot]) : nm " " typeStr
+        typeStr := GetCompareTypeName(cmp)
+        res.text := (!IsCompareExistVar(cmp)) ? nm " " typeStr " " GetLang(data.VariableArr[caseIdx][slot]) : nm " " typeStr
         return res
     }
 
@@ -1089,7 +1088,7 @@ class MacroGraphIfProMixin {
         block.Add("Border").Name(p "Sep_" id).Height("1").Margin("0,6,0,4").BorderThickness("0").Background("{DynamicResource ControlBorder}").IsHitTestVisible("False")
         this._AddCheckRow(block, p "TogChk_" id, p "Tog_" id, GetLang("条件") slot, on, true)
         this._AddEditableComboRow(block, p "NameRow_" id, GetLang("变量："), p "Name_" id, GetGuiVarArr(), GetLang(nm), on && showRow, lw, cw)
-        this._AddComboRow(block, p "CmpRow_" id, GetLang("比较："), p "Cmp_" id, cmpTypes, cmp - 1, on && showRow, true, lw, cw)
+        this._AddComboRow(block, p "CmpRow_" id, GetLang("比较："), p "Cmp_" id, cmpTypes, CompareTypeToComboIndex(cmp), on && showRow, true, lw, cw)
         this._AddEditableComboRow(block, p "VarRow_" id, GetLang("值："), p "Var_" id, GetGuiVarArr(), GetLang(vr), on && showRow && showVal, lw, cw)
     }
 

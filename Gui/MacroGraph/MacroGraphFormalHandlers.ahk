@@ -284,6 +284,24 @@ class MacroGraphFormalHandlersMixin {
             return
         if (!IsObject(state))
             state := Map()
+        d := this._FormalDFromId(id)
+        isSimple := IsObject(d) && d.type == GetLang("运行")
+        if (isSimple) {
+            this._PullEditTextIntoState(state, "RunTarget_" id)
+            if (state.Has("RunTarget_" id))
+                data.Target := state["RunTarget_" id]
+            data.Mode := 1
+            data.Option := 1
+            if (ObjHasOwnProp(data, "StdIn"))
+                data.DeleteProp("StdIn")
+            if (ObjHasOwnProp(data, "SaveNameArr"))
+                data.DeleteProp("SaveNameArr")
+            if (ObjHasOwnProp(data, "Encoding"))
+                data.DeleteProp("Encoding")
+            SaveMacroCMDData(data)
+            this._Apply()
+            return
+        }
         modes := this._FormalRunModeArr()
         options := GetLangArr(["后台", "默认", "最小化", "最大化"])
         encArr := GetLangArr(["UTF-8", "UTF-16", "CP0"])
@@ -1392,7 +1410,7 @@ class MacroGraphFormalHandlersMixin {
                 nm := state.Has(ps "Name_" id) ? GetLangKey(state[ps "Name_" id]) : ("Var" slot)
                 cmp := 3
                 if (state.Has(ps "Cmp_" id) && state[ps "Cmp_" id] != "")
-                    cmp := this._IndexInLangArr(cmpTypes, state[ps "Cmp_" id]) + 1
+                    cmp := ComboIndexToCompareType(this._IndexInLangArr(cmpTypes, state[ps "Cmp_" id]))
                 vr := state.Has(ps "Var_" id) ? GetLangKey(state[ps "Var_" id]) : ("Var" slot)
                 names.Push(nm)
                 cmps.Push(cmp)
@@ -1467,7 +1485,7 @@ class MacroGraphFormalHandlersMixin {
                 vr := on ? data.VariableArr[ci][slot] : ("Var" slot)
                 this.ui.Update(ps "Tog_" id, "IsChecked", on ? "True" : "False")
                 this.ui.Update(ps "Name_" id, "Text", GetLang(nm))
-                this.ui.Update(ps "Cmp_" id, "SelectedIndex", cmp - 1)
+                this.ui.Update(ps "Cmp_" id, "SelectedIndex", CompareTypeToComboIndex(cmp))
                 this.ui.Update(ps "Var_" id, "Text", GetLang(vr))
             }
         }
@@ -1497,6 +1515,13 @@ class MacroGraphFormalHandlersMixin {
             data.TrueValue := state["IfTrueVal_" id]
         if (state.Has("IfFalseVal_" id))
             data.FalseValue := state["IfFalseVal_" id]
+        while (data.ToggleArr.Length < 4) {
+            n := data.ToggleArr.Length + 1
+            data.ToggleArr.Push(0)
+            data.NameArr.Push("Var" n)
+            data.CompareTypeArr.Push(1)
+            data.VariableArr.Push("Var" n)
+        }
         loop 4 {
             slot := A_Index
             p := "IfC" slot
@@ -1505,7 +1530,7 @@ class MacroGraphFormalHandlersMixin {
             if (state.Has(p "Name_" id) && state[p "Name_" id] != "")
                 data.NameArr[slot] := GetLangKey(state[p "Name_" id])
             if (state.Has(p "Cmp_" id) && state[p "Cmp_" id] != "")
-                data.CompareTypeArr[slot] := this._IndexInLangArr(cmpTypes, state[p "Cmp_" id]) + 1
+                data.CompareTypeArr[slot] := ComboIndexToCompareType(this._IndexInLangArr(cmpTypes, state[p "Cmp_" id]))
             if (state.Has(p "Var_" id) && state[p "Var_" id] != "")
                 data.VariableArr[slot] := GetLangKey(state[p "Var_" id])
         }
@@ -1593,6 +1618,13 @@ class MacroGraphFormalHandlersMixin {
             data.CondiType := this._IndexInLangArr(condiTypes, state["LoopCondiCmb_" id]) + 1
         if (state.Has("LoopLogicCmb_" id) && state["LoopLogicCmb_" id] != "")
             data.LogicType := this._IndexInLangArr(logicTypes, state["LoopLogicCmb_" id]) + 1
+        while (data.ToggleArr.Length < 4) {
+            n := data.ToggleArr.Length + 1
+            data.ToggleArr.Push(0)
+            data.NameArr.Push("Var" n)
+            data.CompareTypeArr.Push(1)
+            data.VariableArr.Push("Var" n)
+        }
         loop 4 {
             slot := A_Index
             p := "LoopC" slot
@@ -1601,7 +1633,7 @@ class MacroGraphFormalHandlersMixin {
             if (state.Has(p "Name_" id) && state[p "Name_" id] != "")
                 data.NameArr[slot] := GetLangKey(state[p "Name_" id])
             if (state.Has(p "Cmp_" id) && state[p "Cmp_" id] != "")
-                data.CompareTypeArr[slot] := this._IndexInLangArr(cmpTypes, state[p "Cmp_" id]) + 1
+                data.CompareTypeArr[slot] := ComboIndexToCompareType(this._IndexInLangArr(cmpTypes, state[p "Cmp_" id]))
             if (state.Has(p "Var_" id) && state[p "Var_" id] != "")
                 data.VariableArr[slot] := GetLangKey(state[p "Var_" id])
         }
@@ -1845,7 +1877,7 @@ class MacroGraphFormalHandlersMixin {
             this._RefreshFormalExVariableVisibility(id)
         else if (d.type == GetLang("运算"))
             this._RefreshFormalOperationVisibility(id)
-        else if (d.type == GetLang("运行"))
+        else if (d.type == GetLang("运行Pro"))
             this._RefreshFormalRunVisibility(id)
         else if (d.type == GetLang("文件读写"))
             this._RefreshFormalFileIOVisibility(id)
@@ -2045,7 +2077,7 @@ class MacroGraphFormalHandlersMixin {
             vr := d.HasOwnProp("loopVar" slot) ? d["loopVar" slot] : "Var" slot
             this.ui.Update(p "Tog_" id, "IsChecked", on ? "True" : "False")
             this.ui.Update(p "Name_" id, "Text", GetLang(nm))
-            this.ui.Update(p "Cmp_" id, "SelectedIndex", cmp - 1)
+            this.ui.Update(p "Cmp_" id, "SelectedIndex", CompareTypeToComboIndex(cmp))
             this.ui.Update(p "Var_" id, "Text", GetLang(vr))
         }
         this._RefreshLoopChips(id)
@@ -2075,7 +2107,7 @@ class MacroGraphFormalHandlersMixin {
             vr := d.HasOwnProp("ifVar" slot) ? d["ifVar" slot] : "Var" slot
             this.ui.Update(p "Tog_" id, "IsChecked", on ? "True" : "False")
             this.ui.Update(p "Name_" id, "Text", GetLang(nm))
-            this.ui.Update(p "Cmp_" id, "SelectedIndex", cmp - 1)
+            this.ui.Update(p "Cmp_" id, "SelectedIndex", CompareTypeToComboIndex(cmp))
             this.ui.Update(p "Var_" id, "Text", GetLang(vr))
         }
         this.ui.Update("IfSaveTog_" id, "IsChecked", saveOn ? "True" : "False")
@@ -2237,7 +2269,7 @@ class MacroGraphFormalHandlersMixin {
             }
             return GetLang("运算")
         }
-        if (d.type == GetLang("运行")) {
+        if (d.type == GetLang("运行") || d.type == GetLang("运行Pro")) {
             p := d.HasOwnProp("target") ? d.target : ""
             if (StrLen(p) > 28)
                 p := SubStr(p, 1, 28) "..."

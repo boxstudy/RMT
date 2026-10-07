@@ -1152,10 +1152,10 @@ class ScreenShotData {
 
 class CompareData {
     __New() {
-        this.ToggleArr := [1, 0, 0, 0]
-        this.NameArr := ["Var1", "Var2", "Var3", "Var4"]
-        this.CompareTypeArr := [1, 1, 1, 1]  ;1大于 2大于等于 3等于 4小于等 5小于 6字符包含 7存在变量 8正则匹配
-        this.VariableArr := ["Var1", "Var2", "Var3", "Var4"]
+        this.ToggleArr := [1, 0]
+        this.NameArr := ["Var1", "Var2"]
+        this.CompareTypeArr := [1, 1]  ;1大于 2大于等于 3等于 4小于等于 5小于 6字符包含 7存在变量 8正则匹配 9不等于
+        this.VariableArr := ["Var1", "Var2"]
         this.TrueControlType := "无"   ;流程控制：1无 2循环-跳过本轮 3循环-跳出 4分支-跳出
         this.FalseControlType := "无"   ;流程控制：1无 2循环-跳过本轮 3循环-跳出 4分支-跳出
         this.TrueMacro := ""
@@ -1171,7 +1171,7 @@ class CompareData {
 class CompareProData {
     __New() {
         this.VariNameArr := [["Var1"], ["Var2"]]
-        this.CompareTypeArr := [[3], [3]]  ;1大于 2大于等于 3等于 4小于等于 5小于 6字符包含 7存在变量 8正则匹配（与 CompareData 一致）
+        this.CompareTypeArr := [[3], [3]]  ;与 CompareData 一致：1> 2>= 3== 4<= 5< 6包含 7变量存在 8正则 9!=
         this.VariableArr := [["1"], ["2"]]
         this.LogicTypeArr := [1, 2]
         this.ControlTypeArr := ["无", "无"]
@@ -1184,15 +1184,13 @@ class CompareProData {
     static GetCondiStr(Data, itemIndex) {
         CommandStr := ""
         symbolStr := Data.LogicTypeArr[itemIndex] == 1 ? GetLang("且") : GetLang("或")
-        CompareTypeStrArr := GetLangArr(["大于", "大于等于", "等于", "小于等于",
-            "小于", "字符包含", "变量存在", "正则匹配"])
 
         loop Data.VariNameArr[itemIndex].Length {
             VariName := GetLang(Data.VariNameArr[itemIndex][A_Index])
-            TypeStr := CompareTypeStrArr[Data.CompareTypeArr[itemIndex][A_Index]]
+            TypeStr := GetCompareTypeName(Data.CompareTypeArr[itemIndex][A_Index])
             Variable := GetLang(Data.VariableArr[itemIndex][A_Index])
 
-            if (Data.CompareTypeArr[itemIndex][A_Index] != 7)
+            if (!IsCompareExistVar(Data.CompareTypeArr[itemIndex][A_Index]))
                 CommandStr .= VariName " " TypeStr " " Variable " " symbolStr " "
             else
                 CommandStr .= VariName " " TypeStr " " symbolStr " "
@@ -1295,10 +1293,10 @@ class LoopData {
         this.LoopCount := 10    ;循环次数
         this.CondiType := 1     ;条件类型 1：无 2：退出条件 3：继续条件
         this.LogicType := 1     ;逻辑关系  1：且    2：或
-        this.ToggleArr := [1, 0, 0, 0]
-        this.NameArr := ["Var1", "Var2", "Var3", "Var4"]
-        this.CompareTypeArr := [1, 1, 1, 1]  ;1大于 2大于等于 3等于 4小于等 5小于 6字符包含 7存在变量
-        this.VariableArr := ["Var1", "Var2", "Var3", "Var4"]
+        this.ToggleArr := [1, 0]
+        this.NameArr := ["Var1", "Var2"]
+        this.CompareTypeArr := [1, 1]  ;1大于 2大于等于 3等于 4小于等于 5小于 6字符包含 7存在变量 8正则匹配 9不等于
+        this.VariableArr := ["Var1", "Var2"]
         this.LoopBody := ""     ;循环体
     }
 
@@ -1306,17 +1304,15 @@ class LoopData {
     static GetCondiStr(Data) {
         CommandStr := ""
         symbolStr := Data.LogicType == 1 ? GetLang("且") : GetLang("或")
-        CompareTypeStrArr := GetLangArr(["大于", "大于等于", "等于", "小于等于",
-            "小于", "字符包含", "变量存在", "正则匹配"])
 
-        loop 4 {
+        loop Data.ToggleArr.Length {
             if (!Data.ToggleArr[A_Index])
                 continue
 
             VariName := GetLang(Data.NameArr[A_Index])
-            TypeStr := CompareTypeStrArr[Data.CompareTypeArr[A_Index]]
+            TypeStr := GetCompareTypeName(Data.CompareTypeArr[A_Index])
             Variable := GetLang(Data.VariableArr[A_Index])
-            if (Data.CompareTypeArr[A_Index] != 7)
+            if (!IsCompareExistVar(Data.CompareTypeArr[A_Index]))
                 CommandStr .= VariName " " TypeStr " " Variable " " symbolStr " "
             else
                 CommandStr .= VariName " " TypeStr " " symbolStr " "

@@ -231,7 +231,7 @@
 | 搜索 / 搜索Pro | SearchFile.ini / SearchProFile.ini | SearchData |
 | 移动Pro | MMProFile.ini | MMProData |
 | 输出 | OutputFile.ini | OutputData |
-| 运行 | RunFile.ini | RunData |
+| 运行 / 运行Pro | RunFile.ini | RunData |
 | 循环 | LoopFile.ini | LoopData |
 | 宏操作 | SubMacroFile.ini | SubMacroData |
 | 变量 | VariableFile.ini | VariableData |
@@ -303,9 +303,9 @@
 
 | 字段 | 含义 |
 |------|------|
-| `ToggleArr` | 4 路条件开关 |
+| `ToggleArr` | 条件开关（数量不限） |
 | `NameArr` | 左值（变量名） |
-| `CompareTypeArr` | `1>` `2>=` `3==` `4<=` `5<` `6` 包含 `7` 变量存在 `8` 正则 |
+| `CompareTypeArr` | `1>` `2>=` `3==` `4<=` `5<` `6` 包含 `7` 变量存在 `8` 正则 `9!=` |
 | `VariableArr` | 右值 |
 | `LogicalType` | `1` 且 `2` 或 |
 | `TrueMacro` / `FalseMacro` | 分支 |
@@ -342,7 +342,7 @@
 
 游戏视角：强制「移动 + 相对 + 速度 100」，用来转镜头，与拟真轨迹互斥。
 
-### 6.6 RunData（运行）
+### 6.6 RunData（运行 / 运行Pro）
 
 | 字段 | 含义 |
 |------|------|
@@ -394,7 +394,7 @@ Excel 未打开时写入会很慢。
 | `LoopCount` | 次数 |
 | `CondiType` | `1` 无 `2` 退出条件 `3` 继续条件 |
 | `LogicType` | `1` 且 `2` 或 |
-| `ToggleArr` `NameArr` `CompareTypeArr` `VariableArr` | 最多 4 个条件 |
+| `ToggleArr` `NameArr` `CompareTypeArr` `VariableArr` | 条件开关（数量不限，默认 2 条） |
 | `LoopBody` | 循环体指令串 |
 
 比较类型与「如果」相同（含正则）。

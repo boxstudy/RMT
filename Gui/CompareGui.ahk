@@ -27,14 +27,7 @@ class CompareGui {
 
         this.Data := ""
         this.DLVariableArr := []
-        ; 控件名数组（XAML 版不持有原生控件对象，按名 Query/Update）
-        this.ToggleConArr := ["ToggleCon_1", "ToggleCon_2", "ToggleCon_3", "ToggleCon_4"]
-        this.NameConArr := ["NameCon_1", "NameCon_2", "NameCon_3", "NameCon_4"]
-        this.CompareTypeConArr := ["CompareTypeCon_1", "CompareTypeCon_2", "CompareTypeCon_3", "CompareTypeCon_4"]
-        this.VariableConArr := ["VariableCon_1", "VariableCon_2", "VariableCon_3", "VariableCon_4"]
-        ; 结果保存组内可编辑控件名（SaveToggle 关闭时禁用；与原生 ResultConArr 顺序一致：
-        ; 「选择/输入」「真值」「假值」标签 + SaveNameCon/TrueValueCon/FalseValueCon）
-        this.ResultConArr := ["ResultLabelNameCon", "ResultLabelTrueCon", "ResultLabelFalseCon", "SaveNameCon", "TrueValueCon", "FalseValueCon"]
+        this.ResultConArr := ["ResultSaveLabel", "SaveNameCon", "ResultLabelTrueCon", "TrueValueCon", "ResultLabelFalseCon", "FalseValueCon"]
     }
 
     Hwnd() {
@@ -71,140 +64,307 @@ class CompareGui {
         this._title := title
         titleHeight := XAMLHost.CmdTitleBarHeight()
 
-        main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize(XAMLHost.FontSize())
-        main.Rows(titleHeight, "30", "30", "34", "34", "34", "34", "82", "30", "92", "44")
+        main := XAML_Generator("Grid").Name("CmdRoot").Background("{DynamicResource BgColor}").TextElement_FontSize(XAMLHost.FontSize())
+        main.Rows(titleHeight, "*")
 
         ; === 标题栏 ===
         chrome := XAMLHost.AddCmdTitleBar(main, title, titleHeight)
 
-        ; === 顶部工具行：备注 ===
-        top := main.Add("StackPanel").Grid_Row(1).Orientation("Horizontal").Margin("10,4")
-        top.Add("TextBlock").Text(GetLang("备注：")).VerticalAlignment("Center")
-        top.Add("TextBox").Name("RemarkCon").Width(150).Height(26).MinHeight(26).Margin("4,0,0,0")
-            .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
-            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").VerticalContentAlignment("Center").Padding("4,0")
+        body := main.Add("Grid").Grid_Row(1).Margin("16,10,16,14")
+        body.Rows("34", this._CondiBoxRowH(), "80", "34", "34", "48")
+        body.Cols("28", "*", "8", "90", "8", "*", "28")
 
-        ; === 逻辑关系行 ===
-        logicRow := main.Add("StackPanel").Grid_Row(2).Orientation("Horizontal").Margin("10,2")
-        logicRow.Add("TextBlock").Text(GetLang("逻辑关系：")).VerticalAlignment("Center")
-        logicCon := logicRow.Add("ComboBox").Name("LogicalTypeCon").Width(70).Height(26).MinHeight(26).Margin("4,0,0,0").SelectedIndex("0")
+        ; === 逻辑关系 + 备注（备注与比较下拉左对齐）===
+        top := body.Add("Grid").Grid_Row(0).Grid_ColumnSpan(7)
+        top.Cols("28", "*", "8", "90", "8", "*", "28")
+        logicSp := top.Add("StackPanel").Grid_Column(0).Grid_ColumnSpan(2).Orientation("Horizontal").VerticalAlignment("Center")
+        logicSp.Add("TextBlock").Text(GetLang("逻辑关系：")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
+        logicCon := logicSp.Add("ComboBox").Name("LogicalTypeCon").Width(70).Height(26).MinHeight(26).Margin("4,0,0,0").SelectedIndex("0")
             .VerticalContentAlignment("Center").FontSize("11").Foreground("{DynamicResource InputText}")
             .Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
         for t in GetLangArr(["且", "或"])
             logicCon.Add("ComboBoxItem").Content(t)
-        logicRow.Add("Button").Name("BtnTypeHelp").Content("?").Width(30).Height(26).MinHeight(26).Margin("8,0,0,0").Cursor("Hand")
-            .Background("{DynamicResource EditBg}").Foreground("{DynamicResource EditText}")
-            .BorderBrush("{DynamicResource EditStroke}").BorderThickness("1").Padding("0")
+        top.Add("TextBlock").Grid_Column(3).Text(GetLang("备注：")).VerticalAlignment("Center").HorizontalAlignment("Left").Foreground("{DynamicResource TextMain}").FontSize("12")
+        top.Add("TextBox").Grid_Column(5).Grid_ColumnSpan(2).Name("RemarkCon").Height(26).MinHeight(26).VerticalAlignment("Center")
+            .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").VerticalContentAlignment("Center").Padding("4,0")
 
-        ; === 条件行 1-4（Toggle + 变量名 + 比较类型 + 比较值）===
-        loop 4
-            this._AddCompareRow(main, A_Index + 2, A_Index)
+        ; === 条件边框：默认 4 行高度，右侧固定预留主题滚动条 ===
+        bd := body.Add("Border").Name("CondiBox").Grid_Row(1).Grid_ColumnSpan(7)
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").CornerRadius("4")
+            .Padding("8,6,0,6").Margin("0,4,0,4").ClipToBounds("True")
+        sv := bd.Add("ScrollViewer").Name("CondiScroll").Height(this._CondiViewH())
+            .VerticalScrollBarVisibility("Auto").HorizontalScrollBarVisibility("Disabled")
+            .Padding("0").Margin("0").Style("{StaticResource IfThemedSV}")
+        condiHost := sv.Add("StackPanel")
+        condiHost.Add("StackPanel").Name("CondiRowsPanel")
+        plusRow := condiHost.Add("Grid").Name("BtnAddCondiRow").Margin("0,2,0,0")
+        plusRow.Cols("28", "*", "8", "90", "8", "*", "28")
+        plusRow.Add("Button").Name("BtnAddCondi").Grid_Column(3).Width(24).Height(24).MinHeight(24)
+            .HorizontalAlignment("Center").VerticalAlignment("Center").Cursor("Hand").ToolTip(GetLang("添加"))
+            .FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize("12").Content(Chr(0xE710))
+            .Foreground("{DynamicResource TextMain}").Background("{DynamicResource ControlBg}")
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").Padding("0")
 
-        ; === 真/假 分支指令（共享行，左右对齐）===
-        macroRow := main.Add("Grid").Grid_Row(7).Margin("10,4,10,0")
-        macroRow.Cols("*", "*")
+        ; === 真/假 分支指令 ===
+        macroRow := body.Add("Grid").Grid_Row(2).Grid_ColumnSpan(7)
+        macroRow.Cols("*", "8", "*")
 
-        foundCol := macroRow.Add("StackPanel").Grid_Column(0).Orientation("Vertical").Margin("0,0,8,0")
+        foundCol := macroRow.Add("StackPanel").Grid_Column(0).Orientation("Vertical")
         ft := foundCol.Add("StackPanel").Orientation("Horizontal")
-        ft.Add("TextBlock").Text(GetLang("真-分支指令:（可选）")).VerticalAlignment("Center")
-        ft.Add("Button").Name("BtnTrueEdit").Content(GetLang("编辑")).Height(24).MinHeight(24).Margin("8,0,0,0").Cursor("Hand")
-        foundCol.Add("TextBox").Name("TrueMacroCon").Height(48).Margin("0,2,0,0").AcceptsReturn("True").TextWrapping("Wrap")
+        ft.Add("TextBlock").Text(GetLang("真-分支指令:（可选）")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
+        ft.Add("Button").Name("BtnTrueEdit").Content(GetLang("编辑")).Height(26).MinHeight(26).Margin("8,0,0,0").Cursor("Hand")
+        foundCol.Add("TextBox").Name("TrueMacroCon").Height(46).Margin("0,2,0,0").AcceptsReturn("True").TextWrapping("Wrap")
             .VerticalContentAlignment("Top").Padding("4,2").FontSize(11)
             .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
 
-        unfoundCol := macroRow.Add("StackPanel").Grid_Column(1).Orientation("Vertical").Margin("8,0,0,0")
+        unfoundCol := macroRow.Add("StackPanel").Grid_Column(2).Orientation("Vertical")
         ft2 := unfoundCol.Add("StackPanel").Orientation("Horizontal")
-        ft2.Add("TextBlock").Text(GetLang("假-分支指令:（可选）")).VerticalAlignment("Center")
-        ft2.Add("Button").Name("BtnFalseEdit").Content(GetLang("编辑")).Height(24).MinHeight(24).Margin("8,0,0,0").Cursor("Hand")
-        unfoundCol.Add("TextBox").Name("FalseMacroCon").Height(48).Margin("0,2,0,0").AcceptsReturn("True").TextWrapping("Wrap")
+        ft2.Add("TextBlock").Text(GetLang("假-分支指令:（可选）")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
+        ft2.Add("Button").Name("BtnFalseEdit").Content(GetLang("编辑")).Height(26).MinHeight(26).Margin("8,0,0,0").Cursor("Hand")
+        unfoundCol.Add("TextBox").Name("FalseMacroCon").Height(46).Margin("0,2,0,0").AcceptsReturn("True").TextWrapping("Wrap")
             .VerticalContentAlignment("Top").Padding("4,2").FontSize(11)
             .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
 
-        ; === 真/假 流程控制 ===
-        ctrlRow := main.Add("Grid").Grid_Row(8).Margin("10,2,10,0")
-        ctrlRow.Cols("*", "*")
-        lc := ctrlRow.Add("StackPanel").Grid_Column(0).Orientation("Horizontal").VerticalAlignment("Center")
-        lc.Add("TextBlock").Text(GetLang("真-流程控制：")).VerticalAlignment("Center")
-        tcc := lc.Add("ComboBox").Name("TrueControlCon").Width(125).Height(26).MinHeight(26).Margin("4,0,0,0")
+        ; === 真/假 流程控制（下拉右边缘与分支内容框对齐）===
+        ctrlRow := body.Add("Grid").Grid_Row(3).Grid_ColumnSpan(7)
+        ctrlRow.Cols("*", "8", "*")
+        lc := ctrlRow.Add("Grid").Grid_Column(0)
+        lc.Cols("Auto", "*")
+        lc.Add("TextBlock").Grid_Column(0).Text(GetLang("真-流程控制：")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
+        tcc := lc.Add("ComboBox").Grid_Column(1).Name("TrueControlCon").Height(26).MinHeight(26).Margin("4,0,0,0").HorizontalAlignment("Stretch")
             .VerticalContentAlignment("Center").FontSize("11").Foreground("{DynamicResource InputText}")
             .Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
         for t in GetLangArr(["无", "循环-跳过本轮", "循环-跳出", "分支-跳出"])
             tcc.Add("ComboBoxItem").Content(t)
-        rc := ctrlRow.Add("StackPanel").Grid_Column(1).Orientation("Horizontal").VerticalAlignment("Center")
-        rc.Add("TextBlock").Text(GetLang("假-流程控制：")).VerticalAlignment("Center")
-        fcc := rc.Add("ComboBox").Name("FalseControlCon").Width(125).Height(26).MinHeight(26).Margin("4,0,0,0")
+        rc := ctrlRow.Add("Grid").Grid_Column(2)
+        rc.Cols("Auto", "*")
+        rc.Add("TextBlock").Grid_Column(0).Text(GetLang("假-流程控制：")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
+        fcc := rc.Add("ComboBox").Grid_Column(1).Name("FalseControlCon").Height(26).MinHeight(26).Margin("4,0,0,0").HorizontalAlignment("Stretch")
             .VerticalContentAlignment("Center").FontSize("11").Foreground("{DynamicResource InputText}")
             .Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
         for t in GetLangArr(["无", "循环-跳过本轮", "循环-跳出", "分支-跳出"])
             fcc.Add("ComboBoxItem").Content(t)
 
-        ; === 结果保存 GroupBox ===
-        rg := main.Add("GroupBox").Grid_Row(9).Margin("10,2,10,0").Header(GetLang("结果保存"))
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").Foreground("{DynamicResource TextMain}").Padding("8,4")
-        rgGrid := rg.Add("Grid")
-        rgGrid.Cols("Auto", "Auto", "Auto", "Auto")
-        rgGrid.Rows("28", "28")
-        rgGrid.Add("TextBlock").Text(GetLang("开关")).Grid_Row(0).Grid_Column(0).VerticalAlignment("Center")
-        rgGrid.Add("TextBlock").Name("ResultLabelNameCon").Text(GetLang("选择/输入")).Grid_Row(0).Grid_Column(1).VerticalAlignment("Center").Margin("10,0,0,0")
-        rgGrid.Add("TextBlock").Name("ResultLabelTrueCon").Text(GetLang("真值")).Grid_Row(0).Grid_Column(2).VerticalAlignment("Center").Margin("10,0,0,0")
-        rgGrid.Add("TextBlock").Name("ResultLabelFalseCon").Text(GetLang("假值")).Grid_Row(0).Grid_Column(3).VerticalAlignment("Center").Margin("10,0,0,0")
-        rgGrid.Add("CheckBox").Name("SaveToggleCon").Grid_Row(1).Grid_Column(0).VerticalAlignment("Center")
-        rgGrid.Add("ComboBox").Name("SaveNameCon").Width(120).Height(26).MinHeight(26).Grid_Row(1).Grid_Column(1).Margin("4,0,0,0").IsEditable("True")
-            .VerticalContentAlignment("Center").FontSize("11").Foreground("{DynamicResource InputText}")
-            .Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-        rgGrid.Add("TextBox").Name("TrueValueCon").Width(70).Height(26).MinHeight(26).Grid_Row(1).Grid_Column(2).Margin("10,0,0,0")
+        ; === 结果保存：下拉右边缘与真-流程控制下拉对齐 ===
+        saveRow := body.Add("Grid").Grid_Row(4).Grid_ColumnSpan(7).VerticalAlignment("Center")
+        saveRow.Cols("*", "8", "*")
+        saveLeft := saveRow.Add("Grid").Grid_Column(0)
+        saveLeft.Cols("Auto", "*")
+        saveHead := saveLeft.Add("StackPanel").Grid_Column(0).Orientation("Horizontal").VerticalAlignment("Center")
+        saveHead.Add("CheckBox").Name("SaveToggleCon").VerticalAlignment("Center")
+        saveHead.Add("TextBlock").Name("ResultSaveLabel").Text(GetLang("结果保存")).VerticalAlignment("Center").Margin("6,0,0,0").Foreground("{DynamicResource TextMain}").FontSize("12")
+        saveLeft.Add("ComboBox").Grid_Column(1).Name("SaveNameCon").Height(26).MinHeight(26).Margin("8,0,0,0").IsEditable("True")
+            .HorizontalAlignment("Stretch").VerticalContentAlignment("Center").FontSize("11")
+            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+        saveRight := saveRow.Add("StackPanel").Grid_Column(2).Orientation("Horizontal").VerticalAlignment("Center").HorizontalAlignment("Right")
+        saveRight.Add("TextBlock").Name("ResultLabelTrueCon").Text(GetLang("真值")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
+        saveRight.Add("TextBox").Name("TrueValueCon").Width(70).Height(26).MinHeight(26).Margin("6,0,0,0")
             .VerticalContentAlignment("Center").TextAlignment("Center").FontSize("11").Padding("4,0")
             .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-        rgGrid.Add("TextBox").Name("FalseValueCon").Width(70).Height(26).MinHeight(26).Grid_Row(1).Grid_Column(3).Margin("10,0,0,0")
+        saveRight.Add("TextBlock").Name("ResultLabelFalseCon").Text(GetLang("假值")).VerticalAlignment("Center").Margin("12,0,0,0").Foreground("{DynamicResource TextMain}").FontSize("12")
+        saveRight.Add("TextBox").Name("FalseValueCon").Width(70).Height(26).MinHeight(26).Margin("6,0,0,0")
             .VerticalContentAlignment("Center").TextAlignment("Center").FontSize("11").Padding("4,0")
             .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
 
         ; === 底部按钮 ===
-        btnRow := main.Add("StackPanel").Grid_Row(10).Orientation("Horizontal").HorizontalAlignment("Right").VerticalAlignment("Center").Margin("0,0,18,0")
+        btnRow := body.Add("StackPanel").Grid_Row(5).Grid_ColumnSpan(7).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
         AddCmdOkBtn(btnRow, "BtnSure")
 
         ; === 创建 XAMLHost ===
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", this.OwnerHwnd)
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="500" Height="480" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="540" Height="' this._FitHeight() '" Opacity="0"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
-        this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '')
+        this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', this._CondiScrollStyles())
 
         ; === 事件 ===
         this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
         this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
         this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
-        BindCmdEditorChrome(this.ui, "#指令手册/13-如果", (*) => this.TriggerMacro())
-        this.ui.OnEvent("BtnTypeHelp", "Click", ObjBindMethod(this, "OnClickTypeHelpBtn"))
+        BindCmdEditorChrome(this.ui, "#指令手册/13-如果", ObjBindMethod(this, "TriggerMacro"), "!l")
         this.ui.OnEvent("BtnSure", "Click", ObjBindMethod(this, "OnClickSureBtn"))
         this.ui.OnEvent("BtnTrueEdit", "Click", ObjBindMethod(this, "OnTrueBtnClick"))
         this.ui.OnEvent("BtnFalseEdit", "Click", ObjBindMethod(this, "OnFalseBtnClick"))
+        this.ui.OnEvent("BtnAddCondi", "Click", ObjBindMethod(this, "OnAddCondi"))
         this.ui.OnEvent("SaveToggleCon", "Click", ObjBindMethod(this, "OnRefresh"))
-        loop 4 {
-            this.ui.OnEvent(this.ToggleConArr[A_Index], "Click", ObjBindMethod(this, "OnRefresh"))
-            this.ui.OnEvent(this.CompareTypeConArr[A_Index], "SelectionChanged", ObjBindMethod(this, "OnRefresh"))
-        }
-
     }
 
-    _AddCompareRow(parent, rowIdx, idx) {
-        row := parent.Add("StackPanel").Grid_Row(rowIdx).Orientation("Horizontal").VerticalAlignment("Center").Margin("8,0,0,0")
-        row.Add("CheckBox").Name(this.ToggleConArr[idx]).Width(28).VerticalAlignment("Center").IsChecked("True")
-        row.Add("ComboBox").Name(this.NameConArr[idx]).Width(140).Height(26).MinHeight(26).Margin("4,0,0,0").IsEditable("True")
-            .VerticalContentAlignment("Center").FontSize("11").Foreground("{DynamicResource InputText}")
-            .Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-        cc := row.Add("ComboBox").Name(this.CompareTypeConArr[idx]).Width(90).Height(26).MinHeight(26).Margin("8,0,0,0")
-            .VerticalContentAlignment("Center").FontSize("11").Foreground("{DynamicResource InputText}")
-            .Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-        for t in GetLangArr(["大于", "大于等于", "等于", "小于等于", "小于", "字符包含", "变量存在", "正则匹配"])
-            cc.Add("ComboBoxItem").Content(t)
-        row.Add("ComboBox").Name(this.VariableConArr[idx]).Width(140).Height(26).MinHeight(26).Margin("8,0,0,0").IsEditable("True")
-            .VerticalContentAlignment("Center").FontSize("11").Foreground("{DynamicResource InputText}")
-            .Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+    _CondiScrollStyles() {
+        return '<ControlTemplate x:Key="IfSbThumb" TargetType="Thumb">'
+            . '<Border x:Name="bd" Background="{DynamicResource ControlBorder}" CornerRadius="3" Opacity="0.7" Margin="1"/>'
+            . '<ControlTemplate.Triggers>'
+            . '<Trigger Property="IsMouseOver" Value="True"><Setter TargetName="bd" Property="Background" Value="{DynamicResource Accent}"/><Setter TargetName="bd" Property="Opacity" Value="1"/></Trigger>'
+            . '</ControlTemplate.Triggers></ControlTemplate>'
+            . '<Style x:Key="IfSbVertical" TargetType="ScrollBar">'
+            . '<Setter Property="OverridesDefaultStyle" Value="True"/>'
+            . '<Setter Property="Background" Value="Transparent"/>'
+            . '<Setter Property="Width" Value="8"/><Setter Property="MinWidth" Value="8"/>'
+            . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ScrollBar">'
+            . '<Grid Background="Transparent"><Track x:Name="PART_Track" IsDirectionReversed="true">'
+            . '<Track.Thumb><Thumb Template="{StaticResource IfSbThumb}"/></Track.Thumb>'
+            . '</Track></Grid></ControlTemplate></Setter.Value></Setter></Style>'
+            . '<Style x:Key="IfThemedSV" TargetType="ScrollViewer">'
+            . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ScrollViewer"><Grid>'
+            . '<Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/></Grid.ColumnDefinitions>'
+            . '<ScrollContentPresenter x:Name="PART_ScrollContentPresenter" Grid.Column="0" Margin="{TemplateBinding Padding}" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" CanContentScroll="{TemplateBinding CanContentScroll}"/>'
+            . '<ScrollBar x:Name="PART_VerticalScrollBar" Width="8" MinWidth="8" Grid.Column="1" Value="{TemplateBinding VerticalOffset}" Maximum="{TemplateBinding ScrollableHeight}" ViewportSize="{TemplateBinding ViewportHeight}" Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}" Style="{StaticResource IfSbVertical}"/>'
+            . '</Grid></ControlTemplate></Setter.Value></Setter></Style>'
+    }
+
+    _CondiViewH() {
+        return 30 * 4
+    }
+
+    _CondiBoxRowH() {
+        return 8 + 2 + 12 + this._CondiViewH()
+    }
+
+    _FitHeight() {
+        return Integer(XAMLHost.CmdTitleBarHeight()) + 10 + 14 + 34 + this._CondiBoxRowH() + 80 + 34 + 34 + 48
+    }
+
+    _EnsureCondiDataLen() {
+        if (!IsObject(this.Data))
+            this.Data := CompareData()
+        if (this.Data.ToggleArr.Length == 0) {
+            this.Data.ToggleArr := [1]
+            this.Data.NameArr := ["Var1"]
+            this.Data.CompareTypeArr := [1]
+            this.Data.VariableArr := ["Var1"]
+        }
+        n := this.Data.ToggleArr.Length
+        while (this.Data.NameArr.Length < n)
+            this.Data.NameArr.Push("Var" (this.Data.NameArr.Length + 1))
+        while (this.Data.CompareTypeArr.Length < n)
+            this.Data.CompareTypeArr.Push(1)
+        while (this.Data.VariableArr.Length < n)
+            this.Data.VariableArr.Push("Var" (this.Data.VariableArr.Length + 1))
+        while (this.Data.NameArr.Length > n)
+            this.Data.NameArr.RemoveAt(this.Data.NameArr.Length)
+        while (this.Data.CompareTypeArr.Length > n)
+            this.Data.CompareTypeArr.RemoveAt(this.Data.CompareTypeArr.Length)
+        while (this.Data.VariableArr.Length > n)
+            this.Data.VariableArr.RemoveAt(this.Data.VariableArr.Length)
+    }
+
+    _CondiRowXml(i) {
+        ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
+        cmpItems := ""
+        for t in GetCompareTypeLangArr()
+            cmpItems .= '<ComboBoxItem Content="' this._EscapeXml(t) '"/>'
+        tip := this._EscapeXml(GetLang("删除"))
+        return '<Grid ' ns ' Margin="0,2">'
+            . '<Grid.ColumnDefinitions>'
+            . '<ColumnDefinition Width="28"/><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/>'
+            . '<ColumnDefinition Width="90"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/><ColumnDefinition Width="28"/>'
+            . '</Grid.ColumnDefinitions>'
+            . '<CheckBox Grid.Column="0" Name="ToggleCon_' i '" VerticalAlignment="Center" HorizontalAlignment="Center"/>'
+            . '<ComboBox Grid.Column="1" Name="NameCon_' i '" Height="26" MinHeight="26" IsEditable="True" VerticalContentAlignment="Center"'
+            . ' Foreground="{DynamicResource InputText}" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1"/>'
+            . '<ComboBox Grid.Column="3" Name="CompareTypeCon_' i '" Height="26" MinHeight="26" VerticalContentAlignment="Center"'
+            . ' Foreground="{DynamicResource InputText}" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1">' cmpItems '</ComboBox>'
+            . '<ComboBox Grid.Column="5" Name="VariableCon_' i '" Height="26" MinHeight="26" IsEditable="True" VerticalContentAlignment="Center"'
+            . ' Foreground="{DynamicResource InputText}" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1"/>'
+            . '<Button Grid.Column="6" Name="DelCondi_' i '" Width="24" Height="24" MinHeight="24" Padding="0" Cursor="Hand"'
+            . ' FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" Content="&#xE74D;" ToolTip="' tip '"'
+            . ' Foreground="{DynamicResource TextMain}" Background="{DynamicResource ControlBg}"'
+            . ' BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" HorizontalAlignment="Center" VerticalAlignment="Center"/>'
+            . '</Grid>'
+    }
+
+    _Bind(name, evt, cb) {
+        if (this.ui.events.Has(name) && this.ui.events[name].Has(evt))
+            this.ui.events[name][evt] := []
+        this.ui.OnEvent(name, evt, cb)
+        this.ui.Update(name, "BindEvent", evt)
+    }
+
+    _BindRowEvents() {
+        loop this.Data.ToggleArr.Length {
+            i := A_Index
+            this._Bind("ToggleCon_" i, "Click", ObjBindMethod(this, "OnRefresh"))
+            this._Bind("CompareTypeCon_" i, "SelectionChanged", ObjBindMethod(this, "OnRefresh"))
+            this._Bind("DelCondi_" i, "Click", ObjBindMethod(this, "OnDelCondi", i))
+        }
+    }
+
+    _BatchSetCombo(batch, comboName, items, text) {
+        batch.Push({ControlName: comboName, PropertyName: "ClearItems", Value: ""})
+        for it in items {
+            if (it == "")
+                continue
+            batch.Push({ControlName: comboName, PropertyName: "AddItem", Value: it})
+        }
+        batch.Push({ControlName: comboName, PropertyName: "Text", Value: text})
+    }
+
+    _RebuildRows() {
+        if (!IsObject(this.ui))
+            return
+        this._EnsureCondiDataLen()
+        batch := []
+        batch.Push({ControlName: "CondiRowsPanel", PropertyName: "ClearItems", Value: ""})
+        loop this.Data.ToggleArr.Length
+            batch.Push({ControlName: "CondiRowsPanel", PropertyName: "AddXamlItem", Value: this._CondiRowXml(A_Index)})
+        this.ui.BatchUpdate(batch)
+        this._BindRowEvents()
+        this._FillRows()
+    }
+
+    _FillRows() {
+        if (!IsObject(this.ui))
+            return
+        batch := []
+        loop this.Data.ToggleArr.Length {
+            i := A_Index
+            tog := this.Data.ToggleArr[i] ? "True" : "False"
+            batch.Push({ControlName: "ToggleCon_" i, PropertyName: "IsChecked", Value: tog})
+            this._BatchSetCombo(batch, "NameCon_" i, this.DLVariableArr, GetLang(this.Data.NameArr[i]))
+            ct := this.Data.CompareTypeArr[i]
+            if (!IsNumber(ct) || Integer(ct) < 1 || Integer(ct) > 9)
+                ct := 1
+            batch.Push({ControlName: "CompareTypeCon_" i, PropertyName: "SelectedIndex", Value: String(CompareTypeToComboIndex(ct))})
+            this._BatchSetCombo(batch, "VariableCon_" i, this.DLVariableArr, GetLang(this.Data.VariableArr[i]))
+            onlyOne := this.Data.ToggleArr.Length <= 1
+            batch.Push({ControlName: "DelCondi_" i, PropertyName: "IsEnabled", Value: onlyOne ? "False" : "True"})
+        }
+        this.ui.BatchUpdate(batch)
+    }
+
+    OnAddCondi(*) {
+        if (!IsObject(this.ui))
+            return
+        this.SaveCompareData()
+        n := this.Data.ToggleArr.Length + 1
+        this.Data.ToggleArr.Push(1)
+        this.Data.NameArr.Push("Var" n)
+        this.Data.CompareTypeArr.Push(1)
+        this.Data.VariableArr.Push("Var" n)
+        this._RebuildRows()
+        try this.ui.Update("CondiScroll", "ScrollToEnd", "")
+        this.OnRefresh()
+    }
+
+    OnDelCondi(n, *) {
+        if (!IsObject(this.ui))
+            return
+        if (this.Data.ToggleArr.Length <= 1) {
+            MsgBox(GetLang("至少保留一个条件"), , "Owner" this.Hwnd())
+            return
+        }
+        this.SaveCompareData()
+        this.Data.ToggleArr.RemoveAt(n)
+        this.Data.NameArr.RemoveAt(n)
+        this.Data.CompareTypeArr.RemoveAt(n)
+        this.Data.VariableArr.RemoveAt(n)
+        this._RebuildRows()
+        this.OnRefresh()
     }
 
     ; ---------------- 数据读写辅助 ----------------
@@ -237,7 +397,7 @@ class CompareGui {
 
     ; Query 在窗口未加载（wpfHwnd 为 0）时返回空串（§4.2）：一律 IsNumber 保护再算术
     _CompareIndex(idx) {
-        v := IsObject(this.ui) ? this.ui.Query(this.CompareTypeConArr[idx] ">SelectedIndex") : ""
+        v := IsObject(this.ui) ? this.ui.Query("CompareTypeCon_" idx ">SelectedIndex") : ""
         if (!IsNumber(v) || Integer(v) < 0)
             return 0
         return Integer(v)
@@ -257,6 +417,7 @@ class CompareGui {
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("如果")
         this.ui.Update("RemarkCon", "Text", cmdArr.Length >= 2 ? cmdArr[2] : "")
         this.Data := GetMacroCMDData(this.SerialStr)
+        this.Data.SerialStr := this.SerialStr
         this.DLVariableArr := GetGuiVarArr(1)
 
         ; 原生 DropDownList.Value 为 1-based，XAML SelectedIndex 为 0-based
@@ -270,17 +431,7 @@ class CompareGui {
         this.ui.Update("FalseValueCon", "Text", ObjHasOwnProp(this.Data, "FalseValue") ? this.Data.FalseValue : 0)
         logical := ObjHasOwnProp(this.Data, "LogicalType") ? this.Data.LogicalType : 1
         this.ui.Update("LogicalTypeCon", "SelectedIndex", String(Integer(logical ? logical : 1) - 1))
-
-        loop this.Data.ToggleArr.Length {
-            i := A_Index
-            this.ui.Update(this.ToggleConArr[i], "IsChecked", this.Data.ToggleArr[i] ? "True" : "False")
-            this._SetCombo(this.NameConArr[i], this.DLVariableArr, GetLang(this.Data.NameArr[i]))
-            ct := this.Data.CompareTypeArr[i]
-            if (!IsNumber(ct) || Integer(ct) < 1 || Integer(ct) > 8)
-                ct := 1
-            this.ui.Update(this.CompareTypeConArr[i], "SelectedIndex", String(Integer(ct) - 1))
-            this._SetCombo(this.VariableConArr[i], this.DLVariableArr, GetLang(this.Data.VariableArr[i]))
-        }
+        this._RebuildRows()
     }
 
     GetCommandStr() {
@@ -308,27 +459,16 @@ class CompareGui {
         }
     }
 
-    OnClickTypeHelpBtn(*) {
-        str1 := GetLang("循环-跳过本轮：跳过后续循环体指令，继续上层循环")
-        str2 := GetLang("循环-跳出：跳出上层循环")
-        str3 := GetLang("分支-跳出：跳出上层分支")
-
-        str := Format("{}`n{}`n{}", str1, str2, str3)
-        MsgBox(str, GetLang("流程控制说明"))
-    }
-
     OnRefresh(*) {
         if (!IsObject(this.ui))
             return
-        loop 4 {
+        loop this.Data.ToggleArr.Length {
             i := A_Index
-            isEnable := this.ui.Query(this.ToggleConArr[i]) == "True"
-
-            this.ui.Update(this.NameConArr[i], "IsEnabled", isEnable ? "True" : "False")
-            this.ui.Update(this.CompareTypeConArr[i], "IsEnabled", isEnable ? "True" : "False")
-            ; 原生 CompareTypeCon.Value 1-based，7 存在变量（0-based index 6）时变量列禁用
-            enableVari := this._CompareIndex(i) != 6 && isEnable
-            this.ui.Update(this.VariableConArr[i], "IsEnabled", enableVari ? "True" : "False")
+            isEnable := this.ui.Query("ToggleCon_" i) == "True"
+            this.ui.Update("NameCon_" i, "IsEnabled", isEnable ? "True" : "False")
+            this.ui.Update("CompareTypeCon_" i, "IsEnabled", isEnable ? "True" : "False")
+            enableVari := !IsCompareExistVar(ComboIndexToCompareType(this._CompareIndex(i))) && isEnable
+            this.ui.Update("VariableCon_" i, "IsEnabled", enableVari ? "True" : "False")
         }
 
         canEditResult := this.ui.Query("SaveToggleCon") == "True"
@@ -416,12 +556,17 @@ class CompareGui {
         this.Data.TrueValue := this.ui.Query("TrueValueCon")
         this.Data.FalseValue := this.ui.Query("FalseValueCon")
         this.Data.LogicalType := this._LogicalIndex() + 1
-        loop 4 {
+        n := this.Data.ToggleArr.Length
+        this.Data.ToggleArr := []
+        this.Data.NameArr := []
+        this.Data.CompareTypeArr := []
+        this.Data.VariableArr := []
+        loop n {
             i := A_Index
-            this.Data.ToggleArr[i] := this.ui.Query(this.ToggleConArr[i]) == "True" ? 1 : 0
-            this.Data.NameArr[i] := GetLangKey(this.ui.Query(this.NameConArr[i]))
-            this.Data.CompareTypeArr[i] := this._CompareIndex(i) + 1
-            this.Data.VariableArr[i] := GetLangKey(this.ui.Query(this.VariableConArr[i]))
+            this.Data.ToggleArr.Push(this.ui.Query("ToggleCon_" i) == "True" ? 1 : 0)
+            this.Data.NameArr.Push(GetLangKey(this.ui.Query("NameCon_" i)))
+            this.Data.CompareTypeArr.Push(ComboIndexToCompareType(this._CompareIndex(i)))
+            this.Data.VariableArr.Push(GetLangKey(this.ui.Query("VariableCon_" i)))
         }
 
         ; 添加全局变量，方便下拉选取

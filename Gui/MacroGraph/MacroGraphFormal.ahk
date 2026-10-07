@@ -36,6 +36,7 @@ class MacroGraphFormalMixin {
             GetLang("变量提取"), this.ExVariableGui,
             GetLang("运算"), this.OperationGui,
             GetLang("运行"), this.RunGui,
+            GetLang("运行Pro"), this.RunProGui,
             GetLang("文件读写"), this.FileIOGui,
             GetLang("文本处理"), this.TextOpsGui,
             GetLang("数组"), this.ArrayGui,
@@ -248,8 +249,10 @@ class MacroGraphFormalMixin {
             this._FillExVariableBody(id, d, body)
         else if (d.type == GetLang("运算"))
             this._FillOperationBody(id, d, body)
-        else if (d.type == GetLang("运行"))
+        else if (d.type == GetLang("运行Pro"))
             this._FillRunBody(id, d, body)
+        else if (d.type == GetLang("运行"))
+            this._FillRunSimpleBody(id, d, body)
         else if (d.type == GetLang("文件读写"))
             this._FillFileIOBody(id, d, body)
         else if (d.type == GetLang("文本处理"))
@@ -662,6 +665,14 @@ class MacroGraphFormalMixin {
         return GetLangArr(["不等待", "等待+返回值", "不等待+输入", "等待+输入输出"])
     }
 
+    _FillRunSimpleBody(id, d, body) {
+        cw := this._FormalCW()
+        rp := d.HasOwnProp("runTarget") ? d.runTarget : ""
+        RunTargetRow := body.Add("StackPanel").Name("RunTargetRow_" id).Orientation("Horizontal").Margin("0,5,0,0")
+        RunTargetRow.Add("TextBox").Name("RunTarget_" id).Text(rp).Width(cw + 25).Height("22").MinHeight("0").FontSize("12").Padding("4,0").VerticalContentAlignment("Center")
+        this._ApplyActionBtnStyle(RunTargetRow.Add("Button").Name("RunTargetBrowse_" id).Content(GetLang("文件")).Width("50").Height("22").FontSize(this._MGFontSize(10)).Padding("0").Margin("4,0,0,0").VerticalAlignment("Center").Cursor("Hand").Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}").BorderThickness("1").BorderBrush("{DynamicResource ActionStroke}"))
+    }
+
     _FillRunBody(id, d, body) {
         lw := this._FormalLW(), cw := this._FormalCW()
         modes := this._FormalRunModeArr()
@@ -1035,7 +1046,7 @@ class MacroGraphFormalMixin {
     }
 
     _LoopCmpTypes() {
-        return GetLangArr(["大于", "大于等于", "等于", "小于等于", "小于", "字符包含", "变量存在", "正则匹配"])
+        return GetCompareTypeLangArr()
     }
 
     _IfLogicTypes() {
@@ -1065,24 +1076,23 @@ class MacroGraphFormalMixin {
         block.Add("Border").Name(p "Sep_" id).Height("1").Margin("0,6,0,4").BorderThickness("0").Background("{DynamicResource ControlBorder}").IsHitTestVisible("False")
         this._AddCheckRow(block, p "TogChkRow_" id, p "Tog_" id, GetLang("条件") slot, on, true)
         this._AddEditableComboRow(block, p "NameRow_" id, GetLang("变量："), p "Name_" id, GetGuiVarArr(), GetLang(nm), showRow, lw, cw)
-        this._AddComboRow(block, p "CmpRow_" id, GetLang("比较："), p "Cmp_" id, cmpTypes, cmp - 1, showRow, true, lw, cw)
+        this._AddComboRow(block, p "CmpRow_" id, GetLang("比较："), p "Cmp_" id, cmpTypes, CompareTypeToComboIndex(cmp), showRow, true, lw, cw)
         this._AddEditableComboRow(block, p "VarRow_" id, GetLang("值："), p "Var_" id, GetGuiVarArr(), GetLang(vr), showVal, lw, cw)
     }
 
     ; 如果条件收起态简要：{on, text}
     _IfCondiSummaryRow(data, slot) {
         res := {on: false, text: ""}
-        if (data == "")
+        if (data == "" || slot > data.ToggleArr.Length)
             return res
         tog := data.ToggleArr[slot]
         if (!tog)
             return res
         res.on := true
-        cmpArr := this._IfCmpTypes()
         ct := data.CompareTypeArr[slot]
-        cmpStr := (ct >= 1 && ct <= cmpArr.Length) ? cmpArr[ct] : cmpArr[1]
+        cmpStr := GetCompareTypeName(ct)
         nm := GetLang(data.NameArr[slot])
-        res.text := (ct != 7) ? nm " " cmpStr " " GetLang(data.VariableArr[slot]) : nm " " cmpStr
+        res.text := (!IsCompareExistVar(ct)) ? nm " " cmpStr " " GetLang(data.VariableArr[slot]) : nm " " cmpStr
         return res
     }
 
@@ -1333,7 +1343,7 @@ class MacroGraphFormalMixin {
         block.Add("Border").Name(p "Sep_" id).Height("1").Margin("0,6,0,4").BorderThickness("0").Background("{DynamicResource ControlBorder}").IsHitTestVisible("False")
         this._AddCheckRow(block, p "TogChkRow_" id, p "Tog_" id, GetLang("条件") slot, on, true)
         this._AddEditableComboRow(block, p "NameRow_" id, GetLang("变量："), p "Name_" id, GetGuiVarArr(), GetLang(nm), showRow, lw, cw)
-        this._AddComboRow(block, p "CmpRow_" id, GetLang("比较："), p "Cmp_" id, cmpTypes, cmp - 1, showRow, true, lw, cw)
+        this._AddComboRow(block, p "CmpRow_" id, GetLang("比较："), p "Cmp_" id, cmpTypes, CompareTypeToComboIndex(cmp), showRow, true, lw, cw)
         this._AddEditableComboRow(block, p "VarRow_" id, GetLang("值："), p "Var_" id, GetGuiVarArr(), GetLang(vr), showVal, lw, cw)
     }
 
@@ -1349,7 +1359,7 @@ class MacroGraphFormalMixin {
         info.condiName := (ct >= 1 && ct <= condiTypes.Length) ? condiTypes[ct] : condiTypes[1]
         if (ct != 1) {
             n := 0
-            loop 4
+            loop data.ToggleArr.Length
                 if (data.ToggleArr[A_Index])
                     n++
             logicTypes := this._LoopLogicTypes()
@@ -1362,14 +1372,13 @@ class MacroGraphFormalMixin {
     ; 单个条件的收起态简要：{on, text}。on=条件类型非「无」且该条件已启用。
     _LoopCondiSummaryRow(data, slot) {
         res := {on: false, text: ""}
-        if (data == "" || data.CondiType == 1 || !data.ToggleArr[slot])
+        if (data == "" || data.CondiType == 1 || slot > data.ToggleArr.Length || !data.ToggleArr[slot])
             return res
         res.on := true
-        cmpArr := this._LoopCmpTypes()
         ct := data.CompareTypeArr[slot]
-        cmpStr := (ct >= 1 && ct <= cmpArr.Length) ? cmpArr[ct] : cmpArr[1]
+        cmpStr := GetCompareTypeName(ct)
         nm := GetLang(data.NameArr[slot])
-        res.text := (ct != 7) ? nm " " cmpStr " " GetLang(data.VariableArr[slot]) : nm " " cmpStr
+        res.text := (!IsCompareExistVar(ct)) ? nm " " cmpStr " " GetLang(data.VariableArr[slot]) : nm " " cmpStr
         return res
     }
 
@@ -1492,18 +1501,20 @@ class MacroGraphFormalMixin {
                 this._FormalTrackField(id, p "Expr", h, runtime)
                 this._BindCtrl(p "ExprEdit_" id, "Click", this._OnOperationExprEdit.Bind(this, id, A_Index), runtime)
             }
-        } else if (t == GetLang("运行")) {
+        } else if (t == GetLang("运行") || t == GetLang("运行Pro")) {
             h := this._OnFormalRun.Bind(this, id)
             this._FormalTrackField(id, "runTarget", h, runtime)
             this._BindCtrl("RunTargetBrowse_" id, "Click", this._OnRunTargetBrowse.Bind(this, id), runtime)
-            this._FormalTrackCombo(id, "RunModeCmb", h, runtime)
-            this._FormalTrackCombo(id, "RunOptionCmb", h, runtime)
-            this._FormalTrackField(id, "RunStdIn", h, runtime)
-            this._FormalTrackCombo(id, "RunEncInCmb", h, runtime)
-            this._FormalTrackCombo(id, "RunEncOutCmb", h, runtime)
-            this._FormalTrackCombo(id, "RunEncErrCmb", h, runtime)
-            loop 3
-                this._FormalTrackEditCombo(id, "RunSave" A_Index, h, runtime)
+            if (t == GetLang("运行Pro")) {
+                this._FormalTrackCombo(id, "RunModeCmb", h, runtime)
+                this._FormalTrackCombo(id, "RunOptionCmb", h, runtime)
+                this._FormalTrackField(id, "RunStdIn", h, runtime)
+                this._FormalTrackCombo(id, "RunEncInCmb", h, runtime)
+                this._FormalTrackCombo(id, "RunEncOutCmb", h, runtime)
+                this._FormalTrackCombo(id, "RunEncErrCmb", h, runtime)
+                loop 3
+                    this._FormalTrackEditCombo(id, "RunSave" A_Index, h, runtime)
+            }
         } else if (t == GetLang("文件读写")) {
             ; 类型/模式各自独立处理（含派生选项刷新），普通字段统一走 _OnFIOField，互不干扰
             hType := this._OnFIOType.Bind(this, id)

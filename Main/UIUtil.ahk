@@ -333,6 +333,7 @@ CmdEditorTitleIcon(title) {
             ["变量", "Images\Soft\Var.png"],
             ["如果", "Images\Soft\If.png"],
             ["运算", "Images\Soft\Operation.png"],
+            ["运行Pro", "Images\Soft\Run.png"],
             ["运行", "Images\Soft\Run.png"],
             ["数组", "Images\Soft\Arr.png"],
             ["等待", "Images\Soft\Control.png"],
