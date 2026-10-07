@@ -1,5 +1,5 @@
 #Requires AutoHotkey v2.0
-; 新增：使用表达式解析器计算（支持括号）
+; 新增：使用表达式解析器计算（支持括号、数值处理函数）
 GetExpressionResult(Expression, tableItem, tableIndex, &Res) {
     if (Expression == "")
         return false
@@ -16,29 +16,27 @@ GetExpressionResult(Expression, tableItem, tableIndex, &Res) {
     }
 }
 
-; 新增：表达式计算器（支持括号运算）- 使用词法分析+递归下降解析
+; 表达式计算器：词法分析 + 递归下降（支持 abs/max/min/round/ceil/floor）
 EvaluateExpression(expr) {
-    ; 预处理：去除空格
-    expr := RegExReplace(expr, "\s+", "")
+    ; 预处理：去除空格（含全角空格）
+    expr := RegExReplace(expr, "[\s　]+", "")
+    ; 兼容全角括号/逗号
+    expr := StrReplace(expr, "（", "(")
+    expr := StrReplace(expr, "）", ")")
+    expr := StrReplace(expr, "，", ",")
 
-    ; 如果表达式为空，返回0
     if (expr == "")
         return 0
 
-    ; 词法分析：将表达式分解成token
     tokens := Tokenize(expr)
     if (tokens.Length == 0)
         return 0
 
-    ; 递归下降解析
     pos := 1
     result := ParseAddSub(tokens, &pos)
-    resultStr := TrimZeros(result)
-
-    return resultStr
+    return TrimZeros(result)
 }
 
-; 词法分析：将表达式分解成token
 Tokenize(expr) {
     tokens := []
     pos := 1
@@ -46,7 +44,7 @@ Tokenize(expr) {
 
     while (pos <= len) {
         char := SubStr(expr, pos, 1)
-        ; 识别数字（整数或小数）
+        ; 数字
         if (RegExMatch(char, "\d")) {
             numStr := ""
             while (pos <= len && RegExMatch(SubStr(expr, pos, 1), "[\d\.]")) {
@@ -57,21 +55,30 @@ Tokenize(expr) {
             continue
         }
 
-        ; 识别运算符和括号
-        if (InStr("+-*/%^()", char)) {
+        ; 函数名（英文字母）
+        if (RegExMatch(char, "[a-zA-Z_]")) {
+            name := ""
+            while (pos <= len && RegExMatch(SubStr(expr, pos, 1), "[a-zA-Z_]")) {
+                name .= SubStr(expr, pos, 1)
+                pos++
+            }
+            tokens.Push(StrLower(name))
+            continue
+        }
+
+        ; 运算符、括号、取整括号、逗号
+        if (InStr("+-*/%^()⌊⌋,", char)) {
             tokens.Push(char)
             pos++
             continue
         }
 
-        ; 未知字符，跳过
         pos++
     }
 
     return tokens
 }
 
-; 解析加减（最低优先级）
 ParseAddSub(tokens, &pos) {
     value := ParseMulDiv(tokens, &pos)
 
@@ -89,7 +96,6 @@ ParseAddSub(tokens, &pos) {
     return value
 }
 
-; 解析乘除模（中等优先级）
 ParseMulDiv(tokens, &pos) {
     value := ParsePower(tokens, &pos)
 
@@ -109,65 +115,112 @@ ParseMulDiv(tokens, &pos) {
     return value
 }
 
-; 解析乘方（高优先级）
 ParsePower(tokens, &pos) {
     value := ParseAtom(tokens, &pos)
 
     if (pos <= tokens.Length && tokens[pos] == "^") {
         pos++
-        next := ParsePower(tokens, &pos)  ; 右结合
+        next := ParsePower(tokens, &pos)
         value := Round(value ** next, 6)
     }
 
     return value
 }
 
-; 解析原子（数字或括号表达式）
 ParseAtom(tokens, &pos) {
     if (pos > tokens.Length)
         return 0
 
     token := tokens[pos]
 
-    ; 如果是数字
+    ; 数字
     if (RegExMatch(token, "^[\d\.]+$")) {
         pos++
         return token
     }
 
-    ; 如果是左括号
+    ; 数值处理函数
+    if (token == "abs" || token == "max" || token == "min" || token == "round" || token == "ceil" || token == "floor") {
+        return ParseFuncCall(tokens, &pos, token)
+    }
+
+    ; 普通括号
     if (token == "(") {
-        pos++  ; 跳过 '('
-        value := ParseAddSub(tokens, &pos)  ; 递归解析括号内表达式
+        pos++
+        value := ParseAddSub(tokens, &pos)
         if (pos <= tokens.Length && tokens[pos] == ")")
-            pos++  ; 跳过 ')'
+            pos++
         return value
     }
 
-    ; 处理带符号的数字（负数、正数）
-    ; 注意：这里只在括号内或表达式的独立位置才会处理符号
+    ; 兼容旧 ⌊⌋ 取整（按四舍五入）
+    if (token == "⌊") {
+        pos++
+        value := ParseAddSub(tokens, &pos)
+        if (pos <= tokens.Length && tokens[pos] == "⌋")
+            pos++
+        return Round(value)
+    }
+
+    ; 一元正负号
     if (token == "+" || token == "-") {
         sign := token == "+" ? 1 : -1
         pos++
-        value := ParseAtom(tokens, &pos)  ; 递归获取数字或括号表达式
+        value := ParseAtom(tokens, &pos)
         return sign * value
     }
 
-    ; 未知token，跳过
     pos++
     return 0
 }
 
-; 辅助函数：去除末尾多余的0
+ParseFuncCall(tokens, &pos, fname) {
+    pos++  ; 跳过函数名
+    if (pos > tokens.Length || tokens[pos] != "(")
+        return 0
+    pos++  ; 跳过 '('
+
+    ; 空参：abs() 等 → 0
+    if (pos <= tokens.Length && tokens[pos] == ")") {
+        pos++
+        return 0
+    }
+
+    arg1 := ParseAddSub(tokens, &pos)
+    arg2 := ""
+    hasArg2 := false
+    if (pos <= tokens.Length && tokens[pos] == ",") {
+        pos++
+        arg2 := ParseAddSub(tokens, &pos)
+        hasArg2 := true
+    }
+    if (pos <= tokens.Length && tokens[pos] == ")")
+        pos++
+
+    switch fname {
+        case "abs":
+            return Abs(arg1)
+        case "round":
+            return Round(arg1)
+        case "ceil":
+            return Ceil(arg1)
+        case "floor":
+            return Floor(arg1)
+        case "max":
+            return hasArg2 ? Max(arg1, arg2) : arg1
+        case "min":
+            return hasArg2 ? Min(arg1, arg2) : arg1
+    }
+    return arg1
+}
+
 TrimZeros(num_str) {
     if (!InStr(num_str, "."))
         return num_str
 
-    ; 去除末尾的0
     while (SubStr(num_str, -1) = "0")
         num_str := SubStr(num_str, 1, -1)
 
-    ; 如果小数部分全部是0，去除小数点
     if (SubStr(num_str, -1) = ".")
         num_str := SubStr(num_str, 1, -1)
 

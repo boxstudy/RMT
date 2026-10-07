@@ -136,36 +136,16 @@ TextOpsStatistics(Data, tableItem, index) {
 }
 
 TextOpsConcat(Data, tableItem, index) {
-    SourceText := TextGetSource(Data, tableItem, index)
     IsHas := TryGetTabVarValue(&ConcatArgs, tableItem, index, Data.ArgsName, false)
     ConcatArgs := IsHas ? ConcatArgs : Data.ArgsName
 
     ResultStr := ConcatArgs
-    loop 100 {
-        startPos := InStr(ResultStr, "{")
-        if (startPos == 0)
-            break
-        
-        endPos := InStr(ResultStr, "}", false, startPos)
-        if (endPos == 0)
-            break
-        
-        VarName := SubStr(ResultStr, startPos + 1, endPos - startPos - 1)
-        Value := "{" VarName "}"
-        try {
-            if (MySoftData.VariableMap.Has(VarName))
-                Value := MySoftData.VariableMap[VarName]
-        }
-        catch {
-            Value := VarName
-        }
-        
-        Part1 := SubStr(ResultStr, 1, startPos - 1)
-        Part2 := SubStr(ResultStr, endPos + 1)
-        ResultStr := Part1 Value Part2
-    }
+    GetSmartReplaceVarText(tableItem, index, &ResultStr)
     
-    ResultStr := SourceText ResultStr
+    if (Data.Name != "") {
+        SourceText := TextGetSource(Data, tableItem, index)
+        ResultStr := SourceText ResultStr
+    }
     MySetGlobalVariable([Data.SaveName], [ResultStr], false)
 }
 

@@ -255,6 +255,13 @@ class MacroGraphFormalHandlersMixin {
             return
         if (!IsObject(state))
             state := Map()
+        ; 图形节点仍按 4 槽展开；指令窗改为动态行后需在此补齐数组长度
+        while (data.ToggleArr.Length < 4)
+            data.ToggleArr.Push(0)
+        while (data.UpdateNameArr.Length < 4)
+            data.UpdateNameArr.Push("Var" (data.UpdateNameArr.Length + 1))
+        while (data.ExpressionArr.Length < 4)
+            data.ExpressionArr.Push("")
         loop 4 {
             slot := A_Index
             p := "OpS" slot

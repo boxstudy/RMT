@@ -66,6 +66,41 @@ class OperationGui {
         }
     }
 
+    _OpViewH() {
+        return 30 * 6
+    }
+
+    _OpBoxRowH() {
+        ; 边框上下 padding + 表头 + 滚动区（6 行）
+        return 8 + 2 + 12 + 22 + this._OpViewH()
+    }
+
+    _FitHeight() {
+        return Integer(XAMLHost.CmdTitleBarHeight()) + 10 + 14 + 34 + this._OpBoxRowH() + 48
+    }
+
+    _OpScrollStyles() {
+        return '<ControlTemplate x:Key="OpSbThumb" TargetType="Thumb">'
+            . '<Border x:Name="bd" Background="{DynamicResource ControlBorder}" CornerRadius="3" Opacity="0.7" Margin="1"/>'
+            . '<ControlTemplate.Triggers>'
+            . '<Trigger Property="IsMouseOver" Value="True"><Setter TargetName="bd" Property="Background" Value="{DynamicResource Accent}"/><Setter TargetName="bd" Property="Opacity" Value="1"/></Trigger>'
+            . '</ControlTemplate.Triggers></ControlTemplate>'
+            . '<Style x:Key="OpSbVertical" TargetType="ScrollBar">'
+            . '<Setter Property="OverridesDefaultStyle" Value="True"/>'
+            . '<Setter Property="Background" Value="Transparent"/>'
+            . '<Setter Property="Width" Value="8"/><Setter Property="MinWidth" Value="8"/>'
+            . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ScrollBar">'
+            . '<Grid Background="Transparent"><Track x:Name="PART_Track" IsDirectionReversed="true">'
+            . '<Track.Thumb><Thumb Template="{StaticResource OpSbThumb}"/></Track.Thumb>'
+            . '</Track></Grid></ControlTemplate></Setter.Value></Setter></Style>'
+            . '<Style x:Key="OpThemedSV" TargetType="ScrollViewer">'
+            . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ScrollViewer"><Grid>'
+            . '<Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/></Grid.ColumnDefinitions>'
+            . '<ScrollContentPresenter x:Name="PART_ScrollContentPresenter" Grid.Column="0" Margin="{TemplateBinding Padding}" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" CanContentScroll="{TemplateBinding CanContentScroll}"/>'
+            . '<ScrollBar x:Name="PART_VerticalScrollBar" Width="8" MinWidth="8" Grid.Column="1" Value="{TemplateBinding VerticalOffset}" Maximum="{TemplateBinding ScrollableHeight}" ViewportSize="{TemplateBinding ViewportHeight}" Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}" Style="{StaticResource OpSbVertical}"/>'
+            . '</Grid></ControlTemplate></Setter.Value></Setter></Style>'
+    }
+
     _BuildAndShow() {
         global MySoftData
         this._closed := false
@@ -80,37 +115,55 @@ class OperationGui {
         chrome := XAMLHost.AddCmdTitleBar(main, title, titleHeight)
 
         ; === 内容 ===
-        body := main.Add("Grid").Grid_Row(1).Margin("10,8")
-        body.Rows("32", "26", "185", "34")
-        body.Cols("40", "290", "55", "120", "36")
+        body := main.Add("Grid").Grid_Row(1).Margin("16,10,16,14")
+        body.Rows("34", this._OpBoxRowH(), "48")
 
         ; 行0：备注
-        row0 := body.Add("StackPanel").Grid_Row(0).Grid_ColumnSpan(5).Orientation("Horizontal").VerticalAlignment("Center")
-        row0.Add("TextBlock").Text(GetLang("备注：")).VerticalAlignment("Center")
-        row0.Add("TextBox").Name("RemarkCon").Width(150).Height(24).MinHeight(24).Margin("4,0,0,0")
+        remarkRow := body.Add("StackPanel").Grid_Row(0).Orientation("Horizontal").VerticalAlignment("Center")
+        remarkRow.Add("TextBlock").Text(GetLang("备注：")).VerticalAlignment("Center")
+            .Foreground("{DynamicResource TextMain}").FontSize("12")
+        remarkRow.Add("TextBox").Name("RemarkCon").Width(180).Height(26).MinHeight(26).Margin("4,0,0,0")
+            .VerticalContentAlignment("Center").Padding("4,0").FontSize("11")
+            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
 
-        ; 行1：表头
-        body.Add("TextBlock").Grid_Row(1).Grid_Column(0).Text(GetLang("开关")).VerticalAlignment("Center")
-        body.Add("TextBlock").Grid_Row(1).Grid_Column(1).Text(GetLang("运算表达式")).VerticalAlignment("Center")
-        body.Add("TextBlock").Grid_Row(1).Grid_Column(3).Text(GetLang("结果保存变量")).VerticalAlignment("Center")
-        body.Add("TextBlock").Grid_Row(1).Grid_Column(4).Text(GetLang("删除")).HorizontalAlignment("Center").VerticalAlignment("Center")
-
-        ; 行2：表达式滚动区（§15.4 行数不限，动态增删）
-        opSv := body.Add("ScrollViewer").Grid_Row(2).Grid_ColumnSpan(5)
+        ; 行1：边框包裹运算列表（表头 + 默认可视 6 行，超出右侧主题滚动条）
+        bd := body.Add("Border").Name("OpBox").Grid_Row(1)
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").CornerRadius("4")
+            .Padding("8,6,0,6").Margin("0,2,0,4").ClipToBounds("True")
+        bdInner := bd.Add("Grid")
+        bdInner.Rows("Auto", "*")
+        head := bdInner.Add("Grid").Grid_Row(0).Margin("0,0,8,4")
+        head.Cols("*", "55", "8", "120", "28")
+        head.Add("TextBlock").Grid_Column(0).Text(GetLang("运算表达式")).VerticalAlignment("Center")
+            .Foreground("{DynamicResource TextMain}").FontSize("12")
+        head.Add("TextBlock").Grid_Column(3).Text(GetLang("结果保存变量")).VerticalAlignment("Center")
+            .Foreground("{DynamicResource TextMain}").FontSize("12")
+        sv := bdInner.Add("ScrollViewer").Name("OpScroll").Grid_Row(1).Height(this._OpViewH())
             .VerticalScrollBarVisibility("Auto").HorizontalScrollBarVisibility("Disabled")
-        opSv.Add("StackPanel").Name("OpRowsPanel")
+            .Padding("0").Margin("0").Style("{StaticResource OpThemedSV}")
+        opHost := sv.Add("StackPanel")
+        opHost.Add("StackPanel").Name("OpRowsPanel")
+        plusRow := opHost.Add("Grid").Name("BtnAddOpRow").Margin("0,2,0,0")
+        plusRow.Cols("*", "Auto", "*")
+        plusRow.Add("Button").Name("BtnAddOp").Grid_Column(1).Width(24).Height(24).MinHeight(24)
+            .HorizontalAlignment("Center").VerticalAlignment("Center").Cursor("Hand").ToolTip(GetLang("添加"))
+            .FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize("14").Content(Chr(0xE710))
+            .Foreground("{DynamicResource TextMain}").Background("{DynamicResource ControlBg}")
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").Padding("0")
+            .HorizontalContentAlignment("Center").VerticalContentAlignment("Center")
 
-        ; 行3：添加 + 确定
-        btnRow := body.Add("StackPanel").Grid_Row(3).Grid_ColumnSpan(5).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
-        btnRow.Add("Button").Name("BtnAddOp").Content(GetLang("添加运算")).Width(90).Height(32).MinHeight(32).Margin("4,0").Cursor("Hand")
-        AddCmdOkBtn(btnRow, "BtnOk", "8,0")
+        ; 行2：确定
+        btnRow := body.Add("StackPanel").Grid_Row(2).Orientation("Horizontal")
+            .HorizontalAlignment("Center").VerticalAlignment("Center")
+        AddCmdOkBtn(btnRow, "BtnOk")
 
         ; === 创建 XAMLHost ===
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", this.OwnerHwnd)
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="620" Height="380" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="560" Height="' this._FitHeight() '" Opacity="0"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
-        this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '')
+        this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', this._OpScrollStyles())
 
         ; === 事件 ===
         this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
@@ -119,12 +172,25 @@ class OperationGui {
         BindCmdEditorChrome(this.ui, "#指令手册/15-运算")
         this.ui.OnEvent("BtnAddOp", "Click", ObjBindMethod(this, "OnAddOpRow"))
         this.ui.OnEvent("BtnOk", "Click", ObjBindMethod(this, "OnClickSureBtn"))
-        ; 行区事件（EditBtn/DelOpRow 每行）在 _RebuildOpRows 动态绑定
-
     }
 
     OnWindowLoad(state, ctrl, event) {
         XamlWin.OnLoadTheme(this.ui)
+        this._SyncOpIconFonts()
+    }
+
+    ; ApplyFonts 可能改掉图标钮字体；重建行后也需重新钉回 Fluent 字号
+    _SyncOpIconFonts() {
+        if (!IsObject(this.ui))
+            return
+        iconFont := "Segoe Fluent Icons, Segoe MDL2 Assets"
+        n := (IsObject(this.Data) && this.Data.HasProp("ToggleArr")) ? this.Data.ToggleArr.Length : 0
+        loop n {
+            try this.ui.Update("DelOpRow" A_Index, "FontFamily", iconFont)
+            try this.ui.Update("DelOpRow" A_Index, "FontSize", "14")
+        }
+        try this.ui.Update("BtnAddOp", "FontFamily", iconFont)
+        try this.ui.Update("BtnAddOp", "FontSize", "14")
     }
 
     OnWindowClosing(state, ctrl, event) {
@@ -173,13 +239,15 @@ class OperationGui {
         this._RebuildOpRows()
     }
 
-    ; ---------- §15.4 动态行区 ----------
+    ; ---------- 动态行区 ----------
 
     _EnsureOpDataLen() {
         if (!IsObject(this.Data)) {
             this.Data := OperationData()
             this.Data.SerialStr := this.SerialStr
         }
+        ; 去掉开关后：保留曾启用或已填表达式的行；空闲关闭槽丢弃；至少 1 行
+        this._CompactOpData()
         if (this.Data.ToggleArr.Length == 0) {
             this.Data.ToggleArr := [1]
             this.Data.UpdateNameArr := ["Var1"]
@@ -194,24 +262,58 @@ class OperationGui {
             this.Data.ExpressionArr.Push("")
         while (this.Data.ExpressionArr.Length > n)
             this.Data.ExpressionArr.RemoveAt(this.Data.ExpressionArr.Length)
+        loop n
+            this.Data.ToggleArr[A_Index] := 1
+    }
+
+    _CompactOpData() {
+        if (!IsObject(this.Data) || this.Data.ToggleArr.Length == 0)
+            return
+        newTog := [], newName := [], newExpr := []
+        loop this.Data.ToggleArr.Length {
+            i := A_Index
+            expr := (this.Data.ExpressionArr.Length >= i) ? this.Data.ExpressionArr[i] : ""
+            name := (this.Data.UpdateNameArr.Length >= i) ? this.Data.UpdateNameArr[i] : ("Var" i)
+            if (this.Data.ToggleArr[i] || expr != "") {
+                newTog.Push(1)
+                newName.Push(name)
+                newExpr.Push(expr)
+            }
+        }
+        if (newTog.Length == 0) {
+            newTog := [1]
+            newName := ["Var1"]
+            newExpr := [""]
+        }
+        this.Data.ToggleArr := newTog
+        this.Data.UpdateNameArr := newName
+        this.Data.ExpressionArr := newExpr
     }
 
     _OpRowXml(i) {
         ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
+        tip := this._EscapeXml(GetLang("删除该运算"))
         return '<Grid ' ns ' Margin="0,2">'
             . '<Grid.ColumnDefinitions>'
-            . '<ColumnDefinition Width="40"/><ColumnDefinition Width="290"/><ColumnDefinition Width="55"/><ColumnDefinition Width="120"/><ColumnDefinition Width="36"/>'
+            . '<ColumnDefinition Width="*"/><ColumnDefinition Width="55"/><ColumnDefinition Width="8"/>'
+            . '<ColumnDefinition Width="120"/><ColumnDefinition Width="28"/>'
             . '</Grid.ColumnDefinitions>'
-            . '<CheckBox Grid.Column="0" Name="Toggle' i '" VerticalAlignment="Center"/>'
-            . '<TextBox Grid.Column="1" Name="Expr' i '" Height="26" MinHeight="26" Margin="0,0,4,0" IsReadOnly="True" VerticalContentAlignment="Center"'
+            . '<TextBox Grid.Column="0" Name="Expr' i '" Height="26" MinHeight="26" Margin="0,0,4,0" IsReadOnly="True" VerticalContentAlignment="Center"'
             . ' Background="{DynamicResource InputBg}" Foreground="{DynamicResource InputText}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1"/>'
-            . '<Button Grid.Column="2" Name="EditBtn' i '" Content="' GetLang("编辑") '" Height="26" MinHeight="26" Margin="4,0,0,0" Cursor="Hand"/>'
-            . '<ComboBox Grid.Column="3" Name="UpdateName' i '" Height="26" MinHeight="26" Margin="4,0,0,0" IsEditable="True" VerticalContentAlignment="Center"/>'
-            . '<Button Grid.Column="4" Name="DelOpRow' i '" Content="×" Height="22" MinHeight="22" Padding="0" Cursor="Hand" FontSize="14" ToolTip="' GetLang("删除该运算") '"/>'
+            . '<Button Grid.Column="1" Name="EditBtn' i '" Content="' GetLang("编辑") '" Height="26" MinHeight="26" Cursor="Hand"'
+            . ' Foreground="{DynamicResource TextMain}" Background="{DynamicResource ControlBg}" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1"/>'
+            . '<ComboBox Grid.Column="3" Name="UpdateName' i '" Height="26" MinHeight="26" IsEditable="True" VerticalContentAlignment="Center"'
+            . ' Foreground="{DynamicResource InputText}" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1"/>'
+            . '<Button Grid.Column="4" Name="DelOpRow' i '" Width="24" Height="24" MinHeight="24" Padding="0" Cursor="Hand" ToolTip="' tip '"'
+            . ' FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14" Content="&#xE74D;"'
+            . ' Foreground="{DynamicResource TextMain}" Background="{DynamicResource ControlBg}"'
+            . ' BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1"'
+            . ' HorizontalAlignment="Center" VerticalAlignment="Center"'
+            . ' HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>'
             . '</Grid>'
     }
 
-    ; 重建全部行：ClearItems + 注入 + 绑定事件 + 填值
+    ; 重建全部行：ClearItems + 注入 + 绑定事件 + 填值（加号行在 OpRowsPanel 外，不受影响）
     _RebuildOpRows() {
         if (!IsObject(this.ui))
             return
@@ -225,10 +327,11 @@ class OperationGui {
             i := A_Index
             this._BindOp("EditBtn" i, "Click", this.OnEditVariableBtnClick.Bind(this, i))
             this._BindOp("DelOpRow" i, "Click", ObjBindMethod(this, "OnDelOpRow", i))
-            this.ui.Update("Toggle" i, "IsChecked", this.Data.ToggleArr[i] ? "True" : "False")
             this.ui.Update("Expr" i, "Text", GetLangStr(this.Data.ExpressionArr[i], 1))
             this._SetCombo("UpdateName" i, this.DLVariableArr, GetLang(this.Data.UpdateNameArr[i]))
         }
+        this._BindOp("BtnAddOp", "Click", ObjBindMethod(this, "OnAddOpRow"))
+        this._SyncOpIconFonts()
     }
 
     _BindOp(name, evt, cb) {
@@ -271,9 +374,9 @@ class OperationGui {
         if (ShouldAutoGenerateRemark(Remark)) {
             Remark := GetLang("更新")
             loop this.Data.ToggleArr.Length {
-                if (this.ui.Query("Toggle" A_Index) == "True") {
-                    Remark .= this.ui.Query("UpdateName" A_Index) "&"
-                }
+                name := this.ui.Query("UpdateName" A_Index)
+                if (name != "")
+                    Remark .= name "&"
             }
             Remark := RTrim(Remark, "&")
         }
@@ -318,10 +421,8 @@ class OperationGui {
 
     CheckIfValid() {
         loop this.Data.ToggleArr.Length {
-            IsOn := this.ui.Query("Toggle" A_Index) == "True"
-            if (IsOn && !CheckVarNameIfValid(this.ui.Query("UpdateName" A_Index))) {
+            if (!CheckVarNameIfValid(this.ui.Query("UpdateName" A_Index)))
                 return false
-            }
         }
         return true
     }
@@ -329,15 +430,13 @@ class OperationGui {
     SaveOperationData() {
         loop this.Data.ToggleArr.Length {
             i := A_Index
-            this.Data.ToggleArr[i] := this.ui.Query("Toggle" i) == "True"
+            this.Data.ToggleArr[i] := 1
             this.Data.ExpressionArr[i] := GetLangStr(this.ui.Query("Expr" i), 2)
             this.Data.UpdateNameArr[i] := GetVarName(this.ui.Query("UpdateName" i))
         }
 
-        loop this.Data.ToggleArr.Length {
-            if (this.Data.ToggleArr[A_Index])
-                MySoftData.GlobalVariMap[this.Data.UpdateNameArr[A_Index]] := true
-        }
+        loop this.Data.ToggleArr.Length
+            MySoftData.GlobalVariMap[this.Data.UpdateNameArr[A_Index]] := true
         SaveMacroCMDData(this.Data)
     }
 }

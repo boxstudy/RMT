@@ -18,6 +18,8 @@ class FileIOGui {
         this._syncing := false
         this.Data := ""
         this.SerialStr := ""
+        this.ContentEditGui := ""
+        this._contentEditClosed := true
         this.OperModeMap := Map(
             GetLang("读取Excel"),
             GetLangArr(["单元格", "指定行", "指定列", "指定区域-行", "指定区域-列"]),
@@ -92,7 +94,7 @@ class FileIOGui {
         chrome := XAMLHost.AddCmdTitleBar(main, title, titleHeight)
 
         ; === 内容 ===
-        body := main.Add("Grid").Grid_Row(1).Margin("16,8,16,63")
+        body := main.Add("Grid").Grid_Row(1).Margin("16,8,16,33")
         body.Rows("36", "36", "36", "36", "Auto", "Auto", "Auto", "Auto", "48")
         body.Cols("96", "*", "16", "96", "*")
 
@@ -156,22 +158,20 @@ class FileIOGui {
         st.Add("ComboBoxItem").Content(GetLang("数组"))
         resultRow.Add("ComboBox").Grid_Column(3).Name("SaveNameCombo").Height(26).MinHeight(26).IsEditable("True").VerticalAlignment("Center")
 
-        ; 行7：写入内容 / 写入数组（互斥）
+        ; 行7：写入内容（白底框 + 右上角悬浮编辑，打开文本构造）/ 写入数组
         writeRow := body.Add("Grid").Name("WriteContentRow").Grid_Row(7).Grid_ColumnSpan(5).Visibility("Collapsed")
-        writeRow.Rows("64", "36")
-        writeRow.Cols("96", "*", "8", "90", "8", "*", "8", "70", "8", "70")
-        writeRow.Add("TextBox").Grid_Row(0).Grid_Column(0).Grid_ColumnSpan(10).Name("ContentCon").AcceptsReturn("True").TextWrapping("Wrap")
-            .VerticalContentAlignment("Top").Padding("2,1").MinHeight(64).Margin("0,0,0,0")
+        writeRow.Rows("64")
+        writeRow.Add("TextBox").Name("ContentCon").AcceptsReturn("True").TextWrapping("Wrap")
+            .HorizontalAlignment("Stretch").VerticalAlignment("Stretch").MinHeight("64")
+            .VerticalContentAlignment("Top").Padding("4,3,26,3").FontSize("11")
             .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
             .ScrollViewer_VerticalScrollBarVisibility("Auto")
-        writeRow.Add("TextBlock").Grid_Row(1).Grid_Column(0).Text(GetLang("变量数组：")).VerticalAlignment("Center")
-        wvt := writeRow.Add("ComboBox").Grid_Row(1).Grid_Column(1).Name("WriteVarTypeCombo").Height(26).MinHeight(26).VerticalAlignment("Center").SelectedIndex("0")
-        wvt.Add("ComboBoxItem").Content(GetLang("变量"))
-        wvt.Add("ComboBoxItem").Content(GetLang("数组"))
-        writeRow.Add("ComboBox").Grid_Row(1).Grid_Column(3).Grid_ColumnSpan(3).Name("WriteVarCombo").Height(26).MinHeight(26).IsEditable("True").VerticalAlignment("Center")
-        writeRow.Add("Button").Grid_Row(1).Grid_Column(7).Name("BtnAddName").Content(GetLang("追加名")).Height(26).MinHeight(26).VerticalAlignment("Center")
-        writeRow.Add("Button").Grid_Row(1).Grid_Column(9).Name("BtnAddValue").Content(GetLang("追加值")).Height(26).MinHeight(26).VerticalAlignment("Center")
+        writeRow.Add("Button").Name("BtnContentEdit").Width("22").Height("22").MinHeight("22").Padding("0")
+            .HorizontalAlignment("Right").VerticalAlignment("Top").Margin("0,4,4,0").Cursor("Hand")
+            .FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize("12").Content(Chr(0xE70F))
+            .ToolTip(GetLang("编辑")).Foreground("{DynamicResource TextMain}")
+            .Background("{DynamicResource ControlBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
 
         writeArrRow := body.Add("Grid").Name("WriteArrRow").Grid_Row(7).Grid_ColumnSpan(5).Visibility("Collapsed")
         writeArrRow.Rows("36")
@@ -197,10 +197,8 @@ class FileIOGui {
         BindCmdEditorChrome(this.ui, "#指令手册/17-文件读写", ObjBindMethod(this, "TriggerMacro"))
         this.ui.OnEvent("OperTypeCombo", "SelectionChanged", ObjBindMethod(this, "OnRefreshType"))
         this.ui.OnEvent("OperModeCombo", "SelectionChanged", ObjBindMethod(this, "OnRefreshOperMode"))
-        this.ui.OnEvent("WriteVarTypeCombo", "SelectionChanged", ObjBindMethod(this, "OnRefreshContentVarType"))
         this.ui.OnEvent("BtnSelectFile", "Click", ObjBindMethod(this, "OnSelectPathBtnClick"))
-        this.ui.OnEvent("BtnAddName", "Click", ObjBindMethod(this, "OnClickAddVarNameBtn"))
-        this.ui.OnEvent("BtnAddValue", "Click", ObjBindMethod(this, "OnClickAddVarValueBtn"))
+        this.ui.OnEvent("BtnContentEdit", "Click", ObjBindMethod(this, "OpenContentEditor"))
         this.ui.OnEvent("BtnOk", "Click", ObjBindMethod(this, "OnClickSureBtn"))
 
     }
@@ -211,6 +209,7 @@ class FileIOGui {
     }
 
     OnWindowClosing(state, ctrl, event) {
+        this._CloseContentEditor()
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
         }
@@ -223,6 +222,7 @@ class FileIOGui {
     }
 
     _CloseWindow() {
+        this._CloseContentEditor()
         if (IsObject(this.ui)) {
             try this.ui.Update("Window", "Close", "")
         }
@@ -294,8 +294,6 @@ class FileIOGui {
         this._SetCombo("ColCombo", this.DLVarArr, this.Data.ColVar)
         this._SetCombo("RowEndCombo", this.DLVarArr, this.Data.RowEndVar)
         this._SetCombo("ColEndCombo", this.DLVarArr, this.Data.ColEndVar)
-        this._SetDDL("WriteVarTypeCombo", GetLangArr(["变量", "数组"]), GetLang("变量"))
-        this._SetCombo("WriteVarCombo", this.DLAllVarArr, "")
         this._SetCombo("WriteArrCombo", this.DLArrayArr, this.Data.ArrName)
     }
 
@@ -368,22 +366,143 @@ class FileIOGui {
             this.ui.Update("FilePathCombo", "Text", path)
     }
 
-    OnRefreshContentVarType(state := "", ctrl := "", event := "") {
-        if (this._syncing || !IsObject(this.ui))
+    _CloseContentEditor() {
+        if (IsObject(this.ContentEditGui) && !this._contentEditClosed) {
+            try this.ContentEditGui.Update("Window", "Close", "")
+            this.ContentEditGui := ""
+            this._contentEditClosed := true
+        }
+    }
+
+    OpenContentEditor(state := "", ctrl := "", event := "") {
+        if (!IsObject(this.ContentEditGui) || this._contentEditClosed)
+            this._BuildContentEditor()
+        if (this.ContentEditGui.Query("ContentEditVarTypeCombo") == "")
+            this.ContentEditGui.Update("ContentEditVarTypeCombo", "SelectedIndex", "0")
+        this._FillContentEditNameCombo()
+        curText := IsObject(this.ui) ? this.ui.Query("ContentCon") : ""
+        this.ContentEditGui.Update("ContentEditCon", "Text", curText)
+        owner := (this.Hwnd() ? this.Hwnd() : this.OwnerHwnd)
+        if (!XamlWin.Open(this.ContentEditGui, "", owner))
+            this._contentEditClosed := true
+    }
+
+    _BuildContentEditor() {
+        global MySoftData
+        this._CloseContentEditor()
+        this._contentEditClosed := false
+        title := this.ParentTile GetLang("文本构造")
+        titleHeight := "30"
+
+        main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize(XAMLHost.FontSize())
+        main.Rows(titleHeight, "*")
+        chrome := XAMLHost.AddTitleBar(main, title, titleHeight)
+
+        body := main.Add("Grid").Grid_Row(1).Margin("10,8").ClipToBounds("False")
+        body.Rows("Auto", "6", "32", "48")
+
+        body.Add("TextBox").Grid_Row(0).Name("ContentEditCon").AcceptsReturn("True").TextWrapping("Wrap")
+            .VerticalContentAlignment("Top").Padding("2,3").FontSize("11")
+            .Height("95").MinHeight("95")
+            .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+            .ScrollViewer_VerticalScrollBarVisibility("Auto")
+
+        row1 := body.Add("Grid").Grid_Row(2).VerticalAlignment("Center")
+        row1.Cols("88", "80", "8", "200", "8", "70", "8", "70")
+        row1.Add("TextBlock").Grid_Column(0).Text(GetLang("变量数组：")).VerticalAlignment("Center")
+            .Foreground("{DynamicResource TextMain}").FontSize("12")
+        vt := row1.Add("ComboBox").Grid_Column(1).Name("ContentEditVarTypeCombo").Height(26).MinHeight(26).VerticalAlignment("Center").SelectedIndex("0")
+        vt.Add("ComboBoxItem").Content(GetLang("变量"))
+        vt.Add("ComboBoxItem").Content(GetLang("数组"))
+        row1.Add("ComboBox").Grid_Column(3).Name("ContentEditVariCombo").Width("200").Height(26).MinHeight(26).VerticalAlignment("Center").HorizontalAlignment("Left").IsEditable("True")
+        row1.Add("Button").Grid_Column(5).Name("BtnContentAddName").Content(GetLang("追加名")).Height(26).MinHeight(26).VerticalAlignment("Center")
+        row1.Add("Button").Grid_Column(7).Name("BtnContentAddValue").Content(GetLang("追加值")).Height(26).MinHeight(26).VerticalAlignment("Center")
+
+        btnRow := body.Add("StackPanel").Grid_Row(3).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
+        AddCmdOkBtn(btnRow, "BtnContentOk")
+
+        tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
+        owner := (this.Hwnd() ? this.Hwnd() : this.OwnerHwnd)
+        this.ContentEditGui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", owner)
+        this.ContentEditGui.xaml := StrReplace(this.ContentEditGui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="580" SizeToContent="Height" Opacity="0"')
+        this.ContentEditGui.xaml := StrReplace(this.ContentEditGui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
+        this.ContentEditGui.xaml := StrReplace(this.ContentEditGui.xaml, '%resources%', '')
+
+        this.ContentEditGui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnContentEditClosing"))
+        this.ContentEditGui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnContentEditLoad"))
+        this.ContentEditGui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnContentEditClose"))
+        this.ContentEditGui.OnEvent("ContentEditVarTypeCombo", "SelectionChanged", ObjBindMethod(this, "OnContentEditVarTypeChange"))
+        this.ContentEditGui.OnEvent("BtnContentAddName", "Click", ObjBindMethod(this, "OnContentEditAddName"))
+        this.ContentEditGui.OnEvent("BtnContentAddValue", "Click", ObjBindMethod(this, "OnContentEditAddValue"))
+        this.ContentEditGui.OnEvent("ContentEditCon", "TextChanged", ObjBindMethod(this, "OnContentEditChange"))
+        this.ContentEditGui.OnEvent("BtnContentOk", "Click", ObjBindMethod(this, "OnContentEditClose"))
+    }
+
+    OnContentEditLoad(state, ctrl, event) {
+        XamlWin.OnLoadTheme(this.ContentEditGui)
+    }
+
+    OnContentEditClosing(state, ctrl, event) {
+        this._contentEditClosed := true
+        this.ContentEditGui := ""
+    }
+
+    OnContentEditChange(state := "", ctrl := "", event := "") {
+        if (IsObject(this.ContentEditGui) && !this._contentEditClosed && IsObject(this.ui))
+            this.ui.Update("ContentCon", "Text", this.ContentEditGui.Query("ContentEditCon"))
+    }
+
+    _FillContentEditNameCombo() {
+        if (!IsObject(this.ContentEditGui) || this._contentEditClosed)
             return
-        IsResVar := this.ui.Query("WriteVarTypeCombo") == GetLang("变量")
-        DLArr := IsResVar ? GetGuiVarArr(1) : GetGuiArrNameArr()
-        curText := this.ui.Query("WriteVarCombo")
-        this._SetCombo("WriteVarCombo", DLArr, curText)
+        isVar := this.ContentEditGui.Query("ContentEditVarTypeCombo") == GetLang("变量")
+        items := isVar ? GetGuiVarArr(1) : GetGuiArrNameArr()
+        cur := this.ContentEditGui.Query("ContentEditVariCombo")
+        this.ContentEditGui.Update("ContentEditVariCombo", "ClearItems", "")
+        for v in items {
+            if (v != "")
+                this.ContentEditGui.Update("ContentEditVariCombo", "AddItem", v)
+        }
+        found := false
+        loop items.Length {
+            if (items[A_Index] == cur) {
+                this.ContentEditGui.Update("ContentEditVariCombo", "SelectedIndex", String(A_Index - 1))
+                found := true
+                break
+            }
+        }
+        if (!found && items.Length > 0)
+            this.ContentEditGui.Update("ContentEditVariCombo", "SelectedIndex", "0")
     }
 
-    OnClickAddVarNameBtn(state := "", ctrl := "", event := "") {
-        this.ui.Update("ContentCon", "Text", this.ui.Query("ContentCon") . this.ui.Query("WriteVarCombo"))
+    OnContentEditVarTypeChange(state := "", ctrl := "", event := "") {
+        this._FillContentEditNameCombo()
     }
 
-    OnClickAddVarValueBtn(state := "", ctrl := "", event := "") {
-        ArraySymbol := this.ui.Query("WriteVarTypeCombo") == GetLang("变量") ? "" : "ε"
-        this.ui.Update("ContentCon", "Text", this.ui.Query("ContentCon") . "{" ArraySymbol this.ui.Query("WriteVarCombo") "}")
+    OnContentEditAddName(state := "", ctrl := "", event := "") {
+        if (!IsObject(this.ContentEditGui) || this._contentEditClosed)
+            return
+        varName := this.ContentEditGui.Query("ContentEditVariCombo")
+        if (varName != "") {
+            this.ContentEditGui.Update("ContentEditCon", "InsertText", varName)
+            this.OnContentEditChange()
+        }
+    }
+
+    OnContentEditAddValue(state := "", ctrl := "", event := "") {
+        if (!IsObject(this.ContentEditGui) || this._contentEditClosed)
+            return
+        varName := this.ContentEditGui.Query("ContentEditVariCombo")
+        if (varName != "") {
+            arrMark := this.ContentEditGui.Query("ContentEditVarTypeCombo") == GetLang("变量") ? "" : "ε"
+            this.ContentEditGui.Update("ContentEditCon", "InsertText", "{" arrMark varName "}")
+            this.OnContentEditChange()
+        }
+    }
+
+    OnContentEditClose(state := "", ctrl := "", event := "") {
+        this._CloseContentEditor()
     }
 
     OnClickSureBtn(state, ctrl, event) {

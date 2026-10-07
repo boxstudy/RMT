@@ -1360,9 +1360,9 @@ class ExVariableData {
 class OperationData {
     __New() {
         this.SerialStr := ""
-        this.ToggleArr := [1, 0, 0, 0]
-        this.UpdateNameArr := ["Var1", "Var2", "Var3", "Var4"]
-        this.ExpressionArr := ["", "", "", ""]    ;完整表达式字符串（用于支持括号和整体编辑）
+        this.ToggleArr := [1]
+        this.UpdateNameArr := ["Var1"]
+        this.ExpressionArr := [""]    ;完整表达式字符串（用于支持括号和整体编辑）
     }
 }
 
@@ -1527,10 +1527,10 @@ class KeyDataConfig {
 class TextOpsData {
     __New() {
         this.SerialStr := ""
-        this.Type := "文本分割" ; 1: 文本分割 2: 文本替换
-        this.Name := "TextVar" ; 文本来源变量名
-        this.ArgsType := "全部大写" ;参数类型
-        this.ArgsName := ","        ;参数变量名或文本
+        this.Type := "文本拼接"
+        this.Name := ""
+        this.ArgsType := "拼接文本"
+        this.ArgsName := "{当前年}{当前月}{当前日}"
         this.Search := "" ; 查找文本
         this.Replace := "" ; 替换文本
         this.MatchType := "普通文本"

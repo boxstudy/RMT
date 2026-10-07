@@ -81,7 +81,7 @@ class CompareProGui {
 
         ; 全部分支包在同一边框内；备注放进框顶，避免和外框错位
         box := body.Add("Border").Grid_Row(0).Margin("0,4,0,4").Padding("10,10")
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1.5").CornerRadius("4")
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").CornerRadius("4")
             .Background("{DynamicResource ControlBg}")
             .SnapsToDevicePixels("True").UseLayoutRounding("False")
         inner := box.Add("Grid")
@@ -90,11 +90,11 @@ class CompareProGui {
         meta := inner.Add("Grid").Grid_Row(0).Margin("0,0,0,8")
         meta.Cols("48", "*")
         meta.Add("TextBlock").Grid_Column(0).Text(GetLang("备注：")).VerticalAlignment("Center")
-            .Foreground("{DynamicResource TextMain}").FontSize("12").FontWeight("Bold")
+            .Foreground("{DynamicResource TextMain}").FontSize("12")
         ; TextBox 默认模板会裁掉上下边，用外层 Border 画四边
         remarkBd := meta.Add("Border").Grid_Column(1).Height("28").MinHeight("28").VerticalAlignment("Center")
             .Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource ControlBorder}")
-            .BorderThickness("1.5").CornerRadius("3")
+            .BorderThickness("1").CornerRadius("3")
             .SnapsToDevicePixels("True").UseLayoutRounding("False")
         remarkBd.Add("TextBox").Name("RemarkCon").BorderThickness("0").Background("Transparent")
             .Foreground("{DynamicResource InputText}").VerticalContentAlignment("Center").Padding("4,0")
@@ -195,17 +195,17 @@ class CompareProGui {
     }
 
     _ChipXml(name, op := "", val := "", hideVal := false) {
-        xml := '<Border Margin="0,0,4,2" Padding="3,1" CornerRadius="3" BorderThickness="1.5"'
+        xml := '<Border Margin="0,0,4,2" Padding="3,1" CornerRadius="3" BorderThickness="1"'
             . ' BorderBrush="{DynamicResource ControlBorder}" Background="{DynamicResource InputBg}"'
             . ' SnapsToDevicePixels="True" UseLayoutRounding="False">'
             . '<StackPanel Orientation="Horizontal">'
-            . '<TextBlock Text="' this._EscapeXml(name) '" FontWeight="SemiBold"'
+            . '<TextBlock Text="' this._EscapeXml(name) '"'
             . ' Foreground="{DynamicResource TextMain}" VerticalAlignment="Center"/>'
         if (op != "")
             xml .= '<TextBlock Text="' this._EscapeXml(op) '" Foreground="{DynamicResource Accent}"'
                 . ' Margin="4,0,0,0" VerticalAlignment="Center"/>'
         if (!hideVal && val != "")
-            xml .= '<TextBlock Text="' this._EscapeXml(val) '" FontWeight="SemiBold"'
+            xml .= '<TextBlock Text="' this._EscapeXml(val) '"'
                 . ' Foreground="{DynamicResource TextMain}" Margin="4,0,0,0" VerticalAlignment="Center"/>'
         xml .= '</StackPanel></Border>'
         return xml
@@ -215,7 +215,7 @@ class CompareProGui {
         return '<Button Name="BtnJoin' i '_' j '" Content="' this._EscapeXml(logicStr) '"'
             . ' Height="20" MinHeight="20" Padding="6,0" Margin="0,0,4,2" Cursor="Hand"'
             . ' FontWeight="Bold" Foreground="{DynamicResource Accent}"'
-            . ' Background="{DynamicResource ControlBg}" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1.5">'
+            . ' Background="{DynamicResource ControlBg}" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1">'
             . this._FlatBtnTemplate()
             . '</Button>'
     }
@@ -251,7 +251,7 @@ class CompareProGui {
             . ' FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" Content="' glyph '"'
             . ' ToolTip="' this._EscapeXml(tip) '" IsEnabled="' en '"'
             . ' Foreground="{DynamicResource TextMain}" Background="{DynamicResource ControlBg}"'
-            . ' BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1.5"'
+            . ' BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1"'
             . ' HorizontalAlignment="Center" VerticalAlignment="Center">'
             . this._FlatBtnTemplate()
             . '</Button>'
@@ -279,7 +279,7 @@ class CompareProGui {
         editBtn := this._IconBtnXml("BtnEdit" i, "&#xE70F;", GetLang("编辑"), true)
         flowOps := editBtn . (isFinally ? "" : this._OpsXml(i))
         cardPad := isFinally ? "0" : "0,0,0,8"
-        return '<Border ' ns ' Margin="' cardPad '" Padding="8,6" CornerRadius="4" BorderThickness="1.5"'
+        return '<Border ' ns ' Margin="' cardPad '" Padding="8,6" CornerRadius="4" BorderThickness="1"'
             . ' BorderBrush="{DynamicResource ControlBorder}" Background="{DynamicResource ControlBg}"'
             . ' SnapsToDevicePixels="True" UseLayoutRounding="False">'
             . '<Grid>'
@@ -290,7 +290,7 @@ class CompareProGui {
             . '<Grid.ColumnDefinitions>'
             . '<ColumnDefinition Width="40"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>'
             . '</Grid.ColumnDefinitions>'
-            . '<TextBlock Text="' this._EscapeXml(GetLang("条件")) '" FontWeight="Bold"'
+            . '<TextBlock Text="' this._EscapeXml(GetLang("条件")) '"'
             . ' Foreground="{DynamicResource TextMain}" VerticalAlignment="Center"/>'
             . '<WrapPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">'
             . this._CondiPanelXml(i, row[1], row[2], isFinally)
@@ -301,10 +301,10 @@ class CompareProGui {
             . '<Grid.ColumnDefinitions>'
             . '<ColumnDefinition Width="40"/><ColumnDefinition Width="*"/>'
             . '</Grid.ColumnDefinitions>'
-            . '<TextBlock Text="' this._EscapeXml(GetLang("指令")) '" FontWeight="Bold"'
+            . '<TextBlock Text="' this._EscapeXml(GetLang("指令")) '"'
             . ' Foreground="{DynamicResource TextMain}" VerticalAlignment="Center"/>'
             . '<Border Grid.Column="1" MinHeight="26" MaxHeight="40" Padding="6,4" CornerRadius="3"'
-            . ' Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1.5"'
+            . ' Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1"'
             . ' SnapsToDevicePixels="True" UseLayoutRounding="False" ToolTip="' this._EscapeXml(actionText) '">'
             . '<TextBlock Text="' this._EscapeXml(actionText) '" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"'
             . ' Foreground="{DynamicResource InputText}" TextAlignment="Left" VerticalAlignment="Center"/>'
@@ -314,12 +314,12 @@ class CompareProGui {
             . '<Grid.ColumnDefinitions>'
             . '<ColumnDefinition Width="40"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/>'
             . '</Grid.ColumnDefinitions>'
-            . '<TextBlock Text="' this._EscapeXml(GetLang("流程")) '" FontWeight="Bold"'
+            . '<TextBlock Text="' this._EscapeXml(GetLang("流程")) '"'
             . ' Foreground="{DynamicResource TextMain}" VerticalAlignment="Center"/>'
             . '<ComboBox Grid.Column="1" Name="Flow' i '" Width="160" Height="26" MinHeight="26"'
             . ' VerticalContentAlignment="Center"'
             . ' Background="{DynamicResource InputBg}" Foreground="{DynamicResource InputText}"'
-            . ' BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1.5"'
+            . ' BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1"'
             . ' SnapsToDevicePixels="True" UseLayoutRounding="False">'
             . flowItems
             . '</ComboBox>'

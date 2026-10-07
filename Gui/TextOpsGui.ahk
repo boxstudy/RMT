@@ -19,6 +19,8 @@ class TextOpsGui {
         this.SerialStr := ""
         this.ArgsNameOptions := []
         this.lastArgsNameConText := ""
+        this.ConcatEditGui := ""
+        this._concatEditClosed := true
 
         this.ArgsTypeMap := Map(
             GetLang("去除空格"), [GetLang("去除前空白字符"), GetLang("去除后空白字符"), GetLang("去除前后空白字符"), GetLang("去除所有空白字符")],
@@ -82,6 +84,36 @@ class TextOpsGui {
         }
     }
 
+    _AddLabel(parent, text, margin := "0,0,0,0") {
+        return parent.Add("TextBlock").Text(text).VerticalAlignment("Center")
+            .Foreground("{DynamicResource TextMain}").FontSize("12").Margin(margin)
+            .TextWrapping("NoWrap")
+    }
+
+    _StyleBox(el, width := "") {
+        el.Height(26).MinHeight(26).MaxHeight(26).VerticalAlignment("Center")
+            .VerticalContentAlignment("Center").FontSize("11").Padding("4,0")
+            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+        if (width != "")
+            el.Width(width)
+        return el
+    }
+
+    _StyleCombo(el, width := "") {
+        el.Height(26).MinHeight(26).VerticalAlignment("Center").VerticalContentAlignment("Center").FontSize("11")
+            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+        if (width != "")
+            el.Width(width)
+        return el
+    }
+
+    _Vis(name, show, collapse := true) {
+        vis := show ? "Visible" : (collapse ? "Collapsed" : "Hidden")
+        this._ComboPush(name, "Visibility", vis)
+    }
+
     _BuildAndShow() {
         global MySoftData
         this._closed := false
@@ -95,57 +127,79 @@ class TextOpsGui {
         ; === 标题栏 ===
         chrome := XAMLHost.AddCmdTitleBar(main, title, titleHeight)
 
-        ; === 内容 ===
-        body := main.Add("Grid").Grid_Row(1).Margin("10,6")
-        body.Rows("34", "36", "Auto", "Auto", "*")
-        body.Cols("85", "160", "85", "160")
+        ; === 内容：统一 90 / * / 10 / 90 / * ===
+        body := main.Add("Grid").Grid_Row(1).Margin("12,8,12,10")
+        body.Rows("Auto", "Auto", "Auto", "48")
 
-        ; 行0：备注
-        row0 := body.Add("StackPanel").Grid_Row(0).Grid_ColumnSpan(4).Orientation("Horizontal").VerticalAlignment("Center")
-        row0.Add("TextBlock").Text(GetLang("备注：")).VerticalAlignment("Center")
-        row0.Add("TextBox").Name("RemarkCon").Width(150).Height(24).MinHeight(24).Margin("4,0,0,0")
+        topCard := body.Add("Border").Grid_Row(0).CornerRadius("8").Padding("12,10,12,12").Margin("0,0,0,8")
+            .Background("{DynamicResource ControlBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+            .SnapsToDevicePixels("True")
+        top := topCard.Add("Grid")
+        top.Rows("36", "36")
+        top.Cols("90", "*", "10", "90", "*")
 
-        ; 行1：处理类型 + 文本来源
-        body.Add("TextBlock").Grid_Row(1).Grid_Column(0).Text(GetLang("处理类型:")).VerticalAlignment("Center")
-        tc := body.Add("ComboBox").Grid_Row(1).Grid_Column(1).Name("TypeCombo").Height(26).MinHeight(26)
-        for t in GetLangArr(["文本分割", "文本提取", "文本替换", "去除空格", "大小写转换", "文本统计", "文本拼接"])
+        this._AddLabel(top, GetLang("备注：")).Grid_Row(0).Grid_Column(0)
+        this._StyleBox(top.Add("TextBox").Name("RemarkCon").Grid_Row(0).Grid_Column(1).Grid_ColumnSpan(4))
+
+        this._AddLabel(top, GetLang("处理类型:")).Grid_Row(1).Grid_Column(0)
+        tc := this._StyleCombo(top.Add("ComboBox").Name("TypeCombo").Grid_Row(1).Grid_Column(1))
+        for t in GetLangArr(["文本拼接", "文本分割", "文本提取", "文本替换", "去除空格", "大小写转换", "文本统计"])
             tc.Add("ComboBoxItem").Content(t)
-        body.Add("TextBlock").Grid_Row(1).Grid_Column(2).Text(GetLang("文本来源:")).VerticalAlignment("Center")
-        body.Add("ComboBox").Grid_Row(1).Grid_Column(3).Name("NameCon").Height(26).MinHeight(26).IsEditable("True")
+        this._AddLabel(top, GetLang("文本来源:")).Grid_Row(1).Grid_Column(3).Name("NameTip")
+        this._StyleCombo(top.Add("ComboBox").Name("NameCon").Grid_Row(1).Grid_Column(4).IsEditable("True"))
 
-        ; 行2：处理参数 GroupBox
-        pGroup := body.Add("GroupBox").Grid_Row(2).Grid_ColumnSpan(4).Header(GetLang("处理参数"))
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").Foreground("{DynamicResource TextMain}").Margin("0,2,0,2")
-        p := pGroup.Add("Grid").Margin("10,6")
-        p.Cols("85", "160", "85", "160")
-        p.Rows("34", "34")
-        p.Add("TextBlock").Grid_Row(0).Grid_Column(0).Text(GetLang("类型选项:")).VerticalAlignment("Center")
-        p.Add("ComboBox").Grid_Row(0).Grid_Column(1).Name("ArgsTypeCombo").Height(26).MinHeight(26)
-        p.Add("TextBlock").Grid_Row(0).Grid_Column(2).Name("ArgsNameTip").Text(GetLang("类型参数:")).VerticalAlignment("Center")
-        p.Add("ComboBox").Grid_Row(0).Grid_Column(3).Name("ArgsNameCon").Height(26).MinHeight(26).IsEditable("True")
-        p.Add("TextBlock").Grid_Row(1).Grid_Column(0).Text(GetLang("查找文本:")).VerticalAlignment("Center")
-        p.Add("ComboBox").Grid_Row(1).Grid_Column(1).Name("SearchCon").Height(26).MinHeight(26).IsEditable("True")
-        p.Add("TextBlock").Grid_Row(1).Grid_Column(2).Text(GetLang("替换文本:")).VerticalAlignment("Center")
-        p.Add("ComboBox").Grid_Row(1).Grid_Column(3).Name("ReplaceCon").Height(26).MinHeight(26).IsEditable("True")
+        paramCard := body.Add("Border").Grid_Row(1).CornerRadius("8").Padding("12,8,12,8").Margin("0,0,0,8")
+            .Background("{DynamicResource ControlBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+            .SnapsToDevicePixels("True")
+        param := paramCard.Add("Grid")
+        param.Rows("36", "36", "12")
+        param.Cols("90", "*", "10", "90", "*")
 
-        ; 行3：结果保存 GroupBox
-        rGroup := body.Add("GroupBox").Grid_Row(3).Grid_ColumnSpan(4).Header(GetLang("结果保存"))
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").Foreground("{DynamicResource TextMain}").Margin("0,2,0,2")
-        r := rGroup.Add("StackPanel").Orientation("Horizontal").Margin("10,6")
-        r.Add("TextBlock").Text(GetLang("结果：")).VerticalAlignment("Center")
-        st := r.Add("ComboBox").Name("SaveTypeCombo").Width(90).Height(26).MinHeight(26).Margin("4,0,0,0").IsEnabled("False")
+        argsGrid := param.Add("Grid").Name("ArgsGrid").Grid_Row(0).Grid_RowSpan(2).Grid_ColumnSpan(5)
+        argsGrid.Rows("36", "36")
+        argsGrid.Cols("90", "*", "10", "90", "*")
+        this._AddLabel(argsGrid, GetLang("类型选项:")).Grid_Row(0).Grid_Column(0)
+        this._StyleCombo(argsGrid.Add("ComboBox").Name("ArgsTypeCombo").Grid_Row(0).Grid_Column(1))
+        this._AddLabel(argsGrid, GetLang("类型参数:")).Grid_Row(0).Grid_Column(3).Name("ArgsNameTip")
+        this._StyleCombo(argsGrid.Add("ComboBox").Name("ArgsNameCon").Grid_Row(0).Grid_Column(4).IsEditable("True"))
+
+        searchRow := argsGrid.Add("Grid").Name("SearchRow").Grid_Row(1).Grid_ColumnSpan(5).Visibility("Hidden")
+        searchRow.Cols("90", "*", "10", "90", "*")
+        this._AddLabel(searchRow, GetLang("查找文本:")).Grid_Column(0)
+        this._StyleCombo(searchRow.Add("ComboBox").Name("SearchCon").Grid_Column(1).IsEditable("True"))
+        this._AddLabel(searchRow, GetLang("替换文本:")).Grid_Column(3)
+        this._StyleCombo(searchRow.Add("ComboBox").Name("ReplaceCon").Grid_Column(4).IsEditable("True"))
+
+        concatRow := param.Add("Grid").Name("ConcatRow").Grid_Row(0).Grid_RowSpan(3).Grid_ColumnSpan(5).Visibility("Collapsed")
+        concatRow.Add("TextBox").Name("ConcatCon").AcceptsReturn("True").TextWrapping("Wrap")
+            .HorizontalAlignment("Stretch").VerticalAlignment("Stretch").MinHeight("84")
+            .VerticalContentAlignment("Top").Padding("4,3,26,3").FontSize("11")
+            .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+            .ScrollViewer_VerticalScrollBarVisibility("Auto")
+        concatRow.Add("Button").Name("BtnConcatEdit").Width("22").Height("22").MinHeight("22").Padding("0")
+            .HorizontalAlignment("Right").VerticalAlignment("Top").Margin("0,4,4,0").Cursor("Hand")
+            .FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize("12").Content(Chr(0xE70F))
+            .ToolTip(GetLang("编辑")).Foreground("{DynamicResource TextMain}")
+            .Background("{DynamicResource ControlBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+
+        res := body.Add("Grid").Grid_Row(2).Margin("12,0,12,0")
+        res.Cols("90", "96", "10", "160")
+        res.Rows("36")
+        this._AddLabel(res, GetLang("结果：")).Grid_Column(0)
+        st := this._StyleCombo(res.Add("ComboBox").Name("SaveTypeCombo").Grid_Column(1).IsEnabled("False"))
         st.Add("ComboBoxItem").Content(GetLang("变量"))
         st.Add("ComboBoxItem").Content(GetLang("数组"))
-        r.Add("ComboBox").Name("SaveNameCon").Width(130).Height(26).MinHeight(26).Margin("10,0,0,0").IsEditable("True")
+        this._StyleCombo(res.Add("ComboBox").Name("SaveNameCon").Grid_Column(3).IsEditable("True"), "160")
+            .HorizontalAlignment("Left")
 
-        ; 行4：确定
-        btnRow := body.Add("StackPanel").Grid_Row(4).Grid_ColumnSpan(4).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
+        btnRow := body.Add("StackPanel").Grid_Row(3).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
         AddCmdOkBtn(btnRow)
 
         ; === 创建 XAMLHost ===
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", this.OwnerHwnd)
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="560" Height="330" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="560" SizeToContent="Height" Opacity="0"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
         this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '')
 
@@ -158,6 +212,7 @@ class TextOpsGui {
         this.ui.OnEvent("ArgsTypeCombo", "SelectionChanged", ObjBindMethod(this, "OnRefreshArgsType"))
         this.ui.OnEvent("ArgsNameCon", "TextChanged", ObjBindMethod(this, "OnArgsNameConChange"))
         this.ui.OnEvent("SaveTypeCombo", "SelectionChanged", ObjBindMethod(this, "OnRefreshDataType"))
+        this.ui.OnEvent("BtnConcatEdit", "Click", ObjBindMethod(this, "OpenConcatEditor"))
         this.ui.OnEvent("BtnOk", "Click", ObjBindMethod(this, "OnClickSureBtn"))
 
     }
@@ -167,6 +222,7 @@ class TextOpsGui {
     }
 
     OnWindowClosing(state, ctrl, event) {
+        this._CloseConcatEditor()
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
         }
@@ -179,6 +235,7 @@ class TextOpsGui {
     }
 
     _CloseWindow() {
+        this._CloseConcatEditor()
         if (IsObject(this.ui)) {
             try this.ui.Update("Window", "Close", "")
         }
@@ -222,6 +279,15 @@ class TextOpsGui {
     _TypeText() => IsObject(this.ui) ? this.ui.Query("TypeCombo") : ""
     _ArgsTypeText() => IsObject(this.ui) ? this.ui.Query("ArgsTypeCombo") : ""
 
+    _ConcatDefaultText() {
+        return "{当前年}{当前月}{当前日}"
+    }
+
+    _IsConcatPlaceholder(s) {
+        s := Trim(s)
+        return s == "" || s == ","
+    }
+
     Init(cmd) {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("文本处理")
@@ -232,9 +298,13 @@ class TextOpsGui {
         ArgsNameArr.InsertAt(1, GetLang("制表符"))
         this.ArgsNameOptions := ArgsNameArr.Clone()
 
-        this._SetDDL("TypeCombo", GetLangArr(["文本分割", "文本提取", "文本替换", "去除空格", "大小写转换", "文本统计", "文本拼接"]), GetLang(this.Data.Type))
+        this._SetDDL("TypeCombo", GetLangArr(["文本拼接", "文本分割", "文本提取", "文本替换", "去除空格", "大小写转换", "文本统计"]), GetLang(this.Data.Type))
         this._SetCombo("NameCon", GetGuiVarArr(), this.Data.Name)
-        this._SetCombo("ArgsNameCon", ArgsNameArr, this.Data.ArgsName)
+        concatArgs := this.Data.ArgsName
+        if (GetLang(this.Data.Type) == GetLang("文本拼接") && this._IsConcatPlaceholder(concatArgs))
+            concatArgs := this._ConcatDefaultText()
+        this._SetCombo("ArgsNameCon", ArgsNameArr, concatArgs)
+        this.ui.Update("ConcatCon", "Text", concatArgs)
         this.lastArgsNameConText := this.ui.Query("ArgsNameCon")
         this._SetCombo("SearchCon", GetGuiVarArr(2), this.Data.Search)
         this._SetCombo("ReplaceCon", GetGuiVarArr(2), this.Data.Replace)
@@ -253,7 +323,6 @@ class TextOpsGui {
         IsUpLow := typeText == GetLang("大小写转换")
         IsStatistics := typeText == GetLang("文本统计")
         IsConcat := typeText == GetLang("文本拼接")
-        IsGetExReg := IsGetEx && this._ArgsTypeText() == GetLang("正则匹配")
 
         ArgsDLArr := []
         if (this.ArgsTypeMap.Has(typeText)) {
@@ -268,10 +337,18 @@ class TextOpsGui {
             this._SetDDL("ArgsTypeCombo", ArgsDLArr, GetLang(this.Data.ArgsType))
         }
 
-        ShowArgsType := IsSplit || IsGetEx || IsUpLow || IsSpace || IsStatistics || IsConcat || IsReplace
-        ShowArgsName := IsSplit || IsConcat || IsGetExReg
+        ShowArgsType := IsSplit || IsGetEx || IsUpLow || IsSpace || IsStatistics || IsReplace
         this.ui.Update("ArgsTypeCombo", "IsEnabled", ShowArgsType ? "True" : "False")
-        this.ui.Update("ArgsNameCon", "IsEnabled", ShowArgsName ? "True" : "False")
+        this._Vis("NameTip", !IsConcat, true)
+        this._Vis("NameCon", !IsConcat, true)
+        this._Vis("ArgsGrid", !IsConcat, true)
+        this._Vis("ConcatRow", IsConcat, true)
+        if (IsConcat) {
+            curConcat := this.ui.Query("ConcatCon")
+            if (this._IsConcatPlaceholder(curConcat))
+                this.ui.Update("ConcatCon", "Text", this._ConcatDefaultText())
+        }
+        this._Vis("SearchRow", IsReplace, false)
         this.ui.Update("SearchCon", "IsEnabled", IsReplace ? "True" : "False")
         this.ui.Update("ReplaceCon", "IsEnabled", IsReplace ? "True" : "False")
 
@@ -290,11 +367,15 @@ class TextOpsGui {
             tipText := this.ArgsTipMap[this._ArgsTypeText()]
         this.ui.Update("ArgsNameTip", "Text", tipText)
         this.lastArgsNameConText := this.ui.Query("ArgsNameCon")
-        IsGetEx := this._TypeText() == GetLang("文本提取")
+        typeText := this._TypeText()
+        IsSplit := typeText == GetLang("文本分割")
+        IsConcat := typeText == GetLang("文本拼接")
+        IsGetEx := typeText == GetLang("文本提取")
         IsGetExReg := IsGetEx && this._ArgsTypeText() == GetLang("正则匹配")
-        if (IsGetEx) {
-            this.ui.Update("ArgsNameCon", "IsEnabled", IsGetExReg ? "True" : "False")
-        }
+        ShowArgsName := IsSplit || IsGetExReg
+        this._Vis("ArgsNameTip", ShowArgsName, false)
+        this._Vis("ArgsNameCon", ShowArgsName, false)
+        this.ui.Update("ArgsNameCon", "IsEnabled", ShowArgsName ? "True" : "False")
     }
 
     OnRefreshDataType(state := "", ctrl := "", event := "") {
@@ -334,6 +415,150 @@ class TextOpsGui {
             this.ui.Update("ArgsNameCon", "Text", "{" newText "}")
         }
         this.lastArgsNameConText := this.ui.Query("ArgsNameCon")
+    }
+
+    _CloseConcatEditor() {
+        if (IsObject(this.ConcatEditGui) && !this._concatEditClosed) {
+            try this.ConcatEditGui.Update("Window", "Close", "")
+            this.ConcatEditGui := ""
+            this._concatEditClosed := true
+        }
+    }
+
+    OpenConcatEditor(state := "", ctrl := "", event := "") {
+        if (!IsObject(this.ConcatEditGui) || this._concatEditClosed)
+            this._BuildConcatEditor()
+        if (this.ConcatEditGui.Query("ConcatEditVarTypeCombo") == "")
+            this.ConcatEditGui.Update("ConcatEditVarTypeCombo", "SelectedIndex", "0")
+        this._FillConcatEditNameCombo()
+        curText := IsObject(this.ui) ? this.ui.Query("ConcatCon") : ""
+        if (this._IsConcatPlaceholder(curText)) {
+            curText := this._ConcatDefaultText()
+            if (IsObject(this.ui))
+                this.ui.Update("ConcatCon", "Text", curText)
+        }
+        this.ConcatEditGui.Update("ConcatEditCon", "Text", curText)
+        owner := (this.Hwnd() ? this.Hwnd() : this.OwnerHwnd)
+        if (!XamlWin.Open(this.ConcatEditGui, "", owner))
+            this._concatEditClosed := true
+    }
+
+    _BuildConcatEditor() {
+        global MySoftData
+        this._CloseConcatEditor()
+        this._concatEditClosed := false
+        title := this.ParentTile GetLang("文本构造")
+        titleHeight := "30"
+
+        main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize(XAMLHost.FontSize())
+        main.Rows(titleHeight, "*")
+        chrome := XAMLHost.AddTitleBar(main, title, titleHeight)
+
+        body := main.Add("Grid").Grid_Row(1).Margin("10,8").ClipToBounds("False")
+        body.Rows("Auto", "6", "32", "48")
+
+        body.Add("TextBox").Grid_Row(0).Name("ConcatEditCon").AcceptsReturn("True").TextWrapping("Wrap")
+            .VerticalContentAlignment("Top").Padding("2,3").FontSize("11")
+            .Height("95").MinHeight("95")
+            .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+            .ScrollViewer_VerticalScrollBarVisibility("Auto")
+
+        row1 := body.Add("Grid").Grid_Row(2).VerticalAlignment("Center")
+        row1.Cols("88", "80", "8", "200", "8", "70", "8", "70")
+        row1.Add("TextBlock").Grid_Column(0).Text(GetLang("变量数组：")).VerticalAlignment("Center")
+            .Foreground("{DynamicResource TextMain}").FontSize("12")
+        vt := row1.Add("ComboBox").Grid_Column(1).Name("ConcatEditVarTypeCombo").Height(26).MinHeight(26).VerticalAlignment("Center").SelectedIndex("0")
+        vt.Add("ComboBoxItem").Content(GetLang("变量"))
+        vt.Add("ComboBoxItem").Content(GetLang("数组"))
+        row1.Add("ComboBox").Grid_Column(3).Name("ConcatEditVariCombo").Width("200").Height(26).MinHeight(26).VerticalAlignment("Center").HorizontalAlignment("Left").IsEditable("True")
+        row1.Add("Button").Grid_Column(5).Name("BtnConcatAddName").Content(GetLang("追加名")).Height(26).MinHeight(26).VerticalAlignment("Center")
+        row1.Add("Button").Grid_Column(7).Name("BtnConcatAddValue").Content(GetLang("追加值")).Height(26).MinHeight(26).VerticalAlignment("Center")
+
+        btnRow := body.Add("StackPanel").Grid_Row(3).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
+        AddCmdOkBtn(btnRow, "BtnConcatOk")
+
+        tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
+        owner := (this.Hwnd() ? this.Hwnd() : this.OwnerHwnd)
+        this.ConcatEditGui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", owner)
+        this.ConcatEditGui.xaml := StrReplace(this.ConcatEditGui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="580" SizeToContent="Height" Opacity="0"')
+        this.ConcatEditGui.xaml := StrReplace(this.ConcatEditGui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
+        this.ConcatEditGui.xaml := StrReplace(this.ConcatEditGui.xaml, '%resources%', '')
+
+        this.ConcatEditGui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnConcatEditClosing"))
+        this.ConcatEditGui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnConcatEditLoad"))
+        this.ConcatEditGui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnConcatEditClose"))
+        this.ConcatEditGui.OnEvent("ConcatEditVarTypeCombo", "SelectionChanged", ObjBindMethod(this, "OnConcatEditVarTypeChange"))
+        this.ConcatEditGui.OnEvent("BtnConcatAddName", "Click", ObjBindMethod(this, "OnConcatEditAddName"))
+        this.ConcatEditGui.OnEvent("BtnConcatAddValue", "Click", ObjBindMethod(this, "OnConcatEditAddValue"))
+        this.ConcatEditGui.OnEvent("ConcatEditCon", "TextChanged", ObjBindMethod(this, "OnConcatEditChange"))
+        this.ConcatEditGui.OnEvent("BtnConcatOk", "Click", ObjBindMethod(this, "OnConcatEditClose"))
+    }
+
+    OnConcatEditLoad(state, ctrl, event) {
+        XamlWin.OnLoadTheme(this.ConcatEditGui)
+    }
+
+    OnConcatEditClosing(state, ctrl, event) {
+        this._concatEditClosed := true
+        this.ConcatEditGui := ""
+    }
+
+    OnConcatEditChange(state := "", ctrl := "", event := "") {
+        if (IsObject(this.ConcatEditGui) && !this._concatEditClosed && IsObject(this.ui))
+            this.ui.Update("ConcatCon", "Text", this.ConcatEditGui.Query("ConcatEditCon"))
+    }
+
+    _FillConcatEditNameCombo() {
+        if (!IsObject(this.ConcatEditGui) || this._concatEditClosed)
+            return
+        isVar := this.ConcatEditGui.Query("ConcatEditVarTypeCombo") == GetLang("变量")
+        items := isVar ? GetGuiVarArr(1) : GetGuiArrNameArr()
+        cur := this.ConcatEditGui.Query("ConcatEditVariCombo")
+        this.ConcatEditGui.Update("ConcatEditVariCombo", "ClearItems", "")
+        for v in items {
+            if (v != "")
+                this.ConcatEditGui.Update("ConcatEditVariCombo", "AddItem", v)
+        }
+        found := false
+        loop items.Length {
+            if (items[A_Index] == cur) {
+                this.ConcatEditGui.Update("ConcatEditVariCombo", "SelectedIndex", String(A_Index - 1))
+                found := true
+                break
+            }
+        }
+        if (!found && items.Length > 0)
+            this.ConcatEditGui.Update("ConcatEditVariCombo", "SelectedIndex", "0")
+    }
+
+    OnConcatEditVarTypeChange(state := "", ctrl := "", event := "") {
+        this._FillConcatEditNameCombo()
+    }
+
+    OnConcatEditAddName(state := "", ctrl := "", event := "") {
+        if (!IsObject(this.ConcatEditGui) || this._concatEditClosed)
+            return
+        varName := this.ConcatEditGui.Query("ConcatEditVariCombo")
+        if (varName != "") {
+            this.ConcatEditGui.Update("ConcatEditCon", "InsertText", varName)
+            this.OnConcatEditChange()
+        }
+    }
+
+    OnConcatEditAddValue(state := "", ctrl := "", event := "") {
+        if (!IsObject(this.ConcatEditGui) || this._concatEditClosed)
+            return
+        varName := this.ConcatEditGui.Query("ConcatEditVariCombo")
+        if (varName != "") {
+            arrMark := this.ConcatEditGui.Query("ConcatEditVarTypeCombo") == GetLang("变量") ? "" : "ε"
+            this.ConcatEditGui.Update("ConcatEditCon", "InsertText", "{" arrMark varName "}")
+            this.OnConcatEditChange()
+        }
+    }
+
+    OnConcatEditClose(state := "", ctrl := "", event := "") {
+        this._CloseConcatEditor()
     }
 
     OnClickSureBtn(state, ctrl, event) {
@@ -396,11 +621,16 @@ class TextOpsGui {
     }
 
     SaveTextOpsData() {
-        ArgsName := GetLangKey(this.ui.Query("ArgsNameCon"))
-        ArgsName := ArgsName == "制表符" ? "`t" : ArgsName
+        isConcat := this._TypeText() == GetLang("文本拼接")
+        if (isConcat) {
+            ArgsName := this.ui.Query("ConcatCon")
+        } else {
+            ArgsName := GetLangKey(this.ui.Query("ArgsNameCon"))
+            ArgsName := ArgsName == "制表符" ? "`t" : ArgsName
+        }
         this.Data.Type := GetLangKey(this._TypeText())
-        this.Data.Name := this.ui.Query("NameCon")
-        this.Data.ArgsType := GetLangKey(this._ArgsTypeText())
+        this.Data.Name := isConcat ? "" : this.ui.Query("NameCon")
+        this.Data.ArgsType := isConcat ? "拼接文本" : GetLangKey(this._ArgsTypeText())
         this.Data.ArgsName := ArgsName
         this.Data.Search := GetLangKey(this.ui.Query("SearchCon"))
         this.Data.Replace := GetLangKey(this.ui.Query("ReplaceCon"))

@@ -471,9 +471,9 @@ class MacroGraphDataMixin {
         } else if (cmdKey == "运算") {
             loop 4 {
                 i := A_Index
-                d["opToggle" i] := data.ToggleArr[i]
-                d["updateName" i] := data.UpdateNameArr[i]
-                d["expression" i] := data.ExpressionArr[i]
+                d["opToggle" i] := (data.ToggleArr.Length >= i) ? data.ToggleArr[i] : 0
+                d["updateName" i] := (data.UpdateNameArr.Length >= i) ? data.UpdateNameArr[i] : ("Var" i)
+                d["expression" i] := (data.ExpressionArr.Length >= i) ? data.ExpressionArr[i] : ""
             }
         } else if (cmdKey == "运行" || cmdKey == "运行Pro") {
             d.runTarget := data.Target

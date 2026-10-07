@@ -165,7 +165,7 @@ class MacroGraphFormalMixin {
 
     ; 类型顺序需与 TextOpsGui.ahk 保持一致
     _FormalTextOpsTypeNames() {
-        return GetLangArr(["文本分割", "文本提取", "文本替换", "去除空格", "大小写转换", "文本统计", "文本拼接"])
+        return GetLangArr(["文本拼接", "文本分割", "文本提取", "文本替换", "去除空格", "大小写转换", "文本统计"])
     }
 
     _FormalTextOpsTypeIdx(typeName) {
@@ -583,6 +583,13 @@ class MacroGraphFormalMixin {
         ; 同时保存数据
         data := this._FormalIniData(id)
         if (data != "") {
+            while (data.ToggleArr.Length < slot)
+                data.ToggleArr.Push(0)
+            while (data.UpdateNameArr.Length < slot)
+                data.UpdateNameArr.Push("Var" (data.UpdateNameArr.Length + 1))
+            while (data.ExpressionArr.Length < slot)
+                data.ExpressionArr.Push("")
+            data.ToggleArr[slot] := 1
             data.ExpressionArr[slot] := expr
             SaveMacroCMDData(data)
         }

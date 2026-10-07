@@ -84,7 +84,7 @@ class RunProGui {
 
         ; === 内容：统一列，返回值/输入编码、输出/输出编码分别左对齐 ===
         body := main.Add("Grid").Grid_Row(1).Margin("16,10,16,12")
-        body.Rows("34", "34", "34", "34", "34", "34", "66", "22", "40")
+        body.Rows("34", "34", "34", "34", "34", "34", "52", "22", "40")
         body.Cols("88", "*", "16", "80", "*", "12", "80", "*")
 
         ; 行0：备注
@@ -156,15 +156,22 @@ class RunProGui {
         ee.Add("ComboBox").Name("EncErr").Grid_Column(1).Height(26).MinHeight(26).VerticalAlignment("Center").IsEditable("True")
             .VerticalContentAlignment("Center").FontSize("11").Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
 
-        ; 行6：输入
+        ; 行6：输入（白底框 + 右上角悬浮编辑，打开文本构造）
         stdRow := body.Add("Grid").Name("StdInRow").Grid_Row(6).Grid_ColumnSpan(8)
-        stdRow.Cols("88", "*", "16", "80", "*", "12", "80", "*")
+        stdRow.Cols("88", "*")
         stdRow.Add("TextBlock").Grid_Column(0).Text(GetLang("输入：")).VerticalAlignment("Top").Margin("0,6,0,0").Foreground("{DynamicResource TextMain}").FontSize("12")
-        stdRow.Add("TextBox").Grid_Column(1).Grid_ColumnSpan(6).Name("StdInCon").Height(56).MinHeight(56).AcceptsReturn("True").TextWrapping("Wrap").Margin("0,0,8,0")
-            .VerticalContentAlignment("Top").FontSize("11").Padding("4,2")
+        stdHost := stdRow.Add("Grid").Grid_Column(1)
+        stdHost.Add("TextBox").Name("StdInCon").AcceptsReturn("True").TextWrapping("Wrap")
+            .HorizontalAlignment("Stretch").VerticalAlignment("Stretch").MinHeight("44")
+            .VerticalContentAlignment("Top").FontSize("11").Padding("4,3,26,3")
             .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-        stdRow.Add("Button").Grid_Column(7).Name("BtnStdInEdit").Content(GetLang("编辑")).Height(56).MinHeight(56).HorizontalAlignment("Stretch").Cursor("Hand")
+            .ScrollViewer_VerticalScrollBarVisibility("Auto")
+        stdHost.Add("Button").Name("BtnStdInEdit").Width("22").Height("22").MinHeight("22").Padding("0")
+            .HorizontalAlignment("Right").VerticalAlignment("Top").Margin("0,4,4,0").Cursor("Hand")
+            .FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize("12").Content(Chr(0xE70F))
+            .ToolTip(GetLang("编辑")).Foreground("{DynamicResource TextMain}")
+            .Background("{DynamicResource ControlBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
 
         ; 行7：提示
         body.Add("TextBlock").Grid_Row(7).Grid_ColumnSpan(8).Text(GetLang("支持启动程序（如.exe、.bat）、打开文件（如.txt、.mp4）或网址等等")).VerticalAlignment("Center").Foreground("{DynamicResource TextSub}").FontSize("11").TextWrapping("NoWrap")
@@ -176,7 +183,7 @@ class RunProGui {
         ; === 创建 XAMLHost ===
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", this.OwnerHwnd)
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="680" Height="380" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="680" Height="370" Opacity="0"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
         this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '')
 
@@ -330,14 +337,9 @@ class RunProGui {
         if (!IsObject(this.StdInEditGui) || this._stdInClosed) {
             this.AddStdInEditorGui()
         }
-        vars := GetGuiVarArr(1)
-        this.StdInEditGui.Update("StdInEditVariCombo", "ClearItems", "")
-        for v in vars {
-            if (v != "")
-                this.StdInEditGui.Update("StdInEditVariCombo", "AddItem", v)
-        }
-        if (vars.Length > 0)
-            this.StdInEditGui.Update("StdInEditVariCombo", "SelectedIndex", "0")
+        if (this.StdInEditGui.Query("StdInEditVarTypeCombo") == "")
+            this.StdInEditGui.Update("StdInEditVarTypeCombo", "SelectedIndex", "0")
+        this._FillStdInEditNameCombo()
 
         curText := IsObject(this.ui) ? this.ui.Query("StdInCon") : ""
         this.StdInEditGui.Update("StdInEditCon", "Text", curText)
@@ -351,7 +353,7 @@ class RunProGui {
         global MySoftData
         this._CloseStdInEditor()
         this._stdInClosed := false
-        title := this.ParentTile GetLang("输入编辑器")
+        title := this.ParentTile GetLang("文本构造")
         titleHeight := "30"
 
         main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize(XAMLHost.FontSize())
@@ -361,32 +363,38 @@ class RunProGui {
         chrome := XAMLHost.AddTitleBar(main, title, titleHeight)
 
         ; === 内容 ===
-        body := main.Add("Grid").Grid_Row(1).Margin("10,8")
-        body.Rows("32", "*", "38")
+        body := main.Add("Grid").Grid_Row(1).Margin("10,8").ClipToBounds("False")
+        body.Rows("Auto", "6", "32", "48")
 
-        ; 行0：变量 + 追加名 + 追加值
-        row0 := body.Add("StackPanel").Grid_Row(0).Orientation("Horizontal").VerticalAlignment("Center")
-        row0.Add("TextBlock").Text(GetLang("变量：")).VerticalAlignment("Center")
-        row0.Add("ComboBox").Name("StdInEditVariCombo").Width(140).Height(26).MinHeight(26).Margin("4,0,0,0").IsEditable("True")
-        row0.Add("Button").Name("BtnStdInAddName").Content(GetLang("追加名")).Height(26).MinHeight(26).Margin("8,0,0,0")
-        row0.Add("Button").Name("BtnStdInAddValue").Content(GetLang("追加值")).Height(26).MinHeight(26).Margin("4,0,0,0")
-
-        ; 行1：文本框
-        body.Add("TextBox").Grid_Row(1).Name("StdInEditCon").AcceptsReturn("True").TextWrapping("Wrap")
-            .VerticalContentAlignment("Top").Margin("0,6,0,6")
+        ; 行0：内容框
+        body.Add("TextBox").Grid_Row(0).Name("StdInEditCon").AcceptsReturn("True").TextWrapping("Wrap")
+            .VerticalContentAlignment("Top").Padding("2,3").FontSize("11")
+            .Height("95").MinHeight("95")
             .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
             .ScrollViewer_VerticalScrollBarVisibility("Auto")
 
-        ; 行2：确定
-        btnRow := body.Add("StackPanel").Grid_Row(2).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
-        btnRow.Add("Button").Name("BtnStdInOk").Content(GetLang("确定")).Width(90).Height(30).MinHeight(30)
+        ; 行2：变量数组 + 变量/数组 + 名称 + 追加名 + 追加值
+        row1 := body.Add("Grid").Grid_Row(2).VerticalAlignment("Center")
+        row1.Cols("88", "80", "8", "200", "8", "70", "8", "70")
+        row1.Add("TextBlock").Grid_Column(0).Text(GetLang("变量数组：")).VerticalAlignment("Center")
+            .Foreground("{DynamicResource TextMain}").FontSize("12")
+        vt := row1.Add("ComboBox").Grid_Column(1).Name("StdInEditVarTypeCombo").Height(26).MinHeight(26).VerticalAlignment("Center").SelectedIndex("0")
+        vt.Add("ComboBoxItem").Content(GetLang("变量"))
+        vt.Add("ComboBoxItem").Content(GetLang("数组"))
+        row1.Add("ComboBox").Grid_Column(3).Name("StdInEditVariCombo").Width("200").Height(26).MinHeight(26).VerticalAlignment("Center").HorizontalAlignment("Left").IsEditable("True")
+        row1.Add("Button").Grid_Column(5).Name("BtnStdInAddName").Content(GetLang("追加名")).Height(26).MinHeight(26).VerticalAlignment("Center")
+        row1.Add("Button").Grid_Column(7).Name("BtnStdInAddValue").Content(GetLang("追加值")).Height(26).MinHeight(26).VerticalAlignment("Center")
+
+        ; 行3：确定
+        btnRow := body.Add("StackPanel").Grid_Row(3).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
+        AddCmdOkBtn(btnRow, "BtnStdInOk")
 
         ; === 创建 XAMLHost ===
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
         owner := (this.Hwnd() ? this.Hwnd() : this.OwnerHwnd)
         this.StdInEditGui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", owner)
-        this.StdInEditGui.xaml := StrReplace(this.StdInEditGui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="700" Height="420" Opacity="0"')
+        this.StdInEditGui.xaml := StrReplace(this.StdInEditGui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="580" SizeToContent="Height" Opacity="0"')
         this.StdInEditGui.xaml := StrReplace(this.StdInEditGui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
         this.StdInEditGui.xaml := StrReplace(this.StdInEditGui.xaml, '%resources%', '')
 
@@ -394,6 +402,7 @@ class RunProGui {
         this.StdInEditGui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnStdInWindowClosing"))
         this.StdInEditGui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnStdInWindowLoad"))
         this.StdInEditGui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnClickStdInEditorClose"))
+        this.StdInEditGui.OnEvent("StdInEditVarTypeCombo", "SelectionChanged", ObjBindMethod(this, "OnStdInEditVarTypeChange"))
         this.StdInEditGui.OnEvent("BtnStdInAddName", "Click", ObjBindMethod(this, "OnClickStdInEditorAddVarNameBtn"))
         this.StdInEditGui.OnEvent("BtnStdInAddValue", "Click", ObjBindMethod(this, "OnClickStdInEditorAddVarValueBtn"))
         this.StdInEditGui.OnEvent("StdInEditCon", "TextChanged", ObjBindMethod(this, "OnStdInEditChange"))
@@ -417,6 +426,33 @@ class RunProGui {
         }
     }
 
+    _FillStdInEditNameCombo() {
+        if (!IsObject(this.StdInEditGui) || this._stdInClosed)
+            return
+        isVar := this.StdInEditGui.Query("StdInEditVarTypeCombo") == GetLang("变量")
+        items := isVar ? GetGuiVarArr(1) : GetGuiArrNameArr()
+        cur := this.StdInEditGui.Query("StdInEditVariCombo")
+        this.StdInEditGui.Update("StdInEditVariCombo", "ClearItems", "")
+        for v in items {
+            if (v != "")
+                this.StdInEditGui.Update("StdInEditVariCombo", "AddItem", v)
+        }
+        found := false
+        loop items.Length {
+            if (items[A_Index] == cur) {
+                this.StdInEditGui.Update("StdInEditVariCombo", "SelectedIndex", String(A_Index - 1))
+                found := true
+                break
+            }
+        }
+        if (!found && items.Length > 0)
+            this.StdInEditGui.Update("StdInEditVariCombo", "SelectedIndex", "0")
+    }
+
+    OnStdInEditVarTypeChange(state := "", ctrl := "", event := "") {
+        this._FillStdInEditNameCombo()
+    }
+
     OnClickStdInEditorAddVarNameBtn(state := "", ctrl := "", event := "") {
         if (!IsObject(this.StdInEditGui) || this._stdInClosed)
             return
@@ -432,7 +468,8 @@ class RunProGui {
             return
         varName := this.StdInEditGui.Query("StdInEditVariCombo")
         if (varName != "") {
-            this.StdInEditGui.Update("StdInEditCon", "InsertText", "{" varName "}")
+            arrMark := this.StdInEditGui.Query("StdInEditVarTypeCombo") == GetLang("变量") ? "" : "ε"
+            this.StdInEditGui.Update("StdInEditCon", "InsertText", "{" arrMark varName "}")
             this.OnStdInEditChange()
         }
     }

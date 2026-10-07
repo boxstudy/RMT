@@ -17,10 +17,21 @@ class OperationSubGui {
         this.Index := 0
         this.DLVariableArr := []
         this._closed := true
-        ; 运算符按钮：符号 → 控件名（WPF Name 不允许运算符字符）
-        this._OpBtnPairs := [["+", "BtnOpAdd"], ["-", "BtnOpSub"], ["*", "BtnOpMul"],
-            ["/", "BtnOpDiv"], ["%", "BtnOpMod"], ["^", "BtnOpPow"],
-            ["(", "BtnOpLParen"], [")", "BtnOpRParen"]]
+        ; 运算符：符号 / 控件名 / hover 提示
+        this._OpBtnPairs := [
+            ["+", "BtnOpAdd", "+（加）"], ["-", "BtnOpSub", "-（减）"], ["*", "BtnOpMul", "*（乘）"],
+            ["/", "BtnOpDiv", "/（除）"], ["%", "BtnOpMod", "%（取余）"],
+            ["^", "BtnOpPow", "^（乘方）"], ["(", "BtnOpLParen", "(（左括号）"], [")", "BtnOpRParen", ")（右括号）"]]
+        ; 数值处理：Fluent/符号 / 控件名 / 函数名 / hover / 双参 / 字体
+        fluent := "Segoe Fluent Icons, Segoe MDL2 Assets"
+        symbol := "Segoe UI Symbol, Segoe UI, " fluent
+        this._NumProcPairs := [
+            ["≈", "BtnNumRound", "round", "四舍五入取整", false, symbol],
+            [Chr(0xE74A), "BtnNumCeil", "ceil", "向上取整", false, fluent],
+            [Chr(0xE74B), "BtnNumFloor", "floor", "向下取整", false, fluent],
+            ["|x|", "BtnNumAbs", "abs", "绝对值", false, "Segoe UI, " fluent],
+            [GetLang("最大值"), "BtnNumMax", "max", "最大值", true, ""],
+            [GetLang("最小值"), "BtnNumMin", "min", "最小值", true, ""]]
     }
 
     Hwnd() {
@@ -60,9 +71,10 @@ class OperationSubGui {
     _BuildAndShow() {
         global MySoftData
         this._closed := false
-        title := this.ParentTile GetLang("运算编辑器")
+        title := this.ParentTile GetLang("表达式")
         this._title := title
         titleHeight := "30"
+        okStyle := FrontInfoGui._OkBtnHoverStyle()
 
         main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize(XAMLHost.FontSize())
         main.Rows(titleHeight, "*")
@@ -71,54 +83,78 @@ class OperationSubGui {
         chrome := XAMLHost.AddTitleBar(main, title, titleHeight)
 
         ; === 内容 ===
-        body := main.Add("StackPanel").Grid_Row(1).Margin("10,8,10,10")
+        body := main.Add("StackPanel").Grid_Row(1).Margin("10,6,10,6")
 
-        ; 运算符说明（两行）
-        body.Add("TextBlock").Text(Format("{}`n{}", GetLang(
-            "运算符：+（加）、-（减）、*（乘）、（/）除、（%）取余"), GetLang("^（乘方）、()（括号）")))
-            .TextWrapping("Wrap").Foreground("{DynamicResource TextMain}").FontSize("12")
-
-        ; 当前运算表达式（可编辑）
-        body.Add("TextBlock").Text(GetLang("当前运算表达式（可编辑）")).Margin("0,8,0,0").Foreground("{DynamicResource TextMain}").FontSize("12")
-        body.Add("TextBox").Name("ExpressionCon").Height(26).MinHeight(26).Margin("0,4,0,0")
+        ; 当前运算表达式（可编辑）+ 右侧清空
+        body.Add("TextBlock").Text(GetLang("当前运算表达式（可编辑）")).Foreground("{DynamicResource TextMain}").FontSize("12")
+        exprRow := body.Add("Grid").Margin("0,4,0,0")
+        exprRow.Cols("*", "6", "26")
+        exprRow.Add("TextBox").Name("ExpressionCon").Grid_Column(0).Height(26).MinHeight(26)
             .VerticalContentAlignment("Center").Padding("4,0").FontSize("11")
             .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+        clearExpr := exprRow.Add("Button").Name("BtnClearExpr").Grid_Column(2).Width(26).Height(26).MinHeight(26)
+            .Content(Chr(0xE74D)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize("12")
+            .Cursor("Hand").ToolTip(GetLang("清空")).Padding("0")
+            .HorizontalContentAlignment("Center").VerticalContentAlignment("Center")
+            .Foreground("{DynamicResource TextMain}").Background("{DynamicResource ControlBg}")
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+        clearExpr.InjectResources(FrontInfoGui._ToolBtnHoverStyle())
 
-        ; 操作运算符：第一行 + - * / % ^
-        body.Add("TextBlock").Text(GetLang("操作运算符")).Margin("0,8,0,0").Foreground("{DynamicResource TextMain}").FontSize("12")
-        opRow1 := body.Add("StackPanel").Orientation("Horizontal").Margin("0,4,0,0")
-        loop 6 {
-            pair := this._OpBtnPairs[A_Index]
-            opRow1.Add("Button").Name(pair[2]).Content(pair[1]).Width(50).Height(30).MinHeight(30).Margin("0,0,8,0").Cursor("Hand")
-        }
-        ; 操作运算符：第二行 ( )
-        opRow2 := body.Add("StackPanel").Orientation("Horizontal").Margin("0,8,0,0")
-        loop 2 {
-            pair := this._OpBtnPairs[A_Index + 6]
-            opRow2.Add("Button").Name(pair[2]).Content(pair[1]).Width(50).Height(30).MinHeight(30).Margin("0,0,8,0").Cursor("Hand")
-        }
-
-        ; 变量：恢复下拉框 + 添加
+        ; 变量：下拉框 + 添加（紧挨表达式下方）
         varRow := body.Add("StackPanel").Orientation("Horizontal").Margin("0,8,0,0")
         varRow.Add("TextBlock").Text(GetLang("变量：")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
         varRow.Add("ComboBox").Name("OperaVariableCon").Width(150).Height(26).MinHeight(26).Margin("8,0,0,0")
             .VerticalContentAlignment("Center").FontSize("11")
             .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-        varRow.Add("Button").Name("BtnAddVariable").Content(GetLang("添加")).Height(26).MinHeight(26).Margin("8,0,0,0").Cursor("Hand")
+        addVarBtn := varRow.Add("Button").Name("BtnAddVariable").Content(GetLang("添加")).Width(52).Height(26).MinHeight(26).Margin("8,0,0,0").Cursor("Hand")
+            .Foreground("{DynamicResource TextMain}").Background("{DynamicResource ControlBg}")
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+            .HorizontalContentAlignment("Center").VerticalContentAlignment("Center")
+        addVarBtn.InjectResources(FrontInfoGui._ToolBtnHoverStyle())
 
-        ; 底部按钮：计算结果 / 退格 / 确定
+        ; 运算符：单行正方形按钮
+        body.Add("TextBlock").Text(GetLang("运算符")).Margin("0,8,0,0").Foreground("{DynamicResource TextMain}").FontSize("12")
+        opRow := body.Add("StackPanel").Orientation("Horizontal").Margin("0,4,0,0")
+        for pair in this._OpBtnPairs {
+            opRow.Add("Button").Name(pair[2]).Content(pair[1]).Width(30).Height(30).MinHeight(30).Margin("0,0,6,0")
+                .Cursor("Hand").ToolTip(GetLang(pair[3])).Padding("0")
+                .HorizontalContentAlignment("Center").VerticalContentAlignment("Center")
+                .Foreground("{DynamicResource TextMain}").Background("{DynamicResource ControlBg}")
+                .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+        }
+
+        ; 数值处理：符号按钮；最大值/最小值用文本
+        body.Add("TextBlock").Text(GetLang("数值处理")).Margin("0,8,0,0").Foreground("{DynamicResource TextMain}").FontSize("12")
+        numRow := body.Add("StackPanel").Orientation("Horizontal").Margin("0,4,0,0")
+        for pair in this._NumProcPairs {
+            isText := (pair[2] == "BtnNumMax" || pair[2] == "BtnNumMin")
+            btn := numRow.Add("Button").Name(pair[2]).Content(pair[1]).Height(30).MinHeight(30).Margin("0,0,6,0")
+                .Cursor("Hand").ToolTip(GetLang(pair[4])).Padding(isText ? "8,0" : "0")
+                .HorizontalContentAlignment("Center").VerticalContentAlignment("Center")
+                .Foreground("{DynamicResource TextMain}").Background("{DynamicResource ControlBg}")
+                .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+            if (isText)
+                btn.FontSize("11")
+            else
+                btn.Width(30).FontFamily(pair[6]).FontSize("13")
+        }
+
+        ; 底部：计算结果（与确定同款）+ 确定，间距 50px
         btnRow := body.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Center").Margin("0,10,0,0")
-        btnRow.Add("Button").Name("BtnCalcResult").Content(GetLang("计算结果")).Width(100).Height(36).MinHeight(36).Margin("4,0").Cursor("Hand")
-        btnRow.Add("Button").Name("BtnBackspace").Content(GetLang("退格")).Width(100).Height(36).MinHeight(36).Margin("4,0").Cursor("Hand")
-        AddCmdOkBtn(btnRow, "BtnSure", "4,0")
+        calcBtn := btnRow.Add("Button").Name("BtnCalcResult").Content(GetLang("计算结果"))
+            .Width(100).Height(32).MinHeight(32).Margin("0,0,50,0").Cursor("Hand")
+            .Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}")
+            .BorderBrush("{DynamicResource ActionStroke}").BorderThickness("1").FontSize(13).FontWeight("Bold")
+        calcBtn.InjectResources(okStyle)
+        AddCmdOkBtn(btnRow, "BtnSure")
 
         ; === 创建 XAMLHost ===
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", this.OwnerHwnd)
         this.Gui := this.ui   ; 兼容访问器：外部仅做空判断（MacroGraphFormal.ahk:576）
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="370" Height="330" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="400" Height="300" Opacity="0"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
         this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '')
 
@@ -128,11 +164,12 @@ class OperationSubGui {
         this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
         for pair in this._OpBtnPairs
             this.ui.OnEvent(pair[2], "Click", this.OnClickOperatorBtn.Bind(this, pair[1]))
+        for pair in this._NumProcPairs
+            this.ui.OnEvent(pair[2], "Click", this.OnClickNumProcBtn.Bind(this, pair[3], pair[5]))
+        this.ui.OnEvent("BtnClearExpr", "Click", ObjBindMethod(this, "OnClearExprClick"))
         this.ui.OnEvent("BtnAddVariable", "Click", ObjBindMethod(this, "OnVariableChanged"))
         this.ui.OnEvent("BtnCalcResult", "Click", ObjBindMethod(this, "OnCalculateResultBtnClick"))
-        this.ui.OnEvent("BtnBackspace", "Click", ObjBindMethod(this, "OnBackspaceBtnClick"))
         this.ui.OnEvent("BtnSure", "Click", ObjBindMethod(this, "OnClickSureBtn"))
-
     }
 
     Init(Index, ExpressStr) {
@@ -184,11 +221,30 @@ class OperationSubGui {
     }
 
     OnClickOperatorBtn(Symbol, state := "", ctrl := "", event := "") {
-        ; 所有运算符直接添加到表达式
         if (!IsObject(this.ui))
             return
         expr := this.ui.Query("ExpressionCon")
         this.ui.Update("ExpressionCon", "Text", expr Symbol)
+    }
+
+    ; 数值处理：用函数包裹当前表达式；max/min 第二参默认 10
+    OnClickNumProcBtn(fnName, dualArg, state := "", ctrl := "", event := "") {
+        if (!IsObject(this.ui))
+            return
+        expr := this.ui.Query("ExpressionCon")
+        if (expr == "")
+            expr := "0"
+        if (dualArg)
+            this.ui.Update("ExpressionCon", "Text", fnName "(" expr ",10)")
+        else
+            this.ui.Update("ExpressionCon", "Text", fnName "(" expr ")")
+    }
+
+    OnClearExprClick(state := "", ctrl := "", event := "") {
+        if (!IsObject(this.ui))
+            return
+        this.ui.Update("ExpressionCon", "Text", "")
+        try this.ui.Update("ExpressionCon", "Focus", "True")
     }
 
     OnVariableChanged(state := "", ctrl := "", event := "") {
@@ -200,16 +256,6 @@ class OperationSubGui {
             currentExpr := this.ui.Query("ExpressionCon")
             this.ui.Update("ExpressionCon", "Text", currentExpr "{" VarName "}")
         }
-    }
-
-    OnBackspaceBtnClick(state := "", ctrl := "", event := "") {
-        ; 删除最后一个字符
-        if (!IsObject(this.ui))
-            return
-        expr := this.ui.Query("ExpressionCon")
-        if (expr == "")
-            return
-        this.ui.Update("ExpressionCon", "Text", SubStr(expr, 1, -1))
     }
 
     OnCalculateResultBtnClick(state := "", ctrl := "", event := "") {
@@ -367,30 +413,51 @@ class OperationSubGui {
             }
         }
 
-        ; ========== 步骤2：过滤所有空格，校验数字/运算符/括号 ==========
-        cleanExpr := StrReplace(expr, " ") ; 过滤所有空格（包括大括号内外）
+        ; ========== 步骤2：过滤空格，校验字符集（含数值处理函数名与逗号）==========
+        cleanExpr := StrReplace(expr, " ")
+        cleanExpr := StrReplace(cleanExpr, "　", "")
+        cleanExpr := StrReplace(cleanExpr, "（", "(")
+        cleanExpr := StrReplace(cleanExpr, "）", ")")
+        cleanExpr := StrReplace(cleanExpr, "，", ",")
 
-        ; 正则拆解：
-        ; 1. \{[^{}]+\}  → 匹配{包裹的变量（已提前校验，此处仅占位）
-        ; 2. -?\d+\.\d+  → 匹配严格数论小数（5.0、0.5、-3.14）
-        ; 3. -?\d+       → 匹配整数（5、-8、0）
-        ; 4. [+\-*/%^()] → 匹配运算符和括号
-        validPattern := "^(?:\{[^{}]+\}|-?\d+\.\d+|-?\d+|[+\-*/%^()])+$"
+        ; 仅允许已知函数名
+        checkFn := RegExReplace(cleanExpr, "\{[^{}]+\}", "")
+        pos := 1
+        loop {
+            if !RegExMatch(checkFn, "([a-zA-Z_]+)\(", &fnMatch, pos)
+                break
+            fname := StrLower(fnMatch[1])
+            if (fname != "abs" && fname != "max" && fname != "min" && fname != "round" && fname != "ceil" && fname != "floor") {
+                MsgBox(Format(GetLang("表达式错误：不支持的函数 {}"), fnMatch[1]))
+                return false
+            }
+            pos := fnMatch.Pos + fnMatch.Len
+        }
+
+        validPattern := "^(?:\{[^{}]+\}|-?\d+\.\d+|-?\d+|[+\-*/%^()⌊⌋,]|[a-zA-Z_])+$"
         if !RegExMatch(cleanExpr, validPattern) {
             MsgBox(GetLang("表达式包含非法字符或格式错误"))
             return false
         }
 
-        ; ========== 步骤3：校验括号是否匹配 ==========
+        ; ========== 步骤3：校验括号 / 取整括号是否匹配 ==========
         openCount := 0, closeCount := 0
+        floorOpen := 0, floorClose := 0
         for k, char in StrSplit(cleanExpr) {
             if char = "("
                 openCount++
             else if char = ")"
                 closeCount++
-            ; 若右括号数量提前超过左括号，直接判定非法
+            else if char = "⌊"
+                floorOpen++
+            else if char = "⌋"
+                floorClose++
             if closeCount > openCount {
                 MsgBox(GetLang("表达式错误：括号不匹配"))
+                return false
+            }
+            if floorClose > floorOpen {
+                MsgBox(GetLang("表达式错误：取整括号不匹配"))
                 return false
             }
         }
@@ -398,12 +465,16 @@ class OperationSubGui {
             MsgBox(GetLang("表达式错误：括号不匹配"))
             return false
         }
+        if floorOpen != floorClose {
+            MsgBox(GetLang("表达式错误：取整括号不匹配"))
+            return false
+        }
 
         ; ========== 步骤4：校验表达式首尾是否为非法运算符 ==========
         firstChar := SubStr(cleanExpr, 1, 1)
         lastChar := SubStr(cleanExpr, -1)
-        invalidStart := "+*/%^" ; 负号(-)和括号(允许开头
-        invalidEnd := "+-*/%^" ; 所有运算符和括号(都不允许结尾
+        invalidStart := "+*/%^," ; 负号(-)、括号、函数名、⌊ 允许开头
+        invalidEnd := "+-*/%^⌊," ; 运算符与 ⌊、逗号不允许结尾
         if (InStr(invalidStart, firstChar)) {
             MsgBox(GetLang("表达式错误：不能以运算符开头"))
             return false
