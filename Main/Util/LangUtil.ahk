@@ -10,7 +10,7 @@ LangCmdKeyArr := ["截图", "截图提取文本", "自由贴", "开启指令显�
     "鼠标移动", "鼠标移动Pro", "增量移动",
     "输出", "运行", "运行Pro", "循环", "宏操作", "变量", "变量提取", "如果", "如果Pro", "运算", "RMT指令", "后台鼠标", "后台按键",
     "等待", "时间", "按键检测", "窗口管理", "注释", "抓图",
-    "循环次数", "宏循环次数", "当前鼠标坐标X", "当前鼠标坐标Y", "按下", "松开", "点击", "创建", "克隆", "删除", "包含",
+    "循环次数", "宏循环次数", "当前鼠标坐标X", "当前鼠标坐标Y", "当前坐标X", "当前坐标Y", "按下", "松开", "点击", "创建", "克隆", "删除", "包含",
     "取值", "赋值", "插入", "追加", "移除", "移除最后", "长度", "变量或值", "数组", "文本分割", "文本提取", "文本替换", "去除空格",
     "大小写转换", "文本统计", "去除前空白字符", "去除后空白字符", "去除前后空白字符", "去除所有空白字符", "全部大写", "全部小写",
     "首字母大写", "字符数", "单词数", "行数", "数字提取", "字母提取", "中文提取", "内容分割", "定长分割", "当前宏", "按键宏", "字串宏",
@@ -184,8 +184,8 @@ GetLangCmd(Cmd, Mode) {
 
 ;mode 1多语言模式  2中文语言模式
 GetLangStr(Str, Mode) {
-    SpecialKeyArr1 := GetLangKeyArr(GetSystemVarArr())
-    SpecialKeyArr2 := GetSystemVarArr()
+    SpecialKeyArr1 := GetLangKeyArr(GetSpecialVarArr())
+    SpecialKeyArr2 := GetSpecialVarArr()
     KeyArr := Mode == 1 ? SpecialKeyArr1 : SpecialKeyArr2
     action := Mode == 1 ? GetLang : GetLangKey
 

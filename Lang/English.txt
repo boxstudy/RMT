@@ -552,6 +552,12 @@ warn 气泡：=Warn Bubble:
 当前秒：实时获取当前秒（形如58）=Current Sec: (58)
 当前星期几=Weekday
 当前星期几：实时获取星期几（形如1-7，1代表周一）=Weekday: (1-7, 1=Monday)
+当前周=Week of Year
+当前周：当前是一年中的第几周（形如41）=Week of Year: (e.g. 41)
+当前星期=Weekday
+当前星期：形如1-7，1代表周一=Weekday: (1-7, 1=Monday)
+时间类别=Time Category
+当前剪切板：仅剪切板是文本时有效，否则变量值为「空」=Clipboard: text only; otherwise the value is 空
 当前窗口信息:=Current Window Info:
 当前窗口信息:RMT=Current Window Info: RMT
 当前窗口坐标:=Current Window Pos:
@@ -576,6 +582,10 @@ warn 气泡：=Warn Bubble:
 当前鼠标坐标X：实时获取当前鼠标X"=Mouse X: Current X coord
 当前鼠标坐标Y=Mouse Y
 当前鼠标坐标Y：实时获取当前鼠标Y"=Mouse Y: Current Y coord
+当前坐标X=Coord X
+当前坐标Y=Coord Y
+当前坐标X：实时获取当前鼠标X=Coord X: Current mouse X
+当前坐标Y：实时获取当前鼠标Y=Coord Y: Current mouse Y
 当前鼠标颜色=Mouse Color
 当前鼠标颜色：实时获取当前鼠标指针下颜色=Mouse Color: Color under cursor
 当前鼠标颜色：实时获取当前鼠标指针下颜色（形如EEFF44）=Mouse Color: (EEFF44)
@@ -735,6 +745,8 @@ warn 气泡：=Warn Bubble:
 数组-1→1、数组-2→"文本"、数组-3→2, 5, 7、数组-4→8=Array-1→1, Array-2→"text", Array-3→2,5,7, Array-4→8
 数组-1→1、数组-2→2、数组-3→"文本"、数组-4→4=Array-1→1, Array-2→2, Array-3→"text", Array-4→4
 数组名：=Name:
+0 表示整个数组；N 表示第 N 项子数组=0 = whole array; N = sub-array at index N
+逗号分割；[ ] 表示子数组；\ 表示原义字符=Comma-separated; [ ] = sub-array; \ = literal
 数组支持二维，该参数可控制数组或子数组进行调度=Supports 2D arrays. This option selects the array or sub-array.
 数组编辑器=Array Edit
 数组：{}  子数组{}  长度：{}=Array {} → Sub-array{} Length: {}
@@ -1684,6 +1696,7 @@ RMT 命令行帮助=RMT Command Line Help
 目标{}：目标窗口信息不能为空=Target {}: Target window info cannot be empty
 开关=On/Off
 变量名=Variable Name
+新变量=New Variable
 变量类型=Variable Type
 最小值选择/输入=Min Value Select/Input
 最大值选择/输入=Max Value Select/Input

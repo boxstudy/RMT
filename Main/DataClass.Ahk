@@ -1329,12 +1329,12 @@ class VariableData {
     __New() {
         this.SerialStr := ""
         this.IsIgnoreExist := 0
-        this.ToggleArr := [1, 0, 0, 0]
-        this.OperaTypeArr := [1, 1, 1, 1]   ;1赋值 2随机 3字符 4删除
-        this.VariableArr := ["Var1", "Var2", "Var3", "Var4"]
-        this.CopyVariableArr := ["1", "0", "0", "0"]
-        this.MinVariableArr := ["0", "0", "0", "0"]
-        this.MaxVariableArr := ["10", "10", "10", "10"]
+        this.ToggleArr := [1]
+        this.OperaTypeArr := [1]   ;1赋值 2随机 3字符 4删除
+        this.VariableArr := ["Var1"]
+        this.CopyVariableArr := ["0"]
+        this.MinVariableArr := ["0"]
+        this.MaxVariableArr := ["10"]
     }
 }
 

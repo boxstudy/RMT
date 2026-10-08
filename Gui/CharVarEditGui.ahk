@@ -44,7 +44,7 @@ class CharVarEditGui {
 
     _BuildAndShow() {
         this._closed := false
-        title := this.ParentTile GetLang("字符变量编辑")
+        title := this.ParentTile GetLang("文本构造")
         this._title := title
         titleHeight := "30"
 
@@ -54,38 +54,35 @@ class CharVarEditGui {
         ; === 标题栏 ===
         chrome := XAMLHost.AddTitleBar(main, title, titleHeight)
 
-        ; === 内容 ===
-        body := main.Add("Grid").Grid_Row(1).Margin("10,6")
-        body.Rows("Auto", "*", "Auto", "Auto")
-        body.Cols("Auto", "*", "*", "*")
+        ; === 内容（与文件读写 / 运行Pro 的文本构造一致）===
+        body := main.Add("Grid").Grid_Row(1).Margin("10,8").ClipToBounds("False")
+        body.Rows("Auto", "6", "32", "48")
 
-        ; 行1：输出内容
-        body.Add("TextBlock").Grid_Row(1).Grid_Column(0).Text(GetLang("字符内容：")).VerticalAlignment("Top").Margin("0,4,0,0")
-        body.Add("TextBox").Grid_Row(1).Grid_Column(1).Grid_ColumnSpan(3).Name("TextCon").AcceptsReturn("True").TextWrapping("Wrap")
-            .VerticalContentAlignment("Top").Margin("4,2,0,0")
+        body.Add("TextBox").Grid_Row(0).Name("TextCon").AcceptsReturn("True").TextWrapping("Wrap")
+            .VerticalContentAlignment("Top").Padding("2,3").FontSize("11")
+            .Height("95").MinHeight("95")
             .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
             .ScrollViewer_VerticalScrollBarVisibility("Auto")
 
-        ; 行2：变量数组（追加名/追加值，同输出指令）
-        row3 := body.Add("StackPanel").Grid_Row(2).Grid_ColumnSpan(4).Orientation("Horizontal").VerticalAlignment("Center").Margin("0,4,0,0")
-        row3.Add("TextBlock").Text(GetLang("变量数组：")).VerticalAlignment("Center")
-        vt := row3.Add("ComboBox").Name("VarTypeCombo").Width(80).Height(26).MinHeight(26).Margin("4,0,0,0")
+        row1 := body.Add("Grid").Grid_Row(2).VerticalAlignment("Center")
+        row1.Cols("88", "80", "8", "200", "8", "70", "8", "70")
+        row1.Add("TextBlock").Grid_Column(0).Text(GetLang("变量数组：")).VerticalAlignment("Center")
+            .Foreground("{DynamicResource TextMain}").FontSize("12")
+        vt := row1.Add("ComboBox").Grid_Column(1).Name("VarTypeCombo").Height(26).MinHeight(26).VerticalAlignment("Center").SelectedIndex("0")
         vt.Add("ComboBoxItem").Content(GetLang("变量"))
         vt.Add("ComboBoxItem").Content(GetLang("数组"))
-        row3.Add("ComboBox").Name("VariCombo").Width(140).Height(26).MinHeight(26).Margin("4,0,0,0")
-        row3.Add("Button").Name("BtnAddName").Content(GetLang("追加名")).Height(26).MinHeight(26).Margin("8,0,0,0")
-        row3.Add("Button").Name("BtnAddValue").Content(GetLang("追加值")).Height(26).MinHeight(26).Margin("4,0,0,0")
+        row1.Add("ComboBox").Grid_Column(3).Name("VariCombo").Width("200").Height(26).MinHeight(26).VerticalAlignment("Center").HorizontalAlignment("Left").IsEditable("True")
+        row1.Add("Button").Grid_Column(5).Name("BtnAddName").Content(GetLang("追加名")).Height(26).MinHeight(26).VerticalAlignment("Center")
+        row1.Add("Button").Grid_Column(7).Name("BtnAddValue").Content(GetLang("追加值")).Height(26).MinHeight(26).VerticalAlignment("Center")
 
-        ; 行3：确定/取消
-        btnRow := body.Add("StackPanel").Grid_Row(3).Grid_ColumnSpan(4).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center").Margin("0,10,0,0")
-        btnRow.Add("Button").Name("BtnOk").Content(GetLang("确定")).Width(100).Height(32).MinHeight(32).Margin("4,0")
-        btnRow.Add("Button").Name("BtnCancel").Content(GetLang("取消")).Width(80).Height(32).MinHeight(32).Margin("4,0")
+        btnRow := body.Add("StackPanel").Grid_Row(3).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
+        AddCmdOkBtn(btnRow, "BtnOk")
 
         ; === 创建 XAMLHost ===
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", this.OwnerHwnd)
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="560" Height="230" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="580" SizeToContent="Height" Opacity="0"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
         this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '')
 
@@ -97,7 +94,6 @@ class CharVarEditGui {
         this.ui.OnEvent("BtnAddName", "Click", ObjBindMethod(this, "OnClickAddVarNameBtn"))
         this.ui.OnEvent("BtnAddValue", "Click", ObjBindMethod(this, "OnClickAddVarValueBtn"))
         this.ui.OnEvent("BtnOk", "Click", ObjBindMethod(this, "OnClickSureBtn"))
-        this.ui.OnEvent("BtnCancel", "Click", ObjBindMethod(this, "OnCancelClick"))
     }
 
     _ShowWindow() {

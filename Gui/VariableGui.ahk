@@ -35,6 +35,28 @@ class VariableGui {
         return (IsObject(this.ui) && this.ui.HasProp("wpfHwnd")) ? this.ui.wpfHwnd : 0
     }
 
+    _VarScrollStyles() {
+        return '<ControlTemplate x:Key="VarSbThumb" TargetType="Thumb">'
+            . '<Border x:Name="bd" Background="{DynamicResource ControlBorder}" CornerRadius="3" Opacity="0.7" Margin="1"/>'
+            . '<ControlTemplate.Triggers>'
+            . '<Trigger Property="IsMouseOver" Value="True"><Setter TargetName="bd" Property="Background" Value="{DynamicResource Accent}"/><Setter TargetName="bd" Property="Opacity" Value="1"/></Trigger>'
+            . '</ControlTemplate.Triggers></ControlTemplate>'
+            . '<Style x:Key="VarSbVertical" TargetType="ScrollBar">'
+            . '<Setter Property="OverridesDefaultStyle" Value="True"/>'
+            . '<Setter Property="Background" Value="Transparent"/>'
+            . '<Setter Property="Width" Value="8"/><Setter Property="MinWidth" Value="8"/>'
+            . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ScrollBar">'
+            . '<Grid Background="Transparent"><Track x:Name="PART_Track" IsDirectionReversed="true">'
+            . '<Track.Thumb><Thumb Template="{StaticResource VarSbThumb}"/></Track.Thumb>'
+            . '</Track></Grid></ControlTemplate></Setter.Value></Setter></Style>'
+            . '<Style x:Key="VarThemedSV" TargetType="ScrollViewer">'
+            . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ScrollViewer"><Grid>'
+            . '<Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/></Grid.ColumnDefinitions>'
+            . '<ScrollContentPresenter x:Name="PART_ScrollContentPresenter" Grid.Column="0" Margin="{TemplateBinding Padding}" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" CanContentScroll="{TemplateBinding CanContentScroll}"/>'
+            . '<ScrollBar x:Name="PART_VerticalScrollBar" Width="8" MinWidth="8" Grid.Column="1" Value="{TemplateBinding VerticalOffset}" Maximum="{TemplateBinding ScrollableHeight}" ViewportSize="{TemplateBinding ViewportHeight}" Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}" Style="{StaticResource VarSbVertical}"/>'
+            . '</Grid></ControlTemplate></Setter.Value></Setter></Style>'
+    }
+
     _EscapeXml(s) {
         s := StrReplace(s, "&", "&amp;")
         s := StrReplace(s, "<", "&lt;")
@@ -57,48 +79,59 @@ class VariableGui {
         chrome := XAMLHost.AddCmdTitleBar(main, title, titleHeight)
 
         ; === 内容 ===
-        body := main.Add("Grid").Grid_Row(1).Margin("10,6")
-        body.Rows("32", "Auto", "*")
-        body.Cols("*")
+        body := main.Add("Grid").Grid_Row(1).Margin("16,8,16,12")
+        body.Rows("36", "22", "168", "40")
 
-        ; 行0：备注 + IsIgnoreExist + 帮助
-        row0 := body.Add("StackPanel").Grid_Row(0).Orientation("Horizontal").VerticalAlignment("Center")
-        row0.Add("TextBlock").Text(GetLang("备注：")).VerticalAlignment("Center")
-        row0.Add("TextBox").Name("RemarkCon").Width(150).Height(24).MinHeight(24).Margin("4,0,0,0")
-        row0.Add("CheckBox").Name("IsIgnoreExist").Content(GetLang("如果变量存在则不改变数值")).VerticalAlignment("Center").Margin("20,0,0,0")
-        row0.Add("Button").Name("BtnHelp").Content("?").Width(30).Height(26).MinHeight(26).Margin("8,0,0,0")
+        ; 行0：备注 + 存在则不改 + 帮助
+        top := body.Add("Grid").Grid_Row(0)
+        top.Cols("48", "200", "Auto", "28")
+        top.Add("TextBlock").Grid_Column(0).Text(GetLang("备注：")).VerticalAlignment("Center")
+            .Foreground("{DynamicResource TextMain}").FontWeight("Bold")
+        top.Add("TextBox").Grid_Column(1).Name("RemarkCon").Width(200).Height(26).MinHeight(26).VerticalAlignment("Center")
+            .HorizontalAlignment("Left").VerticalContentAlignment("Center").Padding("2,0")
+            .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+        top.Add("CheckBox").Grid_Column(2).Name("IsIgnoreExist").Content(GetLang("如果变量存在则不改变数值"))
+            .VerticalAlignment("Center").Margin("12,0,8,0").Foreground("{DynamicResource TextMain}")
+        top.Add("Button").Grid_Column(3).Name("BtnHelp").Width(22).Height(22).MinHeight(22).Padding("0")
+            .VerticalAlignment("Center").Cursor("Hand").ToolTip(GetLang("系统变量说明"))
+            .FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").Content(Chr(0xE946))
+            .Foreground("{DynamicResource TextMain}").Background("{DynamicResource ControlBg}")
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
 
-        ; 行1：变量 GroupBox（§15.2 滚动区：行数不限，动态增删）
-        vg := body.Add("GroupBox").Grid_Row(1).Header(GetLang("变量："))
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").Foreground("{DynamicResource TextMain}").Margin("0,2,0,2")
-        vGrid := vg.Add("Grid").Margin("8,4")
-        ; §21.3：第5列「编辑」按钮（字符类型用）；§15.2：第6列「删除」按钮
-        vGrid.Cols("45", "105", "75", "90", "40", "40", "90", "90")
-        vGrid.Rows("26", "190")
-        vGrid.Add("TextBlock").Grid_Row(0).Grid_Column(0).Text(GetLang("开关")).HorizontalAlignment("Center").VerticalAlignment("Center")
-        vGrid.Add("TextBlock").Grid_Row(0).Grid_Column(1).Text(GetLang("变量名")).VerticalAlignment("Center")
-        vGrid.Add("TextBlock").Grid_Row(0).Grid_Column(2).Text(GetLang("变量类型")).VerticalAlignment("Center")
-        vGrid.Add("TextBlock").Grid_Row(0).Grid_Column(3).Text(GetLang("选择/输入")).VerticalAlignment("Center")
-        vGrid.Add("TextBlock").Grid_Row(0).Grid_Column(4).Text(GetLang("编辑")).HorizontalAlignment("Center").VerticalAlignment("Center")
-        vGrid.Add("TextBlock").Grid_Row(0).Grid_Column(5).Text(GetLang("删除")).HorizontalAlignment("Center").VerticalAlignment("Center")
-        vGrid.Add("TextBlock").Grid_Row(0).Grid_Column(6).Text(GetLang("最小值选择/输入")).VerticalAlignment("Center")
-        vGrid.Add("TextBlock").Grid_Row(0).Grid_Column(7).Text(GetLang("最大值选择/输入")).VerticalAlignment("Center")
-        ; 行区：ScrollViewer + 命名 StackPanel，行由 _VarRowXml 动态注入（AddXamlItem）
-        sv := vGrid.Add("ScrollViewer").Grid_Row(1).Grid_ColumnSpan(8)
+        ; 行1：列标题（边框上方，非粗体）
+        lab := body.Add("Grid").Grid_Row(1).Margin("1,0,9,0").HorizontalAlignment("Center")
+        lab.Cols("100", "8", "90", "8", "110", "8", "80", "8", "80", "8", "22")
+        lab.Add("TextBlock").Grid_Column(0).Text(GetLang("新变量")).HorizontalAlignment("Center").VerticalAlignment("Center")
+            .Foreground("{DynamicResource TextMain}")
+        lab.Add("TextBlock").Grid_Column(2).Text(GetLang("类型")).HorizontalAlignment("Center").VerticalAlignment("Center")
+            .Foreground("{DynamicResource TextMain}")
+        lab.Add("TextBlock").Grid_Column(4).Text(GetLang("值")).HorizontalAlignment("Center").VerticalAlignment("Center")
+            .Foreground("{DynamicResource TextMain}")
+        lab.Add("TextBlock").Grid_Column(6).Name("LabMin").Text(GetLang("最小值")).HorizontalAlignment("Center").VerticalAlignment("Center")
+            .Foreground("{DynamicResource TextMain}")
+        lab.Add("TextBlock").Grid_Column(8).Name("LabMax").Text(GetLang("最大值")).HorizontalAlignment("Center").VerticalAlignment("Center")
+            .Foreground("{DynamicResource TextMain}")
+
+        ; 行2：变量框（固定 6 行可视高度，可无限增删）
+        box := body.Add("Border").Grid_Row(2).Padding("0,4")
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").CornerRadius("4")
+            .Background("{DynamicResource ControlBg}").SnapsToDevicePixels("True")
+        sv := box.Add("ScrollViewer").MinHeight("0")
             .VerticalScrollBarVisibility("Auto").HorizontalScrollBarVisibility("Disabled")
-        sv.Add("StackPanel").Name("VarRowsPanel")
+            .Style("{StaticResource VarThemedSV}")
+        sv.Add("StackPanel").Name("VarRowsPanel").HorizontalAlignment("Center")
 
-        ; 行2：添加 + 确定
-        btnRow := body.Add("StackPanel").Grid_Row(2).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
-        btnRow.Add("Button").Name("BtnAddVar").Content(GetLang("添加变量")).Width(90).Height(32).MinHeight(32).Margin("4,0").Cursor("Hand")
-        AddCmdOkBtn(btnRow, "BtnOk", "8,0")
+        ; 行3：确定
+        btnRow := body.Add("StackPanel").Grid_Row(3).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
+        AddCmdOkBtn(btnRow, "BtnOk")
 
         ; === 创建 XAMLHost ===
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", this.OwnerHwnd)
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="720" Height="360" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="600" Height="330" Opacity="0"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
-        this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '')
+        this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', this._VarScrollStyles())
 
         ; === 事件 ===
         this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
@@ -106,9 +139,8 @@ class VariableGui {
         this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
         BindCmdEditorChrome(this.ui, "#指令手册/11-变量")
         this.ui.OnEvent("BtnHelp", "Click", ObjBindMethod(this, "OnClickTypeHelpBtn"))
-        this.ui.OnEvent("BtnAddVar", "Click", ObjBindMethod(this, "OnAddVarRow"))
         this.ui.OnEvent("BtnOk", "Click", ObjBindMethod(this, "OnClickSureBtn"))
-        ; 行区事件在 _RebuildRows 动态绑定（OpType/EditChar/DelRow 每行）
+        ; 行区事件在 _RebuildRows 动态绑定（OpType/EditChar/DelRow/BtnAddVar）
     }
 
     _ShowWindow() {
@@ -171,6 +203,12 @@ class VariableGui {
         return IsNumber(v) ? Integer(v) + 1 : 1
     }
 
+    ; 旧 OperaType 7（时间类别）在界面上按「时间」(5) 显示
+    _UiOpType(i) {
+        ot := this.Data.OperaTypeArr[i]
+        return ot == 7 ? 5 : ot
+    }
+
     Init(cmd) {
         cmdArr := cmd != "" ? SplitCommand(cmd) : []
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("变量")
@@ -197,7 +235,7 @@ class VariableGui {
             this.Data.ToggleArr := [1]
             this.Data.OperaTypeArr := [1]
             this.Data.VariableArr := ["Var1"]
-            this.Data.CopyVariableArr := ["1"]
+            this.Data.CopyVariableArr := ["0"]
             this.Data.MinVariableArr := ["0"]
             this.Data.MaxVariableArr := ["10"]
         }
@@ -224,27 +262,81 @@ class VariableGui {
             this.Data.MaxVariableArr.RemoveAt(this.Data.MaxVariableArr.Length)
     }
 
-    ; 每行 XAML（对齐表头 8 列）
+    _FlatBtnTemplate() {
+        return '<Button.Template><ControlTemplate TargetType="Button">'
+            . '<Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"'
+            . ' BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3"'
+            . ' SnapsToDevicePixels="True">'
+            . '<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>'
+            . '</Border>'
+            . '<ControlTemplate.Triggers>'
+            . '<Trigger Property="IsMouseOver" Value="True">'
+            . '<Setter TargetName="Bd" Property="Background" Value="{DynamicResource EditHoverBg}"/>'
+            . '<Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}"/>'
+            . '</Trigger>'
+            . '<Trigger Property="IsPressed" Value="True">'
+            . '<Setter TargetName="Bd" Property="Background" Value="{DynamicResource ControlBorder}"/>'
+            . '</Trigger>'
+            . '</ControlTemplate.Triggers>'
+            . '</ControlTemplate></Button.Template>'
+    }
+
+    _IconBtnXml(name, glyph, tip, vis := "Visible", col := "", margin := "") {
+        colAttr := col != "" ? ' Grid.Column="' col '"' : ""
+        marAttr := margin != "" ? ' Margin="' margin '"' : ""
+        return '<Button Name="' name '"' colAttr marAttr ' Width="22" Height="22" MinHeight="22" Padding="0" Cursor="Hand"'
+            . ' FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Content="' glyph '"'
+            . ' ToolTip="' this._EscapeXml(tip) '" Visibility="' vis '"'
+            . ' Foreground="{DynamicResource TextMain}" Background="{DynamicResource ControlBg}"'
+            . ' BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1"'
+            . ' HorizontalAlignment="Center" VerticalAlignment="Center">'
+            . this._FlatBtnTemplate()
+            . '</Button>'
+    }
+
+    ; 每行 XAML（对齐边框上方列标题）
     _VarRowXml(i) {
         ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
         opItems := ""
         for t in GetLangArr(["数值", "随机数值", "字符", "系统", "时间", "删除"])
             opItems .= '<ComboBoxItem Content="' t '"/>'
-        return '<Grid ' ns ' Margin="0,2">'
+        combo := ' Height="26" MinHeight="26" VerticalContentAlignment="Center"'
+            . ' Background="{DynamicResource InputBg}" Foreground="{DynamicResource InputText}"'
+            . ' BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1"'
+        ot := (IsObject(this.Data) && this.Data.HasOwnProp("OperaTypeArr") && this.Data.OperaTypeArr.Length >= i) ? this.Data.OperaTypeArr[i] : 1
+        if (ot == 7)
+            ot := 5
+        copyOn := ot == 1 || ot == 3 || ot == 4 || ot == 5
+        mmOn := ot == 2
+        copyEn := copyOn ? "True" : "False"
+        copyOp := copyOn ? "1" : "0.45"
+        mmEn := mmOn ? "True" : "False"
+        mmOp := mmOn ? "1" : "0.45"
+        return '<Grid ' ns ' Height="28" HorizontalAlignment="Center">'
             . '<Grid.ColumnDefinitions>'
-            . '<ColumnDefinition Width="45"/><ColumnDefinition Width="105"/><ColumnDefinition Width="75"/>'
-            . '<ColumnDefinition Width="90"/><ColumnDefinition Width="40"/><ColumnDefinition Width="40"/>'
-            . '<ColumnDefinition Width="90"/><ColumnDefinition Width="90"/>'
+            . '<ColumnDefinition Width="100"/><ColumnDefinition Width="8"/><ColumnDefinition Width="90"/>'
+            . '<ColumnDefinition Width="8"/><ColumnDefinition Width="110"/><ColumnDefinition Width="8"/>'
+            . '<ColumnDefinition Width="80"/><ColumnDefinition Width="8"/><ColumnDefinition Width="80"/>'
+            . '<ColumnDefinition Width="8"/><ColumnDefinition Width="22"/>'
             . '</Grid.ColumnDefinitions>'
-            . '<CheckBox Grid.Column="0" Name="Tog' i '" HorizontalAlignment="Center" VerticalAlignment="Center"/>'
-            . '<ComboBox Grid.Column="1" Name="Var' i '" Height="24" MinHeight="24" IsEditable="True" Margin="0,0,4,0" VerticalContentAlignment="Center"/>'
-            . '<ComboBox Grid.Column="2" Name="OpType' i '" Height="24" MinHeight="24" Margin="0,0,4,0">' opItems '</ComboBox>'
-            . '<ComboBox Grid.Column="3" Name="Copy' i '" Height="24" MinHeight="24" IsEditable="True" Margin="0,0,4,0" VerticalContentAlignment="Center"/>'
-            . '<Button Grid.Column="4" Name="EditChar' i '" Content="✎" Height="22" MinHeight="22" Padding="0" Margin="0,0,4,0" Cursor="Hand" Visibility="Collapsed"/>'
-            . '<Button Grid.Column="5" Name="DelRow' i '" Content="×" Height="22" MinHeight="22" Padding="0" Margin="0,0,4,0" Cursor="Hand" FontSize="14" ToolTip="' GetLang("删除该变量") '"/>'
-            . '<ComboBox Grid.Column="6" Name="Min' i '" Height="24" MinHeight="24" IsEditable="True" Margin="0,0,4,0" VerticalContentAlignment="Center"/>'
-            . '<ComboBox Grid.Column="7" Name="Max' i '" Height="24" MinHeight="24" IsEditable="True" VerticalContentAlignment="Center"/>'
+            . '<ComboBox Grid.Column="0" Name="Var' i '" IsEditable="True"' combo '/>'
+            . '<ComboBox Grid.Column="2" Name="OpType' i '"' combo '>' opItems '</ComboBox>'
+            . '<Grid Grid.Column="4">'
+            . '<Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>'
+            . '<ComboBox Grid.Column="0" Name="Copy' i '" IsEditable="True" IsEnabled="' copyEn '" Opacity="' copyOp '"' combo '/>'
+            . this._IconBtnXml("EditChar" i, "&#xE70F;", GetLang("编辑"), "Collapsed", "1", "8,0,0,0")
             . '</Grid>'
+            . '<ComboBox Grid.Column="6" Name="Min' i '" IsEditable="True" IsEnabled="' mmEn '" Opacity="' mmOp '"' combo '/>'
+            . '<ComboBox Grid.Column="8" Name="Max' i '" IsEditable="True" IsEnabled="' mmEn '" Opacity="' mmOp '"' combo '/>'
+            . this._IconBtnXml("DelRow" i, "&#xE74D;", GetLang("删除该变量"), "Visible", "10")
+            . '</Grid>'
+    }
+
+    _AddVarBtnXml() {
+        ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
+        return '<StackPanel ' ns ' Orientation="Horizontal" Height="28" Margin="0,2,0,0" HorizontalAlignment="Center">'
+            . this._IconBtnXml("BtnAddVar", "&#xE710;", GetLang("添加变量"))
+            . '</StackPanel>'
     }
 
     ; 重建全部行：ClearItems + 注入 + 绑定事件 + 填值
@@ -256,6 +348,7 @@ class VariableGui {
         batch.Push({ControlName: "VarRowsPanel", PropertyName: "ClearItems", Value: ""})
         loop this.Data.ToggleArr.Length
             batch.Push({ControlName: "VarRowsPanel", PropertyName: "AddXamlItem", Value: this._VarRowXml(A_Index)})
+        batch.Push({ControlName: "VarRowsPanel", PropertyName: "AddXamlItem", Value: this._AddVarBtnXml()})
         this.ui.BatchUpdate(batch)
         this._BindRowEvents()
         this._FillRows()
@@ -276,6 +369,7 @@ class VariableGui {
             this._Bind("EditChar" i, "Click", ObjBindMethod(this, "OnClickEditChar", i))
             this._Bind("DelRow" i, "Click", ObjBindMethod(this, "OnDelVarRow", i))
         }
+        this._Bind("BtnAddVar", "Click", ObjBindMethod(this, "OnAddVarRow"))
     }
 
     _FillRows() {
@@ -284,10 +378,12 @@ class VariableGui {
         batch := []
         loop this.Data.ToggleArr.Length {
             i := A_Index
-            batch.Push({ControlName: "Tog" i, PropertyName: "IsChecked", Value: this.Data.ToggleArr[i] ? "True" : "False"})
             this._BatchSetCombo(batch, "Var" i, GetGuiVarArr(), GetLang(this.Data.VariableArr[i]))
-            batch.Push({ControlName: "OpType" i, PropertyName: "SelectedIndex", Value: String(this.Data.OperaTypeArr[i] - 1)})
-            this._BatchSetCombo(batch, "Copy" i, this.GetGuiVarArrByType(this.Data.OperaTypeArr[i]), GetLang(this.Data.CopyVariableArr[i]))
+            batch.Push({ControlName: "OpType" i, PropertyName: "SelectedIndex", Value: String(this._UiOpType(i) - 1)})
+            copyVal := this.Data.CopyVariableArr[i]
+            if (copyVal == "" && this._UiOpType(i) == 1)
+                copyVal := "0"
+            this._BatchSetCombo(batch, "Copy" i, this.GetGuiVarArrByType(this._UiOpType(i)), GetLang(copyVal))
             this._BatchSetCombo(batch, "Min" i, GetGuiVarArr(), GetLang(this.Data.MinVariableArr[i]))
             this._BatchSetCombo(batch, "Max" i, GetGuiVarArr(), GetLang(this.Data.MaxVariableArr[i]))
         }
@@ -339,9 +435,11 @@ class VariableGui {
             case 4:
                 return GetSystemVarArr()
             case 5:
-                return GetGuiVarArr()   ; 时间变量：从全局变量池选择
+                return GetTimeCategoryVarArr()
             case 6:
                 return []               ; 删除：无需源值
+            case 7:
+                return GetTimeCategoryVarArr()   ; 旧时间类别
         }
         return []
     }
@@ -356,11 +454,16 @@ class VariableGui {
             EnableCopy := OperaTypeValue == 1 || OperaTypeValue == 3 || OperaTypeValue == 4 || OperaTypeValue == 5
             EnableMinMax := OperaTypeValue == 2
             batch.Push({ControlName: "Copy" i, PropertyName: "IsEnabled", Value: EnableCopy ? "True" : "False"})
+            batch.Push({ControlName: "Copy" i, PropertyName: "Opacity", Value: EnableCopy ? "1" : "0.45"})
             batch.Push({ControlName: "Min" i, PropertyName: "IsEnabled", Value: EnableMinMax ? "True" : "False"})
             batch.Push({ControlName: "Max" i, PropertyName: "IsEnabled", Value: EnableMinMax ? "True" : "False"})
-            ; §21.3：字符类型时显示「编辑」按钮
+            batch.Push({ControlName: "Min" i, PropertyName: "Opacity", Value: EnableMinMax ? "1" : "0.45"})
+            batch.Push({ControlName: "Max" i, PropertyName: "Opacity", Value: EnableMinMax ? "1" : "0.45"})
+            ; 字符类型时显示「编辑」按钮（叠在「值」框右侧，不占列间距）
             batch.Push({ControlName: "EditChar" i, PropertyName: "Visibility", Value: OperaTypeValue == 3 ? "Visible" : "Collapsed"})
             CurValue := GetLang(this.ui.Query("Copy" i))
+            if ((CurValue == "" || CurValue == "True" || CurValue == "False") && OperaTypeValue == 1)
+                CurValue := "0"
             DLArr := this.GetGuiVarArrByType(OperaTypeValue)
             this._BatchSetCombo(batch, "Copy" i, DLArr, CurValue)
         }
@@ -391,19 +494,18 @@ class VariableGui {
         str2 := GetLang("宏循环次数：配置整体执行的次数")
         str3 := GetLang("句柄ID：实时获取当前鼠标窗口句柄ID")
         str4 := GetLang("当前鼠标颜色：实时获取当前鼠标指针下颜色（形如EEFF44）")
-        str5 := GetLang("当前鼠标坐标X：实时获取当前鼠标X")
-        str6 := GetLang("当前鼠标坐标Y：实时获取当前鼠标Y")
-        str7 := GetLang("当前日期：实时获取当前日期（形如2026-04-12）")
-        str8 := GetLang("当前时间戳：当前Unix时间戳（秒）")
-        str9 := GetLang("当前年：当前年份（形如2026）")
-        str10 := GetLang("当前月：当前月份（形如4）")
-        str11 := GetLang("当前日：当前日（形如12）")
-        str12 := GetLang("当前时：当前小时（形如19）")
-        str13 := GetLang("当前分：当前分钟（形如46）")
-        str14 := GetLang("当前秒：当前秒（形如58）")
-        str15 := GetLang("当前星期几：形如1-7，1代表周一")
-        str16 := GetLang("当前剪切板：当前剪切板文本，非文本时为「空」")
-        str := Format("{}`n{}`n{}`n{}`n{}`n{}`n{}`n{}`n{}`n{}`n{}`n{}`n{}`n{}`n{}`n{}", str1, str2, str3, str4, str5, str6, str7, str8, str9, str10, str11, str12, str13, str14, str15, str16)
+        str5 := GetLang("当前坐标X：实时获取当前鼠标X")
+        str6 := GetLang("当前坐标Y：实时获取当前鼠标Y")
+        str7 := GetLang("当前剪切板：仅剪切板是文本时有效，否则变量值为「空」")
+        str8 := GetLang("当前年：当前年份（形如2026）")
+        str9 := GetLang("当前月：当前月份（形如4）")
+        str10 := GetLang("当前周：当前是一年中的第几周（形如41）")
+        str11 := GetLang("当前星期：形如1-7，1代表周一")
+        str12 := GetLang("当前日：当前日（形如12）")
+        str13 := GetLang("当前时：当前小时（形如19）")
+        str14 := GetLang("当前分：当前分钟（形如46）")
+        str15 := GetLang("当前秒：当前秒（形如58）")
+        str := Format("{}`n{}`n{}`n{}`n{}`n{}`n{}`n{}`n{}`n{}`n{}`n{}`n{}`n{}`n{}", str1, str2, str3, str4, str5, str6, str7, str8, str9, str10, str11, str12, str13, str14, str15)
         MsgBox(str, GetLang("系统变量说明"), "Owner" this.Hwnd())
     }
 
@@ -420,7 +522,7 @@ class VariableGui {
 
     CheckIfValid() {
         loop this.Data.ToggleArr.Length {
-            if (this.ui.Query("Tog" A_Index) == "True" && !CheckVarNameIfValid(this.ui.Query("Var" A_Index)))
+            if (!CheckVarNameIfValid(this.ui.Query("Var" A_Index)))
                 return false
         }
         return true
@@ -435,27 +537,25 @@ class VariableGui {
             Remark := ""
             loop this.Data.ToggleArr.Length {
                 i := A_Index
-                if (this.ui.Query("Tog" i) == "True") {
-                    CurVarRemark := this.ui.Query("Var" i)
-                    if (this._OpTypeValue(i) == 1) {
-                        if (IsNumber(this.ui.Query("Copy" i))) {
-                            CurVarRemark .= "=" this.ui.Query("Copy" i)
-                        }
+                CurVarRemark := this.ui.Query("Var" i)
+                if (this._OpTypeValue(i) == 1) {
+                    if (IsNumber(this.ui.Query("Copy" i))) {
+                        CurVarRemark .= "=" this.ui.Query("Copy" i)
                     }
-                    else if (this._OpTypeValue(i) == 2) {
-                        CurVarRemark .= GetLang("随机")
-                        isNumSpan := IsNumber(this.ui.Query("Min" i)) && IsNumber(this.ui.Query("Max" i))
-                        if (isNumSpan)
-                            CurVarRemark .= this.ui.Query("Min" i) "~" this.ui.Query("Max" i)
-                    }
-                    else if (this._OpTypeValue(i) == 5) {
-                        CurVarRemark .= GetLang("时间")
-                    }
-                    else if (this._OpTypeValue(i) == 6) {
-                        CurVarRemark .= GetLang("删除")
-                    }
-                    Remark .= CurVarRemark "&"
                 }
+                else if (this._OpTypeValue(i) == 2) {
+                    CurVarRemark .= GetLang("随机")
+                    isNumSpan := IsNumber(this.ui.Query("Min" i)) && IsNumber(this.ui.Query("Max" i))
+                    if (isNumSpan)
+                        CurVarRemark .= this.ui.Query("Min" i) "~" this.ui.Query("Max" i)
+                }
+                else if (this._OpTypeValue(i) == 5) {
+                    CurVarRemark .= GetLang("时间")
+                }
+                else if (this._OpTypeValue(i) == 6) {
+                    CurVarRemark .= GetLang("删除")
+                }
+                Remark .= CurVarRemark "&"
             }
             Remark := RTrim(Remark, "&")
         }
@@ -467,7 +567,7 @@ class VariableGui {
         this.Data.IsIgnoreExist := this.ui.Query("IsIgnoreExist") == "True" ? 1 : 0
         loop this.Data.ToggleArr.Length {
             i := A_Index
-            this.Data.ToggleArr[i] := this.ui.Query("Tog" i) == "True" ? 1 : 0
+            this.Data.ToggleArr[i] := 1
             this.Data.VariableArr[i] := GetLangKey(this.ui.Query("Var" i))
             this.Data.OperaTypeArr[i] := this._OpTypeValue(i)
             this.Data.CopyVariableArr[i] := GetLangKey(this.ui.Query("Copy" i))

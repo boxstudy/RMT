@@ -1065,7 +1065,12 @@ OnVariable(tableItem, cmd, index) {
                 return
         }
 
-        if (Data.OperaTypeArr[A_Index] == 5) {   ;时间：获取当前时间存入变量（或从源变量读取）
+        if (Data.OperaTypeArr[A_Index] == 7 || (Data.OperaTypeArr[A_Index] == 5 && IsTimeCategoryName(Data.CopyVariableArr[A_Index]))) {   ;时间（原时间类别）
+            hasValue := TryGetTabVarValue(&Value, tableItem, index, Data.CopyVariableArr[A_Index])
+            if (!hasValue)
+                return
+        }
+        else if (Data.OperaTypeArr[A_Index] == 5) {   ;旧「时间」：取当前时间字符串（兼容已保存宏）
             srcVal := Data.CopyVariableArr[A_Index]
             if (srcVal != "") {
                 hasSrc := TryGetTabVarValue(&srcTime, tableItem, index, srcVal, false)

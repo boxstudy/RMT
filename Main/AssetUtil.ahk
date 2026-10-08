@@ -3459,10 +3459,10 @@ TryGetVarValue(&Value, varName, variTip := true, tableVarMap := Map()) {
     }
 
     switch varName {
-        case "当前鼠标坐标X", "当前鼠标坐标Y":
+        case "当前鼠标坐标X", "当前鼠标坐标Y", "当前坐标X", "当前坐标Y":
             CoordMode("Mouse", "Screen")
             MouseGetPos &mouseX, &mouseY
-            Value := varName == "当前鼠标坐标X" ? mouseX : mouseY
+            Value := (varName == "当前鼠标坐标X" || varName == "当前坐标X") ? mouseX : mouseY
             return true
         case "当前日期":
             Value := FormatTime(A_Now, "yyyy-MM-dd")
@@ -3476,8 +3476,11 @@ TryGetVarValue(&Value, varName, variTip := true, tableVarMap := Map()) {
         case "当前秒":
             Value := A_Sec
             return true
-        case "当前星期几":
+        case "当前星期几", "当前星期":
             Value := A_WDay == 1 ? 7 : A_WDay - 1
+            return true
+        case "当前周":
+            Value := Integer(SubStr(A_YWeek, 5))
             return true
         ; §21 数值型时间变量（旧「当前时间/当前秒」字符串型不再列出，此处保留兼容）
         case "当前时间戳":
@@ -3499,12 +3502,14 @@ TryGetVarValue(&Value, varName, variTip := true, tableVarMap := Map()) {
             Value := A_Min
             return true
         case "当前剪切板":
-            ; 仅当剪切板内容是文本时有效；否则值为「空」（中文便于理解）
+            ; 仅剪切板是文本时取值；图片/文件等非文本，或没有文本内容时为「空」
             Value := "空"
-            try {
-                clipText := A_Clipboard
-                if (clipText != "")
-                    Value := clipText
+            if (DllCall("IsClipboardFormatAvailable", "UInt", 13) || DllCall("IsClipboardFormatAvailable", "UInt", 1)) {
+                try {
+                    clipText := A_Clipboard
+                    if (Type(clipText) == "String" && clipText != "")
+                        Value := clipText
+                }
             }
             return true
         case "当前鼠标颜色":
@@ -3924,11 +3929,40 @@ GetBrightness() {
 }
 
 GetSystemVarArr() {
-    ; §21：时间类变量改为数值型（当前时/分/秒/星期几 返回数值，当前时间戳=Unix秒）；
-    ; 新增 当前剪切板；旧「当前时间/当前时间(秒)/当前秒」不再列出（执行端保留兼容）
-    return [GetLang("循环次数"), GetLang("宏循环次数"), GetLang("句柄ID"), GetLang("当前鼠标颜色"), GetLang("当前鼠标坐标X"),
-    GetLang("当前鼠标坐标Y"), GetLang("当前日期"), GetLang("当前时间戳"), GetLang("当前年"), GetLang("当前月"), GetLang("当前日"),
-    GetLang("当前时"), GetLang("当前分"), GetLang("当前秒"), GetLang("当前星期几"), GetLang("当前剪切板")]
+    return [GetLang("循环次数"), GetLang("宏循环次数"), GetLang("句柄ID"), GetLang("当前鼠标颜色"),
+    GetLang("当前坐标X"), GetLang("当前坐标Y"), GetLang("当前剪切板")]
+}
+
+GetTimeCategoryVarArr() {
+    return [GetLang("当前年"), GetLang("当前月"), GetLang("当前周"), GetLang("当前星期"), GetLang("当前日"),
+    GetLang("当前时"), GetLang("当前分"), GetLang("当前秒")]
+}
+
+; 系统 + 时间（去重），用于保留名、多语言替换、变量下拉「所有」
+GetSpecialVarArr() {
+    seen := Map()
+    arr := []
+    extra := [GetLang("当前鼠标坐标X"), GetLang("当前鼠标坐标Y")]
+    for src in [GetSystemVarArr(), GetTimeCategoryVarArr(), extra] {
+        for v in src {
+            if (v != "" && !seen.Has(v)) {
+                seen[v] := true
+                arr.Push(v)
+            }
+        }
+    }
+    return arr
+}
+
+IsTimeCategoryName(name) {
+    if (name == "")
+        return false
+    key := GetLangKey(name)
+    for v in GetTimeCategoryVarArr() {
+        if (name == v || key == v || key == GetLangKey(v))
+            return true
+    }
+    return false
 }
 
 DoCompare(&currentComparison, tableItem, index, CompareType, Name, OtherValue) {

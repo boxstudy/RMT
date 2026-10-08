@@ -855,7 +855,7 @@ class MergeUtil {
     static IsSystemVarName(name) {
         if (name == "")
             return true
-        for v in GetSystemVarArr() {
+        for v in GetSpecialVarArr() {
             if (name == v || name == GetLangKey(v))
                 return true
         }

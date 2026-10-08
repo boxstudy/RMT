@@ -122,12 +122,12 @@ GetGuiVarArr(Mode := 0) {
     ResultArr := []
     ResultMap := Map()
     SpecialKeyArr0 := []
-    SpecialKeyArr1 := GetSystemVarArr()     ;所有系统变量
+    SpecialKeyArr1 := GetSpecialVarArr()     ;系统 + 时间类别
     SpecialKeyArr2 := [GetLang("循环次数"), GetLang("宏循环次数")]
-    SpecialKeyArr3 := [GetLang("当前鼠标坐标X"), GetLang("当前鼠标坐标Y")]
+    SpecialKeyArr3 := [GetLang("当前坐标X"), GetLang("当前坐标Y")]
     SpecialKeyArr4 := [GetLang("句柄ID")]
     SpecialKeyArr5 := [GetLang("当前鼠标颜色")]
-    SpecialKeyArr6 := [GetLang("循环次数"), GetLang("宏循环次数"), GetLang("当前鼠标坐标X"), GetLang("当前鼠标坐标Y")]
+    SpecialKeyArr6 := [GetLang("循环次数"), GetLang("宏循环次数"), GetLang("当前坐标X"), GetLang("当前坐标Y")]
     SpecialMap := Map(0, SpecialKeyArr0, 1, SpecialKeyArr1, 2, SpecialKeyArr2, 3, SpecialKeyArr3, 4, SpecialKeyArr4, 5,
         SpecialKeyArr5, 6, SpecialKeyArr6)
     SpecialKeyArr := SpecialMap[Mode]
