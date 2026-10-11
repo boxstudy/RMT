@@ -305,15 +305,15 @@ class MacroGraphHandlersMixin {
         return RegExReplace(name, "\d+$", "") == GetLang("搜索Pro")
     }
 
-    _IsSearchMultiName(name) {
+    _IsSearchComboName(name) {
         if (name == "")
             return false
         n := RegExReplace(name, "\d+$", "")
-        return n == GetLang("组合搜索") || n == GetLang("搜索Multi") || n == "组合搜索" || n == "搜索Multi"
+        return n == GetLang("搜索Combo") || n == GetLang("组合搜索") || n == GetLang("搜索Multi") || n == "搜索Combo" || n == "组合搜索" || n == "搜索Multi"
     }
 
     _IsSearchFamilyName(name) {
-        return this._IsSearchName(name) || this._IsSearchProName(name) || this._IsSearchMultiName(name)
+        return this._IsSearchName(name) || this._IsSearchProName(name) || this._IsSearchComboName(name)
     }
 
     ; 如果Pro序列码判定（如 "如果Pro1"）
@@ -1223,8 +1223,15 @@ class MacroGraphHandlersMixin {
         return ""
     }
 
+    _InputTypeKeys(cur := "") {
+        keys := ["弹窗", "状态", "选择", "多选"]
+        if (cur == "继续" || cur == "继续&取消")
+            keys.Push(cur)
+        return keys
+    }
+
     _InputTypeIndex(typeKey) {
-        typeNames := GetLangArr(["弹窗", "状态", "继续", "继续&取消"])
+        typeNames := GetLangArr(this._InputTypeKeys(typeKey))
         target := GetLang(typeKey)
         Loop typeNames.Length {
             if (typeNames[A_Index] == target)
@@ -1234,7 +1241,7 @@ class MacroGraphHandlersMixin {
     }
 
     _InputTypeFromText(text) {
-        for key in ["弹窗", "状态", "继续", "继续&取消"] {
+        for key in ["弹窗", "状态", "选择", "多选", "继续", "继续&取消"] {
             if (text == GetLang(key))
                 return key
         }
@@ -1242,7 +1249,7 @@ class MacroGraphHandlersMixin {
     }
 
     _InputTypeFromState(key, state, fallback := "弹窗") {
-        keys := ["弹窗", "状态", "继续", "继续&取消"]
+        keys := this._InputTypeKeys(fallback)
         idx := this._ComboSelectedIndex(key)
         if (idx >= 0 && idx < keys.Length)
             return keys[idx + 1]
@@ -1384,7 +1391,7 @@ class MacroGraphHandlersMixin {
             if (val == "")
                 return
             data.SaveName := GetVarName(val)
-            if (data.Type == "弹窗" || data.Type == "状态")
+            if (data.Type == "弹窗" || data.Type == "状态" || data.Type == "选择" || data.Type == "多选")
                 MySoftData.GlobalVariMap[data.SaveName] := true
             SaveMacroCMDData(data)
         }
@@ -1397,7 +1404,7 @@ class MacroGraphHandlersMixin {
             return
         typeKey := data.Type
         showCancel := (typeKey == "继续&取消")
-        showRes := (typeKey == "弹窗" || typeKey == "状态")
+        showRes := (typeKey == "弹窗" || typeKey == "状态" || typeKey == "选择" || typeKey == "多选")
         ; 同步控件值，确保切换类型后内容与数据模型一致
         if (ObjHasOwnProp(data, "CancelType"))
             this.ui.Update("InCancelCmb_" id, "SelectedIndex", this._InputCancelTypeIndex(data.CancelType))
@@ -1551,7 +1558,7 @@ class MacroGraphHandlersMixin {
             this._FlushDeltaMoveInline(id, d, state)
         else if (IsMoveProCmd(d.type))
             this._FlushMMProInline(id, state)
-        else if (d.type == GetLang("搜索") || d.type == GetLang("搜索Pro") || d.type == GetLang("组合搜索") || d.type == GetLang("搜索Multi"))
+        else if (d.type == GetLang("搜索") || d.type == GetLang("搜索Pro") || d.type == GetLang("搜索Combo") || d.type == GetLang("搜索Multi"))
             this._FlushSearchInline(id, state)
         else if (d.type == GetLang("输入"))
             this._FlushInputInline(id, state)

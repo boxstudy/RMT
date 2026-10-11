@@ -115,8 +115,8 @@ class MacroGraphNodeUIMixin {
         else if (d.type == GetLang("搜索Pro")) {
             this._FillSearchProBody(id, d, body)
         }
-        else if (d.type == GetLang("组合搜索") || d.type == GetLang("搜索Multi")) {
-            this._FillSearchMultiBody(id, d, body)
+        else if (d.type == GetLang("搜索Combo") || d.type == GetLang("搜索Multi")) {
+            this._FillSearchComboBody(id, d, body)
         }
         else if (d.type == GetLang("搜索")) {
             st := (d.HasOwnProp("searchType") && d.searchType >= 1 && d.searchType <= 3) ? d.searchType : 1
@@ -166,8 +166,8 @@ class MacroGraphNodeUIMixin {
             cancelKey := d.HasOwnProp("cancelType") ? d.cancelType : "终止当前宏"
             saveName := d.HasOwnProp("saveName") ? d.saveName : "Data"
             showCancel := (typeKey == "继续&取消")
-            showRes := (typeKey == "弹窗" || typeKey == "状态")
-            typeNames := GetLangArr(["弹窗", "状态", "继续", "继续&取消"])
+            showRes := (typeKey == "弹窗" || typeKey == "状态" || typeKey == "选择" || typeKey == "多选")
+            typeNames := GetLangArr(this._InputTypeKeys(typeKey))
             pauseNames := GetLangArr(["暂停当前宏", "暂停所有宏"])
             cancelNames := GetLangArr(["终止当前宏", "终止所有宏"])
             varList := GetGuiVarArr()
@@ -269,7 +269,7 @@ class MacroGraphNodeUIMixin {
         this._AddSearchSaveCard(body, id, false, d, varList)
     }
 
-    _FillSearchMultiBody(id, d, body) {
+    _FillSearchComboBody(id, d, body) {
         cnt := d.HasOwnProp("searchCount") ? d.searchCount : 1
         cntText := (cnt == -1 || cnt == "-1") ? GetLang("无限") : "" cnt
         sat := d.HasOwnProp("satisfyCount") ? d.satisfyCount : -1
@@ -512,7 +512,7 @@ class MacroGraphNodeUIMixin {
 
     ; 搜索/如果：是否为「真假双分支」父类型（不含如果Pro）
     _IsBranchPairParentType(type) {
-        return type == GetLang("如果") || type == GetLang("搜索") || type == GetLang("搜索Pro") || type == GetLang("组合搜索") || type == GetLang("搜索Multi")
+        return type == GetLang("如果") || type == GetLang("搜索") || type == GetLang("搜索Pro") || type == GetLang("搜索Combo") || type == GetLang("搜索Multi")
     }
 
     ; 真/假分支默认相对 dy（grid=20）。
@@ -1443,7 +1443,7 @@ class MacroGraphNodeUIMixin {
     }
 
     _IsSearchTypeTitle(title) {
-        return title == GetLang("搜索") || title == GetLang("搜索Pro") || title == GetLang("组合搜索") || title == GetLang("搜索Multi")
+        return title == GetLang("搜索") || title == GetLang("搜索Pro") || title == GetLang("搜索Combo") || title == GetLang("搜索Multi")
     }
 
     ; 由指令类型名查找对应图标 URI（匹配 CmdList 顺序）；开始节点等无对应项返回空

@@ -1626,10 +1626,28 @@ class SerialData {
 class InputData {
     __New() {
         this.SerialStr := ""
-        this.Type := "弹窗"                 ;弹窗 状态 继续 继续&取消
-        this.PauseType := "暂停当前宏"      ;交互时：不暂停 暂停当前宏  暂停所有宏
-        this.CancelType := "终止当前宏"     ;取消时  终止当前宏  终止所有宏
-        this.SaveName := "Data"             ;保存的变量名或数组名
+        this.Type := "弹窗"                 ;弹窗 状态 选择 多选（旧：继续 继续&取消 仍可执行）
+        this.PauseType := "暂停当前宏"      ;交互时：暂停当前宏  暂停所有宏
+        this.CancelType := "终止当前宏"     ;取消时  终止当前宏  终止所有宏（旧 继续&取消）
+        this.SaveName := "Data"             ;保存的变量名
+        this.Prompt := "提示文本"
+        this.Options := "选项一，选项二，选项三"   ;选择/多选：中英文逗号或换行分隔
+        this.DefaultValue := ""             ;弹窗/选择/多选默认值；状态默认 1
+        this.TimeoutMs := 0                 ;0=不超时
+        this.TimeoutAction := "无"          ;无 用默认值 保持原值 终止当前宏 终止所有宏
+    }
+}
+
+class WaitConfirmData {
+    __New() {
+        this.SerialStr := ""
+        this.Type := "继续"                 ;继续  继续&终止&暂停
+        this.PauseType := "暂停当前宏"      ;等待期间：暂停当前宏  暂停所有宏
+        this.Prompt := ""                   ;提示文本
+        this.TimeoutMs := 0                 ;0=不超时
+        this.TimeoutAction := "无"          ;无 自动继续 自动终止 自动暂停
+        this.TerminateType := "终止当前宏"  ;点终止：终止当前宏  终止所有宏
+        this.PauseBtnType := "暂停当前宏"   ;点暂停：暂停当前宏  暂停所有宏
     }
 }
 
@@ -1661,6 +1679,21 @@ class CommentData {
     __New() {
         this.SerialStr := ""
         this.Content := GetLang("请输入注释内容")
+    }
+}
+
+class CountDownData {
+    __New() {
+        this.SerialStr := ""
+        this.Seconds := 10
+        this.Hour := 0
+        this.Min := 0
+        this.Sec := 10
+        this.WaitEnd := "等待结束"          ;等待结束  不等待
+        this.PosX := 200
+        this.PosY := 200
+        this.FontSize := 32
+        this.Alpha := 70                    ;0-100
     }
 }
 

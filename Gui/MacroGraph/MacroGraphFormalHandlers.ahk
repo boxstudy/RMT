@@ -2318,6 +2318,10 @@ class MacroGraphFormalHandlersMixin {
             idx := d.HasOwnProp("ssType") ? d.ssType : 1
             return GetLang(ssKeys[idx])
         }
+        if (d.type == GetLang("倒计时")) {
+            sec := d.HasOwnProp("cdSec") ? d.cdSec : 10
+            return CountDownFormatText(sec, sec >= 3600 ? "hhmmss" : (sec >= 60 ? "mmss" : "ss"))
+        }
         if (d.type == GetLang("注释")) {
             c := d.HasOwnProp("commentContent") ? d.commentContent : ""
             if (StrLen(c) > 28)

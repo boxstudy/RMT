@@ -535,7 +535,11 @@ InitFilePath() {
     global MacroFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\MacroFile.toml"
     global SearchFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\SearchFile.toml"
     global SearchProFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\SearchProFile.toml"
-    global SearchMultiFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\SearchMultiFile.toml"
+    global SearchComboFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\SearchComboFile.toml"
+    oldSearchMultiFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\SearchMultiFile.toml"
+    if (!FileExist(SearchComboFile) && FileExist(oldSearchMultiFile)) {
+        try FileMove(oldSearchMultiFile, SearchComboFile)
+    }
     global CompareFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\CompareFile.toml"
     global CompareProFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\CompareProFile.toml"
     global MMProFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\MMProFile.toml"
@@ -565,8 +569,10 @@ InitFilePath() {
     global MoveDataFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\MoveDataFile.toml"
     global RMTCMDFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\RMTCMDFile.toml"
     global WaitFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\WaitFile.toml"
+    global WaitConfirmFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\WaitConfirmFile.toml"
     global DeltaMoveFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\DeltaMoveFile.toml"
     global TimeDataFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\TimeDataFile.toml"
+    global CountDownFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\CountDownFile.toml"
     global ProjectRootDir := A_ScriptDir
 }
 
@@ -1259,7 +1265,7 @@ SelectAreaCancel(*) {
     SelectAreaUp()
 }
 
-SelectAreaDraw() {
+SelectAreaDraw(*) {
     global SelectAreaState
     CoordMode("Mouse")
     if (!SelectAreaState.firstPos) {
@@ -1562,7 +1568,7 @@ FullCopyCmd(cmdStr, CopyedMap := Map()) {
     CopyedMap.Set(paramArr[1], CommandStr)
     paramArr[1] := CommandStr
 
-    ;如果， 搜索， 搜索Pro， 组合搜索
+    ;如果， 搜索， 搜索Pro， 搜索Combo
     if (ObjHasOwnProp(Data, "TrueMacro")) {
         Data.TrueMacro := FullCopyMacro(Data.TrueMacro, CopyedMap)
     }

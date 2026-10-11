@@ -161,6 +161,7 @@ ExecuteMacroCmdOnce(tableItem, cmdStr, index, graphNode := "") {
         "手柄", OnPressJoy,
         "搜索", SearchOnTrigger,
         "搜索Pro", SearchOnTrigger,
+        "搜索Combo", SearchOnTrigger,
         "组合搜索", SearchOnTrigger,
         "搜索Multi", SearchOnTrigger,
         "移动", OnMouseMove,
@@ -185,12 +186,14 @@ ExecuteMacroCmdOnce(tableItem, cmdStr, index, graphNode := "") {
         "文本处理", OnTextOps,
         "数组", OnArray,
         "输入", OnInput,
+        "等待确定", OnWaitConfirm,
         "文件读写", OnFileIO,
         "窗口管理", OnWindowManage,
         "按键检测", OnKeyCheck,
         "手柄检测", OnJoyCheck,
         "等待", OnWait,
         "时间", OnTimeData,
+        "倒计时", OnCountDown,
         "注释", (*) => "",
         "抓图", OnScreenShot,
         "图形开始节点", OnGraphStartNode
@@ -1822,6 +1825,10 @@ OnInput(tableItem, cmd, index) {
             InputPopUp(Data, tableItem, index)
         case "状态":
             InputStateValue(Data, tableItem, index)
+        case "选择":
+            InputChoice(Data, tableItem, index, false)
+        case "多选":
+            InputChoice(Data, tableItem, index, true)
         case "继续":
             InputContinue(Data, tableItem, index)
         case "继续&取消":

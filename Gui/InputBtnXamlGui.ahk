@@ -2,10 +2,7 @@
 
 ; =====================================================================
 ; 输入按钮条 —— XAML 迁移版（复用主进程共享 daemon，与 CustomInputGui 同构）
-; 公开接口保持：ShowGui(Type) / TrueAction / FalseAction / ContinueAction
-;               / CancelAction / HideAction
-; Type: 1 真值/假值  2 继续  3 继续&取消
-; 多实例：每请求独立实例（WorkPool._ShowInputDialog 每请求 new），互不阻塞
+; Type: 1 真/假  2 继续  3 继续&取消  4 继续/终止/暂停  5 选择  6 多选
 ; =====================================================================
 
 class InputBtnXamlGui {
@@ -14,20 +11,33 @@ class InputBtnXamlGui {
         this.Gui := ""
         this._closed := true
         this.Type := 0
+        this.Prompt := ""
+        this.Options := ""
+        this.DefaultValue := ""
+        this.OptionArr := []
         this.TrueAction := ""
         this.FalseAction := ""
         this.ContinueAction := ""
         this.CancelAction := ""
         this.HideAction := ""
+        this.PauseAction := ""
+        this.TerminateAction := ""
+        this.SelectAction := ""
         this.CheckHotKeyAction := this.CheckHotKey.Bind(this)
     }
 
-    ;1 真值 假值  2 继续  3 继续&取消
-    ShowGui(Type) {
+    ShowGui(Type, prompt := "", options := "", defaultValue := "") {
         this.Type := Integer(Type)
+        this.Prompt := prompt
+        this.Options := options
+        this.DefaultValue := defaultValue
+        this.OptionArr := InputOptionArr(options)
+        if (this.Type >= 5 && this.OptionArr.Length == 0)
+            this.OptionArr := InputOptionArr(InputDefaultOptions())
         if (IsObject(this.ui) && !this._closed)
             this._CloseWindow()
         this._BuildAndShow()
+        this._ApplyDefaults()
         SetTimer(this.CheckHotKeyAction, 30)
     }
 
@@ -43,41 +53,93 @@ class InputBtnXamlGui {
         return s
     }
 
+    _WinSize() {
+        switch this.Type {
+            case 1:
+                return "Width=`"365`" Height=`"200`""
+            case 4:
+                return "Width=`"370`" Height=`"170`""
+            case 5:
+                return "Width=`"365`" Height=`"220`""
+            case 6:
+                return "Width=`"365`" Height=`"280`""
+            default:
+                return "Width=`"315`" Height=`"170`""
+        }
+    }
+
+    _DialogTitle() {
+        switch this.Type {
+            case 1:
+                return GetLang("输入-状态")
+            case 5:
+                return GetLang("输入-选择")
+            case 6:
+                return GetLang("输入-多选")
+            case 2, 3, 4:
+                return GetLang("等待确定")
+            default:
+                return GetLang("输入按钮")
+        }
+    }
+
     _BuildAndShow() {
         global MySoftData
         this._closed := false
-        title := GetLang("输入按钮")
+        title := this._DialogTitle()
         this._title := title
         titleHeight := "30"
 
         main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize(XAMLHost.FontSize())
         main.Rows(titleHeight, "*")
 
-        ; === 标题栏 ===
         chrome := XAMLHost.AddTitleBar(main, title, titleHeight)
 
-        ; === 按钮区 ===
-        body := main.Add("Grid").Grid_Row(1).Margin("10,12")
-        btnRow := body.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
+        body := main.Add("Grid").Grid_Row(1).Margin("10,8")
+        body.Rows("Auto", "*")
+        body.Add("TextBlock").Grid_Row(0).Name("PromptCon").Text(this.Prompt).TextWrapping("Wrap").Margin("0,0,0,8")
+            .Visibility(this.Prompt != "" ? "Visible" : "Collapsed")
+
+        content := body.Add("Grid").Grid_Row(1)
         switch this.Type {
             case 1:
-                btnRow.Add("Button").Name("BtnTrue").Content(GetLang("真值")).Width(80).Height(30).MinHeight(30).Margin("8,0")
-                btnRow.Add("Button").Name("BtnFalse").Content(GetLang("假值")).Width(80).Height(30).MinHeight(30).Margin("8,0")
+                btnRow := content.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
+                AddCmdOkBtn(btnRow, "BtnTrue", "0,0,50,0", GetLang("真值（1）")).Width(108)
+                AddCmdOkBtn(btnRow, "BtnFalse", "", GetLang("假值（0）")).Width(108)
             case 2:
-                btnRow.Add("Button").Name("BtnContinue").Content(GetLang("继续")).Width(80).Height(30).MinHeight(30)
+                btnRow := content.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
+                AddCmdOkBtn(btnRow, "BtnContinue", "", GetLang("继续"))
             case 3:
-                btnRow.Add("Button").Name("BtnContinue").Content(GetLang("继续")).Width(80).Height(30).MinHeight(30).Margin("8,0")
-                btnRow.Add("Button").Name("BtnCancel").Content(GetLang("取消")).Width(80).Height(30).MinHeight(30).Margin("8,0")
+                btnRow := content.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
+                AddCmdOkBtn(btnRow, "BtnContinue", "0,0,50,0", GetLang("继续"))
+                AddCmdOkBtn(btnRow, "BtnCancel", "", GetLang("取消"))
+            case 4:
+                btnRow := content.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
+                AddCmdOkBtn(btnRow, "BtnContinue", "0,0,50,0", GetLang("继续"))
+                AddCmdOkBtn(btnRow, "BtnTerminate", "0,0,50,0", GetLang("终止"))
+                AddCmdOkBtn(btnRow, "BtnPause", "", GetLang("暂停"))
+            case 5:
+                col := content.Add("StackPanel").VerticalAlignment("Center").HorizontalAlignment("Center")
+                col.Add("ComboBox").Name("ChoiceCombo").Width(180).Height(26).MinHeight(26).Margin("0,0,0,12").HorizontalAlignment("Center")
+                okRow := col.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Center")
+                AddCmdOkBtn(okRow, "BtnSelect")
+            case 6:
+                col := content.Add("Grid")
+                col.Rows("*", "48")
+                sv := col.Add("ScrollViewer").Grid_Row(0).VerticalScrollBarVisibility("Auto")
+                list := sv.Add("StackPanel").Name("MultiList").Margin("8,0")
+                for i, opt in this.OptionArr
+                    list.Add("CheckBox").Name("Opt" i).Content(opt).Margin("0,2")
+                okRow := col.Add("StackPanel").Grid_Row(1).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
+                AddCmdOkBtn(okRow, "BtnSelect")
         }
 
-        ; === 创建 XAMLHost ===
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", 0)
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="300" Height="150" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" ' this._WinSize() ' Opacity="0"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
         this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '')
 
-        ; === 事件 ===
         this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
         this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
         this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
@@ -90,10 +152,44 @@ class InputBtnXamlGui {
             case 3:
                 this.ui.OnEvent("BtnContinue", "Click", ObjBindMethod(this, "OnContinueBtnClick"))
                 this.ui.OnEvent("BtnCancel", "Click", ObjBindMethod(this, "OnCancelBtnClick"))
+            case 4:
+                this.ui.OnEvent("BtnContinue", "Click", ObjBindMethod(this, "OnContinueBtnClick"))
+                this.ui.OnEvent("BtnTerminate", "Click", ObjBindMethod(this, "OnTerminateBtnClick"))
+                this.ui.OnEvent("BtnPause", "Click", ObjBindMethod(this, "OnPauseBtnClick"))
+            case 5, 6:
+                this.ui.OnEvent("BtnSelect", "Click", ObjBindMethod(this, "OnSelectBtnClick"))
         }
 
         if (!XamlWin.Open(this.ui, "", XamlWin.Owner(this)))
             this._closed := true
+    }
+
+    _ApplyDefaults() {
+        if (!IsObject(this.ui))
+            return
+        if (this.Type == 5) {
+            this.ui.Update("ChoiceCombo", "ClearItems", "")
+            sel := 0
+            for i, opt in this.OptionArr {
+                this.ui.Update("ChoiceCombo", "AddItem", opt)
+                if (this.DefaultValue != "" && opt == this.DefaultValue)
+                    sel := i - 1
+            }
+            this.ui.Update("ChoiceCombo", "SelectedIndex", String(sel))
+        }
+        else if (this.Type == 6 && this.DefaultValue != "") {
+            picked := InputOptionArr(this.DefaultValue)
+            for i, opt in this.OptionArr {
+                on := false
+                for p in picked {
+                    if (p == opt) {
+                        on := true
+                        break
+                    }
+                }
+                this.ui.Update("Opt" i, "IsChecked", on ? "True" : "False")
+            }
+        }
     }
 
     OnWindowLoad(state, ctrl, event) {
@@ -101,6 +197,7 @@ class InputBtnXamlGui {
     }
 
     OnWindowClosing(state, ctrl, event) {
+        this.OnCancel()
         this.ui := ""
         this._closed := true
         SetTimer(this.CheckHotKeyAction, 0)
@@ -115,20 +212,16 @@ class InputBtnXamlGui {
         SetTimer(this.CheckHotKeyAction, 0)
     }
 
-    ; Enter/Esc 快捷键（按实例 Type 分发；多实例下不能用 static Map 绑 this）
     CheckHotKey() {
         if (GetKeyState("Enter", "P")) {
             switch this.Type {
                 case 1: this.OnTrueBtnClick()
-                case 2, 3: this.OnContinueBtnClick()
+                case 2, 3, 4: this.OnContinueBtnClick()
+                case 5, 6: this.OnSelectBtnClick()
             }
         }
-        if (GetKeyState("Esc", "P")) {
-            switch this.Type {
-                case 1: this.OnFalseBtnClick()
-                case 3: this.OnCancelBtnClick()
-            }
-        }
+        if (GetKeyState("Esc", "P"))
+            this.OnCancelBtnClick()
     }
 
     OnTrueBtnClick(*) {
@@ -155,43 +248,69 @@ class InputBtnXamlGui {
         this._CloseWindow()
     }
 
-    OnCancelClick(state, ctrl, event) {
-        ; 标题栏关闭按钮：按取消处理（回传 cancel，避免 Worker 等待超时）
-        this.OnCancel()
+    OnTerminateBtnClick(*) {
+        this._Fire("TerminateAction")
         this.OnHide()
         this._CloseWindow()
     }
 
-    OnTrue() {
-        if (this.TrueAction != "") {
-            Action := this.TrueAction
-            Action()
-            this.TrueAction := ""
+    OnPauseBtnClick(*) {
+        this._Fire("PauseAction")
+        this.OnHide()
+        this._CloseWindow()
+    }
+
+    OnSelectBtnClick(*) {
+        val := ""
+        if (this.Type == 5) {
+            val := IsObject(this.ui) ? this.ui.Query("ChoiceCombo") : ""
         }
+        else if (this.Type == 6) {
+            picked := []
+            for i, opt in this.OptionArr {
+                if (IsObject(this.ui) && this.ui.Query("Opt" i) == "True")
+                    picked.Push(opt)
+            }
+            val := ""
+            for p in picked
+                val .= (val != "" ? "," : "") p
+        }
+        if (this.SelectAction != "") {
+            Action := this.SelectAction
+            Action("sel:" val)
+            this.SelectAction := ""
+        }
+        this.OnHide()
+        this._CloseWindow()
+    }
+
+    OnCancelClick(state, ctrl, event) {
+        this.OnCancel()
+        this._CloseWindow()
+    }
+
+    _Fire(prop) {
+        if (this.%prop% != "") {
+            Action := this.%prop%
+            Action()
+            this.%prop% := ""
+        }
+    }
+
+    OnTrue() {
+        this._Fire("TrueAction")
     }
 
     OnFalse() {
-        if (this.FalseAction != "") {
-            Action := this.FalseAction
-            Action()
-            this.FalseAction := ""
-        }
+        this._Fire("FalseAction")
     }
 
     OnContinue() {
-        if (this.ContinueAction != "") {
-            Action := this.ContinueAction
-            Action()
-            this.ContinueAction := ""
-        }
+        this._Fire("ContinueAction")
     }
 
     OnCancel() {
-        if (this.CancelAction != "") {
-            Action := this.CancelAction
-            Action()
-            this.CancelAction := ""
-        }
+        this._Fire("CancelAction")
     }
 
     OnHide() {

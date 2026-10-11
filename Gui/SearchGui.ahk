@@ -17,12 +17,15 @@ class SearchGui {
         this.OwnerHwnd := ""
         this.RemarkCon := ""
         this._closed := true
-        this.PosAction := () => this.RefreshMouseInfo()
+        this.PosAction := (*) => this.RefreshMouseInfo()
         this.F1Action := (x1, y1, x2, y2) => this.OnF1SetAreaAction(x1, y1, x2, y2)
         this.SetAreaAction := (x1, y1, x2, y2) => this.OnSetSearchArea(x1, y1, x2, y2)
         this.CheckClipboardAction := () => this.CheckClipboard()
         this.Data := ""
         this.MacroGui := ""
+        this.PreviewBorderArr := []
+        this.PreviewShowing := false
+        this._comboGuard := 0
         ; 文本搜索显隐控件名数组（OnChangeSearchType 用）
         this.TextArr := ["TextTipCon", "TextCon"]
     }
@@ -110,28 +113,28 @@ class SearchGui {
         mid := body.Add("Grid").Grid_Row(2).Grid_ColumnSpan(3)
         mid.Cols("*", "12", "*")
         coord := mid.Add("Grid").Grid_Column(0)
-        coord.Rows("32", "32", "32")
+        coord.Rows("Auto", "32")
         coord.Cols("78", "8", "70", "8", "70", "52")
-        coord.Add("TextBlock").Grid_Row(0).Grid_Column(0).Text(GetLang("起始坐标：")).VerticalAlignment("Center").HorizontalAlignment("Left")
-            .Foreground("{DynamicResource TextMain}").FontSize("12")
-        coord.Add("TextBox").Grid_Row(0).Grid_Column(2).Name("StartPosXCon").Width(70).Height(28).MinHeight(28)
-            .HorizontalAlignment("Left").VerticalAlignment("Center").VerticalContentAlignment("Center").Padding("2,0").TextAlignment("Center").FontSize("11")
-            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
-        coord.Add("TextBox").Grid_Row(0).Grid_Column(4).Name("StartPosYCon").Width(70).Height(28).MinHeight(28)
-            .HorizontalAlignment("Left").VerticalAlignment("Center").VerticalContentAlignment("Center").Padding("2,0").TextAlignment("Center").FontSize("11")
-            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
-        coord.Add("TextBlock").Grid_Row(1).Grid_Column(0).Text(GetLang("终止坐标：")).VerticalAlignment("Center").HorizontalAlignment("Left")
-            .Foreground("{DynamicResource TextMain}").FontSize("12")
-        coord.Add("TextBox").Grid_Row(1).Grid_Column(2).Name("EndPosXCon").Width(70).Height(28).MinHeight(28)
-            .HorizontalAlignment("Left").VerticalAlignment("Center").VerticalContentAlignment("Center").Padding("2,0").TextAlignment("Center").FontSize("11")
-            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
-        coord.Add("TextBox").Grid_Row(1).Grid_Column(4).Name("EndPosYCon").Width(70).Height(28).MinHeight(28)
-            .HorizontalAlignment("Left").VerticalAlignment("Center").VerticalContentAlignment("Center").Padding("2,0").TextAlignment("Center").FontSize("11")
-            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+
+        areaWrap := coord.Add("Grid").Grid_Row(0).Grid_ColumnSpan(6).Margin("0,0,0,2")
+        areaWrap.Rows("32", "32")
+        areaWrap.Cols("78", "8", "70", "8", "70", "52")
+        areaBtn := areaWrap.Add("Button").Name("BtnPreviewArea").Grid_Row(0).Grid_RowSpan(2).Grid_Column(0)
+            .HorizontalAlignment("Stretch").VerticalAlignment("Stretch").Cursor("Hand").Focusable("False")
+            .Padding("6,0,0,0").Tag("0").ToolTip(GetLang("搜索范围"))
+            .HorizontalContentAlignment("Left").VerticalContentAlignment("Stretch")
+            .Background("{DynamicResource ControlBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+        areaBtn.InjectResources(this._AreaPreviewBtnStyle())
+        areaLabels := areaBtn.Add("Grid").HorizontalAlignment("Stretch").VerticalAlignment("Stretch")
+        areaLabels.Rows("32", "32")
+        areaLabels.Add("TextBlock").Grid_Row(0).Text(GetLang("起始坐标：")).VerticalAlignment("Center").HorizontalAlignment("Left")
+            .Foreground("{DynamicResource TextMain}").FontSize("12").IsHitTestVisible("False")
+        areaLabels.Add("TextBlock").Grid_Row(1).Text(GetLang("终止坐标：")).VerticalAlignment("Center").HorizontalAlignment("Left")
+            .Foreground("{DynamicResource TextMain}").FontSize("12").IsHitTestVisible("False")
+        this._AddAreaBox(areaWrap, "StartPosXCon", 0, 2)
+        this._AddAreaBox(areaWrap, "StartPosYCon", 0, 4)
+        this._AddAreaBox(areaWrap, "EndPosXCon", 1, 2)
+        this._AddAreaBox(areaWrap, "EndPosYCon", 1, 4)
 
         extra := mid.Add("Grid").Grid_Column(2).VerticalAlignment("Top")
         imgPanel := extra.Add("Grid").Name("ImagePanel")
@@ -172,9 +175,9 @@ class SearchGui {
             .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
             .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
 
-        coord.Add("TextBlock").Grid_Row(2).Grid_Column(0).Text(GetLang("鼠标动作：")).VerticalAlignment("Center").HorizontalAlignment("Left")
+        coord.Add("TextBlock").Grid_Row(1).Grid_Column(0).Text(GetLang("鼠标动作：")).VerticalAlignment("Center").HorizontalAlignment("Left")
             .Foreground("{DynamicResource TextMain}").FontSize("12")
-        mac := coord.Add("ComboBox").Grid_Row(2).Grid_Column(2).Grid_ColumnSpan(4).Name("MouseActionTypeCon").Width(200).MaxWidth(200).Height(28).MinHeight(28)
+        mac := coord.Add("ComboBox").Grid_Row(1).Grid_Column(2).Grid_ColumnSpan(4).Name("MouseActionTypeCon").Width(200).MaxWidth(200).Height(28).MinHeight(28)
             .HorizontalAlignment("Left").VerticalAlignment("Center").VerticalContentAlignment("Center").FontSize("11")
             .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
             .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
@@ -240,11 +243,14 @@ class SearchGui {
         this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
         this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
         BindCmdEditorChrome(this.ui, "#指令手册/3-搜索", (*) => this.TriggerMacro(), "!l"
-            , ObjBindMethod(this, "OnClickTargeterBtn"), ObjBindMethod(this, "OnF1")
-            , ObjBindMethod(this, "OnImageShotBtnClick"), ObjBindMethod(this, "SureColor"))
+            , (*) => this.OnClickTargeterBtn(), (*) => this.OnF1()
+            , (*) => this.OnImageShotBtnClick(), (*) => this.SureColor())
         try this.ui.Update("BtnCmdF1", "ToolTip", GetLang("F1：框选范围"))
         try this.ui.Update("BtnCmdTargeter", "ToolTip", GetLang("定位取色器"))
         this.ui.OnEvent("SearchTypeCon", "SelectionChanged", ObjBindMethod(this, "OnChangeSearchType"))
+        this.ui.OnEvent("BtnPreviewArea", "Click", ObjBindMethod(this, "OnClickPreviewArea"))
+        for cn in ["StartPosXCon", "StartPosYCon", "EndPosXCon", "EndPosYCon"]
+            this.ui.OnEvent(cn, "LostFocus", ObjBindMethod(this, "RefreshPreviewArea"))
         this.ui.OnEvent("HexColorCon", "TextChanged", ObjBindMethod(this, "OnHexColorChange"))
         this.ui.OnEvent("ImageShotBtn", "Click", ObjBindMethod(this, "OnImageShotBtnClick"))
         this.ui.OnEvent("ImageSelectBtn", "Click", ObjBindMethod(this, "OnClickSetPicBtn"))
@@ -282,7 +288,29 @@ class SearchGui {
         this.ui.Update("MouseActionTypeCon", "SelectedIndex", String(ma - 1))
         this.ui.Update("TrueMacroCon", "Text", GetLangMacro(this.Data.TrueMacro, 1))
         this.ui.Update("FalseMacroCon", "Text", GetLangMacro(this.Data.FalseMacro, 1))
+        this.PreviewShowing := false
+        this._ApplyAreaPreviewChrome()
         this.OnChangeSearchType()
+    }
+
+    _AddAreaBox(parent, name, row, col) {
+        parent.Add("TextBox").Grid_Row(row).Grid_Column(col).Name(name).Width(70).Height(28).MinHeight(28)
+            .HorizontalAlignment("Left").VerticalAlignment("Center").VerticalContentAlignment("Center")
+            .Padding("2,0").TextAlignment("Center").FontSize("11").SetProp("Panel.ZIndex", "2")
+            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+    }
+
+    _AreaPreviewBtnStyle() {
+        return '<Style TargetType="Button"><Setter Property="Tag" Value="0"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">'
+            . '<Border x:Name="bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}" CornerRadius="3" SnapsToDevicePixels="True" UseLayoutRounding="False">'
+            . '<ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/></Border>'
+            . '<ControlTemplate.Triggers>'
+            . '<MultiTrigger><MultiTrigger.Conditions><Condition Property="IsMouseOver" Value="True"/><Condition Property="Tag" Value="0"/></MultiTrigger.Conditions>'
+            . '<Setter TargetName="bd" Property="Background" Value="{DynamicResource EditHoverBg}"/><Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource EditHoverStroke}"/></MultiTrigger>'
+            . '<MultiTrigger><MultiTrigger.Conditions><Condition Property="IsMouseOver" Value="True"/><Condition Property="Tag" Value="1"/></MultiTrigger.Conditions>'
+            . '<Setter TargetName="bd" Property="Background" Value="{DynamicResource ActionHoverBg}"/><Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource ActionHoverStroke}"/></MultiTrigger>'
+            . '</ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
     }
 
     GetCommandStr() {
@@ -404,7 +432,7 @@ class SearchGui {
         }
     }
 
-    RefreshMouseInfo() {
+    RefreshMouseInfo(*) {
         try {
             CoordMode("Mouse", "Screen")
             MouseGetPos &mouseX, &mouseY
@@ -628,15 +656,12 @@ class SearchGui {
         OnTriggerSepcialItemMacro(this.GetCommandStr())
     }
 
-    OnF1() {
+    OnF1(*) {
         TogSelectArea(true, this.F1Action)
     }
 
     OnF1SetAreaAction(x1, y1, x2, y2) {
-        this.ui.Update("StartPosXCon", "Text", x1)
-        this.ui.Update("StartPosYCon", "Text", y1)
-        this.ui.Update("EndPosXCon", "Text", x2)
-        this.ui.Update("EndPosYCon", "Text", y2)
+        this.OnSetSearchArea(x1, y1, x2, y2)
     }
 
     OnSetSearchArea(x1, y1, x2, y2) {
@@ -644,9 +669,71 @@ class SearchGui {
         this.ui.Update("StartPosYCon", "Text", y1)
         this.ui.Update("EndPosXCon", "Text", x2)
         this.ui.Update("EndPosYCon", "Text", y2)
+        this.RefreshPreviewArea()
     }
 
-    SureColor() {
+    _ApplyAreaPreviewChrome() {
+        if (!IsObject(this.ui))
+            return
+        on := this.PreviewShowing
+        this.ui.Update("BtnPreviewArea", "Tag", on ? "1" : "0")
+        this.ui.Update("BtnPreviewArea", "Background", on ? "{DynamicResource Accent}" : "{DynamicResource ControlBg}")
+        this.ui.Update("BtnPreviewArea", "BorderBrush", on ? "{DynamicResource Accent}" : "{DynamicResource ControlBorder}")
+        this.ui.Update("BtnPreviewArea", "BorderThickness", on ? "2" : "1")
+    }
+
+    OnClickPreviewArea(*) {
+        this.PreviewShowing := !this.PreviewShowing
+        this._ApplyAreaPreviewChrome()
+        this.RefreshPreviewArea()
+    }
+
+    RefreshPreviewArea(*) {
+        if (!IsObject(this.ui) || !this.PreviewShowing) {
+            this.HidePreviewRect()
+            return
+        }
+        startX := this.ui.Query("StartPosXCon"), startY := this.ui.Query("StartPosYCon")
+        endX := this.ui.Query("EndPosXCon"), endY := this.ui.Query("EndPosYCon")
+        if (!IsNumber(startX) || !IsNumber(startY) || !IsNumber(endX) || !IsNumber(endY)) {
+            this.HidePreviewRect()
+            return
+        }
+        startX := Number(startX), startY := Number(startY), endX := Number(endX), endY := Number(endY)
+        x := Min(startX, endX), y := Min(startY, endY), w := Abs(endX - startX), h := Abs(endY - startY)
+        if (w == 0 || h == 0) {
+            this.HidePreviewRect()
+            return
+        }
+        this.ShowPreviewRect(x, y, w, h)
+    }
+
+    ShowPreviewRect(x, y, w, h) {
+        borderW := 2
+        if (this.PreviewBorderArr.Length == 0) {
+            for item in [[x, y, w, borderW], [x, y + h - borderW, w, borderW], [x, y, borderW, h], [x + w - borderW, y, borderW, h]] {
+                g := Gui("+ToolWindow -Caption +AlwaysOnTop +E0x20 -DPIScale")
+                g.BackColor := "Red"
+                g.Show("NA x" item[1] " y" item[2] " w" item[3] " h" item[4])
+                this.PreviewBorderArr.Push(g)
+            }
+        }
+        else {
+            this.PreviewBorderArr[1].Move(x, y, w, borderW)
+            this.PreviewBorderArr[2].Move(x, y + h - borderW, w, borderW)
+            this.PreviewBorderArr[3].Move(x, y, borderW, h)
+            this.PreviewBorderArr[4].Move(x + w - borderW, y, borderW, h)
+        }
+    }
+
+    HidePreviewRect() {
+        for g in this.PreviewBorderArr {
+            try g.Destroy()
+        }
+        this.PreviewBorderArr := []
+    }
+
+    SureColor(*) {
         CoordMode("Mouse", "Screen")
         MouseGetPos &mouseX, &mouseY
 
@@ -666,6 +753,7 @@ class SearchGui {
     }
 
     OnWindowClosing(state, ctrl, event) {
+        this.HidePreviewRect()
         try this.ToggleFunc(false)
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
@@ -679,6 +767,7 @@ class SearchGui {
     }
 
     _CloseWindow() {
+        this.HidePreviewRect()
         try this.ToggleFunc(false)
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")

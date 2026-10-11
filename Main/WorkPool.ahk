@@ -1141,10 +1141,18 @@ class WorkPool {
                     case "IP":
                         ; Worker 请求输入框：创建独立实例弹窗（不同宏/Worker 并发，互不阻塞；共享主进程 daemon）
                         ; 异步创建：避免在消息轮询/OnMessage 上下文同步 XAMLHost（主进程单线程会与 daemon 回传互堵）
-                        SetTimer((*) => this._ShowInputDialog(wd, false, args.Length >= 1 ? args[1] : "", args.Length >= 2 ? args[2] : ""), -10)
+                        ip1 := args.Length >= 1 ? args[1] : ""
+                        ip2 := args.Length >= 2 ? args[2] : ""
+                        ip3 := args.Length >= 3 ? args[3] : ""
+                        SetTimer((*) => this._ShowInputDialog(wd, false, ip1, ip2, ip3), -10)
                     case "IB":
                         ; Worker 请求输入按钮条：创建独立实例，结果回传对应 Worker
-                        SetTimer((*) => this._ShowInputDialog(wd, true, args.Length >= 1 ? args[1] : "1"), -10)
+                        a1 := args.Length >= 1 ? args[1] : "1"
+                        a2 := args.Length >= 2 ? args[2] : ""
+                        a3 := args.Length >= 3 ? args[3] : ""
+                        a4 := args.Length >= 4 ? args[4] : ""
+                        a5 := args.Length >= 5 ? args[5] : ""
+                        SetTimer((*) => this._ShowInputDialog(wd, true, a1, a2, a3, a4, a5), -10)
                     case "JY":
                         JoyDebugLog(Format("WorkPool recv JY args=[{}, {}, {}] from worker#{}"
                             , args.Length >= 1 ? args[1] : "", args.Length >= 2 ? args[2] : ""
@@ -1214,34 +1222,46 @@ class WorkPool {
         }
     }
 
+    _RemoveInputGui(req) {
+        if (IsObject(this._inputGuis) && this._inputGuis.Has(req))
+            this._inputGuis.Delete(req)
+    }
+
     ; 输入弹窗：每请求独立实例（并发互不阻塞）；Worker 请求结果跨进程回传，主进程宏请求写本地槽位
     _ShowInputDialog(wd, isBtn, args*) {
         this._ShowInputDialogReq({ wd: wd, local: false, done: false }, isBtn, args*)
     }
 
     ; 主进程宏输入请求：SetTimer 异步弹窗（避免宏执行上下文同步 XAMLHost），结果写回 req.result
-    RequestLocalInput(isBtn, args*) {
+    RequestLocalInput(isBtn, timeoutMs := 0, args*) {
         req := { wd: { idx: 0 }, local: true, done: false, result: "" }
-        SetTimer((*) => this._ShowInputDialogReq(req, isBtn, args*), -10)
-        deadline := A_TickCount + 300000
+        argArr := []
+        for a in args
+            argArr.Push(a)
+        SetTimer((*) => this._ShowInputDialogReq(req, isBtn, argArr*), -10)
+        deadline := timeoutMs > 0 ? A_TickCount + timeoutMs + 500 : A_TickCount + 300000
         loop {
             Sleep(100)
             if (req.done)
                 break
             if (A_TickCount > deadline) {
-                ; 超时：关闭弹窗，返回 ""
                 try req.gui._CloseWindow()
                 catch
+                if (!req.done)
+                    req.result := ["timeout"]
+                req.done := true
                 break
             }
         }
-        this._inputGuis.Delete(req)
+        this._RemoveInputGui(req)
         return req.result
     }
 
     _ShowInputDialogReq(req, isBtn, args*) {
         this._inputGuis[req] := true   ; 追踪活动实例
         GraphPoolLog("输入请求处理", Format("wd=#{1} type={2}", req.wd.idx, isBtn ? "btn" : "input"))
+        pack := SplitInputReqArgs(args)
+        real := pack.args
         try {
             if (isBtn) {
                 ; 输入按钮条
@@ -1251,8 +1271,14 @@ class WorkPool {
                 gui.FalseAction := (*) => this._SendInputResult(req, "IBR", "false")
                 gui.ContinueAction := (*) => this._SendInputResult(req, "IBR", "continue")
                 gui.CancelAction := (*) => this._SendInputResult(req, "IBR", "cancel")
+                gui.PauseAction := (*) => this._SendInputResult(req, "IBR", "pause")
+                gui.TerminateAction := (*) => this._SendInputResult(req, "IBR", "terminate")
+                gui.SelectAction := (val) => this._SendInputResult(req, "IBR", val)
                 gui.HideAction := (*) => this._SendInputResult(req, "IBR", "cancel")
-                gui.ShowGui(Integer(args[1]))
+                gui.ShowGui(Integer(real.Length >= 1 ? real[1] : 1)
+                    , real.Length >= 2 ? real[2] : ""
+                    , real.Length >= 3 ? real[3] : ""
+                    , real.Length >= 4 ? real[4] : "")
             } else {
                 ; XAML 输入框
                 gui := CustomInputGui()
@@ -1260,12 +1286,25 @@ class WorkPool {
                 gui.SureAction := (val) => this._SendInputResult(req, "IPR", "1", val)
                 gui.HideAction := (*) => this._SendInputResult(req, "IPR", "0", "")
                 gui.CloseAction := (*) => this._SendInputResult(req, "IPR", "0", "")
-                gui.ShowGui(args[1], args.Length >= 2 ? args[2] : "")
+                gui.ShowGui(real.Length >= 1 ? real[1] : "", real.Length >= 2 ? real[2] : "")
             }
+            if (pack.timeoutMs > 0)
+                SetTimer((*) => this._TimeoutInputDialog(req, isBtn), -pack.timeoutMs)
         } catch as e {
             GraphPoolLog("输入弹窗异常", Format("err={1} wd=#{2}", e.Message, req.wd.idx))
             this._SendInputResult(req, "IPR", "0", "")
         }
+    }
+
+    _TimeoutInputDialog(req, isBtn) {
+        if (req.done)
+            return
+        try req.gui._CloseWindow()
+        catch
+        if (isBtn)
+            this._SendInputResult(req, "IBR", "timeout")
+        else
+            this._SendInputResult(req, "IPR", "timeout")
     }
 
     ; 回传输入结果（同一请求只回传一次）
@@ -1273,7 +1312,7 @@ class WorkPool {
         if (req.done)
             return
         req.done := true
-        this._inputGuis.Delete(req)
+        this._RemoveInputGui(req)
         try req.gui := ""
         catch {
             ; 注意：catch 必须带大括号，否则会吞掉下方回传 try 块

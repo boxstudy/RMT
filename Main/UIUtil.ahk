@@ -319,6 +319,7 @@ CmdEditorTitleIcon(title) {
         pairs := [
             ["鼠标移动Pro", "Images\Soft\MovePro.png"],
             ["搜索Pro", "Images\Soft\SearchPro.png"],
+            ["搜索Combo", "Images\Soft\SearchPro.png"],
             ["组合搜索", "Images\Soft\SearchPro.png"],
             ["搜索Multi", "Images\Soft\SearchPro.png"],
             ["如果Pro", "Images\Soft\IfPro.png"],
@@ -348,8 +349,10 @@ CmdEditorTitleIcon(title) {
             ["运行Pro", "Images\Soft\Run.png"],
             ["运行", "Images\Soft\Run.png"],
             ["数组", "Images\Soft\Arr.png"],
+            ["等待确定", "Images\Soft\Control.png"],
             ["等待", "Images\Soft\Control.png"],
             ["时间", "Images\Soft\Interval.png"],
+            ["倒计时", "Images\Soft\Interval.png"],
             ["注释", "Images\Soft\Comment.png"],
             ["抓图", "Images\Soft\ScreenShot.png"]
         ]
@@ -362,8 +365,8 @@ CmdEditorTitleIcon(title) {
 }
 
 ; 指令编辑器确定按钮：与间隔编辑器同款
-AddCmdOkBtn(parent, name := "BtnOk", extraMargin := "") {
-    btn := parent.Add("Button").Name(name).Content(GetLang("确定")).Width(88).Height(32).MinHeight(32).Cursor("Hand")
+AddCmdOkBtn(parent, name := "BtnOk", extraMargin := "", content := "") {
+    btn := parent.Add("Button").Name(name).Content(content != "" ? content : GetLang("确定")).Width(88).Height(32).MinHeight(32).Cursor("Hand")
         .Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}")
         .BorderBrush("{DynamicResource ActionStroke}").BorderThickness("1").FontSize(13).FontWeight("Bold")
     if (extraMargin != "")

@@ -2,7 +2,7 @@
 #Include MacroEditGui.ahk
 
 ; =====================================================================
-; 组合搜索编辑器 —— XAML 迁移版（原搜索Pro多目标）
+; 搜索Combo编辑器 —— XAML 迁移版（原搜索Pro多目标）
 ; 公开接口保持：ShowGui(cmd) / SureBtnAction / OwnerHwnd / ParentTile
 ; §15.1 多目标重构：左侧目标列表（ListBox + AddXamlItem 动态注入目标卡片，单选高亮），
 ;   每个目标独立配置 搜索类型/窗口信息/坐标/图片/颜色/文本/相似度；
@@ -11,7 +11,7 @@
 ; 屏幕级功能（预览框/取色器/截图/鼠标跟踪/F1-F3热键）沿用原生全局函数，作用于当前选中目标。
 ; =====================================================================
 
-class SearchMultiGui {
+class SearchComboGui {
     __new() {
         this.ParentTile := ""
         this.Gui := ""
@@ -34,15 +34,16 @@ class SearchMultiGui {
         this.TextArr := []
         this.SimilarArr := []
         this.WinInfoArr := []
-        this.CountTogArr := ["SearchIntervalTipCon", "SearchIntervalCon"]
+        this.CountTogArr := ["SearchIntervalHost"]
         this.MouseSpeedArr := ["SpeedTipCon", "SpeedCon"]
-        this.MouseClickArr := ["ClickCountTipCon", "ClickCountCon"]
-        this.ResultTogArr := ["ResultVarTipCon", "ResultSaveNameCon", "TrueValueTipCon", "TrueValueCon", "FalseValueTipCon", "FalseValueCon"]
-        this.CoordTogArr := ["CoordXTipCon", "CoordXNameCon", "CoordYTipCon", "CoordYNameCon"]
+        this.MouseClickArr := ["ClickCountCon"]
+        this.ResultTogArr := ["ResultSaveNameCon", "TrueValueCon", "FalseValueCon"]
+        this.CoordTogArr := ["CoordXNameCon", "CoordYNameCon"]
 
         this.PreviewBorderArr := []
         this.PreviewFollowTimer := 0
         this.PreviewFollowing := false
+        this.PreviewShowing := false
     }
 
     Hwnd() {
@@ -74,53 +75,60 @@ class SearchMultiGui {
     _BuildAndShow() {
         global MySoftData
         this._closed := false
-        title := this.ParentTile GetLang("组合搜索编辑器")
+        title := this.ParentTile GetLang("搜索Combo编辑器")
         this._title := title
         titleHeight := XAMLHost.CmdTitleBarHeight()
 
         main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize(XAMLHost.FontSize())
-        main.Rows(titleHeight, "30", "24", "*", "44")
+        main.Rows(titleHeight, "32", "*", "44")
 
         ; === 标题栏 ===
         chrome := XAMLHost.AddCmdTitleBar(main, title, titleHeight)
 
-        ; === 顶部工具行 ===
-        top := main.Add("StackPanel").Grid_Row(1).Orientation("Horizontal").Margin("10,4")
-        top.Add("TextBlock").Text(GetLang("备注：")).VerticalAlignment("Center")
-        top.Add("TextBox").Name("RemarkCon").Width(140).Height(26).MinHeight(26).Margin("4,0,0,0")
+        ; === 顶部：与主体同列 —— 左：备注/屏幕坐标 + 窗口坐标；右：鼠标颜色（与窗口坐标同行） ===
+        top := main.Add("Grid").Grid_Row(1).Margin("10,4,10,0")
+        top.Cols("*", "8", "300")
+        leftTop := top.Add("Grid").Grid_Column(0).Margin("10,0,8,0")
+        leftTop.Cols("72", "4", "110", "12", "72", "8", "140", "8", "*")
+        remarkPos := leftTop.Add("StackPanel").Grid_ColumnSpan(7).Orientation("Horizontal").HorizontalAlignment("Left").VerticalAlignment("Center")
+        remarkPos.Add("TextBlock").Text(GetLang("备注：")).VerticalAlignment("Center")
+            .Foreground("{DynamicResource TextMain}").FontSize("12")
+        remarkPos.Add("TextBox").Name("RemarkCon").Width(140).Height(26).MinHeight(26).Margin("8,0,0,0")
+            .HorizontalAlignment("Left").VerticalAlignment("Center").VerticalContentAlignment("Center").Padding("4,0")
             .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
-            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").VerticalContentAlignment("Center").Padding("4,0")
-        top.Add("CheckBox").Name("PreviewAreaCon").Content(GetLang("预览框选范围")).VerticalAlignment("Center").Margin("16,0,0,0")
-        top.Add("CheckBox").Name("SelectToggleCon").Content(GetLang("左键框选搜索范围")).VerticalAlignment("Center").Margin("12,0,0,0")
-        top.Add("Button").Name("BtnTargeter").Content(GetLang("定位取色器")).Height(26).MinHeight(26).Margin("12,0,0,0").Cursor("Hand")
-        top.Add("Button").Name("BtnTargeterHelp").Content("?").Width(30).Height(26).MinHeight(26).Margin("4,0,0,0").Cursor("Hand")
-            .Background("{DynamicResource EditBg}").Foreground("{DynamicResource EditText}")
-            .BorderBrush("{DynamicResource EditStroke}").BorderThickness("1").Padding("0")
-
-        ; === 鼠标信息行 ===
-        mi := main.Add("StackPanel").Grid_Row(2).Orientation("Horizontal").Margin("10,0")
-        mi.Add("TextBlock").Name("MousePosCon").Text(GetLang("屏幕坐标：0,0")).VerticalAlignment("Center")
-        mi.Add("TextBlock").Name("MouseWinPosCon").Text(GetLang("窗口坐标：0,0")).VerticalAlignment("Center").Margin("20,0,0,0")
-        mi.Add("TextBlock").Name("MouseColorCon").Text(GetLang("鼠标颜色：FFFFFF")).VerticalAlignment("Center").Margin("20,0,0,0")
-        mi.Add("Border").Name("MouseColorTipCon").Width(16).Height(16).Background("#FF0000").VerticalAlignment("Center").Margin("6,0,0,0")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+        remarkPos.Add("TextBlock").Text(GetLang("屏幕坐标：")).VerticalAlignment("Center").Margin("16,0,0,0")
+            .Foreground("{DynamicResource TextMain}").FontSize("12")
+        remarkPos.Add("TextBlock").Name("MousePosCon").Text("0,0").VerticalAlignment("Center")
+            .Foreground("{DynamicResource TextMain}").FontSize("12")
+        winG := leftTop.Add("StackPanel").Grid_Column(8).Orientation("Horizontal").HorizontalAlignment("Left").VerticalAlignment("Center")
+        winG.Add("TextBlock").Text(GetLang("窗口坐标：")).VerticalAlignment("Center")
+            .Foreground("{DynamicResource TextMain}").FontSize("12")
+        winG.Add("TextBlock").Name("MouseWinPosCon").Text("0,0").VerticalAlignment("Center")
+            .Foreground("{DynamicResource TextMain}").FontSize("12")
+        clrG := top.Add("StackPanel").Grid_Column(2).Orientation("Horizontal").VerticalAlignment("Center")
+        clrG.Add("TextBlock").Text(GetLang("鼠标颜色：")).VerticalAlignment("Center")
+            .Foreground("{DynamicResource TextMain}").FontSize("12")
+        clrG.Add("TextBlock").Name("MouseColorCon").Text("FFFFFF").VerticalAlignment("Center")
+            .Foreground("{DynamicResource TextMain}").FontSize("12")
+        clrG.Add("Border").Name("MouseColorTipCon").Width(16).Height(16).Background("#FF0000")
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").VerticalAlignment("Center").Margin("6,0,0,0")
 
         ; === 主体两列 ===
-        body := main.Add("Grid").Grid_Row(3).Margin("10,2,10,0")
-        body.Cols("*", "235")
-        body.Rows("*", "Auto")
+        body := main.Add("Grid").Grid_Row(2).Margin("10,2,10,0")
+        body.Cols("*", "300")
+        body.InjectResources(this._ThemedScrollXaml())
 
         ; ---- 左列：目标列表（ListBox + 动态注入目标卡片） ----
         left := body.Add("Grid").Grid_Column(0).Margin("0,0,8,0")
-        left.Rows("*", "Auto")
-        lbStyle := '<Style TargetType="ListBoxItem"><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/></Style>'
-        left.Add("ListBox").Grid_Row(0).Name("TargetList")
+        lbStyle := '<Style TargetType="ListBoxItem"><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Background" Value="Transparent"/><Setter Property="FocusVisualStyle" Value="{x:Null}"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem"><Border x:Name="Bd" Background="Transparent" BorderBrush="Transparent" BorderThickness="0" SnapsToDevicePixels="True"><ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource ControlBg}"/></Trigger><Trigger Property="IsSelected" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource EditHoverBg}"/></Trigger><MultiTrigger><MultiTrigger.Conditions><Condition Property="IsSelected" Value="True"/><Condition Property="IsMouseOver" Value="True"/></MultiTrigger.Conditions><Setter TargetName="Bd" Property="Background" Value="{DynamicResource EditHoverBg}"/></MultiTrigger><Trigger Property="Tag" Value="add"><Setter TargetName="Bd" Property="Background" Value="Transparent"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
+        left.Add("ListBox").Name("TargetList")
             .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+            .Padding("0,2,2,2")
             .VirtualizingPanel_IsVirtualizing("False")
-            .ScrollViewer_HorizontalScrollBarVisibility("Disabled").ScrollViewer_VerticalScrollBarVisibility("Auto")
+            .ScrollViewer_HorizontalScrollBarVisibility("Disabled").ScrollViewer_VerticalScrollBarVisibility("Visible")
             .InjectResources(lbStyle)
-        addRow := left.Add("StackPanel").Grid_Row(1).Orientation("Horizontal").HorizontalAlignment("Center").Margin("0,6,0,0")
-        addRow.Add("Button").Name("BtnAddTarget").Content(GetLang("+ 添加目标")).Width(100).Height(28).MinHeight(28).Cursor("Hand")
 
         ; ---- 右列：整体设置（滚动） ----
         right := body.Add("ScrollViewer").Grid_Column(1)
@@ -132,90 +140,106 @@ class SearchMultiGui {
         scRow.Add("TextBlock").Text(GetLang("满足个数：")).VerticalAlignment("Center")
         scRow.Add("ComboBox").Name("SatisfyCountCon").Width(90).Height(26).MinHeight(26).Margin("4,0,0,0").IsEditable("True")
 
-        ; 搜索次数 + 每次间隔
-        sr := rightPanel.Add("StackPanel").Orientation("Horizontal").Margin("0,8,0,0")
-        sr.Add("TextBlock").Text(GetLang("搜索次数：")).VerticalAlignment("Center")
-        sr.Add("ComboBox").Name("SearchCountCon").Width(80).Height(26).MinHeight(26).Margin("4,0,0,0").IsEditable("True")
-        sr.Add("TextBlock").Name("SearchIntervalTipCon").Text(GetLang("每次间隔：")).VerticalAlignment("Center").Margin("8,0,0,0")
-        sr.Add("TextBox").Name("SearchIntervalCon").Width(60).Height(24).MinHeight(24)
-            .VerticalContentAlignment("Center").Padding("4,0").TextAlignment("Center").FontSize(11).Margin("4,0,0,0")
+        ; 搜索次数 + 每次间隔（间隔叠 ms，与搜索Pro 相同）
+        sr := rightPanel.Add("Grid").Margin("0,8,0,0")
+        sr.Cols("Auto", "8", "*", "8", "*")
+        sr.Add("TextBlock").Grid_Column(0).Text(GetLang("搜索次数：")).VerticalAlignment("Center")
+            .Foreground("{DynamicResource TextMain}").FontSize("12")
+        sr.Add("ComboBox").Grid_Column(2).Name("SearchCountCon").Height(28).MinHeight(28)
+            .HorizontalAlignment("Stretch").VerticalAlignment("Center").VerticalContentAlignment("Center")
+            .IsEditable("True").FontSize("11")
             .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
-            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+        intervalHost := sr.Add("Grid").Grid_Column(4).Name("SearchIntervalHost").ToolTip(GetLang("每次间隔"))
+        intervalHost.Add("TextBox").Name("SearchIntervalCon").Height(28).MinHeight(28)
+            .HorizontalAlignment("Stretch").VerticalAlignment("Center").VerticalContentAlignment("Center")
+            .Padding("2,0").TextAlignment("Center").FontSize("11")
+            .ToolTip(GetLang("每次间隔"))
+            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+        intervalHost.Add("TextBlock").Text("ms").FontSize("7").IsHitTestVisible("False")
+            .HorizontalAlignment("Right").VerticalAlignment("Top").Margin("0,1,3,0")
+            .Foreground("{DynamicResource TextSub}")
 
         ; 鼠标动作
-        ma := rightPanel.Add("StackPanel").Orientation("Horizontal").Margin("0,8,0,0")
-        ma.Add("TextBlock").Text(GetLang("鼠标动作：")).VerticalAlignment("Center")
-        mac := ma.Add("ComboBox").Name("MouseActionTypeCon").Width(150).Height(26).MinHeight(26).Margin("4,0,0,0")
+        ma := rightPanel.Add("Grid").Margin("0,8,0,0")
+        ma.Cols("Auto", "8", "*")
+        ma.Add("TextBlock").Grid_Column(0).Text(GetLang("鼠标动作：")).VerticalAlignment("Center")
+            .Foreground("{DynamicResource TextMain}").FontSize("12")
+        mac := ma.Add("ComboBox").Grid_Column(2).Name("MouseActionTypeCon").Height(28).MinHeight(28)
+            .HorizontalAlignment("Stretch").VerticalAlignment("Center").VerticalContentAlignment("Center").FontSize("11")
+            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
         for t in GetLangArr(["无动作", "移动至目标", "移动至目标点击"])
             mac.Add("ComboBoxItem").Content(t)
 
-        ms := rightPanel.Add("StackPanel").Orientation("Horizontal").Margin("0,8,0,0")
-        ms.Add("TextBlock").Name("SpeedTipCon").Text(GetLang("移动速度：")).VerticalAlignment("Center")
-        ms.Add("TextBox").Name("SpeedCon").Width(80).Height(24).MinHeight(24)
-            .VerticalContentAlignment("Center").Padding("4,0").TextAlignment("Center").FontSize(11).Margin("4,0,0,0")
+        ms := rightPanel.Add("Grid").Margin("0,8,0,0")
+        ms.Cols("Auto", "8", "*", "8", "*")
+        ms.Add("TextBlock").Grid_Column(0).Name("SpeedTipCon").Text(GetLang("移动速度：")).VerticalAlignment("Center")
+            .Foreground("{DynamicResource TextMain}").FontSize("12")
+        ms.Add("TextBox").Grid_Column(2).Name("SpeedCon").Height(28).MinHeight(28)
+            .HorizontalAlignment("Stretch").VerticalAlignment("Center").VerticalContentAlignment("Center")
+            .Padding("2,0").TextAlignment("Center").FontSize("11")
+            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+        ms.Add("TextBox").Grid_Column(4).Name("ClickCountCon").Height(28).MinHeight(28)
+            .HorizontalAlignment("Stretch").VerticalAlignment("Center").VerticalContentAlignment("Center")
+            .Padding("2,0").TextAlignment("Center").FontSize("11")
+            .ToolTip(GetLang("鼠标点击次数"))
+            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+
+        ; 找到 / 未找到（编辑按钮叠在输入框右上角）
+        rightPanel.Add("TextBlock").Text(GetLang("找到后的指令：（可选）")).Margin("0,10,0,0")
+            .Foreground("{DynamicResource TextMain}").FontSize("12")
+        foundHost := rightPanel.Add("Grid").Margin("0,2,0,0")
+        foundHost.Add("TextBox").Name("TrueMacroCon").AcceptsReturn("True").TextWrapping("Wrap")
+            .HorizontalAlignment("Stretch").Height(86).MinHeight(86)
+            .VerticalContentAlignment("Top").Padding("4,3,26,3").FontSize("11")
             .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-        ms.Add("TextBlock").Name("ClickCountTipCon").Text(GetLang("点击次数：")).VerticalAlignment("Center").Margin("12,0,0,0")
-        ms.Add("TextBox").Name("ClickCountCon").Width(60).Height(24).MinHeight(24)
-            .VerticalContentAlignment("Center").Padding("4,0").TextAlignment("Center").FontSize(11).Margin("4,0,0,0")
+            .ScrollViewer_VerticalScrollBarVisibility("Auto")
+        foundHost.Add("Button").Name("BtnEditFoundMacro").Width("22").Height("22").MinHeight("22").Padding("0")
+            .HorizontalAlignment("Right").VerticalAlignment("Top").Margin("0,4,4,0").Cursor("Hand")
+            .FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize("12").Content(Chr(0xE70F))
+            .ToolTip(GetLang("编辑")).Foreground("{DynamicResource TextMain}")
+            .Background("{DynamicResource ControlBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+        rightPanel.Add("TextBlock").Name("FalseMacroTipCon").Text(GetLang("未找到后的指令：（可选）")).Margin("0,6,0,0")
+            .Foreground("{DynamicResource TextMain}").FontSize("12")
+        missHost := rightPanel.Add("Grid").Name("FalseMacroHost").Margin("0,2,0,0")
+        missHost.Add("TextBox").Name("FalseMacroCon").AcceptsReturn("True").TextWrapping("Wrap")
+            .HorizontalAlignment("Stretch").Height(86).MinHeight(86)
+            .VerticalContentAlignment("Top").Padding("4,3,26,3").FontSize("11")
             .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+            .ScrollViewer_VerticalScrollBarVisibility("Auto")
+        missHost.Add("Button").Name("BtnEditUnFoundMacro").Width("22").Height("22").MinHeight("22").Padding("0")
+            .HorizontalAlignment("Right").VerticalAlignment("Top").Margin("0,4,4,0").Cursor("Hand")
+            .FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize("12").Content(Chr(0xE70F))
+            .ToolTip(GetLang("编辑")).Foreground("{DynamicResource TextMain}")
+            .Background("{DynamicResource ControlBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
 
-        ; 找到/未找到指令
-        ft := rightPanel.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
-        ft.Add("TextBlock").Text(GetLang("找到后的指令：（可选）")).VerticalAlignment("Center")
-        ft.Add("Button").Name("BtnEditFoundMacro").Content(GetLang("编辑")).Height(24).MinHeight(24).Margin("8,0,0,0").Cursor("Hand")
-        rightPanel.Add("TextBox").Name("TrueMacroCon").Height(44).Margin("0,2,0,0").AcceptsReturn("True").TextWrapping("Wrap")
-            .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
-            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").VerticalContentAlignment("Top").Padding("4,2").FontSize(11)
-
-        ft2 := rightPanel.Add("StackPanel").Orientation("Horizontal").Margin("0,6,0,0")
-        ft2.Add("TextBlock").Name("FalseMacroTipCon").Text(GetLang("未找到后的指令：（可选）")).VerticalAlignment("Center")
-        ft2.Add("Button").Name("FalseMacroEditBtn").Content(GetLang("编辑")).Height(24).MinHeight(24).Margin("8,0,0,0").Cursor("Hand")
-        rightPanel.Add("TextBox").Name("FalseMacroCon").Height(44).Margin("0,2,0,0").AcceptsReturn("True").TextWrapping("Wrap")
-            .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
-            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").VerticalContentAlignment("Top").Padding("4,2").FontSize(11)
-
-        ; 结果保存
-        rg := rightPanel.Add("GroupBox").Margin("0,8,0,0").Header(GetLang("结果保存"))
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").Foreground("{DynamicResource TextMain}").Padding("6,4")
-        rgGrid := rg.Add("Grid")
-        rgGrid.Cols("Auto", "Auto", "Auto", "Auto")
-        rgGrid.Rows("28", "28")
-        rgGrid.Add("CheckBox").Name("ResultToggleCon").Content(GetLang("开关")).Grid_Row(0).Grid_Column(0).VerticalAlignment("Center")
-        rgGrid.Add("TextBlock").Name("ResultVarTipCon").Text(GetLang("变量名")).Grid_Row(0).Grid_Column(1).VerticalAlignment("Center").Margin("10,0,0,0")
-        rgGrid.Add("ComboBox").Name("ResultSaveNameCon").Width(100).Height(24).MinHeight(24).Grid_Row(0).Grid_Column(2).Margin("4,0,0,0").IsEditable("True")
-        rgGrid.Add("TextBlock").Name("TrueValueTipCon").Text(GetLang("真值")).Grid_Row(1).Grid_Column(0).VerticalAlignment("Center").Margin("10,0,0,0")
-        rgGrid.Add("TextBox").Name("TrueValueCon").Width(60).Height(24).MinHeight(24).Grid_Row(1).Grid_Column(1).Margin("4,0,0,0")
-            .VerticalContentAlignment("Center").Padding("4,0").TextAlignment("Center").FontSize(11)
-            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
-            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-        rgGrid.Add("TextBlock").Name("FalseValueTipCon").Text(GetLang("假值")).Grid_Row(1).Grid_Column(2).VerticalAlignment("Center").Margin("10,0,0,0")
-        rgGrid.Add("TextBox").Name("FalseValueCon").Width(60).Height(24).MinHeight(24).Grid_Row(1).Grid_Column(3).Margin("4,0,0,0")
-            .VerticalContentAlignment("Center").Padding("4,0").TextAlignment("Center").FontSize(11)
-            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
-            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-
-        ; 目标点保存
-        cg := rightPanel.Add("GroupBox").Margin("0,6,0,0").Header(GetLang("目标点保存"))
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").Foreground("{DynamicResource TextMain}").Padding("6,4")
-        cgGrid := cg.Add("Grid")
-        cgGrid.Cols("Auto", "Auto", "Auto", "Auto", "Auto")
-        cgGrid.Rows("28")
-        cgGrid.Add("CheckBox").Name("CoordToogleCon").Content(GetLang("开关")).Grid_Row(0).Grid_Column(0).VerticalAlignment("Center")
-        cgGrid.Add("TextBlock").Name("CoordXTipCon").Text(GetLang("坐标X变量名")).Grid_Row(0).Grid_Column(1).VerticalAlignment("Center").Margin("10,0,0,0")
-        cgGrid.Add("ComboBox").Name("CoordXNameCon").Width(80).Height(24).MinHeight(24).Grid_Row(0).Grid_Column(2).Margin("4,0,0,0").IsEditable("True")
-        cgGrid.Add("TextBlock").Name("CoordYTipCon").Text(GetLang("坐标Y变量名")).Grid_Row(0).Grid_Column(3).VerticalAlignment("Center").Margin("10,0,0,0")
-        cgGrid.Add("ComboBox").Name("CoordYNameCon").Width(80).Height(24).MinHeight(24).Grid_Row(0).Grid_Column(4).Margin("4,0,0,0").IsEditable("True")
+        ; 结果保存 / 目标点保存
+        resCol := rightPanel.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0").VerticalAlignment("Center")
+        resCol.Add("CheckBox").Name("ResultToggleCon").VerticalAlignment("Center").Margin("0,0,2,0")
+            .ToolTip(GetLang("结果保存"))
+        this._AddTipField(resCol, "ResultSaveNameCon", "ResultSaveNameTipHost", "ComboBox", 96, GetLang("变量名"), "0,0,6,0")
+        this._AddTipField(resCol, "TrueValueCon", "TrueValueTipHost", "TextBox", 48, GetLang("真值"), "0,0,6,0")
+        this._AddTipField(resCol, "FalseValueCon", "FalseValueTipHost", "TextBox", 48, GetLang("假值"), "")
+        coordCol := rightPanel.Add("StackPanel").Orientation("Horizontal").Margin("0,6,0,0").VerticalAlignment("Center")
+        coordCol.Add("CheckBox").Name("CoordToogleCon").VerticalAlignment("Center").Margin("0,0,2,0")
+            .ToolTip(GetLang("目标点保存"))
+        this._AddTipField(coordCol, "CoordXNameCon", "CoordXTipHost", "ComboBox", 110, GetLang("坐标X变量名"), "0,0,6,0")
+        this._AddTipField(coordCol, "CoordYNameCon", "CoordYTipHost", "ComboBox", 110, GetLang("坐标Y变量名"), "")
 
         ; === 底部按钮 ===
-        btnRow := main.Add("StackPanel").Grid_Row(4).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
+        btnRow := main.Add("StackPanel").Grid_Row(3).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
         AddCmdOkBtn(btnRow, "BtnSure", "4,0")
 
         ; === 创建 XAMLHost ===
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", this.OwnerHwnd)
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="880" Height="680" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="920" Height="680" Opacity="0"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
         this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '')
 
@@ -223,13 +247,11 @@ class SearchMultiGui {
         this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
         this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
         this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
-        BindCmdEditorChrome(this.ui, "#指令手册/4-组合搜索", (*) => this.TriggerMacro())
-        this.ui.OnEvent("BtnTargeter", "Click", ObjBindMethod(this, "OnClickTargeterBtn"))
-        this.ui.OnEvent("BtnTargeterHelp", "Click", ObjBindMethod(this, "OnClickTargeterHelpBtn"))
-        this.ui.OnEvent("BtnAddTarget", "Click", ObjBindMethod(this, "OnAddTarget"))
+        BindCmdEditorChrome(this.ui, "#指令手册/4-搜索Combo", (*) => this.TriggerMacro(), "!l"
+            , "", (*) => this.OnF1()
+            , (*) => this.OnScreenShotBtnClick(this._CurTarget()), (*) => this.SureColor())
+        try this.ui.Update("BtnCmdF1", "ToolTip", GetLang("F1：框选范围"))
         this.ui.OnEvent("TargetList", "SelectionChanged", ObjBindMethod(this, "OnTargetSelected"))
-        this.ui.OnEvent("PreviewAreaCon", "Click", ObjBindMethod(this, "OnClickPreviewArea"))
-        this.ui.OnEvent("SelectToggleCon", "Click", ObjBindMethod(this, "OnClickSelectToggle"))
         this.ui.OnEvent("SatisfyCountCon", "TextChanged", ObjBindMethod(this, "OnOverallChange"))
         this.ui.OnEvent("SearchCountCon", "TextChanged", ObjBindMethod(this, "OnOverallChange"))
         this.ui.OnEvent("SearchIntervalCon", "TextChanged", ObjBindMethod(this, "OnOverallChange"))
@@ -239,9 +261,44 @@ class SearchMultiGui {
         this.ui.OnEvent("ResultToggleCon", "Click", ObjBindMethod(this, "OnOverallChange"))
         this.ui.OnEvent("CoordToogleCon", "Click", ObjBindMethod(this, "OnOverallChange"))
         this.ui.OnEvent("BtnEditFoundMacro", "Click", ObjBindMethod(this, "OnEditFoundMacroBtnClick"))
-        this.ui.OnEvent("FalseMacroEditBtn", "Click", ObjBindMethod(this, "OnEditUnFoundMacroBtnClick"))
+        this.ui.OnEvent("BtnEditUnFoundMacro", "Click", ObjBindMethod(this, "OnEditUnFoundMacroBtnClick"))
         this.ui.OnEvent("BtnSure", "Click", ObjBindMethod(this, "OnClickSureBtn"))
+        this._RefreshSaveTips()
 
+    }
+
+    _SaveTipText(name) {
+        tips := Map("ResultSaveNameCon", GetLang("变量名"), "TrueValueCon", GetLang("真值"), "FalseValueCon", GetLang("假值")
+            , "CoordXNameCon", GetLang("坐标X变量名"), "CoordYNameCon", GetLang("坐标Y变量名")
+            , "ResultSaveNameTipHost", GetLang("变量名"), "TrueValueTipHost", GetLang("真值"), "FalseValueTipHost", GetLang("假值")
+            , "CoordXTipHost", GetLang("坐标X变量名"), "CoordYTipHost", GetLang("坐标Y变量名"))
+        return tips.Has(name) ? tips[name] : ""
+    }
+
+    _AddTipField(parent, name, hostName, kind, width, tip, margin) {
+        wrap := parent.Add("Grid").Name(hostName).Width(width).Height(28).MinHeight(28)
+            .VerticalAlignment("Center").Background("Transparent").ToolTip(tip)
+        if (margin != "")
+            wrap.Margin(margin)
+        c := wrap.Add(kind).Name(name).Height(28).MinHeight(28)
+            .HorizontalAlignment("Stretch").VerticalAlignment("Center").VerticalContentAlignment("Center").FontSize("11")
+            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+        if (kind == "TextBox")
+            c.Padding("2,0").TextAlignment("Center").ToolTip(tip)
+        else
+            c.IsEditable("True")
+    }
+
+    _RefreshSaveTips() {
+        if (!IsObject(this.ui))
+            return
+        for cn in ["ResultSaveNameTipHost", "TrueValueTipHost", "FalseValueTipHost", "CoordXTipHost", "CoordYTipHost"
+            , "ResultSaveNameCon", "TrueValueCon", "FalseValueCon", "CoordXNameCon", "CoordYNameCon"] {
+            tip := this._SaveTipText(cn)
+            if (tip != "")
+                try this.ui.Update(cn, "ToolTip", tip)
+        }
     }
 
     ; ---------------- 数据读写辅助 ----------------
@@ -261,6 +318,68 @@ class SearchMultiGui {
     ; 目标控件名前缀
     _TN(n, base) {
         return "Tgt_" n "_" base
+    }
+
+    _ThemedScrollXaml() {
+        thumb := '<ControlTemplate x:Key="RmtSbThumb" TargetType="Thumb">'
+            . '<Border x:Name="bd" Background="{DynamicResource ControlBorder}" CornerRadius="3" Opacity="0.85" Margin="1"/>'
+            . '<ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True">'
+            . '<Setter TargetName="bd" Property="Background" Value="{DynamicResource Accent}"/>'
+            . '<Setter TargetName="bd" Property="Opacity" Value="1"/>'
+            . '</Trigger></ControlTemplate.Triggers></ControlTemplate>'
+        sbV := '<Style x:Key="RmtSbVertical" TargetType="ScrollBar">'
+            . '<Setter Property="OverridesDefaultStyle" Value="True"/>'
+            . '<Setter Property="Background" Value="Transparent"/>'
+            . '<Setter Property="Width" Value="8"/><Setter Property="MinWidth" Value="0"/>'
+            . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ScrollBar">'
+            . '<Grid Background="Transparent"><Track x:Name="PART_Track" IsDirectionReversed="true">'
+            . '<Track.Thumb><Thumb Template="{StaticResource RmtSbThumb}"/></Track.Thumb>'
+            . '</Track></Grid></ControlTemplate></Setter.Value></Setter></Style>'
+        sbH := '<Style x:Key="RmtSbHorizontal" TargetType="ScrollBar">'
+            . '<Setter Property="OverridesDefaultStyle" Value="True"/>'
+            . '<Setter Property="Background" Value="Transparent"/>'
+            . '<Setter Property="Height" Value="8"/><Setter Property="MinHeight" Value="0"/>'
+            . '<Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ScrollBar">'
+            . '<Grid Background="Transparent"><Track x:Name="PART_Track" IsDirectionReversed="false">'
+            . '<Track.Thumb><Thumb Template="{StaticResource RmtSbThumb}"/></Track.Thumb>'
+            . '</Track></Grid></ControlTemplate></Setter.Value></Setter></Style>'
+        sv := '<Style TargetType="ScrollViewer"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ScrollViewer"><Grid>'
+            . '<Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>'
+            . '<Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>'
+            . '<ScrollContentPresenter x:Name="PART_ScrollContentPresenter" Grid.Column="0" Grid.Row="0" Margin="{TemplateBinding Padding}" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" CanContentScroll="{TemplateBinding CanContentScroll}"/>'
+            . '<ScrollBar x:Name="PART_VerticalScrollBar" Width="8" MinWidth="0" Grid.Column="1" Grid.Row="0" Value="{TemplateBinding VerticalOffset}" Maximum="{TemplateBinding ScrollableHeight}" ViewportSize="{TemplateBinding ViewportHeight}" Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}" Style="{StaticResource RmtSbVertical}"/>'
+            . '<ScrollBar x:Name="PART_HorizontalScrollBar" Height="8" MinHeight="0" Orientation="Horizontal" Grid.Column="0" Grid.Row="1" Value="{TemplateBinding HorizontalOffset}" Maximum="{TemplateBinding ScrollableWidth}" ViewportSize="{TemplateBinding ViewportWidth}" Visibility="{TemplateBinding ComputedHorizontalScrollBarVisibility}" Style="{StaticResource RmtSbHorizontal}"/>'
+            . '</Grid></ControlTemplate></Setter.Value></Setter></Style>'
+        return thumb sbV sbH sv
+    }
+
+    _ThemeHoverBtnStyle() {
+        return '<Button.Style><Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">'
+            . '<Border x:Name="bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3">'
+            . '<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>'
+            . '<ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True">'
+            . '<Setter TargetName="bd" Property="Background" Value="{DynamicResource EditHoverBg}"/>'
+            . '<Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource EditHoverStroke}"/>'
+            . '</Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style></Button.Style>'
+    }
+
+    _AreaPreviewBtnStyle() {
+        return '<Button.Style><Style TargetType="Button"><Setter Property="Tag" Value="0"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">'
+            . '<Border x:Name="bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}" CornerRadius="3" SnapsToDevicePixels="True" UseLayoutRounding="False">'
+            . '<ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/></Border>'
+            . '<ControlTemplate.Triggers>'
+            . '<MultiTrigger><MultiTrigger.Conditions><Condition Property="IsMouseOver" Value="True"/><Condition Property="Tag" Value="0"/></MultiTrigger.Conditions>'
+            . '<Setter TargetName="bd" Property="Background" Value="{DynamicResource EditHoverBg}"/><Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource EditHoverStroke}"/></MultiTrigger>'
+            . '<MultiTrigger><MultiTrigger.Conditions><Condition Property="IsMouseOver" Value="True"/><Condition Property="Tag" Value="1"/></MultiTrigger.Conditions>'
+            . '<Setter TargetName="bd" Property="Background" Value="{DynamicResource ActionHoverBg}"/><Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource ActionHoverStroke}"/></MultiTrigger>'
+            . '</ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style></Button.Style>'
+    }
+
+    _AreaComboXml(name, row, col) {
+        return '<ComboBox Name="' name '" Grid.Row="' row '" Grid.Column="' col '" Width="110" Height="28" MinHeight="28"'
+            . ' HorizontalAlignment="Left" VerticalAlignment="Center" VerticalContentAlignment="Center" FontSize="' XAMLHost.FontSize() '"'
+            . ' IsEditable="True" Foreground="{DynamicResource InputText}" Background="{DynamicResource InputBg}"'
+            . ' BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1"/>'
     }
 
     _ToggleInt(v) {
@@ -302,6 +421,7 @@ class SearchMultiGui {
             Similar: ObjHasOwnProp(Data, "Similar") ? Data.Similar : 90,
             OCRType: ObjHasOwnProp(Data, "OCRType") ? Data.OCRType : 1,
             SearchImageType: ObjHasOwnProp(Data, "SearchImageType") ? Data.SearchImageType : 1,
+            Remark: ObjHasOwnProp(Data, "Remark") ? Data.Remark : "",
             StartPosX: ObjHasOwnProp(Data, "StartPosX") ? Data.StartPosX : 0,
             StartPosY: ObjHasOwnProp(Data, "StartPosY") ? Data.StartPosY : 0,
             EndPosX: ObjHasOwnProp(Data, "EndPosX") ? Data.EndPosX : A_ScreenWidth,
@@ -310,74 +430,166 @@ class SearchMultiGui {
         return [t]
     }
 
-    ; 目标卡片 XAML（每目标独立配置）
+    ; 目标卡片 XAML（固定行高，各搜索类型卡片等高；删除按钮叠在右上角）
     _TargetCardXml(n, t) {
         ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
         typeItems := ""
         for tt in GetLangArr(["屏幕图片", "屏幕颜色", "屏幕文本", "窗口图片", "窗口颜色", "窗口文本"])
             typeItems .= '<ComboBoxItem Content="' tt '"/>'
         modelItems := '<ComboBoxItem Content="OpenCV"/><ComboBoxItem Content="' GetLang("RMT识图") '"/>'
+        delIcon := Chr(0xE74D)
 
+        lastN := this.TargetList.Length
+        fs := XAMLHost.FontSize()
         xaml := '<ListBoxItem ' ns ' Tag="' n '">'
-            . '<Border Margin="0,1" Padding="8,6" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1" CornerRadius="4" Background="{DynamicResource DropdownBg}">'
-            . '<StackPanel>'
-            ; 标题行：目标序号 + 类型 + 删除
-            . '<StackPanel Orientation="Horizontal" VerticalAlignment="Center">'
-            . '<TextBlock Text="' GetLang("目标") ' ' n '" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource TextMain}"/>'
-            . '<TextBlock Text="' GetLang("搜索类型：") '" VerticalAlignment="Center" Margin="12,0,0,0" Foreground="{DynamicResource TextSub}"/>'
-            . '<ComboBox Name="' this._TN(n, "Type") '" Width="110" Height="24" MinHeight="24" Margin="4,0,0,0">' typeItems '</ComboBox>'
-            . '<Button Name="' this._TN(n, "DelBtn") '" Content="' GetLang("删除目标") '" Height="24" MinHeight="24" Padding="8,0" Margin="10,0,0,0" Cursor="Hand"/>'
+            . '<Border Margin="0,1,0,1" Padding="8,6,8,6" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1" CornerRadius="4" Background="Transparent">'
+            . '<Grid>'
+            . '<Grid>'
+            . '<Grid.RowDefinitions>'
+            . '<RowDefinition Height="28"/>'
+            . '<RowDefinition Height="32"/>'
+            . '<RowDefinition Height="64"/>'
+            . '<RowDefinition Height="32"/>'
+            . '</Grid.RowDefinitions>'
+            . '<Grid.ColumnDefinitions>'
+            . '<ColumnDefinition Width="72"/>'
+            . '<ColumnDefinition Width="4"/>'
+            . '<ColumnDefinition Width="*"/>'
+            . '<ColumnDefinition Width="8"/>'
+            . '<ColumnDefinition Width="64" MinWidth="64"/>'
+            . '</Grid.ColumnDefinitions>'
+            . '<Grid Grid.Row="0" Grid.ColumnSpan="5" Margin="0,0,78,0">'
+            . '<TextBlock Text="' n '." FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Left" Foreground="{DynamicResource TextMain}" FontSize="' fs '"/>'
+            . '<StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">'
+            . '<TextBlock Text="' GetLang("备注：") '" VerticalAlignment="Center" Foreground="{DynamicResource TextMain}" FontSize="' fs '"/>'
+            . '<TextBox Name="' this._TN(n, "Remark") '" Width="140" Height="24" MinHeight="24" Margin="4,0,0,0" VerticalAlignment="Center" VerticalContentAlignment="Center" Padding="4,0" FontSize="' fs '"'
+            . ' Background="{DynamicResource InputBg}" Foreground="{DynamicResource InputText}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1"/>'
             . '</StackPanel>'
-            ; 窗口信息行
-            . '<StackPanel Name="' this._TN(n, "WinInfoRow") '" Orientation="Horizontal" Margin="0,6,0,0">'
-            . '<TextBlock Text="' GetLang("窗口信息:") '" VerticalAlignment="Center" Foreground="{DynamicResource TextSub}"/>'
-            . '<TextBox Name="' this._TN(n, "WinInfo") '" Width="150" Height="24" MinHeight="24" Margin="4,0,0,0"'
+            . '</Grid>'
+            . '<TextBlock Grid.Row="1" Grid.Column="0" Text="' GetLang("搜索类型：") '" VerticalAlignment="Center" HorizontalAlignment="Left" Foreground="{DynamicResource TextMain}" FontSize="' fs '"/>'
+            . '<Grid Grid.Row="1" Grid.Column="2">'
+            . '<Grid.ColumnDefinitions><ColumnDefinition Width="110"/><ColumnDefinition Width="12"/><ColumnDefinition Width="72"/><ColumnDefinition Width="8"/><ColumnDefinition Width="140"/><ColumnDefinition Width="8"/><ColumnDefinition Width="28"/></Grid.ColumnDefinitions>'
+            . '<ComboBox Name="' this._TN(n, "Type") '" Grid.Column="0" Width="110" Height="28" MinHeight="28" VerticalAlignment="Center" VerticalContentAlignment="Center" FontSize="' fs '">' typeItems '</ComboBox>'
+            . '<Grid Name="' this._TN(n, "WinInfoRow") '" Grid.Column="2" Grid.ColumnSpan="5" VerticalAlignment="Center">'
+            . '<Grid.ColumnDefinitions><ColumnDefinition Width="72"/><ColumnDefinition Width="8"/><ColumnDefinition Width="140"/><ColumnDefinition Width="8"/><ColumnDefinition Width="28"/></Grid.ColumnDefinitions>'
+            . '<TextBlock Grid.Column="0" Text="' GetLang("窗口信息:") '" VerticalAlignment="Center" HorizontalAlignment="Left" Foreground="{DynamicResource TextMain}" FontSize="' fs '"/>'
+            . '<TextBox Name="' this._TN(n, "WinInfo") '" Grid.Column="2" Width="140" Height="28" MinHeight="28" FontSize="' fs '"'
             . ' Background="{DynamicResource InputBg}" Foreground="{DynamicResource InputText}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1" VerticalContentAlignment="Center" Padding="4,0"/>'
-            . '<Button Name="' this._TN(n, "WinInfoEditBtn") '" Content="' GetLang("编辑") '" Height="24" MinHeight="24" Margin="6,0,0,0" Cursor="Hand"/>'
+            . '<Button Name="' this._TN(n, "WinInfoEditBtn") '" Grid.Column="4" Width="28" Height="28" MinHeight="28" Padding="0" Cursor="Hand"'
+            . ' FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="' fs '" Content="' Chr(0xE70F) '"'
+            . ' ToolTip="' GetLang("编辑") '" Foreground="{DynamicResource TextMain}"'
+            . ' Background="{DynamicResource ControlBg}" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1">'
+            . this._ThemeHoverBtnStyle()
+            . '</Button>'
+            . '</Grid>'
+            . '</Grid>'
+            . '<Button Name="' this._TN(n, "PreviewBtn") '" Grid.Row="2" Grid.Column="0"'
+            . ' HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Cursor="Hand" Focusable="False"'
+            . ' Margin="-6,0,0,0" Padding="6,0,0,0" Tag="0" ToolTip="' GetLang("搜索范围") '"'
+            . ' HorizontalContentAlignment="Left" VerticalContentAlignment="Stretch"'
+            . ' Background="{DynamicResource ControlBg}" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1">'
+            . this._AreaPreviewBtnStyle()
+            . '<Grid HorizontalAlignment="Stretch" VerticalAlignment="Stretch">'
+            . '<Grid.RowDefinitions><RowDefinition Height="32"/><RowDefinition Height="32"/></Grid.RowDefinitions>'
+            . '<TextBlock Grid.Row="0" Text="' GetLang("起始坐标：") '" VerticalAlignment="Center" HorizontalAlignment="Left"'
+            . ' Foreground="{DynamicResource TextMain}" FontSize="' fs '" IsHitTestVisible="False"/>'
+            . '<TextBlock Grid.Row="1" Text="' GetLang("终止坐标：") '" VerticalAlignment="Center" HorizontalAlignment="Left"'
+            . ' Foreground="{DynamicResource TextMain}" FontSize="' fs '" IsHitTestVisible="False"/>'
+            . '</Grid></Button>'
+            . '<Grid Grid.Row="2" Grid.Column="2" HorizontalAlignment="Stretch" ClipToBounds="False">'
+            . '<Grid.RowDefinitions><RowDefinition Height="32"/><RowDefinition Height="32"/></Grid.RowDefinitions>'
+            . '<Grid.ColumnDefinitions>'
+            . '<ColumnDefinition Width="110"/><ColumnDefinition Width="8"/><ColumnDefinition Width="110"/>'
+            . '<ColumnDefinition Width="8"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="6"/><ColumnDefinition Width="*" MinWidth="80"/>'
+            . '</Grid.ColumnDefinitions>'
+            . this._AreaComboXml(this._TN(n, "StartPosX"), 0, 0)
+            . this._AreaComboXml(this._TN(n, "StartPosY"), 0, 2)
+            . this._AreaComboXml(this._TN(n, "EndPosX"), 1, 0)
+            . this._AreaComboXml(this._TN(n, "EndPosY"), 1, 2)
+            . '<TextBlock Name="' this._TN(n, "SimilarRow") '" Grid.Row="0" Grid.Column="4" Text="' GetLang("相似度(%)：") '"'
+            . ' VerticalAlignment="Center" HorizontalAlignment="Right" Foreground="{DynamicResource TextMain}" FontSize="' fs '"/>'
+            . '<TextBox Name="' this._TN(n, "Similar") '" Grid.Row="0" Grid.Column="6" Height="28" MinHeight="28" MinWidth="80"'
+            . ' HorizontalAlignment="Stretch" VerticalContentAlignment="Center" Padding="2,0" TextAlignment="Center" FontSize="' fs '"'
+            . ' Foreground="{DynamicResource InputText}" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1"/>'
+            . '<TextBlock Name="' this._TN(n, "ImageTypeTip") '" Grid.Row="1" Grid.Column="4" Text="' GetLang("识别模型：") '"'
+            . ' VerticalAlignment="Center" HorizontalAlignment="Right" Foreground="{DynamicResource TextMain}" FontSize="' fs '"/>'
+            . '<ComboBox Name="' this._TN(n, "ImageType") '" Grid.Row="1" Grid.Column="6" Height="28" MinHeight="28" MinWidth="80"'
+            . ' HorizontalAlignment="Stretch" VerticalAlignment="Center" VerticalContentAlignment="Center" FontSize="' fs '">' modelItems '</ComboBox>'
+            . '</Grid>'
+            . '<Border Name="' this._TN(n, "ImagePreviewHost") '" Grid.Row="2" Grid.Column="4" Width="64" Height="64" MinWidth="64" MinHeight="64" MaxWidth="64" MaxHeight="64"'
+            . ' HorizontalAlignment="Left" VerticalAlignment="Center" ClipToBounds="True"'
+            . ' Background="{DynamicResource ControlBg}" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1">'
+            . '<Image Name="' this._TN(n, "Image") '" Stretch="Uniform" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>'
+            . '</Border>'
+            . '<TextBlock Name="' this._TN(n, "ImagePathTip") '" Grid.Row="3" Grid.Column="0" Text="' GetLang("图片路径：") '" VerticalAlignment="Center" HorizontalAlignment="Left" Foreground="{DynamicResource TextMain}" FontSize="' fs '"/>'
+            . '<Grid Name="' this._TN(n, "ImagePathRow") '" Grid.Row="3" Grid.Column="2" Width="228" HorizontalAlignment="Left">'
+            . '<Grid.ColumnDefinitions>'
+            . '<ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="28"/><ColumnDefinition Width="8"/><ColumnDefinition Width="28"/>'
+            . '</Grid.ColumnDefinitions>'
+            . '<ComboBox Name="' this._TN(n, "ImagePath") '" Grid.Column="0" Height="28" MinHeight="28" VerticalAlignment="Center" HorizontalAlignment="Stretch" IsEditable="True" FontSize="' fs '"'
+            . ' Foreground="{DynamicResource InputText}" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1"/>'
+            . '<Button Name="' this._TN(n, "ScreenshotBtn") '" Grid.Column="2" Width="28" Height="28" MinHeight="28" Padding="0" Cursor="Hand"'
+            . ' FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="' fs '" Content="' Chr(0xE7A8) '"'
+            . ' ToolTip="' GetLang("截图") '" Foreground="{DynamicResource TextMain}"'
+            . ' Background="{DynamicResource ControlBg}" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1"/>'
+            . '<Button Name="' this._TN(n, "ImageSelectBtn") '" Grid.Column="4" Width="28" Height="28" MinHeight="28" Padding="0" Cursor="Hand"'
+            . ' FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="' fs '" Content="' Chr(0xE8E5) '"'
+            . ' ToolTip="' GetLang("选择图片") '" Foreground="{DynamicResource TextMain}"'
+            . ' Background="{DynamicResource ControlBg}" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1"/>'
+            . '</Grid>'
+            . '<TextBlock Name="' this._TN(n, "ColorTipLabel") '" Grid.Row="3" Grid.Column="0" Text="' GetLang("搜索颜色：") '" VerticalAlignment="Center" HorizontalAlignment="Left" Foreground="{DynamicResource TextMain}" FontSize="' fs '"/>'
+            . '<Grid Name="' this._TN(n, "ColorRow") '" Grid.Row="3" Grid.Column="2" Width="228" HorizontalAlignment="Left">'
+            . '<Grid.ColumnDefinitions>'
+            . '<ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="20"/>'
+            . '</Grid.ColumnDefinitions>'
+            . '<ComboBox Name="' this._TN(n, "Color") '" Grid.Column="0" Height="28" MinHeight="28" HorizontalAlignment="Stretch" VerticalAlignment="Center" VerticalContentAlignment="Center" FontSize="' fs '" IsEditable="True"/>'
+            . '<Border Name="' this._TN(n, "ColorTip") '" Grid.Column="2" Width="20" Height="20" Background="#FF0000" VerticalAlignment="Center"/>'
+            . '</Grid>'
+            . '<TextBlock Name="' this._TN(n, "TextTipLabel") '" Grid.Row="3" Grid.Column="0" Text="' GetLang("搜索文本：") '" VerticalAlignment="Center" HorizontalAlignment="Left" Foreground="{DynamicResource TextMain}" FontSize="' fs '"/>'
+            . '<Grid Name="' this._TN(n, "TextRow") '" Grid.Row="3" Grid.Column="2" Width="228" HorizontalAlignment="Left">'
+            . '<ComboBox Name="' this._TN(n, "Text") '" Height="28" MinHeight="28" HorizontalAlignment="Stretch" VerticalAlignment="Center" VerticalContentAlignment="Center" FontSize="' fs '" IsEditable="True"/>'
+            . '</Grid>'
+            . '</Grid>'
+            . '<StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,2,1,0">'
+        if (n > 1)
+            xaml .= this._OverlayIconBtnXml(this._TN(n, "UpBtn"), Chr(0xE74A), GetLang("上移"), "0,0,4,0")
+        if (n < lastN)
+            xaml .= this._OverlayIconBtnXml(this._TN(n, "DownBtn"), Chr(0xE74B), GetLang("下移"), "0,0,4,0")
+        xaml .= this._OverlayIconBtnXml(this._TN(n, "DelBtn"), delIcon, GetLang("删除目标"), "0")
             . '</StackPanel>'
-            ; 坐标行
-            . '<StackPanel Orientation="Horizontal" Margin="0,6,0,0">'
-            . '<TextBlock Text="' GetLang("起始坐标X：") '" VerticalAlignment="Center" Foreground="{DynamicResource TextSub}"/>'
-            . '<ComboBox Name="' this._TN(n, "StartPosX") '" Width="70" Height="24" MinHeight="24" Margin="4,0,0,0" IsEditable="True"/>'
-            . '<TextBlock Text="' GetLang("起始坐标Y：") '" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="{DynamicResource TextSub}"/>'
-            . '<ComboBox Name="' this._TN(n, "StartPosY") '" Width="70" Height="24" MinHeight="24" Margin="4,0,0,0" IsEditable="True"/>'
-            . '<TextBlock Text="' GetLang("终止坐标X：") '" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="{DynamicResource TextSub}"/>'
-            . '<ComboBox Name="' this._TN(n, "EndPosX") '" Width="70" Height="24" MinHeight="24" Margin="4,0,0,0" IsEditable="True"/>'
-            . '<TextBlock Text="' GetLang("终止坐标Y：") '" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="{DynamicResource TextSub}"/>'
-            . '<ComboBox Name="' this._TN(n, "EndPosY") '" Width="70" Height="24" MinHeight="24" Margin="4,0,0,0" IsEditable="True"/>'
-            . '</StackPanel>'
-            ; 图片区
-            . '<StackPanel Name="' this._TN(n, "ImageRow") '" Orientation="Horizontal" Margin="0,6,0,0">'
-            . '<TextBlock Text="' GetLang("识别模型：") '" VerticalAlignment="Center" Foreground="{DynamicResource TextSub}"/>'
-            . '<ComboBox Name="' this._TN(n, "ImageType") '" Width="80" Height="24" MinHeight="24" Margin="4,0,0,0">' modelItems '</ComboBox>'
-            . '<Button Name="' this._TN(n, "ScreenshotBtn") '" Content="' GetLang("截图") '" Height="24" MinHeight="24" Margin="10,0,0,0" Cursor="Hand"/>'
-            . '<Button Name="' this._TN(n, "ImageSelectBtn") '" Content="' GetLang("选择图片") '" Height="24" MinHeight="24" Margin="6,0,0,0" Cursor="Hand"/>'
-            . '</StackPanel>'
-            . '<StackPanel Name="' this._TN(n, "ImagePathRow") '" Orientation="Horizontal" Margin="0,4,0,0">'
-            . '<TextBlock Text="' GetLang("图片路径：") '" VerticalAlignment="Center" Foreground="{DynamicResource TextSub}"/>'
-            . '<ComboBox Name="' this._TN(n, "ImagePath") '" Width="250" Height="24" MinHeight="24" Margin="4,0,0,0" IsEditable="True"/>'
-            . '<Image Name="' this._TN(n, "Image") '" Width="40" Height="40" Margin="8,0,0,0" Stretch="Uniform" VerticalAlignment="Center"/>'
-            . '</StackPanel>'
-            ; 颜色区
-            . '<StackPanel Name="' this._TN(n, "ColorRow") '" Orientation="Horizontal" Margin="0,6,0,0">'
-            . '<TextBlock Text="' GetLang("搜索颜色：") '" VerticalAlignment="Center" Foreground="{DynamicResource TextSub}"/>'
-            . '<ComboBox Name="' this._TN(n, "Color") '" Width="110" Height="24" MinHeight="24" Margin="4,0,0,0" IsEditable="True"/>'
-            . '<Border Name="' this._TN(n, "ColorTip") '" Width="16" Height="16" Background="#FF0000" VerticalAlignment="Center" Margin="6,0,0,0"/>'
-            . '</StackPanel>'
-            ; 文本区
-            . '<StackPanel Name="' this._TN(n, "TextRow") '" Orientation="Horizontal" Margin="0,6,0,0">'
-            . '<TextBlock Text="' GetLang("搜索文本：") '" VerticalAlignment="Center" Foreground="{DynamicResource TextSub}"/>'
-            . '<ComboBox Name="' this._TN(n, "Text") '" Width="200" Height="24" MinHeight="24" Margin="4,0,0,0" IsEditable="True"/>'
-            . '</StackPanel>'
-            ; 相似度
-            . '<StackPanel Name="' this._TN(n, "SimilarRow") '" Orientation="Horizontal" Margin="0,6,0,0">'
-            . '<TextBlock Text="' GetLang("相似度(%)：") '" VerticalAlignment="Center" Foreground="{DynamicResource TextSub}"/>'
-            . '<TextBox Name="' this._TN(n, "Similar") '" Width="80" Height="24" MinHeight="24"'
-            . ' VerticalContentAlignment="Center" Padding="4,0" TextAlignment="Center" FontSize="11" Margin="4,0,0,0"'
-            . ' Foreground="{DynamicResource InputText}" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1"/>'
-            . '</StackPanel>'
-            . '</StackPanel></Border></ListBoxItem>'
+            . '</Grid></Border></ListBoxItem>'
         return xaml
+    }
+
+    _OverlayIconBtnXml(name, icon, tip, margin) {
+        return '<Button Name="' name '" Width="22" Height="22" MinHeight="22" Padding="0" Margin="' margin '" Cursor="Hand"'
+            . ' FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="' XAMLHost.FontSize() '" Content="' icon '"'
+            . ' ToolTip="' tip '" Foreground="{DynamicResource TextMain}" UseLayoutRounding="True" SnapsToDevicePixels="True"'
+            . ' Background="{DynamicResource ControlBg}" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1">'
+            . '<Button.Style><Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">'
+            . '<Border x:Name="bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"'
+            . ' BorderThickness="1" CornerRadius="3" SnapsToDevicePixels="True" UseLayoutRounding="True">'
+            . '<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>'
+            . '<ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True">'
+            . '<Setter TargetName="bd" Property="Background" Value="{DynamicResource EditHoverBg}"/>'
+            . '<Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource EditHoverStroke}"/>'
+            . '</Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style></Button.Style>'
+            . '</Button>'
+    }
+
+    _AddTargetItemXml() {
+        ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
+        addIcon := Chr(0xE710)
+        return '<ListBoxItem ' ns ' Tag="add" Focusable="False">'
+            . '<Button Name="BtnAddTarget" Width="28" Height="28" MinHeight="28" Margin="0,6,0,8"'
+            . ' HorizontalAlignment="Center" VerticalAlignment="Center" Cursor="Hand" Padding="0"'
+            . ' ToolTip="' GetLang("添加") '"'
+            . ' FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="' XAMLHost.FontSize() '" Content="' addIcon '"'
+            . ' Foreground="{DynamicResource TextMain}" Background="{DynamicResource ControlBg}"'
+            . ' BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1">'
+            . this._ThemeHoverBtnStyle()
+            . '</Button>'
+            . '</ListBoxItem>'
     }
 
     ; 重建目标列表：ClearItems + 注入全部卡片 + 绑定事件 + 填值
@@ -388,22 +600,30 @@ class SearchMultiGui {
         batch.Push({ControlName: "TargetList", PropertyName: "ClearItems", Value: ""})
         loop this.TargetList.Length
             batch.Push({ControlName: "TargetList", PropertyName: "AddXamlItem", Value: this._TargetCardXml(A_Index, this.TargetList[A_Index])})
+        batch.Push({ControlName: "TargetList", PropertyName: "AddXamlItem", Value: this._AddTargetItemXml()})
         this.ui.BatchUpdate(batch)
         loop this.TargetList.Length
             this._BindTargetCard(A_Index)
+        this._Bind("BtnAddTarget", "Click", ObjBindMethod(this, "OnAddTarget"))
         loop this.TargetList.Length
             this._FillTargetCard(A_Index)
         this.ui.Update("TargetList", "SelectedIndex", String(this.CurTarget - 1))
+        this._ApplyAreaPreviewChrome()
     }
 
     _BindTargetCard(n) {
         this._Bind(this._TN(n, "Type"), "SelectionChanged", ObjBindMethod(this, "OnTargetTypeChanged", n))
         this._Bind(this._TN(n, "DelBtn"), "Click", ObjBindMethod(this, "OnDelTarget", n))
+        if (n > 1)
+            this._Bind(this._TN(n, "UpBtn"), "Click", ObjBindMethod(this, "OnMoveTarget", n, -1))
+        if (n < this.TargetList.Length)
+            this._Bind(this._TN(n, "DownBtn"), "Click", ObjBindMethod(this, "OnMoveTarget", n, 1))
         this._Bind(this._TN(n, "WinInfoEditBtn"), "Click", ObjBindMethod(this, "OnClickWinEditBtn", n))
-        this._Bind(this._TN(n, "StartPosX"), "TextChanged", ObjBindMethod(this, "RefreshPreviewArea"))
-        this._Bind(this._TN(n, "StartPosY"), "TextChanged", ObjBindMethod(this, "RefreshPreviewArea"))
-        this._Bind(this._TN(n, "EndPosX"), "TextChanged", ObjBindMethod(this, "RefreshPreviewArea"))
-        this._Bind(this._TN(n, "EndPosY"), "TextChanged", ObjBindMethod(this, "RefreshPreviewArea"))
+        this._Bind(this._TN(n, "PreviewBtn"), "Click", ObjBindMethod(this, "OnClickPreviewArea", n))
+        this._Bind(this._TN(n, "StartPosX"), "LostFocus", ObjBindMethod(this, "RefreshPreviewArea"))
+        this._Bind(this._TN(n, "StartPosY"), "LostFocus", ObjBindMethod(this, "RefreshPreviewArea"))
+        this._Bind(this._TN(n, "EndPosX"), "LostFocus", ObjBindMethod(this, "RefreshPreviewArea"))
+        this._Bind(this._TN(n, "EndPosY"), "LostFocus", ObjBindMethod(this, "RefreshPreviewArea"))
         this._Bind(this._TN(n, "ScreenshotBtn"), "Click", ObjBindMethod(this, "OnScreenShotBtnClick", n))
         this._Bind(this._TN(n, "ImageSelectBtn"), "Click", ObjBindMethod(this, "OnClickSetPicBtn", n))
     }
@@ -413,6 +633,7 @@ class SearchMultiGui {
             return
         t := this.TargetList[n]
         this.ui.Update(this._TN(n, "Type"), "SelectedIndex", String(Integer(t.SearchType ? t.SearchType : 1) - 1))
+        this.ui.Update(this._TN(n, "Remark"), "Text", ObjHasOwnProp(t, "Remark") ? t.Remark : "")
         this.ui.Update(this._TN(n, "WinInfo"), "Text", t.WinInfo)
         this._SetCombo(this._TN(n, "StartPosX"), this.DLVariableArr, t.StartPosX)
         this._SetCombo(this._TN(n, "StartPosY"), this.DLVariableArr, t.StartPosY)
@@ -441,10 +662,16 @@ class SearchMultiGui {
         if (!IsObject(this.ui))
             return
         idx := this.ui.Query("TargetList>SelectedIndex")
-        if (IsNumber(idx) && Integer(idx) >= 0 && Integer(idx) < this.TargetList.Length) {
-            this.CurTarget := Integer(idx) + 1
-            this.RefreshPreviewArea()
+        if (!IsNumber(idx) || Integer(idx) < 0)
+            return
+        idx := Integer(idx)
+        if (idx >= this.TargetList.Length) {
+            this.ui.Update("TargetList", "SelectedIndex", String(this._CurTarget() - 1))
+            return
         }
+        this.CurTarget := idx + 1
+        this._ApplyAreaPreviewChrome()
+        this.RefreshPreviewArea()
     }
 
     OnAddTarget(state := "", ctrl := "", event := "") {
@@ -463,6 +690,7 @@ class SearchMultiGui {
             Similar: last.Similar,
             OCRType: last.OCRType,
             SearchImageType: last.SearchImageType,
+            Remark: ObjHasOwnProp(last, "Remark") ? last.Remark : "",
             StartPosX: last.StartPosX, StartPosY: last.StartPosY,
             EndPosX: last.EndPosX, EndPosY: last.EndPosY
         }
@@ -486,6 +714,21 @@ class SearchMultiGui {
         this._RebuildTargetList()
     }
 
+    OnMoveTarget(n, dir, state := "", ctrl := "", event := "") {
+        if (!IsObject(this.ui))
+            return
+        newIdx := n + dir
+        if (newIdx < 1 || newIdx > this.TargetList.Length)
+            return
+        this.SaveSearchData()
+        this.TargetList := this.Data.SearchTargetArr
+        tmp := this.TargetList[n]
+        this.TargetList[n] := this.TargetList[newIdx]
+        this.TargetList[newIdx] := tmp
+        this.CurTarget := newIdx
+        this._RebuildTargetList()
+    }
+
     ; 单目标类型切换：显隐该卡片区域
     OnTargetTypeChanged(n, state := "", ctrl := "", event := "") {
         if (!IsObject(this.ui) || n > this.TargetList.Length)
@@ -496,12 +739,18 @@ class SearchMultiGui {
         isText := curType == 3 || curType == 6
         isWin := curType == 4 || curType == 5 || curType == 6
         tn := this._TN(n, "")
-        this.ui.Update(tn "WinInfoRow", "Visibility", isWin ? "Visible" : "Collapsed")
-        this.ui.Update(tn "ImageRow", "Visibility", isImage ? "Visible" : "Collapsed")
-        this.ui.Update(tn "ImagePathRow", "Visibility", isImage ? "Visible" : "Collapsed")
-        this.ui.Update(tn "ColorRow", "Visibility", isColor ? "Visible" : "Collapsed")
-        this.ui.Update(tn "TextRow", "Visibility", isText ? "Visible" : "Collapsed")
-        this.ui.Update(tn "SimilarRow", "Visibility", isText ? "Collapsed" : "Visible")
+        this.ui.Update(tn "WinInfoRow", "Visibility", isWin ? "Visible" : "Hidden")
+        this.ui.Update(tn "ImagePathTip", "Visibility", isImage ? "Visible" : "Hidden")
+        this.ui.Update(tn "ImagePathRow", "Visibility", isImage ? "Visible" : "Hidden")
+        this.ui.Update(tn "ImageTypeTip", "Visibility", isImage ? "Visible" : "Hidden")
+        this.ui.Update(tn "ImageType", "Visibility", isImage ? "Visible" : "Hidden")
+        this.ui.Update(tn "ImagePreviewHost", "Visibility", isImage ? "Visible" : "Hidden")
+        this.ui.Update(tn "ColorTipLabel", "Visibility", isColor ? "Visible" : "Hidden")
+        this.ui.Update(tn "ColorRow", "Visibility", isColor ? "Visible" : "Hidden")
+        this.ui.Update(tn "TextTipLabel", "Visibility", isText ? "Visible" : "Hidden")
+        this.ui.Update(tn "TextRow", "Visibility", isText ? "Visible" : "Hidden")
+        this.ui.Update(tn "SimilarRow", "Visibility", isText ? "Hidden" : "Visible")
+        this.ui.Update(tn "Similar", "Visibility", isText ? "Hidden" : "Visible")
         if (n == this.CurTarget)
             this.RefreshPreviewArea()
     }
@@ -545,11 +794,12 @@ class SearchMultiGui {
 
         isCoord := this.ui.Query("CoordToogleCon") == "True"
         this.SetConArrState(this.CoordTogArr, true, isCoord)
+        this._RefreshSaveTips()
     }
 
     FalseConArr2() {
         if (!ObjHasOwnProp(this, "_FalseConArr")) {
-            this._FalseConArr := ["FalseMacroTipCon", "FalseMacroEditBtn", "FalseMacroCon"]
+            this._FalseConArr := ["FalseMacroTipCon", "FalseMacroHost"]
         }
         return this._FalseConArr
     }
@@ -695,13 +945,13 @@ class SearchMultiGui {
         try {
             CoordMode("Mouse", "Screen")
             MouseGetPos &mouseX, &mouseY
-            this.ui.Update("MousePosCon", "Text", Format("{}{},{}", GetLang("屏幕坐标："), mouseX, mouseY))
+            this.ui.Update("MousePosCon", "Text", Format("{},{}", mouseX, mouseY))
             PosArr := GetCurWinPos()
-            this.ui.Update("MouseWinPosCon", "Text", Format("{}{},{}", GetLang("窗口坐标："), PosArr[1], PosArr[2]))
+            this.ui.Update("MouseWinPosCon", "Text", Format("{},{}", PosArr[1], PosArr[2]))
             CoordMode("Pixel", "Screen")
             Color := PixelGetColor(mouseX, mouseY, "Slow")
             ColorText := StrReplace(Color, "0x", "")
-            this.ui.Update("MouseColorCon", "Text", Format("{}{}", GetLang("鼠标颜色："), ColorText))
+            this.ui.Update("MouseColorCon", "Text", ColorText)
             this.ui.Update("MouseColorTipCon", "Background", "#" ColorText)
         }
     }
@@ -869,21 +1119,11 @@ class SearchMultiGui {
         OnTriggerSepcialItemMacro(this.GetCommandStr())
     }
 
-    OnClickSelectToggle(*) {
-        state := this.ui.Query("SelectToggleCon") == "True"
-        if (state)
-            TogSelectArea(true, this.F1Action)
-        else
-            TogSelectArea(false)
-    }
-
     OnF1() {
-        this.ui.Update("SelectToggleCon", "IsChecked", "True")
         TogSelectArea(true, this.F1Action)
     }
 
     OnF1SetAreaAction(x1, y1, x2, y2) {
-        this.ui.Update("SelectToggleCon", "IsChecked", "False")
         n := this._CurTarget()
         curType := this._TargetType(n)
         isWin := curType == 4 || curType == 5 || curType == 6
@@ -899,7 +1139,6 @@ class SearchMultiGui {
 
     OnSetSearchArea(x1, y1, x2, y2) {
         n := this._CurTarget()
-        this.ui.Update("SelectToggleCon", "IsChecked", "False")
         this.ui.Update(this._TN(n, "StartPosX"), "Text", x1)
         this.ui.Update(this._TN(n, "StartPosY"), "Text", y1)
         this.ui.Update(this._TN(n, "EndPosX"), "Text", x2)
@@ -936,6 +1175,7 @@ class SearchMultiGui {
                 Similar: this.ui.Query(tn "Similar"),
                 OCRType: 1,   ; v6 统一多语言模型，不再区分
                 SearchImageType: Integer(this.ui.Query(tn "ImageType>SelectedIndex")) + 1,
+                Remark: this.ui.Query(tn "Remark"),
                 StartPosX: this.ui.Query(tn "StartPosX"),
                 StartPosY: this.ui.Query(tn "StartPosY"),
                 EndPosX: this.ui.Query(tn "EndPosX"),
@@ -985,12 +1225,33 @@ class SearchMultiGui {
         SaveMacroCMDData(data)
     }
 
-    OnClickPreviewArea(*) {
+    OnClickPreviewArea(n, *) {
+        if (this.CurTarget == n)
+            this.PreviewShowing := !this.PreviewShowing
+        else {
+            this.CurTarget := n
+            this.PreviewShowing := true
+            try this.ui.Update("TargetList", "SelectedIndex", String(n - 1))
+        }
+        this._ApplyAreaPreviewChrome()
         this.RefreshPreviewArea()
     }
 
+    _ApplyAreaPreviewChrome() {
+        if (!IsObject(this.ui))
+            return
+        loop this.TargetList.Length {
+            on := this.PreviewShowing && A_Index == this.CurTarget
+            name := this._TN(A_Index, "PreviewBtn")
+            try this.ui.Update(name, "Tag", on ? "1" : "0")
+            try this.ui.Update(name, "Background", on ? "{DynamicResource Accent}" : "{DynamicResource ControlBg}")
+            try this.ui.Update(name, "BorderBrush", on ? "{DynamicResource Accent}" : "{DynamicResource ControlBorder}")
+            try this.ui.Update(name, "BorderThickness", on ? "2" : "1")
+        }
+    }
+
     RefreshPreviewArea(*) {
-        if (this.ui.Query("PreviewAreaCon") != "True") {
+        if (!IsObject(this.ui) || !this.PreviewShowing) {
             this.StopPreviewFollow()
             this.HidePreviewRect()
             return
@@ -1064,7 +1325,7 @@ class SearchMultiGui {
     }
 
     PreviewFollowTick() {
-        if (this.ui.Query("PreviewAreaCon") != "True") {
+        if (!this.PreviewShowing) {
             this.StopPreviewFollow()
             return
         }
@@ -1165,7 +1426,7 @@ class SearchMultiGui {
 
     Init(cmd) {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
-        this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("组合搜索")
+        this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("搜索Combo")
         this.ui.Update("RemarkCon", "Text", cmdArr.Length >= 2 ? cmdArr[2] : "")
         this.Data := GetMacroCMDData(this.SerialStr)
         this.DLVariableArr := GetGuiVarArr()
@@ -1175,6 +1436,7 @@ class SearchMultiGui {
             this.TargetList := [this._TargetListOf(this.Data)[1]]
         }
         this.CurTarget := 1
+        this.PreviewShowing := false
 
         this._RebuildTargetList()
 

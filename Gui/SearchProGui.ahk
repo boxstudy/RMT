@@ -14,7 +14,7 @@ class SearchProGui {
         this.SureBtnAction := ""
         this.OwnerHwnd := ""
         this._closed := true
-        this.PosAction := () => this.RefreshMouseInfo()
+        this.PosAction := (*) => this.RefreshMouseInfo()
         this.F1Action := (x1, y1, x2, y2) => this.OnF1SetAreaAction(x1, y1, x2, y2)
         this.SetAreaAction := (x1, y1, x2, y2) => this.OnSetSearchArea(x1, y1, x2, y2)
         this.CheckClipboardAction := () => this.CheckClipboard()
@@ -25,12 +25,14 @@ class SearchProGui {
         this.PreviewBorderArr := []
         this.PreviewFollowTimer := 0
         this.PreviewFollowing := false
-        this.CountTogArr := ["SearchIntervalTipCon", "SearchIntervalCon"]
+        this.PreviewShowing := false
+        this._comboGuard := 0
+        this.CountTogArr := ["SearchIntervalHost"]
         this.MouseSpeedArr := ["SpeedTipCon", "SpeedCon"]
-        this.MouseClickArr := ["ClickCountTipCon", "ClickCountCon"]
-        this.ResultTogArr := ["ResultVarTipCon", "ResultSaveNameCon", "TrueValueTipCon", "TrueValueCon", "FalseValueTipCon", "FalseValueCon"]
-        this.CoordTogArr := ["CoordXTipCon", "CoordXNameCon", "CoordYTipCon", "CoordYNameCon"]
-        this.WinInfoArr := ["WinInfoPanel"]
+        this.MouseClickArr := ["ClickCountCon"]
+        this.ResultTogArr := ["ResultSaveNameCon", "TrueValueCon", "FalseValueCon"]
+        this.CoordTogArr := ["CoordXNameCon", "CoordYNameCon"]
+        this.WinInfoArr := ["WinInfoTipCon", "WinInfoCon", "BtnWinEdit"]
         this.ImageVariArr := ["ImagePanel"]
         this.ColorArr := ["ColorPanel"]
         this.TextArr := ["TextPanel"]
@@ -80,16 +82,12 @@ class SearchProGui {
         body.Rows("28", "32", "Auto", "Auto", "Auto", "40")
         body.Cols("*", "12", "*")
 
-        ; 行0：屏幕/窗口坐标 | 鼠标颜色
+        ; 行0：屏幕或窗口坐标（按类型切换） | 鼠标颜色
         posLeft := body.Add("Grid").Grid_Row(0).Grid_Column(0)
-        posLeft.Cols("78", "8", "96", "16", "78", "8", "96")
-        posLeft.Add("TextBlock").Grid_Column(0).Text(GetLang("屏幕坐标：")).VerticalAlignment("Center").HorizontalAlignment("Left")
+        posLeft.Cols("78", "8", "*")
+        posLeft.Add("TextBlock").Grid_Column(0).Name("PosLabelCon").Text(GetLang("屏幕坐标：")).VerticalAlignment("Center").HorizontalAlignment("Left")
             .Foreground("{DynamicResource TextMain}").FontSize("12")
         posLeft.Add("TextBlock").Grid_Column(2).Name("MousePosCon").Text("0,0").VerticalAlignment("Center").HorizontalAlignment("Left")
-            .Foreground("{DynamicResource TextMain}").FontSize("12")
-        posLeft.Add("TextBlock").Grid_Column(4).Text(GetLang("窗口坐标：")).VerticalAlignment("Center").HorizontalAlignment("Left")
-            .Foreground("{DynamicResource TextMain}").FontSize("12")
-        posLeft.Add("TextBlock").Grid_Column(6).Name("MouseWinPosCon").Text("0,0").VerticalAlignment("Center").HorizontalAlignment("Left")
             .Foreground("{DynamicResource TextMain}").FontSize("12")
         colorRight := body.Add("Grid").Grid_Row(0).Grid_Column(2)
         colorRight.Cols("Auto", "8", "56", "8", "20")
@@ -100,83 +98,93 @@ class SearchProGui {
         colorRight.Add("Border").Grid_Column(4).Name("MouseColorTipCon").Width(20).Height(20).Background("#FF0000")
             .BorderBrush("#FF4B5563").BorderThickness("1").VerticalAlignment("Center")
 
-        ; 行1：搜索类型 | 备注 + 预览
+        ; 行1：搜索类型 | 备注
         typeLeft := body.Add("Grid").Grid_Row(1).Grid_Column(0)
-        typeLeft.Cols("78", "8", "160", "8", "28")
+        typeLeft.Cols("78", "8", "*", "8", "*")
         typeLeft.Add("TextBlock").Grid_Column(0).Text(GetLang("搜索类型：")).VerticalAlignment("Center").HorizontalAlignment("Left")
             .Foreground("{DynamicResource TextMain}").FontSize("12")
-        stc := typeLeft.Add("ComboBox").Grid_Column(2).Name("SearchTypeCon").Width(160).Height(28).MinHeight(28)
-            .HorizontalAlignment("Left").VerticalAlignment("Center").VerticalContentAlignment("Center").FontSize("11")
+        stc := typeLeft.Add("ComboBox").Grid_Column(2).Name("SearchTypeCon").Height(28).MinHeight(28)
+            .HorizontalAlignment("Stretch").VerticalAlignment("Center").VerticalContentAlignment("Center").FontSize("11")
             .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
             .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
         for t in GetLangArr(["屏幕图片", "屏幕颜色", "屏幕文本", "窗口图片", "窗口颜色", "窗口文本"])
             stc.Add("ComboBoxItem").Content(t)
-        typeLeft.Add("Button").Grid_Column(4).Name("BtnTypeHelp").Width(28).Height(28).MinHeight(28).Padding("0").Cursor("Hand")
-            .Content("?").FontSize("12").VerticalAlignment("Center")
-            .Foreground("{DynamicResource TextMain}").Background("{DynamicResource ControlBg}")
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
         remarkRight := body.Add("Grid").Grid_Row(1).Grid_Column(2)
-        remarkRight.Cols("Auto", "8", "160", "8", "Auto")
+        remarkRight.Cols("Auto", "8", "*")
         remarkRight.Add("TextBlock").Grid_Column(0).Text(GetLang("备注：")).VerticalAlignment("Center").HorizontalAlignment("Left")
             .Foreground("{DynamicResource TextMain}").FontSize("12")
-        remarkRight.Add("TextBox").Grid_Column(2).Name("RemarkCon").Width(160).Height(28).MinHeight(28)
-            .HorizontalAlignment("Left").VerticalAlignment("Center").VerticalContentAlignment("Center").Padding("2,0").FontSize("11")
+        remarkRight.Add("TextBox").Grid_Column(2).Name("RemarkCon").Height(28).MinHeight(28)
+            .HorizontalAlignment("Stretch").VerticalAlignment("Center").VerticalContentAlignment("Center").Padding("2,0").FontSize("11")
             .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
             .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
-        remarkRight.Add("CheckBox").Grid_Column(4).Name("PreviewAreaCon").Content(GetLang("预览框选范围")).VerticalAlignment("Center")
-            .Foreground("{DynamicResource TextMain}").FontSize("12")
 
         ; 行2：坐标/次数/动作 | 图片/颜色/文本/窗口
         mid := body.Add("Grid").Grid_Row(2).Grid_ColumnSpan(3)
         mid.Cols("*", "12", "*")
         coord := mid.Add("Grid").Grid_Column(0)
-        coord.Rows("32", "32", "32", "32", "32")
-        coord.Cols("78", "8", "70", "8", "70", "52")
-        coord.Add("TextBlock").Grid_Row(0).Grid_Column(0).Text(GetLang("起始坐标：")).VerticalAlignment("Center").HorizontalAlignment("Left")
+        coord.Rows("Auto", "32", "32", "32")
+        coord.Cols("78", "8", "*", "8", "*")
+
+        areaWrap := coord.Add("Grid").Grid_Row(0).Grid_ColumnSpan(5).Margin("0,0,0,2")
+        areaWrap.Rows("32", "32")
+        areaWrap.Cols("78", "8", "*", "8", "*")
+        areaBtn := areaWrap.Add("Button").Name("BtnPreviewArea").Grid_Row(0).Grid_RowSpan(2).Grid_Column(0)
+            .HorizontalAlignment("Stretch").VerticalAlignment("Stretch").Cursor("Hand").Focusable("False")
+            .Padding("6,0,0,0").Tag("0").ToolTip(GetLang("搜索范围"))
+            .HorizontalContentAlignment("Left").VerticalContentAlignment("Stretch")
+            .Background("{DynamicResource ControlBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+        areaBtn.InjectResources(this._AreaPreviewBtnStyle())
+        areaLabels := areaBtn.Add("Grid").HorizontalAlignment("Stretch").VerticalAlignment("Stretch")
+        areaLabels.Rows("32", "32")
+        areaLabels.Add("TextBlock").Grid_Row(0).Text(GetLang("起始坐标：")).VerticalAlignment("Center").HorizontalAlignment("Left")
+            .Foreground("{DynamicResource TextMain}").FontSize("12").IsHitTestVisible("False")
+        areaLabels.Add("TextBlock").Grid_Row(1).Text(GetLang("终止坐标：")).VerticalAlignment("Center").HorizontalAlignment("Left")
+            .Foreground("{DynamicResource TextMain}").FontSize("12").IsHitTestVisible("False")
+        this._AddEditCombo(areaWrap, "StartPosXCon", 0, 2)
+        this._AddEditCombo(areaWrap, "StartPosYCon", 0, 4)
+        this._AddEditCombo(areaWrap, "EndPosXCon", 1, 2)
+        this._AddEditCombo(areaWrap, "EndPosYCon", 1, 4)
+
+        coord.Add("TextBlock").Grid_Row(1).Grid_Column(0).Text(GetLang("搜索次数：")).VerticalAlignment("Center").HorizontalAlignment("Left")
             .Foreground("{DynamicResource TextMain}").FontSize("12")
-        this._AddEditCombo(coord, "StartPosXCon", 0, 2, 70)
-        this._AddEditCombo(coord, "StartPosYCon", 0, 4, 70)
-        coord.Add("TextBlock").Grid_Row(1).Grid_Column(0).Text(GetLang("终止坐标：")).VerticalAlignment("Center").HorizontalAlignment("Left")
-            .Foreground("{DynamicResource TextMain}").FontSize("12")
-        this._AddEditCombo(coord, "EndPosXCon", 1, 2, 70)
-        this._AddEditCombo(coord, "EndPosYCon", 1, 4, 70)
-        coord.Add("TextBlock").Grid_Row(2).Grid_Column(0).Text(GetLang("搜索次数：")).VerticalAlignment("Center").HorizontalAlignment("Left")
-            .Foreground("{DynamicResource TextMain}").FontSize("12")
-        this._AddEditCombo(coord, "SearchCountCon", 2, 2, 70)
-        intervalCell := coord.Add("StackPanel").Grid_Row(2).Grid_Column(4).Grid_ColumnSpan(2).Orientation("Horizontal").VerticalAlignment("Center")
-        intervalCell.Add("TextBlock").Name("SearchIntervalTipCon").Text(GetLang("每次间隔：")).VerticalAlignment("Center").Margin("0,0,6,0")
-            .Foreground("{DynamicResource TextMain}").FontSize("12")
-        intervalCell.Add("TextBox").Name("SearchIntervalCon").Width(56).Height(28).MinHeight(28)
-            .VerticalAlignment("Center").VerticalContentAlignment("Center").Padding("2,0").TextAlignment("Center").FontSize("11")
+        this._AddEditCombo(coord, "SearchCountCon", 1, 2)
+        intervalHost := coord.Add("Grid").Grid_Row(1).Grid_Column(4).Name("SearchIntervalHost")
+            .ToolTip(GetLang("每次间隔"))
+        intervalHost.Add("TextBox").Name("SearchIntervalCon").Height(28).MinHeight(28)
+            .HorizontalAlignment("Stretch").VerticalAlignment("Center").VerticalContentAlignment("Center")
+            .Padding("2,0,18,0").TextAlignment("Center").FontSize("11")
+            .ToolTip(GetLang("每次间隔"))
             .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
             .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
-        coord.Add("TextBlock").Grid_Row(3).Grid_Column(0).Text(GetLang("鼠标动作：")).VerticalAlignment("Center").HorizontalAlignment("Left")
+        intervalHost.Add("TextBlock").Text("ms").FontSize("8").IsHitTestVisible("False")
+            .HorizontalAlignment("Right").VerticalAlignment("Top").Margin("0,1,4,0")
+            .Foreground("{DynamicResource TextSub}")
+        coord.Add("TextBlock").Grid_Row(2).Grid_Column(0).Text(GetLang("鼠标动作：")).VerticalAlignment("Center").HorizontalAlignment("Left")
             .Foreground("{DynamicResource TextMain}").FontSize("12")
-        mac := coord.Add("ComboBox").Grid_Row(3).Grid_Column(2).Grid_ColumnSpan(4).Name("MouseActionTypeCon").Width(200).MaxWidth(200).Height(28).MinHeight(28)
-            .HorizontalAlignment("Left").VerticalAlignment("Center").VerticalContentAlignment("Center").FontSize("11")
+        mac := coord.Add("ComboBox").Grid_Row(2).Grid_Column(2).Grid_ColumnSpan(3).Name("MouseActionTypeCon").Height(28).MinHeight(28)
+            .HorizontalAlignment("Stretch").VerticalAlignment("Center").VerticalContentAlignment("Center").FontSize("11")
             .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
             .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
         for t in GetLangArr(["无动作", "移动至目标", "移动至目标点击"])
             mac.Add("ComboBoxItem").Content(t)
-        coord.Add("TextBlock").Grid_Row(4).Grid_Column(0).Name("SpeedTipCon").Text(GetLang("移动速度：")).VerticalAlignment("Center").HorizontalAlignment("Left")
+        coord.Add("TextBlock").Grid_Row(3).Grid_Column(0).Name("SpeedTipCon").Text(GetLang("移动速度：")).VerticalAlignment("Center").HorizontalAlignment("Left")
             .Foreground("{DynamicResource TextMain}").FontSize("12")
-        coord.Add("TextBox").Grid_Row(4).Grid_Column(2).Name("SpeedCon").Width(70).Height(28).MinHeight(28)
-            .HorizontalAlignment("Left").VerticalAlignment("Center").VerticalContentAlignment("Center").Padding("2,0").TextAlignment("Center").FontSize("11")
+        coord.Add("TextBox").Grid_Row(3).Grid_Column(2).Name("SpeedCon").Height(28).MinHeight(28)
+            .HorizontalAlignment("Stretch").VerticalAlignment("Center").VerticalContentAlignment("Center").Padding("2,0").TextAlignment("Center").FontSize("11")
             .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
             .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
-        coord.Add("TextBlock").Grid_Row(4).Grid_Column(4).Name("ClickCountTipCon").Text(GetLang("点击次数：")).VerticalAlignment("Center").HorizontalAlignment("Left")
-            .Foreground("{DynamicResource TextMain}").FontSize("12")
-        coord.Add("TextBox").Grid_Row(4).Grid_Column(5).Name("ClickCountCon").Width(70).Height(28).MinHeight(28)
-            .HorizontalAlignment("Left").VerticalAlignment("Center").VerticalContentAlignment("Center").Padding("2,0").TextAlignment("Center").FontSize("11")
+        coord.Add("TextBox").Grid_Row(3).Grid_Column(4).Name("ClickCountCon").Height(28).MinHeight(28)
+            .HorizontalAlignment("Stretch").VerticalAlignment("Center").VerticalContentAlignment("Center")
+            .Padding("2,0").TextAlignment("Center").FontSize("11")
+            .ToolTip(GetLang("鼠标点击次数"))
             .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
             .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
 
-        extra := mid.Add("Grid").Grid_Column(2).VerticalAlignment("Top")
-        extra.Rows("Auto", "Auto")
+        extra := mid.Add("StackPanel").Grid_Column(2).Orientation("Vertical").VerticalAlignment("Top")
 
-        winPanel := extra.Add("Grid").Name("WinInfoPanel").Grid_Row(0).Margin("0,0,0,6").Visibility("Collapsed")
+        winPanel := extra.Add("Grid").Name("WinInfoPanel").Height(32).MinHeight(32).Margin("0,0,0,0")
         winPanel.Cols("78", "8", "*", "8", "50")
-        winPanel.Add("TextBlock").Grid_Column(0).Text(GetLang("窗口信息:")).VerticalAlignment("Center").HorizontalAlignment("Left")
+        winPanel.Add("TextBlock").Grid_Column(0).Name("WinInfoTipCon").Text(GetLang("窗口信息:")).VerticalAlignment("Center").HorizontalAlignment("Left")
             .Foreground("{DynamicResource TextMain}").FontSize("12")
         winPanel.Add("TextBox").Grid_Column(2).Name("WinInfoCon").Height(28).MinHeight(28)
             .VerticalAlignment("Center").VerticalContentAlignment("Center").Padding("2,0").FontSize("11")
@@ -187,71 +195,72 @@ class SearchProGui {
             .Foreground("{DynamicResource TextMain}").Background("{DynamicResource ControlBg}")
             .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
 
-        typeHost := extra.Add("Grid").Grid_Row(1)
-        imgPanel := typeHost.Add("Grid").Name("ImagePanel")
-        imgPanel.Rows("32", "32", "80")
-        imgPanel.Cols("78", "8", "80", "8", "80", "8", "*")
-        imgPanel.Add("TextBlock").Grid_Row(0).Grid_Column(0).Name("SimilarTipCon").Text(GetLang("相似度(%)：")).VerticalAlignment("Center").HorizontalAlignment("Left")
+        typeHost := extra.Add("Grid").Height(136).MinHeight(136).MaxHeight(136).ClipToBounds("True")
+        imgPanel := typeHost.Add("Grid").Name("ImagePanel").Height(136).VerticalAlignment("Top")
+        imgPanel.Rows("32", "32", "72")
+        imgRow0 := imgPanel.Add("Grid").Grid_Row(0)
+        imgRow0.Cols("Auto", "6", "56", "12", "Auto", "6", "*")
+        imgRow0.Add("TextBlock").Grid_Column(0).Name("SimilarTipCon").Text(GetLang("相似度(%)：")).VerticalAlignment("Center")
             .Foreground("{DynamicResource TextMain}").FontSize("12")
-        imgPanel.Add("TextBox").Grid_Row(0).Grid_Column(2).Name("SimilarCon").Width(80).Height(28).MinHeight(28)
-            .HorizontalAlignment("Left").VerticalAlignment("Center").VerticalContentAlignment("Center").Padding("2,0").TextAlignment("Center").FontSize("11")
+        imgRow0.Add("TextBox").Grid_Column(2).Name("SimilarCon").Height(28).MinHeight(28)
+            .HorizontalAlignment("Stretch").VerticalAlignment("Center").VerticalContentAlignment("Center").Padding("2,0").TextAlignment("Center").FontSize("11")
             .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
             .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
-        imgBtns := imgPanel.Add("StackPanel").Grid_Row(0).Grid_Column(4).Grid_ColumnSpan(3).Orientation("Horizontal").VerticalAlignment("Center")
-        imgBtns.Add("Button").Name("ImageShotBtn").Width(28).Height(28).MinHeight(28).Padding("0").Cursor("Hand")
-            .FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize("13").Content(Chr(0xE7A8))
-            .ToolTip(GetLang("截图")).Foreground("{DynamicResource TextMain}")
-            .Background("{DynamicResource ControlBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
-        imgBtns.Add("Button").Name("ImageSelectBtn").Width(28).Height(28).MinHeight(28).Padding("0").Margin("8,0,0,0").Cursor("Hand")
-            .FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize("13").Content(Chr(0xE8E5))
-            .ToolTip(GetLang("选择图片")).Foreground("{DynamicResource TextMain}")
-            .Background("{DynamicResource ControlBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
-        imgPanel.Add("TextBlock").Grid_Row(1).Grid_Column(0).Text(GetLang("识别模型：")).VerticalAlignment("Center").HorizontalAlignment("Left")
+        imgRow0.Add("TextBlock").Grid_Column(4).Text(GetLang("识别模型：")).VerticalAlignment("Center")
             .Foreground("{DynamicResource TextMain}").FontSize("12")
-        imgModel := imgPanel.Add("ComboBox").Grid_Row(1).Grid_Column(2).Name("SearchImageTypeCon").Width(80).Height(28).MinHeight(28)
-            .HorizontalAlignment("Left").VerticalAlignment("Center").VerticalContentAlignment("Center").FontSize("11")
+        imgModel := imgRow0.Add("ComboBox").Grid_Column(6).Name("SearchImageTypeCon").Height(28).MinHeight(28)
+            .HorizontalAlignment("Stretch").VerticalAlignment("Center").VerticalContentAlignment("Center").FontSize("11")
             .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
             .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
         imgModel.Add("ComboBoxItem").Content("OpenCV")
         imgModel.Add("ComboBoxItem").Content(GetLang("RMT识图"))
-        imgPrev := imgPanel.Add("Border").Grid_Row(2).Grid_Column(0).Grid_ColumnSpan(3).Name("ImagePreviewHost")
-            .Width(80).Height(80).MinWidth(80).MinHeight(80).MaxWidth(80).MaxHeight(80)
-            .HorizontalAlignment("Left").VerticalAlignment("Top").ClipToBounds("True")
+        imgRow1 := imgPanel.Add("Grid").Grid_Row(1)
+        imgRow1.Cols("*", "8", "28", "8", "28")
+        imgRow1.Add("ComboBox").Grid_Column(0).Name("ImagePathCon").Height(28).MinHeight(28)
+            .HorizontalAlignment("Stretch").VerticalAlignment("Center").IsEditable("True").FontSize("11")
+            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+        imgRow1.Add("Button").Grid_Column(2).Name("ImageShotBtn").Width(28).Height(28).MinHeight(28).Padding("0").Cursor("Hand")
+            .FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize("13").Content(Chr(0xE7A8))
+            .ToolTip(GetLang("截图")).Foreground("{DynamicResource TextMain}")
             .Background("{DynamicResource ControlBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
-        imgPrev.Add("Image").Name("ImageCon").Stretch("UniformToFill")
+        imgRow1.Add("Button").Grid_Column(4).Name("ImageSelectBtn").Width(28).Height(28).MinHeight(28).Padding("0").Cursor("Hand")
+            .FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize("13").Content(Chr(0xE8E5))
+            .ToolTip(GetLang("选择图片")).Foreground("{DynamicResource TextMain}")
+            .Background("{DynamicResource ControlBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+        imgPrev := imgPanel.Add("Border").Grid_Row(2).Name("ImagePreviewHost")
+            .Width(64).Height(64).MinWidth(64).MinHeight(64).MaxWidth(64).MaxHeight(64)
+            .HorizontalAlignment("Left").VerticalAlignment("Top").Margin("0,4,0,0").ClipToBounds("True")
+            .Background("{DynamicResource ControlBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+        imgPrev.Add("Image").Name("ImageCon").Stretch("Uniform")
             .HorizontalAlignment("Stretch").VerticalAlignment("Stretch")
-        imgPanel.Add("ComboBox").Grid_Row(2).Grid_Column(4).Grid_ColumnSpan(3).Name("ImagePathCon").Height(28).MinHeight(28)
-            .HorizontalAlignment("Stretch").VerticalAlignment("Top").IsEditable("True").FontSize("11")
-            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
 
-        clrPanel := typeHost.Add("StackPanel").Name("ColorPanel").Orientation("Horizontal").VerticalAlignment("Center").Visibility("Collapsed")
-        clrPanel.Add("TextBlock").Text(GetLang("搜索颜色：")).VerticalAlignment("Center")
+        clrPanel := typeHost.Add("Grid").Name("ColorPanel").VerticalAlignment("Top").Visibility("Collapsed")
+        clrPanel.Rows("32", "32")
+        clrPanel.Cols("Auto", "8", "90", "8", "20")
+        clrPanel.Add("TextBlock").Grid_Row(0).Grid_Column(0).Name("ColorSimilarTipCon").Text(GetLang("相似度(%)：")).VerticalAlignment("Center")
             .Foreground("{DynamicResource TextMain}").FontSize("12")
-        clrPanel.Add("ComboBox").Name("HexColorCon").Width(90).Height(28).MinHeight(28).Margin("4,0,0,0").IsEditable("True")
-            .VerticalContentAlignment("Center").FontSize("11")
+        clrPanel.Add("TextBox").Grid_Row(0).Grid_Column(2).Name("ColorSimilarCon").Width(90).Height(28).MinHeight(28)
+            .HorizontalAlignment("Left").VerticalAlignment("Center").VerticalContentAlignment("Center").Padding("2,0").TextAlignment("Center").FontSize("11")
             .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
             .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
-        clrPanel.Add("Border").Name("HexColorTipCon").Width(20).Height(20).Background("#FF0000")
-            .BorderBrush("#FF4B5563").BorderThickness("1").VerticalAlignment("Center").Margin("8,0,0,0")
-
-        txtPanel := typeHost.Add("Grid").Name("TextPanel").Visibility("Collapsed")
-        txtPanel.Rows("32", "32")
-        txtPanel.Cols("78", "8", "*")
-        txtPanel.Add("TextBlock").Grid_Row(0).Grid_Column(0).Text(GetLang("搜索文本：")).VerticalAlignment("Center").HorizontalAlignment("Left")
+        clrPanel.Add("TextBlock").Grid_Row(1).Grid_Column(0).Text(GetLang("搜索颜色：")).VerticalAlignment("Center")
             .Foreground("{DynamicResource TextMain}").FontSize("12")
-        txtPanel.Add("ComboBox").Grid_Row(0).Grid_Column(2).Name("TextCon").Height(28).MinHeight(28).IsEditable("True")
-            .HorizontalAlignment("Stretch").VerticalAlignment("Center").VerticalContentAlignment("Center").FontSize("11")
-            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
-        txtPanel.Add("TextBlock").Grid_Row(1).Grid_Column(0).Text(GetLang("识别模型：")).VerticalAlignment("Center").HorizontalAlignment("Left")
-            .Foreground("{DynamicResource TextMain}").FontSize("12")
-        ocr := txtPanel.Add("ComboBox").Grid_Row(1).Grid_Column(2).Name("OCRTypeCon").Width(120).Height(28).MinHeight(28)
+        clrPanel.Add("ComboBox").Grid_Row(1).Grid_Column(2).Name("HexColorCon").Width(90).Height(28).MinHeight(28).IsEditable("True")
             .HorizontalAlignment("Left").VerticalAlignment("Center").VerticalContentAlignment("Center").FontSize("11")
             .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
             .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
-        for t in GetLangArr(["中文", "英文"])
-            ocr.Add("ComboBoxItem").Content(t)
+        clrPanel.Add("Border").Grid_Row(1).Grid_Column(4).Name("HexColorTipCon").Width(20).Height(20).Background("#FF0000")
+            .BorderBrush("#FF4B5563").BorderThickness("1").VerticalAlignment("Center")
+
+        txtPanel := typeHost.Add("Grid").Name("TextPanel").VerticalAlignment("Top").Visibility("Collapsed")
+        txtPanel.Cols("78", "8", "*")
+        txtPanel.Add("TextBlock").Grid_Column(0).Text(GetLang("搜索文本：")).VerticalAlignment("Center").HorizontalAlignment("Left")
+            .Foreground("{DynamicResource TextMain}").FontSize("12")
+        txtPanel.Add("ComboBox").Grid_Column(2).Name("TextCon").Height(28).MinHeight(28).IsEditable("True")
+            .HorizontalAlignment("Stretch").VerticalAlignment("Center").VerticalContentAlignment("Center").FontSize("11")
+            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
 
         ; 行3：找到 / 未找到
         macroRow := body.Add("Grid").Grid_Row(3).Grid_ColumnSpan(3).Margin("0,4,0,0")
@@ -294,38 +303,18 @@ class SearchProGui {
         ; 行4：结果保存 | 目标点保存
         saveRow := body.Add("Grid").Grid_Row(4).Grid_ColumnSpan(3).Margin("0,6,0,0")
         saveRow.Cols("*", "12", "*")
-        resCol := saveRow.Add("Grid").Grid_Column(0)
-        resCol.Rows("24", "28")
-        resCol.Cols("Auto", "8", "Auto", "8", "120", "8", "Auto", "8", "60", "8", "Auto", "8", "60")
-        resCol.Add("CheckBox").Grid_Row(0).Grid_Column(0).Name("ResultToggleCon").Content(GetLang("结果保存")).VerticalAlignment("Center")
-            .Foreground("{DynamicResource TextMain}").FontSize("12")
-        resCol.Add("TextBlock").Grid_Row(1).Grid_Column(0).Name("ResultVarTipCon").Text(GetLang("变量名")).VerticalAlignment("Center")
-            .Foreground("{DynamicResource TextMain}").FontSize("12")
-        this._AddEditCombo(resCol, "ResultSaveNameCon", 1, 4, 120)
-        resCol.Add("TextBlock").Grid_Row(1).Grid_Column(6).Name("TrueValueTipCon").Text(GetLang("真值")).VerticalAlignment("Center")
-            .Foreground("{DynamicResource TextMain}").FontSize("12")
-        resCol.Add("TextBox").Grid_Row(1).Grid_Column(8).Name("TrueValueCon").Width(60).Height(28).MinHeight(28)
-            .VerticalAlignment("Center").VerticalContentAlignment("Center").Padding("2,0").TextAlignment("Center").FontSize("11")
-            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
-        resCol.Add("TextBlock").Grid_Row(1).Grid_Column(10).Name("FalseValueTipCon").Text(GetLang("假值")).VerticalAlignment("Center")
-            .Foreground("{DynamicResource TextMain}").FontSize("12")
-        resCol.Add("TextBox").Grid_Row(1).Grid_Column(12).Name("FalseValueCon").Width(60).Height(28).MinHeight(28)
-            .VerticalAlignment("Center").VerticalContentAlignment("Center").Padding("2,0").TextAlignment("Center").FontSize("11")
-            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+        resCol := saveRow.Add("StackPanel").Grid_Column(0).Orientation("Horizontal").VerticalAlignment("Center")
+        resCol.Add("CheckBox").Name("ResultToggleCon").VerticalAlignment("Center").Margin("0,0,2,0")
+            .ToolTip(GetLang("结果保存"))
+        this._AddTipField(resCol, "ResultSaveNameCon", "ResultSaveNameTipHost", "ComboBox", 120, GetLang("变量名"), "0,0,8,0")
+        this._AddTipField(resCol, "TrueValueCon", "TrueValueTipHost", "TextBox", 56, GetLang("真值"), "0,0,8,0")
+        this._AddTipField(resCol, "FalseValueCon", "FalseValueTipHost", "TextBox", 56, GetLang("假值"), "")
 
-        coordCol := saveRow.Add("Grid").Grid_Column(2)
-        coordCol.Rows("24", "28")
-        coordCol.Cols("Auto", "8", "Auto", "8", "100", "8", "Auto", "8", "100")
-        coordCol.Add("CheckBox").Grid_Row(0).Grid_Column(0).Name("CoordToogleCon").Content(GetLang("目标点保存")).VerticalAlignment("Center")
-            .Foreground("{DynamicResource TextMain}").FontSize("12")
-        coordCol.Add("TextBlock").Grid_Row(1).Grid_Column(0).Name("CoordXTipCon").Text(GetLang("坐标X变量名")).VerticalAlignment("Center")
-            .Foreground("{DynamicResource TextMain}").FontSize("12")
-        this._AddEditCombo(coordCol, "CoordXNameCon", 1, 4, 100)
-        coordCol.Add("TextBlock").Grid_Row(1).Grid_Column(6).Name("CoordYTipCon").Text(GetLang("坐标Y变量名")).VerticalAlignment("Center")
-            .Foreground("{DynamicResource TextMain}").FontSize("12")
-        this._AddEditCombo(coordCol, "CoordYNameCon", 1, 8, 100)
+        coordCol := saveRow.Add("StackPanel").Grid_Column(2).Orientation("Horizontal").VerticalAlignment("Center")
+        coordCol.Add("CheckBox").Name("CoordToogleCon").VerticalAlignment("Center").Margin("0,0,2,0")
+            .ToolTip(GetLang("目标点保存"))
+        this._AddTipField(coordCol, "CoordXNameCon", "CoordXTipHost", "ComboBox", 110, GetLang("坐标X变量名"), "0,0,8,0")
+        this._AddTipField(coordCol, "CoordYNameCon", "CoordYTipHost", "ComboBox", 110, GetLang("坐标Y变量名"), "")
 
         btnRow := body.Add("StackPanel").Grid_Row(5).Grid_ColumnSpan(3).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
         AddCmdOkBtn(btnRow, "BtnSure", "4,0")
@@ -345,14 +334,16 @@ class SearchProGui {
         this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
         this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
         BindCmdEditorChrome(this.ui, "#指令手册/4-搜索Pro", (*) => this.TriggerMacro(), "!l"
-            , ObjBindMethod(this, "OnClickTargeterBtn"), ObjBindMethod(this, "OnF1")
-            , ObjBindMethod(this, "OnImageShotBtnClick"), ObjBindMethod(this, "SureColor"))
+            , (*) => this.OnClickTargeterBtn(), (*) => this.OnF1()
+            , (*) => this.OnImageShotBtnClick(), (*) => this.SureColor())
         try this.ui.Update("BtnCmdF1", "ToolTip", GetLang("F1：框选范围"))
         try this.ui.Update("BtnCmdTargeter", "ToolTip", GetLang("定位取色器"))
         this.ui.OnEvent("SearchTypeCon", "SelectionChanged", ObjBindMethod(this, "OnChangeType"))
-        this.ui.OnEvent("BtnTypeHelp", "Click", ObjBindMethod(this, "OnClickTypeHelpBtn"))
-        this.ui.OnEvent("PreviewAreaCon", "Click", ObjBindMethod(this, "OnClickPreviewArea"))
+        this.ui.OnEvent("BtnPreviewArea", "Click", ObjBindMethod(this, "OnClickPreviewArea"))
         this.ui.OnEvent("SearchCountCon", "LostFocus", ObjBindMethod(this, "OnChangeType"))
+        this.ui.OnEvent("SearchCountCon", "TextChanged", ObjBindMethod(this, "OnChangeType"))
+        this.ui.OnEvent("SearchCountCon", "SelectionChanged", ObjBindMethod(this, "OnChangeType"))
+        this._RefreshSaveTips()
         this.ui.OnEvent("MouseActionTypeCon", "SelectionChanged", ObjBindMethod(this, "OnChangeType"))
         this.ui.OnEvent("ResultToggleCon", "Click", ObjBindMethod(this, "OnChangeType"))
         this.ui.OnEvent("CoordToogleCon", "Click", ObjBindMethod(this, "OnChangeType"))
@@ -370,12 +361,62 @@ class SearchProGui {
         this.ui.Update("MouseActionTypeCon", "SelectedIndex", "1")
     }
 
-    _AddEditCombo(parent, name, row, col, width) {
-        parent.Add("ComboBox").Grid_Row(row).Grid_Column(col).Name(name).Width(width).Height(28).MinHeight(28)
-            .HorizontalAlignment("Left").VerticalAlignment("Center").VerticalContentAlignment("Center")
-            .IsEditable("True").FontSize("11")
+    _SaveTipText(name) {
+        tips := Map("ResultSaveNameCon", GetLang("变量名"), "TrueValueCon", GetLang("真值"), "FalseValueCon", GetLang("假值")
+            , "CoordXNameCon", GetLang("坐标X变量名"), "CoordYNameCon", GetLang("坐标Y变量名")
+            , "ResultSaveNameTipHost", GetLang("变量名"), "TrueValueTipHost", GetLang("真值"), "FalseValueTipHost", GetLang("假值")
+            , "CoordXTipHost", GetLang("坐标X变量名"), "CoordYTipHost", GetLang("坐标Y变量名"))
+        return tips.Has(name) ? tips[name] : ""
+    }
+
+    _AddTipField(parent, name, hostName, kind, width, tip, margin) {
+        wrap := parent.Add("Grid").Name(hostName).Width(width).Height(28).MinHeight(28)
+            .VerticalAlignment("Center").Background("Transparent").ToolTip(tip)
+        if (margin != "")
+            wrap.Margin(margin)
+        c := wrap.Add(kind).Name(name).Height(28).MinHeight(28)
+            .HorizontalAlignment("Stretch").VerticalAlignment("Center").VerticalContentAlignment("Center").FontSize("11")
             .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
             .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+        if (kind == "TextBox")
+            c.Padding("2,0").TextAlignment("Center").ToolTip(tip)
+        else
+            c.IsEditable("True")
+    }
+
+    _RefreshSaveTips() {
+        if (!IsObject(this.ui))
+            return
+        for cn in ["ResultSaveNameTipHost", "TrueValueTipHost", "FalseValueTipHost", "CoordXTipHost", "CoordYTipHost"
+            , "ResultSaveNameCon", "TrueValueCon", "FalseValueCon", "CoordXNameCon", "CoordYNameCon"] {
+            tip := this._SaveTipText(cn)
+            if (tip != "")
+                try this.ui.Update(cn, "ToolTip", tip)
+        }
+    }
+
+    _AreaPreviewBtnStyle() {
+        return '<Style TargetType="Button"><Setter Property="Tag" Value="0"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">'
+            . '<Border x:Name="bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}" CornerRadius="3" SnapsToDevicePixels="True" UseLayoutRounding="False">'
+            . '<ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/></Border>'
+            . '<ControlTemplate.Triggers>'
+            . '<MultiTrigger><MultiTrigger.Conditions><Condition Property="IsMouseOver" Value="True"/><Condition Property="Tag" Value="0"/></MultiTrigger.Conditions>'
+            . '<Setter TargetName="bd" Property="Background" Value="{DynamicResource EditHoverBg}"/><Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource EditHoverStroke}"/></MultiTrigger>'
+            . '<MultiTrigger><MultiTrigger.Conditions><Condition Property="IsMouseOver" Value="True"/><Condition Property="Tag" Value="1"/></MultiTrigger.Conditions>'
+            . '<Setter TargetName="bd" Property="Background" Value="{DynamicResource ActionHoverBg}"/><Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource ActionHoverStroke}"/></MultiTrigger>'
+            . '</ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
+    }
+
+    _AddEditCombo(parent, name, row, col, width := "") {
+        c := parent.Add("ComboBox").Grid_Row(row).Grid_Column(col).Name(name).Height(28).MinHeight(28)
+            .VerticalAlignment("Center").VerticalContentAlignment("Center")
+            .IsEditable("True").FontSize("11").SetProp("Panel.ZIndex", "2")
+            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+        if (width != "")
+            c.Width(width).HorizontalAlignment("Left")
+        else
+            c.HorizontalAlignment("Stretch")
     }
 
     _SetCombo(comboName, items, text) {
@@ -431,7 +472,7 @@ class SearchProGui {
         st := (IsNumber(this.Data.SearchType) && this.Data.SearchType >= 1 && this.Data.SearchType <= 6) ? Integer(this.Data.SearchType) : 1
         this.ui.Update("SearchTypeCon", "SelectedIndex", String(st - 1))
         this.ui.Update("SimilarCon", "Text", this.Data.Similar)
-        this.ui.Update("OCRTypeCon", "SelectedIndex", String(Max(0, Integer(this.Data.OCRType) - 1)))
+        this.ui.Update("ColorSimilarCon", "Text", this.Data.Similar)
         this.ui.Update("WinInfoCon", "Text", this.Data.WinInfo)
         this.ui.Update("SearchImageTypeCon", "SelectedIndex", String(Max(0, Integer(this.Data.SearchImageType) - 1)))
         this._SetCombo("ImagePathCon", this.DLVariableArr, this.Data.SearchImagePath)
@@ -459,6 +500,8 @@ class SearchProGui {
         isWin := st == 4 || st == 5 || st == 6
         this.LastIsWin := isWin
         this._ApplyMouseActionItems(isWin, this.Data.MouseActionType)
+        this.PreviewShowing := false
+        this._ApplyAreaPreviewChrome()
         this.OnChangeType()
     }
 
@@ -561,9 +604,8 @@ class SearchProGui {
     SaveSearchData() {
         data := this.Data
         data.SearchImagePath := this.ui.Query("ImagePathCon")
-        data.Similar := this.ui.Query("SimilarCon")
-        ocr := this.ui.Query("OCRTypeCon>SelectedIndex")
-        data.OCRType := (IsNumber(ocr) && Integer(ocr) >= 0) ? Integer(ocr) + 1 : 1
+        data.Similar := (this._TypeIndex() == 2 || this._TypeIndex() == 5) ? this.ui.Query("ColorSimilarCon") : this.ui.Query("SimilarCon")
+        data.OCRType := 1
         imgType := this.ui.Query("SearchImageTypeCon>SelectedIndex")
         data.SearchImageType := (IsNumber(imgType) && Integer(imgType) >= 0) ? Integer(imgType) + 1 : 1
         data.SearchType := this._TypeIndex()
@@ -618,13 +660,16 @@ class SearchProGui {
         }
     }
 
-    RefreshMouseInfo() {
+    RefreshMouseInfo(*) {
         try {
             CoordMode("Mouse", "Screen")
             MouseGetPos &mouseX, &mouseY
-            this.ui.Update("MousePosCon", "Text", Format("{},{}", mouseX, mouseY))
-            PosArr := GetCurWinPos()
-            this.ui.Update("MouseWinPosCon", "Text", Format("{},{}", PosArr[1], PosArr[2]))
+            if (this._TypeIndex() >= 4) {
+                PosArr := GetCurWinPos()
+                this.ui.Update("MousePosCon", "Text", Format("{},{}", PosArr[1], PosArr[2]))
+            }
+            else
+                this.ui.Update("MousePosCon", "Text", Format("{},{}", mouseX, mouseY))
             CoordMode("Pixel", "Screen")
             Color := PixelGetColor(mouseX, mouseY, "Slow")
             ColorText := StrReplace(Color, "0x", "")
@@ -645,8 +690,15 @@ class SearchProGui {
         this.SetConArrState(this.ImageVariArr, false, isImage)
         this.SetConArrState(this.ColorArr, false, isColor)
         this.SetConArrState(this.TextArr, false, isText)
-        this.SetConArrState(this.SimilarArr, false, !isText)
-        this.SetConArrState(this.WinInfoArr, false, isWin)
+        if (isColor)
+            this.ui.Update("ColorSimilarCon", "Text", this.ui.Query("SimilarCon"))
+        else if (isImage) {
+            cs := this.ui.Query("ColorSimilarCon")
+            if (cs != "")
+                this.ui.Update("SimilarCon", "Text", cs)
+        }
+        this._SetWinInfoVisible(isWin)
+        this.ui.Update("PosLabelCon", "Text", isWin ? GetLang("窗口坐标：") : GetLang("屏幕坐标："))
         this.SetConArrState(this.FalseConArr, true, !isInfinite)
         if (isColor)
             this._ApplyColorSwatch()
@@ -661,6 +713,7 @@ class SearchProGui {
         this.SetConArrState(this.MouseClickArr, false, ma == 3 && !isWin)
         this.SetConArrState(this.ResultTogArr, true, this._IsChecked("ResultToggleCon"))
         this.SetConArrState(this.CoordTogArr, true, this._IsChecked("CoordToogleCon"))
+        this._RefreshSaveTips()
         this.LastIsWin := isWin
         this.RefreshPreviewArea()
     }
@@ -766,7 +819,7 @@ class SearchProGui {
         }
     }
 
-    CheckClipboard() {
+    CheckClipboard(*) {
         if DllCall("IsClipboardFormatAvailable", "uint", 8) {
             imageSerial := GetNextImageSerial()
             filePath := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\Images\ScreenShot\" imageSerial ".png"
@@ -843,7 +896,7 @@ class SearchProGui {
         OnTriggerSepcialItemMacro(this.GetCommandStr())
     }
 
-    OnF1() {
+    OnF1(*) {
         TogSelectArea(true, this.F1Action)
     }
 
@@ -862,7 +915,7 @@ class SearchProGui {
         this.RefreshPreviewArea()
     }
 
-    SureColor() {
+    SureColor(*) {
         CoordMode("Mouse", "Screen")
         MouseGetPos &mouseX, &mouseY
         CoordMode("Pixel", "Screen")
@@ -873,12 +926,34 @@ class SearchProGui {
         this.OnSetSearchArea(mouseX, mouseY, mouseX, mouseY)
     }
 
+    _OnCoordInteract(*) {
+        this._comboGuard := A_TickCount
+    }
+
+    _SetWinInfoVisible(isWin) {
+        val := isWin ? "Visible" : "Hidden"
+        for name in this.WinInfoArr
+            this.ui.Update(name, "Visibility", val)
+    }
+
+    _ApplyAreaPreviewChrome() {
+        if (!IsObject(this.ui))
+            return
+        on := this.PreviewShowing
+        this.ui.Update("BtnPreviewArea", "Tag", on ? "1" : "0")
+        this.ui.Update("BtnPreviewArea", "Background", on ? "{DynamicResource Accent}" : "{DynamicResource ControlBg}")
+        this.ui.Update("BtnPreviewArea", "BorderBrush", on ? "{DynamicResource Accent}" : "{DynamicResource ControlBorder}")
+        this.ui.Update("BtnPreviewArea", "BorderThickness", on ? "2" : "1")
+    }
+
     OnClickPreviewArea(*) {
+        this.PreviewShowing := !this.PreviewShowing
+        this._ApplyAreaPreviewChrome()
         this.RefreshPreviewArea()
     }
 
     RefreshPreviewArea(*) {
-        if (!IsObject(this.ui) || this.ui.Query("PreviewAreaCon") != "True") {
+        if (!IsObject(this.ui) || !this.PreviewShowing) {
             this.StopPreviewFollow()
             this.HidePreviewRect()
             return
@@ -926,8 +1001,8 @@ class SearchProGui {
         this.PreviewFollowing := false
     }
 
-    PreviewFollowTick() {
-        if (!IsObject(this.ui) || this.ui.Query("PreviewAreaCon") != "True") {
+    PreviewFollowTick(*) {
+        if (!IsObject(this.ui) || !this.PreviewShowing) {
             this.StopPreviewFollow()
             return
         }

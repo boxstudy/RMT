@@ -53,9 +53,9 @@ class MacroGraphDataMixin {
     _CloneSearch(srcCmd) {
         srcArr := SplitCommand(srcCmd)
         srcSerial := srcArr.Length >= 1 ? srcArr[1] : srcCmd
-        isMulti := this._IsSearchMultiName(srcSerial)
+        isCombo := this._IsSearchComboName(srcSerial)
         isPro := this._IsSearchProName(srcSerial)
-        newSerial := GetCMDSerialStr(isMulti ? "组合搜索" : (isPro ? "搜索Pro" : "搜索"))
+        newSerial := GetCMDSerialStr(isCombo ? "搜索Combo" : (isPro ? "搜索Pro" : "搜索"))
         newData := SearchData()
         newData.SerialStr := newSerial
         try {
@@ -243,7 +243,7 @@ class MacroGraphDataMixin {
     _FormalIniCmdKeys() {
         return ["宏操作", "变量", "变量提取", "如果", "如果Pro", "运算", "运行", "运行Pro", "文件读写", "文本处理", "数组",
             "后台鼠标", "后台按键", "窗口管理", "按键检测", "手柄检测", "注释", "抓图", "循环",
-            "间隔", "按键", "移动", "鼠标移动", "增量移动", "RMT指令"]
+            "间隔", "按键", "移动", "鼠标移动", "增量移动", "RMT指令", "等待确定", "倒计时"]
     }
 
     _FormalIniKeyFromName(name) {
@@ -285,7 +285,9 @@ class MacroGraphDataMixin {
                 "移动", MoveDataConfig,
                 "鼠标移动", MoveDataConfig,
                 "增量移动", DeltaMoveData,
-                "RMT指令", RMTCMDData
+                "RMT指令", RMTCMDData,
+                "等待确定", WaitConfirmData,
+                "倒计时", CountDownData
             )
         }
         return m.Has(cmdKey) ? m[cmdKey] : ""
@@ -615,6 +617,12 @@ class MacroGraphDataMixin {
             d.rmtCategory := data.Category
             d.rmtOp := data.CmdStr
             d.rmtMenuIdx := data.HasOwnProp("MenuIndex") ? data.MenuIndex : 1
+        } else if (cmdKey == "等待确定") {
+            d.wcType := data.Type
+            d.wcPrompt := ObjHasOwnProp(data, "Prompt") ? data.Prompt : ""
+        } else if (cmdKey == "倒计时") {
+            d.cdSec := ObjHasOwnProp(data, "Seconds") ? data.Seconds : 10
+            d.cdWait := ObjHasOwnProp(data, "WaitEnd") ? data.WaitEnd : "等待结束"
         }
     }
 
@@ -983,8 +991,8 @@ class MacroGraphDataMixin {
             }
         }
         else if (this._IsSearchFamilyName(name)) {
-            ; 搜索/搜索Pro/组合搜索 参数存储在 Search*.toml 中，CurCMD 即其 SerialStr
-            d.type := this._IsSearchMultiName(name) ? GetLang("组合搜索") : (this._IsSearchProName(name) ? GetLang("搜索Pro") : GetLang("搜索"))
+            ; 搜索/搜索Pro/搜索Combo 参数存储在 Search*.toml 中，CurCMD 即其 SerialStr
+            d.type := this._IsSearchComboName(name) ? GetLang("搜索Combo") : (this._IsSearchProName(name) ? GetLang("搜索Pro") : GetLang("搜索"))
             d.serialStr := name
             try {
                 data := GetMacroCMDData(name)

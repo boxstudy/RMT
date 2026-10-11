@@ -531,9 +531,7 @@ class XAMLHost {
             if (t != "")
                 f1Tip := StrReplace(t, "F1:", "F1：")
         }
-        f1Box := 12
-        try f1Box := Max(11, Round(Float(glyphSize)) + 1)
-        chrome.F1 := XAMLHost.AddTitleChromeDashRectBtn(chrome.Btns, "BtnCmdF1", titleHeight, "Collapsed", "{StaticResource TitleBarChromeButton}", cmdBtnW, f1Box)
+        chrome.F1 := XAMLHost.AddTitleChromeBtn(chrome.Btns, "BtnCmdF1", titleHeight, Chr(0xECAF), "Collapsed", "{StaticResource TitleBarChromeButton}", cmdBtnW, glyphSize)
         chrome.F1.ToolTip(f1Tip)
         f2Tip := "F2：截图"
         try {
