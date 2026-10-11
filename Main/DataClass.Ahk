@@ -332,6 +332,12 @@ class MainConfig {
         this.UIPanelBtnWidth := 80           ; 按钮宽度
         this.UIPanelCols := 3                ; 每行按钮个数
 
+        ; ========== 倒计时浮层 ==========
+        this.CountDownFontSize := 15        ; 倒计时字体大小
+        this.CountDownAlpha := 70           ; 倒计时透明度 (0=全透明，100=不透明)
+        this.CountDownStyle := 2            ; 1时分秒 2智能 3秒
+        this.CountDownPadZero := true       ; 补零（仅秒不补）
+
         ; ========== CMD 指令提示窗口 ==========
         this.CMDTip := false            ; 是否显示指令提示
         this.CMDWidth := Round(225 * A_ScreenDPI / 96)  ; CMD 窗口宽度（按 DPI 缩放）
@@ -1408,15 +1414,24 @@ class TimingData {
 class TimeData {
     __New() {
         this.SerialStr := ""
-        ; SubMode: 1指定时刻等待, 2时间区间判断, 3获取时间变量, 4获取时间字符串, 5时间计算
+        ; SubMode: 1等待, 2时间区间判断, 3倒计时（旧数据 4/5 仍由 TimeUtil 执行）
         this.SubMode := 1
-        this.Param1 := ""  ; 模式1:目标时间/时长; 模式2:开始时间; 模式3:时间变量名; 模式4:目标变量名; 模式5:时间变量1
-        this.Param2 := ""  ; 模式1:单位/类型; 模式2:结束时间; 模式3:来源时间(可选); 模式4:时间源(可选); 模式5:时间变量2/偏移
-        this.Param3 := ""  ; 模式2:允许星期; 模式4:格式化模板; 模式5:操作类型(差值/增加/减少)
-        this.Param4 := ""  ; 模式2:不满足动作; 模式5:保存变量名
-        this.Param5 := ""  ; 模式5:输出单位(秒/毫秒/分钟/小时/天/HH:mm:ss)
+        this.Param1 := ""  ; 模式1:目标时间/时长; 模式2:开始时间
+        this.Param2 := ""  ; 模式1:类型(时刻/时长/时间戳); 模式2:结束时间
+        this.Param3 := ""  ; 模式2:允许星期
+        this.Param4 := ""  ; 模式2:不满足动作
+        this.Param5 := ""  ; 模式2:时刻/时间戳
         this.CheckInterval := 500 ; 轮询间隔(ms) — 模式1使用
         this.Timeout := 0         ; 超时(ms, 0为无限) — 模式1使用
+        this.Hour := 0
+        this.Min := 0
+        this.Sec := 10
+        this.Seconds := 10
+        this.WaitEnd := "不等待"
+        this.PosX := 200
+        this.PosY := 200
+        this.FontSize := 32
+        this.Alpha := 70
         ; 错误处理
         this.ErrMode := "stop"
         this.ErrRetryCount := 3
@@ -1689,7 +1704,9 @@ class CountDownData {
         this.Hour := 0
         this.Min := 0
         this.Sec := 10
-        this.WaitEnd := "等待结束"          ;等待结束  不等待
+        this.Param1 := ""
+        this.Param2 := ""                   ;时刻/时长/时间戳，空=时长
+        this.WaitEnd := "不等待"            ;等待结束  不等待
         this.PosX := 200
         this.PosY := 200
         this.FontSize := 32

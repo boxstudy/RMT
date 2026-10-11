@@ -1,12 +1,11 @@
 #Requires AutoHotkey v2.0
 
 ; =====================================================================
-; 时间指令执行端 —— 5 种子模式 (纯英文参数)
-;   1. 指定时刻等待 (Param1=目标时间/时长, Param2=Seconds/Minutes/Hours/Days/SpecificTime/TimeVariable)
+; 时间指令执行端
+;   1. 等待 (Param1=目标时间/时长, Param2=时刻/时长/时间戳)
 ;   2. 时间区间判断 (Param1=开始时间, Param2=结束时间, Param3=允许星期, Param4=Skip/Wait/Stop)
-;   3. 获取时间变量 (Param1=目标变量名, Param2=来源时间变量/可选)
-;   4. 获取时间字符串 (Param1=目标变量名, Param2=来源时间变量/可选, Param3=格式模板)
-;   5. 时间计算     (Param1=时间变量1, Param2=时间变量2/偏移, Param3=Diff/Add/Sub, Param4=目标变量, Param5=Seconds/Milliseconds/Minutes/Hours/Days/HH:mm:ss)
+;   3. 倒计时 (Hour/Min/Sec、坐标、字体、透明度、WaitEnd)
+;   4/5. 旧：获取时间字符串 / 时间计算
 ; =====================================================================
 
 OnTimeData(tableItem, cmd, index) {
@@ -17,15 +16,15 @@ OnTimeData(tableItem, cmd, index) {
 
     subMode := Integer(Data.SubMode)
     switch subMode {
-        case 1: ; 指定时刻等待
+        case 1: ; 等待
             TimeExecWaitUntil(tableItem, index, Data)
         case 2: ; 时间区间判断
             TimeExecWindowCheck(tableItem, index, Data)
-        case 3: ; 获取时间变量
-            TimeExecGetTimeVar(tableItem, index, Data)
-        case 4: ; 获取时间字符串
+        case 3: ; 倒计时
+            TimeExecCountDown(tableItem, index, Data)
+        case 4: ; 旧：获取时间字符串
             TimeExecGetTimeStr(tableItem, index, Data)
-        case 5: ; 时间计算
+        case 5: ; 旧：时间计算
             TimeExecTimeMath(tableItem, index, Data)
     }
 }
@@ -63,24 +62,37 @@ TimeExecWaitUntil(tableItem, index, Data) {
 TimeNormWaitType(unit) {
     u := Trim(String(unit))
     if (u == "")
-        return "指定时刻"
+        return "时刻"
     u := GetLangKey(u)
     switch u {
-        case "SpecificTime", "指定时刻":
-            return "指定时刻"
-        case "TimeVariable", "时间变量":
-            return "时间变量"
+        case "SpecificTime", "指定时刻", "时刻", "Clock Time":
+            return "时刻"
+        case "TimeVariable", "时间变量", "时间戳", "Timestamp":
+            return "时间戳"
         default:
             return "时长"
+    }
+}
+
+TimeNormWindowType(unit) {
+    u := Trim(String(unit))
+    if (u == "")
+        return "时刻"
+    u := GetLangKey(u)
+    switch u {
+        case "TimeVariable", "时间变量", "时间戳", "Timestamp":
+            return "时间戳"
+        default:
+            return "时刻"
     }
 }
 
 TimeNormMismatch(action) {
     a := GetLangKey(Trim(String(action)))
     switch a {
-        case "Wait", "等待":
+        case "Wait", "等待", "不满足时等待", "Wait If Unmet":
             return "等待"
-        case "Stop", "终止":
+        case "Stop", "终止", "不满足时终止", "Stop If Unmet":
             return "终止"
         default:
             return "跳过"
@@ -151,9 +163,9 @@ TimeCalcTargetDateTime(tableItem, index, Data) {
             }
             secs := TimeParseDurationSecs(param1Val, Data.Param2)
             return DateAdd(A_Now, secs, "Seconds")
-        case "指定时刻":
+        case "时刻":
             return TimeParseDateTime(TimeResolveClock(tableItem, index, Data.Param1))
-        case "时间变量":
+        case "时间戳":
             valStr := String(param1Val)
             if (valStr == "") {
                 rawVarName := GetVarName(Data.Param1)
@@ -296,22 +308,44 @@ TimeNowInClockWindow(startStamp, endStamp) {
     return nt >= st || nt <= et
 }
 
-TimeExecWindowCheck(tableItem, index, Data) {
-    startTime := TimeResolveClock(tableItem, index, Data.Param1)
-    endTime := TimeResolveClock(tableItem, index, Data.Param2)
-    allowDays := Data.Param3 != "" ? Data.Param3 : "1,2,3,4,5,6,7"
-    mismatchAction := TimeNormMismatch(Data.Param4 != "" ? Data.Param4 : "跳过")
+TimeResolveStamp(tableItem, index, raw) {
+    raw := Trim(String(raw))
+    arr := StrSplit(raw, ":")
+    if (arr.Length >= 6) {
+        y := GetReplaceVarText(tableItem, index, arr[1])
+        mo := GetReplaceVarText(tableItem, index, arr[2])
+        d := GetReplaceVarText(tableItem, index, arr[3])
+        h := GetReplaceVarText(tableItem, index, arr[4])
+        mi := GetReplaceVarText(tableItem, index, arr[5])
+        s := GetReplaceVarText(tableItem, index, arr[6])
+        y := (IsNumber(y) && Integer(y) > 0) ? Integer(y) : Integer(A_Year)
+        mo := (IsNumber(mo) && Integer(mo) > 0) ? Integer(mo) : Integer(A_Mon)
+        d := (IsNumber(d) && Integer(d) > 0) ? Integer(d) : Integer(A_DD)
+        h := IsNumber(h) ? Integer(h) : 0
+        mi := IsNumber(mi) ? Integer(mi) : 0
+        s := IsNumber(s) ? Integer(s) : 0
+        return Format("{:04}{:02}{:02}{:02}{:02}{:02}", y, mo, d, h, mi, s)
+    }
+    clock := TimeResolveClock(tableItem, index, raw)
+    if (arr.Length == 3)
+        return TimeParseClockOfDay(clock)
+    return TimeParseDateTime(clock)
+}
 
-    startStamp := TimeParseClockOfDay(startTime)
-    endStamp := TimeParseClockOfDay(endTime)
+TimeWindowInRange(tableItem, index, Data) {
+    kind := TimeNormWindowType(ObjHasOwnProp(Data, "Param5") ? Data.Param5 : "")
+    startStamp := TimeResolveStamp(tableItem, index, Data.Param1)
+    endStamp := TimeResolveStamp(tableItem, index, Data.Param2)
     if (startStamp == "" || endStamp == "")
-        return
+        return false
+    if (kind == "时间戳" || StrSplit(Trim(String(Data.Param1)), ":").Length >= 6)
+        return A_Now >= startStamp && A_Now <= endStamp
+    return TimeNowInClockWindow(startStamp, endStamp)
+}
 
-    nowDayOfWeek := A_WDay == 1 ? 7 : (A_WDay - 1)  ; AHK: 1=Sun → convert to 1=Mon
-    dayOk := InStr("," allowDays ",", "," nowDayOfWeek ",")
-    inWindow := dayOk && TimeNowInClockWindow(startStamp, endStamp)
-
-    if (inWindow)
+TimeExecWindowCheck(tableItem, index, Data) {
+    mismatchAction := TimeNormMismatch(Data.Param4 != "" ? Data.Param4 : "跳过")
+    if (TimeWindowInRange(tableItem, index, Data))
         return
 
     switch mismatchAction {
@@ -325,9 +359,7 @@ TimeExecWindowCheck(tableItem, index, Data) {
                 item := tableItem.Items[index]
                 if (item.Killed)
                     return
-                nowDayOfWeek2 := A_WDay == 1 ? 7 : (A_WDay - 1)
-                dayOk2 := InStr("," allowDays ",", "," nowDayOfWeek2 ",")
-                if (dayOk2 && TimeNowInClockWindow(startStamp, endStamp))
+                if (TimeWindowInRange(tableItem, index, Data))
                     return
                 InterruptibleSleep(tableItem, index, 1000)
             }

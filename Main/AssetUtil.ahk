@@ -1268,6 +1268,12 @@ LoadMainSetting() {
     MainSoftData.UIPanelFontSize := CfgRead(SettingFile, SettingSection, "UIPanelFontSize", 12)
     MainSoftData.UIPanelBtnWidth := CfgRead(SettingFile, SettingSection, "UIPanelBtnWidth", 80)
     MainSoftData.UIPanelCols := CfgRead(SettingFile, SettingSection, "UIPanelCols", 3)
+    MainSoftData.CountDownFontSize := CfgRead(SettingFile, SettingSection, "CountDownFontSize", 15)
+    MainSoftData.CountDownAlpha := CfgRead(SettingFile, SettingSection, "CountDownAlpha", 70)
+    MainSoftData.CountDownStyle := Integer(CfgRead(SettingFile, SettingSection, "CountDownStyle", 2))
+    if (MainSoftData.CountDownStyle < 1 || MainSoftData.CountDownStyle > 3)
+        MainSoftData.CountDownStyle := 2
+    MainSoftData.CountDownPadZero := CfgRead(SettingFile, SettingSection, "CountDownPadZero", true)
     EnsureXAMLThemesToml()
     ; 统一主题颜色（轮盘/浮窗/指令显示），不兼容旧分散颜色配置
     AppThemeUtil.LoadFromToml()

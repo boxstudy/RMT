@@ -54,7 +54,7 @@ class MacroGraphFormalMixin {
             GetLang("等待"), this.WaitGui,
             GetLang("等待确定"), this.WaitConfirmGui,
             GetLang("时间"), this.TimeGui,
-            GetLang("倒计时"), this.CountDownGui
+            GetLang("倒计时"), this.TimeGui
         )
     }
 
@@ -285,6 +285,8 @@ class MacroGraphFormalMixin {
             this._FillWaitConfirmBody(id, d, body)
         else if (d.type == GetLang("倒计时"))
             this._FillCountDownBody(id, d, body)
+        else if (d.type == GetLang("时间"))
+            this._FillTimeBody(id, d, body)
     }
 
     _FillWaitConfirmBody(id, d, body) {
@@ -298,8 +300,19 @@ class MacroGraphFormalMixin {
     _FillCountDownBody(id, d, body) {
         sec := d.HasOwnProp("cdSec") ? d.cdSec : 10
         wait := d.HasOwnProp("cdWait") ? d.cdWait : "等待结束"
-        body.Add("TextBlock").Text(GetLang("时长：") CountDownFormatText(sec, sec >= 3600 ? "hhmmss" : (sec >= 60 ? "mmss" : "ss"))).Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(12)).Margin("0,6,0,0")
+        body.Add("TextBlock").Text(GetLang("时长：") CountDownFormatText(sec)).Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(12)).Margin("0,6,0,0")
         body.Add("TextBlock").Text(GetLang(wait)).Foreground("{DynamicResource TextSub}").FontSize(this._MGFontSize(11)).Margin("0,4,0,0")
+    }
+
+    _FillTimeBody(id, d, body) {
+        sub := d.HasOwnProp("timeSub") ? Integer(d.timeSub) : 1
+        if (sub == 3) {
+            this._FillCountDownBody(id, d, body)
+            return
+        }
+        keys := ["等待", "区间判断", "倒计时"]
+        name := (sub >= 1 && sub <= keys.Length) ? keys[sub] : "等待"
+        body.Add("TextBlock").Text(GetLang(name)).Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(12)).Margin("0,6,0,0")
     }
 
     ; 配置行高度（标签行 Margin5 + 控件高22）；注释正文 2~5 行配置高度

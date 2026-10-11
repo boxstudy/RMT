@@ -171,9 +171,9 @@ class MacroEditGui {
             {name: "搜索/识图", icon: Chr(0xE721), cmds: ["搜索", "搜索Pro", "搜索Combo"]},
             {name: "输入/输出", icon: Chr(0xE8A1), cmds: ["输入", "输出"]},
             {name: "变量/数据", icon: Chr(0xE8EF), cmds: ["变量", "变量提取", "运算", "数组", "文本处理", "文件读写"]},
-            {name: "流程控制", icon: Chr(0xE8FD), cmds: ["间隔", "如果", "如果Pro", "循环", "等待", "等待确定"]},
+            {name: "流程控制", icon: Chr(0xE8FD), cmds: ["间隔", "时间", "如果", "如果Pro", "循环", "等待", "等待确定"]},
             {name: "调控", icon: Chr(0xE713), cmds: ["运行", "运行Pro", "宏操作", "窗口管理", "RMT指令"]},
-            {name: "其他", icon: Chr(0xE712), cmds: ["抓图", "注释", "时间", "倒计时"]}
+            {name: "其他", icon: Chr(0xE712), cmds: ["抓图", "注释"]}
         ]
         this._favSet := Map()            ; 收藏指令名（中文）→ true
         this._catExpand := Map()         ; 分类名（中文）→ true（展开）
@@ -199,14 +199,15 @@ class MacroEditGui {
             }
         } else
             this.InitSubGui()
+        this._BindCountDownToTimeGui()
     }
 
     InitCommandConfigs() {
         ; §20 指令改名：移动→鼠标移动、移动Pro→鼠标移动Pro、新增 增量移动（原游戏视角）
-        this.CMDStrArr := GetLangArr(["间隔", "按键", "手柄", "搜索", "搜索Pro", "搜索Combo", "鼠标移动", "鼠标移动Pro", "增量移动", "输入", "输出", "循环", "宏操作", "变量", "变量提取",
-            "如果", "如果Pro", "运算", "运行", "运行Pro", "文件读写", "文本处理", "数组", "RMT指令", "后台鼠标", "后台按键", "窗口管理", "按键检测", "手柄检测", "等待", "等待确定", "时间", "倒计时", "注释", "抓图"])
+        this.CMDStrArr := GetLangArr(["间隔", "时间", "按键", "手柄", "搜索", "搜索Pro", "搜索Combo", "鼠标移动", "鼠标移动Pro", "增量移动", "输入", "输出", "循环", "宏操作", "变量", "变量提取",
+            "如果", "如果Pro", "运算", "运行", "运行Pro", "文件读写", "文本处理", "数组", "RMT指令", "后台鼠标", "后台按键", "窗口管理", "按键检测", "手柄检测", "等待", "等待确定", "倒计时", "注释", "抓图"])
 
-        this.CMDIconFileArr := ["Images\Soft\Interval.png", "Images\Soft\Key.png", "Images\Soft\Key.png",
+        this.CMDIconFileArr := ["Images\Soft\Interval.png", "Images\Soft\Interval.png", "Images\Soft\Key.png", "Images\Soft\Key.png",
             "Images\Soft\Search.png", "Images\Soft\SearchPro.png", "Images\Soft\SearchPro.png",
             "Images\Soft\Move.png", "Images\Soft\MovePro.png", "Images\Soft\Move.png",
             "Images\Soft\Input.png", "Images\Soft\Output.png",
@@ -218,7 +219,7 @@ class MacroEditGui {
             "Images\Soft\Arr.png", "Images\Soft\rabit.png",
             "Images\Soft\Mouse.png", "Images\Soft\Key.png",
             "Images\Soft\WindowManage.png", "Images\Soft\KeyCheck.png", "Images\Soft\KeyCheck.png",
-            "Images\Soft\Control.png", "Images\Soft\Control.png", "Images\Soft\Interval.png",
+            "Images\Soft\Control.png", "Images\Soft\Control.png",
             "Images\Soft\Interval.png", "Images\Soft\ScreenShot.png", "Images\Soft\Comment.png"]
 
         this.IconMap := Map(GetLang("间隔"), "Icon1", GetLang("按键"), "Icon2", GetLang("手柄"), "Icon2", GetLang("搜索"), "Icon3",
@@ -292,7 +293,6 @@ class MacroEditGui {
             {class: WaitGui, name: "等待", icon: "Images\Soft\Control.png", propName: "WaitGui"},
             {class: WaitConfirmGui, name: "等待确定", icon: "Images\Soft\Control.png", propName: "WaitConfirmGui"},
             {class: TimeGui, name: "时间", icon: "Images\Soft\Interval.png", propName: "TimeGui"},
-            {class: CountDownGui, name: "倒计时", icon: "Images\Soft\Interval.png", propName: "CountDownGui"},
             {class: CommentGui, name: "注释", icon: "Images\Soft\Comment.png", propName: "CommentGui"},
             {class: ScreenShotGui, name: "抓图", icon: "Images\Soft\ScreenShot.png", propName: "ScreenShotGui"}
         ]
@@ -306,6 +306,13 @@ class MacroEditGui {
             this.SubGuiMap.Set(GetLang(config.name), guiInstance)
             this.%config.propName% := guiInstance
         }
+    }
+
+    _BindCountDownToTimeGui() {
+        if (!ObjHasOwnProp(this, "TimeGui") || !IsObject(this.TimeGui))
+            return
+        this.CountDownGui := this.TimeGui
+        try this.SubGuiMap.Set(GetLang("倒计时"), this.TimeGui)
     }
 
     ShowGui(CommandStr, ShowSaveBtn) {

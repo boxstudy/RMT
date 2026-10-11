@@ -51,12 +51,12 @@ class MacroGraphGui {
         this._sessionId := 0          ; 每次打开自增；用于忽略旧窗口迟到的异步关闭事件，避免覆盖写空
 
         ; 若梦兔全部指令（§20 改名：移动→鼠标移动、移动Pro→鼠标移动Pro、新增 增量移动）
-        this.CmdList := GetLangArr(["间隔", "按键", "手柄", "搜索", "搜索Pro", "搜索Combo", "鼠标移动", "鼠标移动Pro", "增量移动", "输入", "输出", "循环", "宏操作",
+        this.CmdList := GetLangArr(["间隔", "时间", "按键", "手柄", "搜索", "搜索Pro", "搜索Combo", "鼠标移动", "鼠标移动Pro", "增量移动", "输入", "输出", "循环", "宏操作",
             "变量", "变量提取", "如果", "如果Pro", "运算", "运行", "运行Pro", "文件读写", "文本处理", "数组", "RMT指令", "后台鼠标",
-            "后台按键", "窗口管理", "按键检测", "手柄检测", "等待", "等待确定", "时间", "倒计时", "注释", "抓图"])
+            "后台按键", "窗口管理", "按键检测", "手柄检测", "等待", "等待确定", "注释", "抓图"])
 
         ; 各指令对应图标（顺序与 CmdList 一一对应，复用 MacroEditGui 的图标资源）
-        this.CmdIconArr := ["Images\Soft\Interval.png", "Images\Soft\Key.png", "Images\Soft\Key.png",
+        this.CmdIconArr := ["Images\Soft\Interval.png", "Images\Soft\Interval.png", "Images\Soft\Key.png", "Images\Soft\Key.png",
             "Images\Soft\Search.png", "Images\Soft\SearchPro.png", "Images\Soft\SearchPro.png",
             "Images\Soft\Move.png", "Images\Soft\MovePro.png", "Images\Soft\Move.png",
             "Images\Soft\Input.png", "Images\Soft\Output.png",
@@ -68,8 +68,8 @@ class MacroGraphGui {
             "Images\Soft\Arr.png", "Images\Soft\rabit.png",
             "Images\Soft\Mouse.png", "Images\Soft\Key.png",
             "Images\Soft\WindowManage.png", "Images\Soft\KeyCheck.png", "Images\Soft\KeyCheck.png",
-            "Images\Soft\Control.png", "Images\Soft\Control.png", "Images\Soft\Interval.png",
-            "Images\Soft\Interval.png", "Images\Soft\Comment.png", "Images\Soft\ScreenShot.png"]
+            "Images\Soft\Control.png", "Images\Soft\Control.png",
+            "Images\Soft\Comment.png", "Images\Soft\ScreenShot.png"]
 
         ; 复用现有子编辑器（双击节点时打开）
         this.IntervalGui := IntervalGui()
@@ -101,7 +101,7 @@ class MacroGraphGui {
         this.WaitGui := WaitGui()
         this.WaitConfirmGui := WaitConfirmGui()
         this.TimeGui := TimeGui()
-        this.CountDownGui := CountDownGui()
+        this.CountDownGui := this.TimeGui
         this.ScreenShotGui := ScreenShotGui()
         this.CommentGui := CommentGui()
         this.LoopGui := LoopGui()

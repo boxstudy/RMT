@@ -148,7 +148,8 @@ OnSaveSetting(*) {
     for key in ["CMDLogToFile", "CMDLogFilePath", "CMDLogAutoClear",
         "FixedMenuWheel", "MenuWheelShowTooltip", "MenuWheelSelectMode", "MenuWheelScale",
         "UIPanelShowOnActive", "UIPanelDefaultPos", "UIPanelOffsetX", "UIPanelOffsetY",
-        "UIPanelBtnWidth", "UIPanelBtnHeight", "UIPanelFontSize", "UIPanelCols"]
+        "UIPanelBtnWidth", "UIPanelBtnHeight", "UIPanelFontSize", "UIPanelCols",
+        "CountDownFontSize", "CountDownAlpha", "CountDownStyle", "CountDownPadZero"]
         CheckAndAddDirty(key, MainSoftData.%key%)
 
     ; 只写入实际发生变化的配置项（性能提升80%+）

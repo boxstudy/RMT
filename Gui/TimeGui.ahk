@@ -2,7 +2,7 @@
 
 ; =====================================================================
 ; 时间编辑器 —— XAML 界面（独立实现）
-; 支持 4 种子模式：指定时刻等待、时间区间判断、时间获取、时间计算
+; 支持 3 种子模式：等待、区间判断、倒计时
 ; =====================================================================
 
 class TimeGui {
@@ -15,8 +15,10 @@ class TimeGui {
         this._closed := true
         this.Data := ""
         this.SerialStr := ""
-        this.ModeKeys := ["指定时刻等待", "时间区间判断", "获取时间变量", "获取时间字符串", "时间计算"]
-        this._dayOn := [true, true, true, true, true, true, true]
+        this.ModeKeys := ["等待", "区间判断", "倒计时"]
+        this._syncing := false
+        this._labW := 96
+        this._fldW := 152  ; 与「时+：+分」同宽，右缘对齐分下拉
     }
 
     ShowGui(cmd) {
@@ -45,7 +47,9 @@ class TimeGui {
         return s
     }
 
-    _Lab(parent, text, width := 88, margin := "0") {
+    _Lab(parent, text, width := "", margin := "0") {
+        if (width == "")
+            width := this._labW
         return parent.Add("TextBlock").Text(GetLang(text)).Width(String(width)).VerticalAlignment("Center")
             .Foreground("{DynamicResource TextMain}").FontSize("12").Margin(margin)
     }
@@ -74,10 +78,18 @@ class TimeGui {
 
     _AddHms(parent, prefix) {
         this._Combo(parent, prefix "HourCon", true, 68).ToolTip(GetLang("时"))
-        parent.Add("TextBlock").Text("：").VerticalAlignment("Center").Margin("2,0,2,0").Foreground("{DynamicResource TextMain}")
+        parent.Add("TextBlock").Text("：").Width("16").HorizontalAlignment("Center").TextAlignment("Center")
+            .VerticalAlignment("Center").Foreground("{DynamicResource TextMain}")
         this._Combo(parent, prefix "MinCon", true, 68).ToolTip(GetLang("分"))
-        parent.Add("TextBlock").Text("：").VerticalAlignment("Center").Margin("2,0,2,0").Foreground("{DynamicResource TextMain}")
+        parent.Add("TextBlock").Text("：").Width("16").HorizontalAlignment("Center").TextAlignment("Center")
+            .VerticalAlignment("Center").Foreground("{DynamicResource TextMain}")
         this._Combo(parent, prefix "SecCon", true, 68).ToolTip(GetLang("秒"))
+    }
+
+    _PairCols(g) {
+        ; 类型/超时 152 = 时68 + ：16 + 分68，右缘对齐分下拉；模式/轮询同宽
+        g.Cols("96", String(this._fldW), "108", String(this._fldW))
+        return g
     }
 
     _BuildAndShow() {
@@ -101,21 +113,25 @@ class TimeGui {
         this._Lab(r0, "备注：")
         this._Edit(r0, "RemarkCon").Width(420).TextAlignment("Left")
 
-        r1 := body.Add("StackPanel").Grid_Row(1).Orientation("Horizontal").VerticalAlignment("Center")
-        this._Lab(r1, "时间模式：")
-        tm := this._Combo(r1, "TimeModeCon", false, 200)
+        r1 := this._PairCols(body.Add("Grid").Grid_Row(1).VerticalAlignment("Center"))
+        this._Lab(r1, "类型：").Grid_Column(0)
+        tm := this._Combo(r1, "TimeModeCon", false, this._fldW).Grid_Column(1)
         for t in GetLangArr(this.ModeKeys)
             tm.Add("ComboBoxItem").Content(t)
+        this._Lab(r1, "模式：").Grid_Column(2)
+        wunit := this._Combo(r1, "WaitUnitCon", false, this._fldW).Grid_Column(3)
+        for u in GetLangArr(TimeGui.WaitUnitKeys)
+            wunit.Add("ComboBoxItem").Content(u)
+        wkind := this._Combo(r1, "WinKindCon", false, this._fldW).Grid_Column(3).Visibility("Collapsed")
+        for u in GetLangArr(TimeGui.WindowKindKeys)
+            wkind.Add("ComboBoxItem").Content(u)
+        ckind := this._Combo(r1, "CdKindCon", false, this._fldW).Grid_Column(3).Visibility("Collapsed")
+        for u in GetLangArr(TimeGui.WaitUnitKeys)
+            ckind.Add("ComboBoxItem").Content(u)
 
         pStack := body.Add("StackPanel").Grid_Row(2).Margin("0,4,0,0")
 
         p1 := pStack.Add("StackPanel").Name("WaitPanel")
-        p1r1 := p1.Add("StackPanel").Orientation("Horizontal").Height("32").VerticalAlignment("Center")
-        this._Lab(p1r1, "类型：")
-        wunit := this._Combo(p1r1, "WaitUnitCon", false, 160)
-        for u in GetLangArr(TimeGui.WaitUnitKeys)
-            wunit.Add("ComboBoxItem").Content(u)
-
         p1Time := p1.Add("StackPanel").Name("WaitTimeRow").Orientation("Horizontal").Height("32").VerticalAlignment("Center")
         this._Lab(p1Time, "目标时间：")
         this._AddHms(p1Time, "Wait")
@@ -125,77 +141,55 @@ class TimeGui {
         this._AddHms(p1Dur, "")
 
         p1Var := p1.Add("StackPanel").Name("WaitVarRow").Orientation("Horizontal").Height("32").VerticalAlignment("Center").Visibility("Collapsed")
-        this._Lab(p1Var, "时间变量：")
-        this._Combo(p1Var, "WaitVarCon", true, 200)
+        this._Lab(p1Var, "时间戳：")
+        this._Combo(p1Var, "WaitVarCon", true, 220)
 
-        p1r2 := p1.Add("StackPanel").Orientation("Horizontal").Height("32").VerticalAlignment("Center")
-        this._Lab(p1r2, "超时(ms)：")
-        this._Edit(p1r2, "TimeoutCon", 90)
-        this._Lab(p1r2, "轮询间隔(ms)：", 108, "16,0,0,0")
-        this._Edit(p1r2, "CheckIntervalCon", 90)
+        p1r2 := this._PairCols(p1.Add("Grid").Height("32").VerticalAlignment("Center"))
+        this._Lab(p1r2, "超时(ms)：").Grid_Column(0)
+        this._Edit(p1r2, "TimeoutCon", this._fldW).Grid_Column(1)
+        this._Lab(p1r2, "轮询间隔(ms)：").Grid_Column(2)
+        this._Edit(p1r2, "CheckIntervalCon", this._fldW).Grid_Column(3)
 
         p2 := pStack.Add("StackPanel").Name("WindowPanel").Visibility("Collapsed")
-        p2r1 := p2.Add("StackPanel").Orientation("Horizontal").Height("32").VerticalAlignment("Center")
+        p2r1 := p2.Add("StackPanel").Name("WinTimeRow").Orientation("Horizontal").Height("32").VerticalAlignment("Center")
         this._Lab(p2r1, "开始时间：")
         this._AddHms(p2r1, "Start")
 
-        p2r1b := p2.Add("StackPanel").Orientation("Horizontal").Height("32").VerticalAlignment("Center")
+        p2r1b := p2.Add("StackPanel").Name("WinTimeRow2").Orientation("Horizontal").Height("32").VerticalAlignment("Center")
         this._Lab(p2r1b, "结束时间：")
         this._AddHms(p2r1b, "End")
 
-        p2r2 := p2.Add("StackPanel").Orientation("Horizontal").Height("32").VerticalAlignment("Center")
-        this._Lab(p2r2, "允许星期：")
-        for i, d in ["一", "二", "三", "四", "五", "六", "日"] {
-            p2r2.Add("Button").Name("Day" i "Con").Content(GetLang(d)).Width("32").Height("28")
-                .Margin("0,0,6,0").Cursor("Hand").FontSize("12")
-                .Background("{DynamicResource ControlBg}").Foreground("{DynamicResource TextMain}")
-                .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
-                .VerticalAlignment("Center").HorizontalContentAlignment("Center").VerticalContentAlignment("Center")
-        }
+        p2Var := p2.Add("StackPanel").Name("WinVarRow").Orientation("Horizontal").Height("32").VerticalAlignment("Center").Visibility("Collapsed")
+        this._Lab(p2Var, "开始时间：")
+        this._Combo(p2Var, "StartVarCon", true, 220)
+
+        p2Var2 := p2.Add("StackPanel").Name("WinVarRow2").Orientation("Horizontal").Height("32").VerticalAlignment("Center").Visibility("Collapsed")
+        this._Lab(p2Var2, "结束时间：")
+        this._Combo(p2Var2, "EndVarCon", true, 220)
 
         p2r3 := p2.Add("StackPanel").Orientation("Horizontal").Height("32").VerticalAlignment("Center")
-        this._Lab(p2r3, "不满足时：")
-        act := this._Combo(p2r3, "MismatchActionCon", false, 140)
+        this._Lab(p2r3, "动作：")
+        act := this._Combo(p2r3, "MismatchActionCon", false, this._fldW)
         for a in GetLangArr(TimeGui.MismatchActionKeys)
             act.Add("ComboBoxItem").Content(a)
 
-        p3 := pStack.Add("StackPanel").Name("GetVarPanel").Visibility("Collapsed")
-        p3r1 := p3.Add("StackPanel").Orientation("Horizontal").Height("32").VerticalAlignment("Center")
-        this._Lab(p3r1, "时间变量名：")
-        this._Combo(p3r1, "GetTimeVarCon", true, 140)
-        this._Lab(p3r1, "来源时间(可选)：", 108, "16,0,0,0")
-        this._Combo(p3r1, "GetTimeVarSrcCon", true, 140)
+        p3 := pStack.Add("StackPanel").Name("CountDownPanel").Visibility("Collapsed")
+        p3Time := p3.Add("StackPanel").Name("CdTimeRow").Orientation("Horizontal").Height("32").VerticalAlignment("Center").Visibility("Collapsed")
+        this._Lab(p3Time, "目标时间：")
+        this._AddHms(p3Time, "CdWait")
 
-        p4 := pStack.Add("StackPanel").Name("GetStrPanel").Visibility("Collapsed")
-        p4r1 := p4.Add("StackPanel").Orientation("Horizontal").Height("32").VerticalAlignment("Center")
-        this._Lab(p4r1, "目标变量名：")
-        this._Combo(p4r1, "GetStrVarCon", true, 140)
-        this._Lab(p4r1, "时间源(可选)：", 108, "16,0,0,0")
-        this._Combo(p4r1, "GetStrSrcCon", true, 140)
-        p4r2 := p4.Add("StackPanel").Orientation("Horizontal").Height("32").VerticalAlignment("Center")
-        this._Lab(p4r2, "格式化模板：")
-        gfmt := this._Combo(p4r2, "GetStrFormatCon", true, 220)
-        for f in GetLangArr(TimeGui.FormatNames)
-            gfmt.Add("ComboBoxItem").Content(f)
+        p3r1 := p3.Add("StackPanel").Name("CdDurRow").Orientation("Horizontal").Height("32").VerticalAlignment("Center")
+        this._Lab(p3r1, "时长：")
+        this._AddHms(p3r1, "Cd")
 
-        p5 := pStack.Add("StackPanel").Name("MathPanel").Visibility("Collapsed")
-        p5r1 := p5.Add("StackPanel").Orientation("Horizontal").Height("32").VerticalAlignment("Center")
-        this._Lab(p5r1, "时间变量1：")
-        this._Combo(p5r1, "MathSrc1Con", true, 160)
-        this._Lab(p5r1, "操作：", 56, "16,0,0,0")
-        mop := this._Combo(p5r1, "MathOpCon", false, 100)
-        for o in GetLangArr(TimeGui.MathOpKeys)
-            mop.Add("ComboBoxItem").Content(o)
-        p5r2 := p5.Add("StackPanel").Orientation("Horizontal").Height("32").VerticalAlignment("Center")
-        this._Lab(p5r2, "时间变量2/偏移：", 108)
-        this._Combo(p5r2, "MathSrc2Con", true, 200)
-        p5r3 := p5.Add("StackPanel").Orientation("Horizontal").Height("32").VerticalAlignment("Center")
-        this._Lab(p5r3, "保存变量：")
-        this._Combo(p5r3, "MathTargetCon", true, 140)
-        this._Lab(p5r3, "单位/格式：", 88, "16,0,0,0")
-        munit := this._Combo(p5r3, "MathUnitCon", false, 120)
-        for u in GetLangArr(TimeGui.MathUnitKeys)
-            munit.Add("ComboBoxItem").Content(u)
+        p3Var := p3.Add("StackPanel").Name("CdVarRow").Orientation("Horizontal").Height("32").VerticalAlignment("Center").Visibility("Collapsed")
+        this._Lab(p3Var, "时间戳：")
+        this._Combo(p3Var, "CdVarCon", true, 220)
+
+        p3r2 := p3.Add("StackPanel").Orientation("Horizontal").Height("32").VerticalAlignment("Center")
+        this._Lab(p3r2, "显示位置：")
+        this._Combo(p3r2, "CdPosXCon", true, 68)
+        this._Combo(p3r2, "CdPosYCon", true, 68).Margin("8,0,0,0")
 
         btnRow := body.Add("StackPanel").Grid_Row(3).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
         AddCmdOkBtn(btnRow)
@@ -209,12 +203,12 @@ class TimeGui {
         this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
         this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
         this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnClickCancelBtn"))
-        BindCmdEditorChrome(this.ui, "#指令手册/27-时间", (*) => this.TriggerMacro(), "!l")
+        BindCmdEditorChrome(this.ui, "#指令手册/27-时间", (*) => this.TriggerMacro(), "!l", "", ObjBindMethod(this, "OnF1"))
         this.ui.OnEvent("BtnOk", "Click", ObjBindMethod(this, "OnClickSureBtn"))
         this.ui.OnEvent("TimeModeCon", "SelectionChanged", ObjBindMethod(this, "OnModeChange"))
         this.ui.OnEvent("WaitUnitCon", "SelectionChanged", ObjBindMethod(this, "OnWaitTypeChange"))
-        loop 7
-            this.ui.OnEvent("Day" A_Index "Con", "Click", ObjBindMethod(this, "OnDayClick", A_Index))
+        this.ui.OnEvent("WinKindCon", "SelectionChanged", ObjBindMethod(this, "OnWinTypeChange"))
+        this.ui.OnEvent("CdKindCon", "SelectionChanged", ObjBindMethod(this, "OnCdTypeChange"))
     }
 
     _ShowWindow() {
@@ -224,6 +218,7 @@ class TimeGui {
 
     ToggleFunc(state) {
         try Hotkey("!l", (*) => this.TriggerMacro(), state ? "On" : "Off")
+        try Hotkey("F1", (*) => this.OnF1(), state ? "On" : "Off")
     }
 
     _CloseWindow() {
@@ -267,12 +262,9 @@ class TimeGui {
         this.ui.Update(comboName, "Text", text)
     }
 
-    static WaitUnitKeys := ["指定时刻", "时长", "时间变量"]
-    static MismatchActionKeys := ["跳过", "等待", "终止"]
-    static MathOpKeys := ["差值", "增加", "减少"]
-    static MathUnitKeys := ["秒", "毫秒", "分钟", "小时", "天", "时:分:秒"]
-    static FormatKeys := ["yyyy-MM-dd HH:mm:ss", "UnixTimestamp", "HH:mm:ss", "yyyyMMdd", "yyyy/MM/dd HH:mm:ss", "EEEE", "EEE", "E"]
-    static FormatNames := ["标准日期时间", "Unix时间戳", "时分秒", "年月日", "斜杠日期时间", "星期几", "星期缩写", "星期数字"]
+    static WaitUnitKeys := ["时刻", "时长", "时间戳"]
+    static WindowKindKeys := ["时刻", "时间戳"]
+    static MismatchActionKeys := ["跳过", "等待", "终止", "不满足时跳过", "不满足时等待", "不满足时终止"]
 
     _GetSelectedKey(comboName, keysArray) {
         if (!IsObject(this.ui))
@@ -303,83 +295,134 @@ class TimeGui {
         this.Data := GetMacroCMDData(this.SerialStr)
         this.ui.Update("RemarkCon", "Text", cmdArr.Length >= 2 ? cmdArr[2] : "")
 
-        modeIdx := Integer(this.Data.SubMode)
-        if (modeIdx < 1 || modeIdx > 5)
+        modeIdx := this._CmdIsCountDown() ? 3 : Integer(this.Data.SubMode)
+        if (modeIdx < 1 || modeIdx > 3)
             modeIdx := 1
         this.ui.Update("TimeModeCon", "SelectedIndex", modeIdx - 1)
 
-        waitType := TimeNormWaitType(this.Data.Param2 != "" ? this.Data.Param2 : "指定时刻")
-        this._SetSelectedByKey("WaitUnitCon", waitType, TimeGui.WaitUnitKeys)
         vars := GetGuiVarArr()
-        this._SetCombo("WaitVarCon", vars, waitType == "时间变量" ? this.Data.Param1 : "")
+        param1 := ObjHasOwnProp(this.Data, "Param1") ? this.Data.Param1 : ""
+        param2 := ObjHasOwnProp(this.Data, "Param2") ? this.Data.Param2 : ""
+        param4 := ObjHasOwnProp(this.Data, "Param4") ? this.Data.Param4 : ""
+        subMode := ObjHasOwnProp(this.Data, "SubMode") ? this.Data.SubMode : 1
+        waitType := TimeNormWaitType(param2 != "" ? param2 : "时刻")
+        this._SetSelectedByKey("WaitUnitCon", waitType, TimeGui.WaitUnitKeys)
+        this._SetCombo("WaitVarCon", vars, waitType == "时间戳" ? param1 : "")
         wh := 14, wm := 30, ws := 0
-        this._ParseClockToHMS(waitType == "指定时刻" ? this.Data.Param1 : "", 14, 30, 0, &wh, &wm, &ws)
+        this._ParseClockToHMS(waitType == "时刻" ? param1 : "", 14, 30, 0, &wh, &wm, &ws)
         this._SetCombo("WaitHourCon", vars, wh)
         this._SetCombo("WaitMinCon", vars, wm)
         this._SetCombo("WaitSecCon", vars, ws)
         h := 0, m := 0, s := 10
-        this._ParseDurationToHMS(this.Data.Param1, this.Data.Param2, &h, &m, &s)
+        this._ParseDurationToHMS(param1, param2, &h, &m, &s)
         this._SetCombo("HourCon", vars, h)
         this._SetCombo("MinCon", vars, m)
         this._SetCombo("SecCon", vars, s)
-        this.ui.Update("TimeoutCon", "Text", String(this.Data.Timeout))
-        this.ui.Update("CheckIntervalCon", "Text", String(this.Data.CheckInterval))
+        timeout := ObjHasOwnProp(this.Data, "Timeout") ? this.Data.Timeout : 0
+        interval := ObjHasOwnProp(this.Data, "CheckInterval") ? this.Data.CheckInterval : 500
+        this.ui.Update("TimeoutCon", "Text", String(timeout))
+        this.ui.Update("CheckIntervalCon", "Text", String(interval))
 
+        param5 := ObjHasOwnProp(this.Data, "Param5") ? this.Data.Param5 : ""
+        winKind := (subMode == 2) ? TimeNormWindowType(param5) : "时刻"
+        this._SetSelectedByKey("WinKindCon", winKind, TimeGui.WindowKindKeys)
         sh := 9, sm := 0, ss := 0
-        this._ParseClockToHMS(this.Data.SubMode == 2 ? this.Data.Param1 : "", 9, 0, 0, &sh, &sm, &ss)
+        this._ParseClockToHMS(subMode == 2 && winKind == "时刻" ? param1 : "", 9, 0, 0, &sh, &sm, &ss)
         this._SetCombo("StartHourCon", vars, sh)
         this._SetCombo("StartMinCon", vars, sm)
         this._SetCombo("StartSecCon", vars, ss)
         eh := 18, em := 0, es := 0
-        this._ParseClockToHMS(this.Data.SubMode == 2 ? this.Data.Param2 : "", 18, 0, 0, &eh, &em, &es)
+        this._ParseClockToHMS(subMode == 2 && winKind == "时刻" ? param2 : "", 18, 0, 0, &eh, &em, &es)
         this._SetCombo("EndHourCon", vars, eh)
         this._SetCombo("EndMinCon", vars, em)
         this._SetCombo("EndSecCon", vars, es)
-        days := this.Data.Param3 != "" ? this.Data.Param3 : "1,2,3,4,5,6,7"
-        loop 7 {
-            this._dayOn[A_Index] := InStr("," days ",", "," A_Index ",") ? true : false
-            this._ApplyDayBtn(A_Index)
-        }
-        mismatch := TimeNormMismatch(this.Data.Param4 != "" ? this.Data.Param4 : "跳过")
+        this._SetCombo("StartVarCon", vars, subMode == 2 && winKind == "时间戳" ? param1 : "")
+        this._SetCombo("EndVarCon", vars, subMode == 2 && winKind == "时间戳" ? param2 : "")
+        mismatch := param4 != "" ? param4 : "跳过"
         this._SetSelectedByKey("MismatchActionCon", mismatch, TimeGui.MismatchActionKeys)
-
-        this._SetCombo("GetTimeVarCon", vars, this.Data.Param1 != "" ? this.Data.Param1 : "TimeVar1")
-        this._SetCombo("GetTimeVarSrcCon", GetGuiVarArr(7), this.Data.Param2 != "" ? this.Data.Param2 : "")
-
-        this._SetCombo("GetStrVarCon", vars, this.Data.Param1 != "" ? this.Data.Param1 : "TimeStr1")
-        this._SetCombo("GetStrSrcCon", GetGuiVarArr(7), this.Data.Param2 != "" ? this.Data.Param2 : "")
-        fmt := this.Data.Param3 != "" ? this.Data.Param3 : "yyyy-MM-dd HH:mm:ss"
-        this._SetFormatCombo(fmt)
-
-        this._SetCombo("MathSrc1Con", GetGuiVarArr(7), this.Data.Param1)
-        this._SetCombo("MathSrc2Con", GetGuiVarArr(7), this.Data.Param2)
-        op := TimeNormMathOp(this.Data.Param3 != "" ? this.Data.Param3 : "差值")
-        this._SetSelectedByKey("MathOpCon", op, TimeGui.MathOpKeys)
-        this._SetCombo("MathTargetCon", vars, this.Data.Param4 != "" ? this.Data.Param4 : "TimeRes")
-        mathUnit := TimeNormMathUnit(this.Data.Param5 != "" ? this.Data.Param5 : "秒")
-        this._SetSelectedByKey("MathUnitCon", mathUnit, TimeGui.MathUnitKeys)
+        this._InitCountDownFields(vars)
         this.OnWaitTypeChange()
+        this.OnWinTypeChange()
+        this.OnCdTypeChange()
+    }
+
+    _CmdIsCountDown() {
+        key := GetLangKey(RegExReplace(this.SerialStr, "\d+"))
+        return key == "倒计时"
+    }
+
+    _InitCountDownFields(vars) {
+        h := ObjHasOwnProp(this.Data, "Hour") ? this.Data.Hour : ""
+        m := ObjHasOwnProp(this.Data, "Min") ? this.Data.Min : ""
+        s := ObjHasOwnProp(this.Data, "Sec") ? this.Data.Sec : ""
+        if (h == "" && m == "" && s == "") {
+            sec := (ObjHasOwnProp(this.Data, "Seconds") && IsNumber(this.Data.Seconds)) ? Integer(this.Data.Seconds) : 10
+            if (sec < 0)
+                sec := 0
+            h := Floor(sec / 3600)
+            m := Floor(Mod(sec, 3600) / 60)
+            s := Mod(sec, 60)
+        }
+        this._SetCombo("CdHourCon", vars, h)
+        this._SetCombo("CdMinCon", vars, m)
+        this._SetCombo("CdSecCon", vars, s)
+        cdKind := CountDownKind(this.Data)
+        this._SetSelectedByKey("CdKindCon", cdKind, TimeGui.WaitUnitKeys)
+        this._SetCombo("CdVarCon", vars, cdKind == "时间戳" ? (ObjHasOwnProp(this.Data, "Param1") ? this.Data.Param1 : "") : "")
+        cwh := 14, cwm := 30, cws := 0
+        this._ParseClockToHMS(cdKind == "时刻" && ObjHasOwnProp(this.Data, "Param1") ? this.Data.Param1 : "", 14, 30, 0, &cwh, &cwm, &cws)
+        if (cdKind == "时刻" && cwh == 14 && cwm == 30 && cws == 0 && (h != "" || m != "" || s != "")) {
+            cwh := h, cwm := m, cws := s
+        }
+        this._SetCombo("CdWaitHourCon", vars, cwh)
+        this._SetCombo("CdWaitMinCon", vars, cwm)
+        this._SetCombo("CdWaitSecCon", vars, cws)
+        this._SetCombo("CdPosXCon", vars, ObjHasOwnProp(this.Data, "PosX") ? this.Data.PosX : 200)
+        this._SetCombo("CdPosYCon", vars, ObjHasOwnProp(this.Data, "PosY") ? this.Data.PosY : 200)
     }
 
     OnModeChange(state := "", ctrl := "", event := "") {
         m := this._ModeValue()
-        panelMap := Map(1, "WaitPanel", 2, "WindowPanel", 3, "GetVarPanel", 4, "GetStrPanel", 5, "MathPanel")
+        panelMap := Map(1, "WaitPanel", 2, "WindowPanel", 3, "CountDownPanel")
         show := panelMap.Has(m) ? panelMap[m] : "WaitPanel"
         batch := []
-        for name in ["WaitPanel", "WindowPanel", "GetVarPanel", "GetStrPanel", "MathPanel"] {
+        for name in ["WaitPanel", "WindowPanel", "CountDownPanel"] {
             batch.Push({ControlName: name, PropertyName: "Visibility", Value: (name == show) ? "Visible" : "Collapsed"})
         }
+        batch.Push({ControlName: "WaitUnitCon", PropertyName: "Visibility", Value: (m == 1) ? "Visible" : "Collapsed"})
+        batch.Push({ControlName: "WinKindCon", PropertyName: "Visibility", Value: (m == 2) ? "Visible" : "Collapsed"})
+        batch.Push({ControlName: "CdKindCon", PropertyName: "Visibility", Value: (m == 3) ? "Visible" : "Collapsed"})
         this.ui.BatchUpdate(batch)
+        try this.ui.Update("BtnCmdF1", "Visibility", m == 3 ? "Visible" : "Collapsed")
         if (m == 1)
             this.OnWaitTypeChange()
+        if (m == 2)
+            this.OnWinTypeChange()
+        if (m == 3)
+            this.OnCdTypeChange()
     }
 
     OnWaitTypeChange(state := "", ctrl := "", event := "") {
         t := this._GetSelectedKey("WaitUnitCon", TimeGui.WaitUnitKeys)
         t := TimeNormWaitType(t)
-        this.ui.Update("WaitTimeRow", "Visibility", t == "指定时刻" ? "Visible" : "Collapsed")
+        this.ui.Update("WaitTimeRow", "Visibility", t == "时刻" ? "Visible" : "Collapsed")
         this.ui.Update("WaitDurRow", "Visibility", t == "时长" ? "Visible" : "Collapsed")
-        this.ui.Update("WaitVarRow", "Visibility", t == "时间变量" ? "Visible" : "Collapsed")
+        this.ui.Update("WaitVarRow", "Visibility", t == "时间戳" ? "Visible" : "Collapsed")
+    }
+
+    OnWinTypeChange(state := "", ctrl := "", event := "") {
+        t := TimeNormWindowType(this._GetSelectedKey("WinKindCon", TimeGui.WindowKindKeys))
+        this.ui.Update("WinTimeRow", "Visibility", t == "时刻" ? "Visible" : "Collapsed")
+        this.ui.Update("WinTimeRow2", "Visibility", t == "时刻" ? "Visible" : "Collapsed")
+        this.ui.Update("WinVarRow", "Visibility", t == "时间戳" ? "Visible" : "Collapsed")
+        this.ui.Update("WinVarRow2", "Visibility", t == "时间戳" ? "Visible" : "Collapsed")
+    }
+
+    OnCdTypeChange(state := "", ctrl := "", event := "") {
+        t := TimeNormWaitType(this._GetSelectedKey("CdKindCon", TimeGui.WaitUnitKeys))
+        this.ui.Update("CdTimeRow", "Visibility", t == "时刻" ? "Visible" : "Collapsed")
+        this.ui.Update("CdDurRow", "Visibility", t == "时长" ? "Visible" : "Collapsed")
+        this.ui.Update("CdVarRow", "Visibility", t == "时间戳" ? "Visible" : "Collapsed")
     }
 
     TriggerMacro(*) {
@@ -398,8 +441,22 @@ class TimeGui {
         textOnly := RegExReplace(this.Data.SerialStr, "\d+")
         numbersOnly := RegExReplace(this.Data.SerialStr, "\D+")
         CommandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
-        CommandStr := CorrectRemark(CommandStr, this.ui.Query("RemarkCon"))
+        Remark := this.ui.Query("RemarkCon")
+        if (this._ModeValue() == 3 && ShouldAutoGenerateRemark(Remark)) {
+            sec := this.Data.Seconds
+            Remark := CountDownFormatText(sec)
+        }
+        CommandStr := CorrectRemark(CommandStr, Remark)
         return CommandStr
+    }
+
+    OnF1(*) {
+        CoordMode("Mouse", "Screen")
+        MouseGetPos &mouseX, &mouseY
+        if (!IsObject(this.ui))
+            return
+        this.ui.Update("CdPosXCon", "Text", mouseX)
+        this.ui.Update("CdPosYCon", "Text", mouseY)
     }
 
     OnClickSureBtn(state, ctrl, event) {
@@ -413,31 +470,20 @@ class TimeGui {
             action(CommandStr)
     }
 
-    OnDayClick(day, state := "", ctrl := "", event := "") {
-        this._dayOn[day] := !this._dayOn[day]
-        this._ApplyDayBtn(day)
-    }
-
-    _ApplyDayBtn(day) {
-        if (!IsObject(this.ui))
-            return
-        on := this._dayOn[day]
-        name := "Day" day "Con"
-        this.ui.Update(name, "Background", on ? "{DynamicResource Accent}" : "{DynamicResource ControlBg}")
-        this.ui.Update(name, "Foreground", on ? "White" : "{DynamicResource TextMain}")
-        this.ui.Update(name, "BorderBrush", on ? "{DynamicResource Accent}" : "{DynamicResource ControlBorder}")
-    }
-
     _ParseClockToHMS(raw, defH, defM, defS, &h, &m, &s) {
         h := defH, m := defM, s := defS
         raw := Trim(String(raw))
         if (raw == "")
             return
+        arr := StrSplit(raw, ":")
+        if (arr.Length >= 6) {
+            h := arr[4], m := arr[5], s := arr[6]
+            return
+        }
         if (RegExMatch(raw, "(\d{1,2}):(\d{1,2}):(\d{1,2})\s*$", &mt)) {
             h := Integer(mt[1]), m := Integer(mt[2]), s := Integer(mt[3])
             return
         }
-        arr := StrSplit(raw, ":")
         if (arr.Length >= 3) {
             h := arr[1], m := arr[2], s := arr[3]
             return
@@ -493,50 +539,12 @@ class TimeGui {
         }
     }
 
-    _SetFormatCombo(fmt) {
-        for i, k in TimeGui.FormatKeys {
-            if (k == fmt) {
-                this.ui.Update("GetStrFormatCon", "SelectedIndex", i - 1)
-                return
-            }
-        }
-        this.ui.Update("GetStrFormatCon", "Text", fmt)
-    }
-
-    _ReadDays() {
-        arr := []
-        loop 7 {
-            if (this._dayOn[A_Index])
-                arr.Push(A_Index)
-        }
-        if (arr.Length == 0)
-            return "1,2,3,4,5,6,7"
-        out := ""
-        for v in arr
-            out .= (out == "" ? "" : ",") v
-        return out
-    }
-
-    _ReadFormat() {
-        try {
-            idx := Integer(this.ui.Query("GetStrFormatCon>SelectedIndex"))
-            if (idx >= 0 && idx < TimeGui.FormatKeys.Length)
-                return TimeGui.FormatKeys[idx + 1]
-        }
-        t := this.ui.Query("GetStrFormatCon")
-        for i, name in TimeGui.FormatNames {
-            if (t == GetLang(name))
-                return TimeGui.FormatKeys[i]
-        }
-        return t != "" ? t : "yyyy-MM-dd HH:mm:ss"
-    }
-
     CheckIfValid() {
         m := this._ModeValue()
         switch m {
             case 1:
                 t := TimeNormWaitType(this._GetSelectedKey("WaitUnitCon", TimeGui.WaitUnitKeys))
-                if (t == "指定时刻" && this._HmsEmpty("WaitHourCon", "WaitMinCon", "WaitSecCon")) {
+                if (t == "时刻" && this._HmsEmpty("WaitHourCon", "WaitMinCon", "WaitSecCon")) {
                     MsgBox(GetLang("请输入目标时间或时长"))
                     return false
                 }
@@ -547,34 +555,55 @@ class TimeGui {
                         return false
                     }
                 }
-                if (t == "时间变量" && this.ui.Query("WaitVarCon") == "") {
+                if (t == "时间戳" && this.ui.Query("WaitVarCon") == "") {
                     MsgBox(GetLang("请输入目标时间或时长"))
                     return false
                 }
             case 2:
-                if (this._HmsEmpty("StartHourCon", "StartMinCon", "StartSecCon") || this._HmsEmpty("EndHourCon", "EndMinCon", "EndSecCon")) {
+                wt := TimeNormWindowType(this._GetSelectedKey("WinKindCon", TimeGui.WindowKindKeys))
+                if (wt == "时间戳") {
+                    if (this.ui.Query("StartVarCon") == "" || this.ui.Query("EndVarCon") == "") {
+                        MsgBox(GetLang("请输入开始与结束时间"))
+                        return false
+                    }
+                } else if (this._HmsEmpty("StartHourCon", "StartMinCon", "StartSecCon") || this._HmsEmpty("EndHourCon", "EndMinCon", "EndSecCon")) {
                     MsgBox(GetLang("请输入开始与结束时间"))
                     return false
                 }
             case 3:
-                varName := GetVarName(this.ui.Query("GetTimeVarCon"))
-                if (!CheckVarNameIfValid(varName))
-                    return false
-            case 4:
-                varName := GetVarName(this.ui.Query("GetStrVarCon"))
-                if (!CheckVarNameIfValid(varName))
-                    return false
-            case 5:
-                varName := GetVarName(this.ui.Query("MathTargetCon"))
-                if (this.ui.Query("MathSrc1Con") == "" || !CheckVarNameIfValid(varName))
-                    return false
+                ck := TimeNormWaitType(this._GetSelectedKey("CdKindCon", TimeGui.WaitUnitKeys))
+                if (ck == "时间戳") {
+                    if (this.ui.Query("CdVarCon") == "") {
+                        MsgBox(GetLang("请输入目标时间或时长"))
+                        return false
+                    }
+                } else if (ck == "时刻") {
+                    if (this._HmsEmpty("CdWaitHourCon", "CdWaitMinCon", "CdWaitSecCon")) {
+                        MsgBox(GetLang("请输入目标时间或时长"))
+                        return false
+                    }
+                } else {
+                    hh := this.ui.Query("CdHourCon"), mm := this.ui.Query("CdMinCon"), ss := this.ui.Query("CdSecCon")
+                    if (IsNumber(hh) && IsNumber(mm) && IsNumber(ss) && (Number(hh) < 0 || Number(mm) < 0 || Number(ss) < 0 || Number(hh) * 3600 + Number(mm) * 60 + Number(ss) <= 0)) {
+                        MsgBox(GetLang("时长请输入大于0的秒数"))
+                        return false
+                    }
+                }
         }
         return true
     }
 
     SaveTimeData() {
         m := this._ModeValue()
-        this.Data.SubMode := m
+        if (this.Data.SerialStr == "")
+            this.Data.SerialStr := this.SerialStr
+        if (this._CmdIsCountDown() && m != 3) {
+            this.SerialStr := GetCMDSerialStr("时间")
+            this.Data := TimeData()
+            this.Data.SerialStr := this.SerialStr
+        }
+        if (!this._CmdIsCountDown())
+            this.Data.SubMode := m
 
         switch m {
             case 1:
@@ -582,30 +611,47 @@ class TimeGui {
                 this.Data.Param2 := t
                 if (t == "时长")
                     this.Data.Param1 := this._ReadHms("HourCon", "MinCon", "SecCon")
-                else if (t == "时间变量")
+                else if (t == "时间戳")
                     this.Data.Param1 := this.ui.Query("WaitVarCon")
                 else
                     this.Data.Param1 := this._ReadHms("WaitHourCon", "WaitMinCon", "WaitSecCon")
                 this.Data.Timeout := Integer(this.ui.Query("TimeoutCon") != "" ? this.ui.Query("TimeoutCon") : 0)
                 this.Data.CheckInterval := Integer(this.ui.Query("CheckIntervalCon") != "" ? this.ui.Query("CheckIntervalCon") : 500)
             case 2:
-                this.Data.Param1 := this._ReadHms("StartHourCon", "StartMinCon", "StartSecCon")
-                this.Data.Param2 := this._ReadHms("EndHourCon", "EndMinCon", "EndSecCon")
-                this.Data.Param3 := this._ReadDays()
+                wt := TimeNormWindowType(this._GetSelectedKey("WinKindCon", TimeGui.WindowKindKeys))
+                this.Data.Param5 := wt
+                if (wt == "时间戳") {
+                    this.Data.Param1 := this.ui.Query("StartVarCon")
+                    this.Data.Param2 := this.ui.Query("EndVarCon")
+                } else {
+                    this.Data.Param1 := this._ReadHms("StartHourCon", "StartMinCon", "StartSecCon")
+                    this.Data.Param2 := this._ReadHms("EndHourCon", "EndMinCon", "EndSecCon")
+                }
                 this.Data.Param4 := this._GetSelectedKey("MismatchActionCon", TimeGui.MismatchActionKeys)
             case 3:
-                this.Data.Param1 := GetVarName(this.ui.Query("GetTimeVarCon"))
-                this.Data.Param2 := GetVarName(this.ui.Query("GetTimeVarSrcCon"))
-            case 4:
-                this.Data.Param1 := GetVarName(this.ui.Query("GetStrVarCon"))
-                this.Data.Param2 := GetVarName(this.ui.Query("GetStrSrcCon"))
-                this.Data.Param3 := this._ReadFormat()
-            case 5:
-                this.Data.Param1 := this.ui.Query("MathSrc1Con")
-                this.Data.Param2 := this.ui.Query("MathSrc2Con")
-                this.Data.Param3 := this._GetSelectedKey("MathOpCon", TimeGui.MathOpKeys)
-                this.Data.Param4 := GetVarName(this.ui.Query("MathTargetCon"))
-                this.Data.Param5 := this._GetSelectedKey("MathUnitCon", TimeGui.MathUnitKeys)
+                ck := TimeNormWaitType(this._GetSelectedKey("CdKindCon", TimeGui.WaitUnitKeys))
+                this.Data.Param2 := ck
+                if (ck == "时间戳") {
+                    this.Data.Param1 := this.ui.Query("CdVarCon")
+                } else if (ck == "时刻") {
+                    this.Data.Param1 := this._ReadHms("CdWaitHourCon", "CdWaitMinCon", "CdWaitSecCon")
+                    this.Data.Hour := this.ui.Query("CdWaitHourCon")
+                    this.Data.Min := this.ui.Query("CdWaitMinCon")
+                    this.Data.Sec := this.ui.Query("CdWaitSecCon")
+                } else {
+                    h := this.ui.Query("CdHourCon")
+                    m2 := this.ui.Query("CdMinCon")
+                    s := this.ui.Query("CdSecCon")
+                    this.Data.Hour := h
+                    this.Data.Min := m2
+                    this.Data.Sec := s
+                    this.Data.Param1 := this._ReadHms("CdHourCon", "CdMinCon", "CdSecCon")
+                    if (IsNumber(h) && IsNumber(m2) && IsNumber(s))
+                        this.Data.Seconds := Integer(h) * 3600 + Integer(m2) * 60 + Integer(s)
+                }
+                this.Data.WaitEnd := "不等待"
+                this.Data.PosX := this.ui.Query("CdPosXCon")
+                this.Data.PosY := this.ui.Query("CdPosYCon")
         }
 
         SaveMacroCMDData(this.Data)

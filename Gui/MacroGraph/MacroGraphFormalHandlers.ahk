@@ -2318,9 +2318,14 @@ class MacroGraphFormalHandlersMixin {
             idx := d.HasOwnProp("ssType") ? d.ssType : 1
             return GetLang(ssKeys[idx])
         }
-        if (d.type == GetLang("倒计时")) {
+        if (d.type == GetLang("倒计时") || (d.type == GetLang("时间") && d.HasOwnProp("timeSub") && Integer(d.timeSub) == 3)) {
             sec := d.HasOwnProp("cdSec") ? d.cdSec : 10
-            return CountDownFormatText(sec, sec >= 3600 ? "hhmmss" : (sec >= 60 ? "mmss" : "ss"))
+            return CountDownFormatText(sec)
+        }
+        if (d.type == GetLang("时间")) {
+            sub := d.HasOwnProp("timeSub") ? Integer(d.timeSub) : 1
+            keys := ["等待", "区间判断", "倒计时"]
+            return GetLang((sub >= 1 && sub <= keys.Length) ? keys[sub] : "等待")
         }
         if (d.type == GetLang("注释")) {
             c := d.HasOwnProp("commentContent") ? d.commentContent : ""

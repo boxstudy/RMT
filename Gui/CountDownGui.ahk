@@ -334,7 +334,7 @@ class CountDownGui {
         Remark := this.ui.Query("RemarkCon")
         if (ShouldAutoGenerateRemark(Remark)) {
             sec := this.Data.Seconds
-            Remark := CountDownFormatText(sec, sec >= 3600 ? "hhmmss" : (sec >= 60 ? "mmss" : "ss"))
+            Remark := CountDownFormatText(sec)
         }
         CommandStr := CorrectRemark(CommandStr, Remark)
         return CommandStr

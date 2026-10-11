@@ -5566,6 +5566,10 @@ class MainWin {
                     . tog(GetLang("显示扇区名称提示"), "WheelShowTooltipCon", MainSoftData.MenuWheelShowTooltip, GetLang("悬停显示扇区名称"))
                     . cmb(GetLang("选择模式"), "WheelSelectModeCon", GetLangArr(["点击选择", "划线选择"]), MainSoftData.MenuWheelSelectMode)
                     . sld(GetLang("轮盘大小"), "WheelScaleCon", "WheelScaleVal", MainSoftData.MenuWheelScale, 50, 200, 10))
+                    . card(GetLang("倒计时"), "&#xE916;", cmb(GetLang("样式"), "CountDownStyleCon", GetLangArr(["时分秒", "智能", "秒"]), MainSoftData.CountDownStyle)
+                        . tog(GetLang("补零"), "CountDownPadCon", MainSoftData.CountDownPadZero, GetLang("如 1:30:9 显示为 01:30:09；仅秒不补"))
+                        . sld(GetLang("透明度"), "CountDownAlphaCon", "CountDownAlphaVal", MainSoftData.CountDownAlpha, 0, 100, 1)
+                        . sld(GetLang("字体大小"), "CountDownFontCon", "CountDownFontVal", MainSoftData.CountDownFontSize, 8, 72, 1), "0,18,0,0")
                 , card(GetLang("界面浮窗"), "&#xE737;", sld(GetLang("按钮宽度"), "UIPanelBtnWidthCon", "UIPanelBtnWidthVal", MainSoftData.UIPanelBtnWidth, 40, 250, 5)
                     . sld(GetLang("按钮高度"), "UIPanelBtnHeightCon", "UIPanelBtnHeightVal", MainSoftData.UIPanelBtnHeight, 20, 60, 2)
                     . sld(GetLang("字体大小"), "UIPanelFontSizeCon", "UIPanelFontSizeVal", MainSoftData.UIPanelFontSize, 8, 24, 1)
@@ -5727,12 +5731,18 @@ class MainWin {
         this._Bind("UIPanelBtnHeightCon", "ValueChanged", ObjBindMethod(this, "OnSettingSlider", "UIPanelBtnHeight", "UIPanelBtnHeightVal", 20, 60))
         this._Bind("UIPanelFontSizeCon", "ValueChanged", ObjBindMethod(this, "OnSettingSlider", "UIPanelFontSize", "UIPanelFontSizeVal", 8, 24))
         this._Bind("UIPanelColsCon", "ValueChanged", ObjBindMethod(this, "OnSettingSlider", "UIPanelCols", "UIPanelColsVal", 1, 6))
+        this._Bind("CountDownFontCon", "ValueChanged", ObjBindMethod(this, "OnSettingSlider", "CountDownFontSize", "CountDownFontVal", 8, 72))
+        this._Bind("CountDownAlphaCon", "ValueChanged", ObjBindMethod(this, "OnSettingSlider", "CountDownAlpha", "CountDownAlphaVal", 0, 100))
+        this._Bind("CountDownStyleCon", "SelectionChanged", ObjBindMethod(this, "OnComboIndex", "CountDownStyle"))
+        this._Bind("CountDownPadCon", "Click", ObjBindMethod(this, "OnCheckEdit", "CountDownPadZero"))
 
         for spec in [["MenuWheelScale", "WheelScaleCon", "WheelScaleVal", 50, 200],
             ["UIPanelBtnWidth", "UIPanelBtnWidthCon", "UIPanelBtnWidthVal", 40, 250],
             ["UIPanelBtnHeight", "UIPanelBtnHeightCon", "UIPanelBtnHeightVal", 20, 60],
             ["UIPanelFontSize", "UIPanelFontSizeCon", "UIPanelFontSizeVal", 8, 24],
-            ["UIPanelCols", "UIPanelColsCon", "UIPanelColsVal", 1, 6]]
+            ["UIPanelCols", "UIPanelColsCon", "UIPanelColsVal", 1, 6],
+            ["CountDownFontSize", "CountDownFontCon", "CountDownFontVal", 8, 72],
+            ["CountDownAlpha", "CountDownAlphaCon", "CountDownAlphaVal", 0, 100]]
             this._Bind(spec[3], "LostFocus", ObjBindMethod(this, "OnSettingNumText", spec[1], spec[2], spec[4], spec[5]))
 
         ; ---- 设置中心：主题字体大小 / AI 助手 ----

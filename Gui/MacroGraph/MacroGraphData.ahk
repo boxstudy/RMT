@@ -243,7 +243,7 @@ class MacroGraphDataMixin {
     _FormalIniCmdKeys() {
         return ["宏操作", "变量", "变量提取", "如果", "如果Pro", "运算", "运行", "运行Pro", "文件读写", "文本处理", "数组",
             "后台鼠标", "后台按键", "窗口管理", "按键检测", "手柄检测", "注释", "抓图", "循环",
-            "间隔", "按键", "移动", "鼠标移动", "增量移动", "RMT指令", "等待确定", "倒计时"]
+            "间隔", "按键", "移动", "鼠标移动", "增量移动", "RMT指令", "等待确定", "倒计时", "时间"]
     }
 
     _FormalIniKeyFromName(name) {
@@ -287,7 +287,8 @@ class MacroGraphDataMixin {
                 "增量移动", DeltaMoveData,
                 "RMT指令", RMTCMDData,
                 "等待确定", WaitConfirmData,
-                "倒计时", CountDownData
+                "倒计时", CountDownData,
+                "时间", TimeData
             )
         }
         return m.Has(cmdKey) ? m[cmdKey] : ""
@@ -621,6 +622,10 @@ class MacroGraphDataMixin {
             d.wcType := data.Type
             d.wcPrompt := ObjHasOwnProp(data, "Prompt") ? data.Prompt : ""
         } else if (cmdKey == "倒计时") {
+            d.cdSec := ObjHasOwnProp(data, "Seconds") ? data.Seconds : 10
+            d.cdWait := ObjHasOwnProp(data, "WaitEnd") ? data.WaitEnd : "等待结束"
+        } else if (cmdKey == "时间") {
+            d.timeSub := ObjHasOwnProp(data, "SubMode") ? data.SubMode : 1
             d.cdSec := ObjHasOwnProp(data, "Seconds") ? data.Seconds : 10
             d.cdWait := ObjHasOwnProp(data, "WaitEnd") ? data.WaitEnd : "等待结束"
         }
