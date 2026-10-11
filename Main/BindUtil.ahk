@@ -293,6 +293,7 @@ OnClickCMDTipToggle(*) {
     v := MyMainWin.ui.Query("ChkCMDTip") == "True"
     MySoftData.CMDTip := v
     SetCMDTipValue(v)
+    try MyMainWin.MarkSettingDirty("ChkCMDTip")
 }
 
 OnToolTextFilterScreenShot(*) {

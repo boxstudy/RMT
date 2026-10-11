@@ -1813,6 +1813,7 @@ RMT 命令行帮助=RMT Command Line Help
 样式=Style
 智能=Smart
 补零=Pad Zero
+重置=Reset
 如 1:30:9 显示为 01:30:09；仅秒不补=e.g. 1:30:9 becomes 01:30:09; seconds-only is not padded
 等待结束=Wait Until End
 结束后:=When Done:
