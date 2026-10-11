@@ -1414,15 +1414,14 @@ class TimingData {
 class TimeData {
     __New() {
         this.SerialStr := ""
-        ; SubMode: 1等待, 2时间区间判断, 3倒计时（旧数据 4/5 仍由 TimeUtil 执行）
-        this.SubMode := 1
-        this.Param1 := ""  ; 模式1:目标时间/时长; 模式2:开始时间
-        this.Param2 := ""  ; 模式1:类型(时刻/时长/时间戳); 模式2:结束时间
-        this.Param3 := ""  ; 模式2:允许星期
-        this.Param4 := ""  ; 模式2:不满足动作
-        this.Param5 := ""  ; 模式2:时刻/时间戳
-        this.CheckInterval := 500 ; 轮询间隔(ms) — 模式1使用
-        this.Timeout := 0         ; 超时(ms, 0为无限) — 模式1使用
+        ; SubMode 中文：等待 / 区间判断 / 倒计时（旧数字 1~5、获取时间* 由 TimeNormSubMode 兼容）
+        this.SubMode := "等待"
+        this.Param1 := ""  ; 等待:目标时间/时长; 区间判断:开始时间
+        this.Param2 := ""  ; 等待:时刻/时长/时间戳; 区间判断:结束时间
+        this.Param4 := ""  ; 区间判断:动作
+        this.Param5 := ""  ; 区间判断:时刻/时间戳
+        this.CheckInterval := 500 ; 轮询间隔(ms) — 等待使用
+        this.Timeout := 0         ; 超时(ms, 0为无限) — 等待使用
         this.Hour := 0
         this.Min := 0
         this.Sec := 10
@@ -1430,9 +1429,6 @@ class TimeData {
         this.WaitEnd := "不等待"
         this.PosX := 200
         this.PosY := 200
-        this.FontSize := 32
-        this.Alpha := 70
-        ; 错误处理
         this.ErrMode := "stop"
         this.ErrRetryCount := 3
         this.ErrRetryInterval := 500
@@ -1709,8 +1705,6 @@ class CountDownData {
         this.WaitEnd := "不等待"            ;等待结束  不等待
         this.PosX := 200
         this.PosY := 200
-        this.FontSize := 32
-        this.Alpha := 70                    ;0-100
     }
 }
 

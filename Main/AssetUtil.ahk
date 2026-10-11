@@ -3320,12 +3320,22 @@ GetMacroCMDData(serialStr) {
     DataFile := MySoftData.DataFileMap[cmd]
     DataClass := MySoftData.DataClassMap[cmd]
     saveStr := CfgRead(DataFile, SettingSection, normalizedSerialStr, "")
+    if (saveStr == "" && normalizedSerialStr != serialStr)
+        saveStr := CfgRead(DataFile, SettingSection, serialStr, "")
+    if (saveStr == "")
+        saveStr := CompatLegacyCmdSaveStr(cmd, DataFile, numbersOnly, normalizedSerialStr, serialStr)
     if (saveStr == "") {
         Data := DataClass()
         Data.SerialStr := SerialStr
     }
     else {
         Data := JSON.parse(saveStr, , false)
+        if (cmd == "时间")
+            CompatEnsureTimeData(Data)
+        else if (cmd == "倒计时")
+            CompatEnsureCountDownData(Data)
+        else if (cmd == "运行" || cmd == "运行Pro")
+            CompatEnsureRunData(Data)
     }
 
     MySoftData.DataCacheMap.Set(normalizedSerialStr, Data)

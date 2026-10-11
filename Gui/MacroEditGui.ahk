@@ -26,7 +26,6 @@
 #Include ArrayGui.ahk
 #Include InputGui.ahk
 #Include WaitConfirmGui.ahk
-#Include CountDownGui.ahk
 #Include FileIOGui.ahk
 #Include WindowManageGui.ahk
 #include KeyCheckGui.ahk

@@ -574,6 +574,7 @@ InitFilePath() {
     global DeltaMoveFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\DeltaMoveFile.toml"
     global TimeDataFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\TimeDataFile.toml"
     global CountDownFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\CountDownFile.toml"
+    CompatPromoteLegacyFile(A_WorkingDir "\Setting\" MySoftData.CurSettingName "\TimeFile.toml", TimeDataFile)
     global ProjectRootDir := A_ScriptDir
 }
 

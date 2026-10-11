@@ -305,14 +305,12 @@ class MacroGraphFormalMixin {
     }
 
     _FillTimeBody(id, d, body) {
-        sub := d.HasOwnProp("timeSub") ? Integer(d.timeSub) : 1
-        if (sub == 3) {
+        sub := TimeGraphNormSubMode(d)
+        if (sub == "倒计时") {
             this._FillCountDownBody(id, d, body)
             return
         }
-        keys := ["等待", "区间判断", "倒计时"]
-        name := (sub >= 1 && sub <= keys.Length) ? keys[sub] : "等待"
-        body.Add("TextBlock").Text(GetLang(name)).Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(12)).Margin("0,6,0,0")
+        body.Add("TextBlock").Text(GetLang(sub)).Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(12)).Margin("0,6,0,0")
     }
 
     ; 配置行高度（标签行 Margin5 + 控件高22）；注释正文 2~5 行配置高度

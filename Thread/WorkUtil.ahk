@@ -70,6 +70,7 @@
         global DeltaMoveFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\DeltaMoveFile.toml"
         global TimeDataFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\TimeDataFile.toml"
         global CountDownFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\CountDownFile.toml"
+        CompatPromoteLegacyFile(A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\TimeFile.toml", TimeDataFile)
         global SettingSection := "UserSettings"
 
     ;项目根目录（Worker进程A_WorkingDir指向Thread子目录，需回退到项目根）

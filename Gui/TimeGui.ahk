@@ -295,16 +295,14 @@ class TimeGui {
         this.Data := GetMacroCMDData(this.SerialStr)
         this.ui.Update("RemarkCon", "Text", cmdArr.Length >= 2 ? cmdArr[2] : "")
 
-        modeIdx := this._CmdIsCountDown() ? 3 : Integer(this.Data.SubMode)
-        if (modeIdx < 1 || modeIdx > 3)
-            modeIdx := 1
+        modeIdx := this._CmdIsCountDown() ? 3 : TimeSubModeIndex(this.Data)
         this.ui.Update("TimeModeCon", "SelectedIndex", modeIdx - 1)
 
         vars := GetGuiVarArr()
         param1 := ObjHasOwnProp(this.Data, "Param1") ? this.Data.Param1 : ""
         param2 := ObjHasOwnProp(this.Data, "Param2") ? this.Data.Param2 : ""
         param4 := ObjHasOwnProp(this.Data, "Param4") ? this.Data.Param4 : ""
-        subMode := ObjHasOwnProp(this.Data, "SubMode") ? this.Data.SubMode : 1
+        subMode := TimeNormSubMode(this.Data)
         waitType := TimeNormWaitType(param2 != "" ? param2 : "时刻")
         this._SetSelectedByKey("WaitUnitCon", waitType, TimeGui.WaitUnitKeys)
         this._SetCombo("WaitVarCon", vars, waitType == "时间戳" ? param1 : "")
@@ -324,20 +322,20 @@ class TimeGui {
         this.ui.Update("CheckIntervalCon", "Text", String(interval))
 
         param5 := ObjHasOwnProp(this.Data, "Param5") ? this.Data.Param5 : ""
-        winKind := (subMode == 2) ? TimeNormWindowType(param5) : "时刻"
+        winKind := (subMode == "区间判断") ? TimeNormWindowType(param5) : "时刻"
         this._SetSelectedByKey("WinKindCon", winKind, TimeGui.WindowKindKeys)
         sh := 9, sm := 0, ss := 0
-        this._ParseClockToHMS(subMode == 2 && winKind == "时刻" ? param1 : "", 9, 0, 0, &sh, &sm, &ss)
+        this._ParseClockToHMS(subMode == "区间判断" && winKind == "时刻" ? param1 : "", 9, 0, 0, &sh, &sm, &ss)
         this._SetCombo("StartHourCon", vars, sh)
         this._SetCombo("StartMinCon", vars, sm)
         this._SetCombo("StartSecCon", vars, ss)
         eh := 18, em := 0, es := 0
-        this._ParseClockToHMS(subMode == 2 && winKind == "时刻" ? param2 : "", 18, 0, 0, &eh, &em, &es)
+        this._ParseClockToHMS(subMode == "区间判断" && winKind == "时刻" ? param2 : "", 18, 0, 0, &eh, &em, &es)
         this._SetCombo("EndHourCon", vars, eh)
         this._SetCombo("EndMinCon", vars, em)
         this._SetCombo("EndSecCon", vars, es)
-        this._SetCombo("StartVarCon", vars, subMode == 2 && winKind == "时间戳" ? param1 : "")
-        this._SetCombo("EndVarCon", vars, subMode == 2 && winKind == "时间戳" ? param2 : "")
+        this._SetCombo("StartVarCon", vars, subMode == "区间判断" && winKind == "时间戳" ? param1 : "")
+        this._SetCombo("EndVarCon", vars, subMode == "区间判断" && winKind == "时间戳" ? param2 : "")
         mismatch := param4 != "" ? param4 : "跳过"
         this._SetSelectedByKey("MismatchActionCon", mismatch, TimeGui.MismatchActionKeys)
         this._InitCountDownFields(vars)
@@ -603,7 +601,8 @@ class TimeGui {
             this.Data.SerialStr := this.SerialStr
         }
         if (!this._CmdIsCountDown())
-            this.Data.SubMode := m
+            this.Data.SubMode := this.ModeKeys[m]
+        this._StripUnusedTimeFields()
 
         switch m {
             case 1:
@@ -655,5 +654,12 @@ class TimeGui {
         }
 
         SaveMacroCMDData(this.Data)
+    }
+
+    _StripUnusedTimeFields() {
+        for k in ["FontSize", "Alpha", "Param3"] {
+            if (ObjHasOwnProp(this.Data, k))
+                this.Data.DeleteProp(k)
+        }
     }
 }

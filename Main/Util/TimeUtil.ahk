@@ -2,10 +2,8 @@
 
 ; =====================================================================
 ; 时间指令执行端
-;   1. 等待 (Param1=目标时间/时长, Param2=时刻/时长/时间戳)
-;   2. 时间区间判断 (Param1=开始时间, Param2=结束时间, Param3=允许星期, Param4=Skip/Wait/Stop)
-;   3. 倒计时 (Hour/Min/Sec、坐标、字体、透明度、WaitEnd)
-;   4/5. 旧：获取时间字符串 / 时间计算
+;   SubMode 中文：等待 / 区间判断 / 倒计时
+;   旧版数字 1~5 及「获取时间变量/字符串/时间计算」由 TimeNormSubMode 归一
 ; =====================================================================
 
 OnTimeData(tableItem, cmd, index) {
@@ -14,18 +12,113 @@ OnTimeData(tableItem, cmd, index) {
     if (!IsObject(Data))
         return
 
-    subMode := Integer(Data.SubMode)
-    switch subMode {
-        case 1: ; 等待
+    switch TimeNormSubMode(Data) {
+        case "等待":
             TimeExecWaitUntil(tableItem, index, Data)
-        case 2: ; 时间区间判断
+        case "区间判断":
             TimeExecWindowCheck(tableItem, index, Data)
-        case 3: ; 倒计时
+        case "倒计时":
             TimeExecCountDown(tableItem, index, Data)
-        case 4: ; 旧：获取时间字符串
+        case "获取时间变量":
+            TimeExecGetTimeVar(tableItem, index, Data)
+        case "获取时间字符串":
             TimeExecGetTimeStr(tableItem, index, Data)
-        case 5: ; 旧：时间计算
+        case "时间计算":
             TimeExecTimeMath(tableItem, index, Data)
+    }
+}
+
+TimeCmdKey(serialStr) {
+    return GetLangKey(RegExReplace(String(serialStr), "\d+"))
+}
+
+TimeDataLooksLikeCountDown(Data) {
+    if (!IsObject(Data))
+        return false
+    p1 := ObjHasOwnProp(Data, "Param1") ? Trim(String(Data.Param1)) : ""
+    p2 := ObjHasOwnProp(Data, "Param2") ? GetLangKey(Trim(String(Data.Param2))) : ""
+    if (p2 == "时刻" || p2 == "时长" || p2 == "时间戳" || p2 == "指定时刻" || p2 == "SpecificTime" || p2 == "Timestamp")
+        return true
+    if (InStr(p1, ":"))
+        return true
+    if (p1 == "" && ObjHasOwnProp(Data, "Seconds") && IsNumber(Data.Seconds) && Integer(Data.Seconds) > 0)
+        return true
+    return false
+}
+
+TimeNormSubMode(Data) {
+    raw := IsObject(Data) && ObjHasOwnProp(Data, "SubMode") ? Data.SubMode : "等待"
+    cmdKey := IsObject(Data) && ObjHasOwnProp(Data, "SerialStr") ? TimeCmdKey(Data.SerialStr) : "时间"
+    return TimeNormSubModeVal(raw, cmdKey, Data)
+}
+
+TimeNormSubModeVal(raw, cmdKey := "时间", Data := "") {
+    s := GetLangKey(Trim(String(raw)))
+    switch s {
+        case "等待", "Wait", "指定时刻等待":
+            return "等待"
+        case "区间判断", "时间区间判断":
+            return "区间判断"
+        case "倒计时", "Countdown":
+            return "倒计时"
+        case "获取时间变量":
+            return "获取时间变量"
+        case "获取时间字符串":
+            return "获取时间字符串"
+        case "时间计算":
+            return "时间计算"
+    }
+    if (IsInteger(raw)) {
+        n := Integer(raw)
+        if (n == 1)
+            return "等待"
+        if (n == 2)
+            return "区间判断"
+        if (n == 4)
+            return "获取时间字符串"
+        if (n == 5)
+            return "时间计算"
+        if (n == 3) {
+            if (cmdKey == "倒计时" || TimeDataLooksLikeCountDown(Data))
+                return "倒计时"
+            return "获取时间变量"
+        }
+    }
+    if (cmdKey == "倒计时")
+        return "倒计时"
+    return "等待"
+}
+
+; 图形编辑器只有等待/区间判断/倒计时；旧节点 timeSub=3 表示倒计时，不是「获取时间变量」
+TimeGraphNormSubMode(d) {
+    typeKey := IsObject(d) && d.HasOwnProp("type") ? GetLangKey(d.type) : "时间"
+    if (typeKey == "倒计时")
+        return "倒计时"
+    raw := IsObject(d) && d.HasOwnProp("timeSub") ? d.timeSub : "等待"
+    s := GetLangKey(Trim(String(raw)))
+    switch s {
+        case "等待", "区间判断", "倒计时":
+            return s
+    }
+    if (IsInteger(raw)) {
+        n := Integer(raw)
+        if (n == 2)
+            return "区间判断"
+        if (n == 3)
+            return "倒计时"
+        return "等待"
+    }
+    return TimeNormSubModeVal(raw, typeKey)
+}
+
+TimeSubModeIndex(Data) {
+    switch TimeNormSubMode(Data) {
+        case "区间判断":
+            return 2
+        case "倒计时":
+            return 3
+        default:
+            return 1
     }
 }
 

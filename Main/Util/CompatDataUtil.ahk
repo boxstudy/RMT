@@ -160,6 +160,98 @@ CompatEnsureRunData(Data) {
     return fixed
 }
 
+; 时间指令：SubMode 数字/英文 → 中文；去掉已废弃字段（星期、字体、透明度）
+CompatEnsureTimeData(Data) {
+    if (Data == "" || !IsObject(Data))
+        return false
+    fixed := false
+    sm := TimeNormSubMode(Data)
+    if (!ObjHasOwnProp(Data, "SubMode") || String(Data.SubMode) != sm) {
+        Data.SubMode := sm
+        fixed := true
+    }
+    if (sm == "区间判断" && ObjHasOwnProp(Data, "Param4") && Data.Param4 != "") {
+        nw := TimeNormMismatch(Data.Param4)
+        if (Data.Param4 != nw) {
+            Data.Param4 := nw
+            fixed := true
+        }
+    }
+    for k in ["FontSize", "Alpha", "Param3"] {
+        if (ObjHasOwnProp(Data, k)) {
+            Data.DeleteProp(k)
+            fixed := true
+        }
+    }
+    return fixed
+}
+
+; 倒计时：去掉已迁到设置的字体/透明度；补齐坐标与不等待
+CompatEnsureCountDownData(Data) {
+    if (Data == "" || !IsObject(Data))
+        return false
+    fixed := false
+    if (!ObjHasOwnProp(Data, "WaitEnd") || Data.WaitEnd == "") {
+        Data.WaitEnd := "不等待"
+        fixed := true
+    }
+    if (!ObjHasOwnProp(Data, "PosX") || Data.PosX == "") {
+        Data.PosX := 200
+        fixed := true
+    }
+    if (!ObjHasOwnProp(Data, "PosY") || Data.PosY == "") {
+        Data.PosY := 200
+        fixed := true
+    }
+    for k in ["FontSize", "Alpha"] {
+        if (ObjHasOwnProp(Data, k)) {
+            Data.DeleteProp(k)
+            fixed := true
+        }
+    }
+    return fixed
+}
+
+; 1.2.2 英文键名 / TimeFile.toml 回退读取
+CompatLegacyCmdSaveStr(cmd, dataFile, numbersOnly, normalizedSerialStr, serialStr) {
+    keys := [normalizedSerialStr, serialStr]
+    if (cmd == "时间")
+        keys.Push("Time" numbersOnly)
+    else if (cmd == "倒计时")
+        keys.Push("CountDown" numbersOnly)
+    else if (cmd == "等待确定")
+        keys.Push("WaitConfirm" numbersOnly, "Wait" numbersOnly)
+    saveStr := ""
+    for k in keys {
+        if (k == "")
+            continue
+        saveStr := CfgRead(dataFile, SettingSection, k, "")
+        if (saveStr != "")
+            return saveStr
+    }
+    if (cmd == "时间") {
+        legacy := StrReplace(dataFile, "TimeDataFile.toml", "TimeFile.toml")
+        if (legacy != dataFile && FileExist(legacy)) {
+            for k in keys {
+                if (k == "")
+                    continue
+                saveStr := CfgRead(legacy, SettingSection, k, "")
+                if (saveStr != "")
+                    return saveStr
+            }
+        }
+    }
+    return ""
+}
+
+; 旧版 TimeFile.toml → TimeDataFile.toml（导入前与配置切换时）
+CompatPromoteLegacyFile(oldPath, newPath) {
+    if (newPath == "" || FileExist(newPath) || !FileExist(oldPath))
+        return false
+    FileCopy(oldPath, newPath)
+    return true
+}
+
 ;旧版本兼容：条目对象化后，确保每个 MacroItem 的运行时状态字段已初始化（迁移期）
 CompatEnsureArrLength(tableItem) {
     static CtlKeys := Map(

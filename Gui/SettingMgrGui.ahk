@@ -635,6 +635,9 @@ class SettingMgrGui {
             hasWork := CompatBGMouse(SettringDir "\BGMouseFile.toml") || hasWork
             hasWork := CompatBGKey(SettringDir "\BGKeyFile.toml") || hasWork
             hasWork := CompatTiming(SettringDir "\TimingFile.toml") || hasWork
+            hasWork := CompatMergeTomlKeys(SettringDir "\TimeFile.toml", SettringDir "\TimeDataFile.toml") || hasWork
+            hasWork := CompatTime(SettringDir "\TimeDataFile.toml") || hasWork
+            hasWork := CompatCountDown(SettringDir "\CountDownFile.toml") || hasWork
         } catch as e {
             ; 兼容补齐失败不中断导入：异常逃出 XAML 事件处理器会表现为「点了没反应」
             RMTLogSys(RMT_LV_ERROR, "配置导入", Format("{1} Compat 兼容处理异常：{2}", SettringDir, e.Message))

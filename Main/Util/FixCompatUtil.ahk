@@ -26,7 +26,7 @@ CompatMacro(MacroStr, &isFix) {
     CMDArr := SplitMacro(MacroStr)
     isFix := false
     modifyKeyMap := Map("移动Pro", 1, "搜索", 1, "搜索Pro", 1, "搜索Combo", 1, "组合搜索", 1, "搜索Multi", 1, "运行", 1, "运行Pro", 1, "如果", 1, "如果Pro", 1, "输出", 1, "变量", 1,
-        "变量提取", 1, "宏操作", 1, "运算", 1, "后台鼠标", 1, "后台按键", 1, "循环", 1)
+        "变量提取", 1, "宏操作", 1, "运算", 1, "后台鼠标", 1, "后台按键", 1, "循环", 1, "时间", 1, "倒计时", 1, "等待", 1, "等待确定", 1)
     loop CMDArr.Length {
         paramArr := SplitCommand(CMDArr[A_Index])
         cmdSymbol := GetCmdSymbol(paramArr[1])
@@ -124,6 +124,24 @@ CompatSerial(FilePath, Symbol, NewSymbol) {
         CfgDelete(FilePath, SettingSection, oldKey)
     }
     return true
+}
+
+; 旧文件名并入新文件：目标不存在则复制；两边都有则补目标缺失的键
+CompatMergeTomlKeys(srcPath, destPath) {
+    if (!FileExist(srcPath))
+        return false
+    if (!FileExist(destPath)) {
+        FileCopy(srcPath, destPath)
+        return true
+    }
+    hasFix := false
+    for key, val in CfgSection(srcPath, SettingSection) {
+        if (CfgRead(destPath, SettingSection, key, "") == "") {
+            CfgWrite(val, destPath, SettingSection, key)
+            hasFix := true
+        }
+    }
+    return hasFix
 }
 
 CompatPath(FilePath, Data) {
@@ -514,6 +532,54 @@ CompatRun(filePath) {
             CfgWrite(JSON.stringify(Data, 0), filePath, SettingSection, key)
     }
 
+    return hasFix
+}
+
+CompatTime(filePath) {
+    hasFix := false
+    if (!FileExist(filePath))
+        return hasFix
+    hasFix := CompatSerial(filePath, "Time", "时间") || hasFix
+    for key, val in CfgSection(filePath, SettingSection) {
+        if (!RegExMatch(key, "^(时间|倒计时)\d+$"))
+            continue
+        Data := CompatParseData(val)
+        if (Data == "")
+            continue
+        curFix := false
+        if (!Data.HasOwnProp("SerialStr") || Data.SerialStr != key) {
+            Data.SerialStr := key
+            curFix := true
+        }
+        curFix := CompatEnsureTimeData(Data) || curFix
+        hasFix := hasFix || curFix
+        if (curFix)
+            CfgWrite(JSON.stringify(Data, 0), filePath, SettingSection, key)
+    }
+    return hasFix
+}
+
+CompatCountDown(filePath) {
+    hasFix := false
+    if (!FileExist(filePath))
+        return hasFix
+    hasFix := CompatSerial(filePath, "CountDown", "倒计时") || hasFix
+    for key, val in CfgSection(filePath, SettingSection) {
+        if (!RegExMatch(key, "^倒计时\d+$"))
+            continue
+        Data := CompatParseData(val)
+        if (Data == "")
+            continue
+        curFix := false
+        if (!Data.HasOwnProp("SerialStr") || Data.SerialStr != key) {
+            Data.SerialStr := key
+            curFix := true
+        }
+        curFix := CompatEnsureCountDownData(Data) || curFix
+        hasFix := hasFix || curFix
+        if (curFix)
+            CfgWrite(JSON.stringify(Data, 0), filePath, SettingSection, key)
+    }
     return hasFix
 }
 
