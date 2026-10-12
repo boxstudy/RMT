@@ -420,7 +420,7 @@ class SearchComboGui {
             SearchImagePath: ObjHasOwnProp(Data, "SearchImagePath") ? Data.SearchImagePath : "",
             Similar: ObjHasOwnProp(Data, "Similar") ? Data.Similar : 90,
             OCRType: ObjHasOwnProp(Data, "OCRType") ? Data.OCRType : 1,
-            SearchImageType: ObjHasOwnProp(Data, "SearchImageType") ? Data.SearchImageType : 1,
+            SearchImageType: ObjHasOwnProp(Data, "SearchImageType") ? Data.SearchImageType : SearchImageDefaultType(),
             Remark: ObjHasOwnProp(Data, "Remark") ? Data.Remark : "",
             StartPosX: ObjHasOwnProp(Data, "StartPosX") ? Data.StartPosX : 0,
             StartPosY: ObjHasOwnProp(Data, "StartPosY") ? Data.StartPosY : 0,

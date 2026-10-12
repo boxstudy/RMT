@@ -358,7 +358,7 @@ OnClickMutiThreadHelpBtn(*) {
     str5 := GetLang("提示：动态多线程采用固定线程3+动态多线程池最大16")
 
     str := Format("{}`n{}`n{}`n{}`n{}", str1, str2, str3, str4, str5)
-    MsgBox(str, GetLang("多线程说明"))
+    RmtDialog.Info(str, GetLang("多线程说明"))
 }
 
 OnClickModalSubGuiHelpBtn(*) {
@@ -367,7 +367,7 @@ OnClickModalSubGuiHelpBtn(*) {
     str3 := GetLang("提示：默认开启，一般建议保持开启，避免误操作主窗口导致编辑内容丢失。")
 
     str := Format("{}`n{}`n{}", str1, str2, str3)
-    MsgBox(str, GetLang("模态子窗口说明"))
+    RmtDialog.Info(str, GetLang("模态子窗口说明"))
 }
 
 OnClickCheckForegroundHelpBtn(*) {
@@ -376,7 +376,7 @@ OnClickCheckForegroundHelpBtn(*) {
     str3 := GetLang("提示：需在对应宏项中配置「前台」信息后才会生效；未配置前台信息的宏不受此选项影响。")
 
     str := Format("{}`n{}`n{}", str1, str2, str3)
-    MsgBox(str, GetLang("仅前台运行宏说明"))
+    RmtDialog.Info(str, GetLang("仅前台运行宏说明"))
 }
 
 OnClickAdminStartHelpBtn(*) {
@@ -384,8 +384,8 @@ OnClickAdminStartHelpBtn(*) {
     str2 := GetLang("若同时开启开机自启，自启时也会以管理员身份启动。")
     str3 := GetLang("重要：请不要自行通过「右键若梦兔 → 属性 → 兼容性 → 以管理员身份运行此程序」绑定管理员权限，这样会导致「开机自启」选项失效。如需管理员权限，请使用本选项。")
 
-    str := Format("{}`n{}`n{}", str1, str2, str3)
-    MsgBox(str, GetLang("管理员启动说明"))
+    str := Format("{}`n`n{}`n`n{}", str1, str2, str3)
+    RmtDialog.Info(str, GetLang("管理员启动说明"))
 }
 
 OnClickKeyDownDownHelpBtn(*) {
@@ -397,7 +397,7 @@ OnClickKeyDownDownHelpBtn(*) {
     str6 := GetLang("Tip2：按下时再次按下，按键检测网站可能无法检测，但记事本中可以有效输出")
 
     str := Format("{}`n{}`n{}`n{}`n{}`n{}", str1, str2, str3, str4, str5, str6)
-    MsgBox(str, GetLang("按下时按下说明"))
+    RmtDialog.Info(str, GetLang("按下时按下说明"))
 }
 
 OnClickMacroStopHelpBtn(*) {
@@ -406,7 +406,7 @@ OnClickMacroStopHelpBtn(*) {
     str3 := GetLang("提示：强制终止响应更快，但频繁结束、创建线程会消耗较多资源，建议保持智能终止。")
 
     str := Format("{}`n`n{}`n`n{}", str1, str2, str3)
-    MsgBox(str, GetLang("宏终止方式说明"))
+    RmtDialog.Info(str, GetLang("宏终止方式说明"))
 }
 
 OnClickAutoLoosenModifierHelpBtn(*) {
@@ -416,7 +416,7 @@ OnClickAutoLoosenModifierHelpBtn(*) {
     str4 := GetLang("提示：触发键以 ~ 开头（穿透）时，不会自动松开修饰键。")
 
     str := Format("{}`n{}`n{}`n{}", str1, str2, str3, str4)
-    MsgBox(str, GetLang("自动松开修饰键说明"))
+    RmtDialog.Info(str, GetLang("自动松开修饰键说明"))
 }
 
 OnClickContinuousTriggerHelpBtn(*) {
@@ -425,7 +425,7 @@ OnClickContinuousTriggerHelpBtn(*) {
     str3 := GetLang("提示：松开、松止、双击类型不受此选项影响。")
 
     str := Format("{}`n{}`n{}", str1, str2, str3)
-    MsgBox(str, GetLang("连续触发说明"))
+    RmtDialog.Info(str, GetLang("连续触发说明"))
 }
 
 OnClickSharedCopyHelpBtn(*) {
@@ -434,7 +434,7 @@ OnClickSharedCopyHelpBtn(*) {
     str3 := GetLang("指令修改，相同序列号的指令会同步修改内容")
 
     str := Format("{}`n{}`n{}", str1, str2, str3)
-    MsgBox(str, GetLang("共享复制说明"))
+    RmtDialog.Info(str, GetLang("共享复制说明"))
 }
 
 OnClickFileCheckHelpBtn(*) {
@@ -445,7 +445,7 @@ OnClickFileCheckHelpBtn(*) {
     str5 := GetLang("注意：带 F 后缀的测试版本此功能不会生效（资源仓库仅对应正式版本 tag）。")
 
     str := Format("{}`n{}`n{}`n{}`n{}", str1, str2, str3, str4, str5)
-    MsgBox(str, GetLang("文件校验说明"))
+    RmtDialog.Info(str, GetLang("文件校验说明"))
 }
 
 OnClickMacroJoyTypeHelpBtn(*) {
@@ -453,13 +453,13 @@ OnClickMacroJoyTypeHelpBtn(*) {
     str2 := GetLang("仅影响实际模拟输出，不影响界面按键名称的显示（显示请使用「手柄映射」）。")
 
     str := Format("{}`n{}", str1, str2)
-    MsgBox(str, GetLang("宏手柄类型说明"))
+    RmtDialog.Info(str, GetLang("宏手柄类型说明"))
 }
 
 OnClickTriggerJoyTypeHelpBtn(*) {
     str1 := GetLang("手柄映射：触发键、按键指令、按键检测、手柄检测等所有手柄按键名称的显示统一使用此映射。")
 
-    MsgBox(str1, GetLang("手柄映射说明"))
+    RmtDialog.Info(str1, GetLang("手柄映射说明"))
 }
 
 OnExitSoft(*) {

@@ -233,10 +233,10 @@ class MainConfig {
 
         ; ========== 热键绑定 ==========
         this.IsSuspend := false         ; 软件休眠状态
-        this.SuspendHotkey := ""        ; 休眠快捷键（空则未绑定）
+        this.SuspendHotkey := "!p"      ; 休眠快捷键（Alt+P）
         this.IsPause := false           ; 暂停所有宏状态
-        this.PauseHotkey := ""          ; 暂停快捷键（空则未绑定）
-        this.KillMacroHotkey := ""      ; 终止所有宏快捷键（空则未绑定）
+        this.PauseHotkey := "!i"        ; 暂停快捷键（Alt+I）
+        this.KillMacroHotkey := "!k"    ; 终止所有宏快捷键（Alt+K）
 
         ; ========== 数值浮动选项 ==========
         this.HoldFloat := 0             ; 点击持续时间浮动 (%)
@@ -258,6 +258,7 @@ class MainConfig {
 
         ; ========== 屏幕截图 ==========
         this.ScreenShotType := 3        ; 截图方式 (1=微软截图, 2=RMT截图, 3=SC截图)
+        this.SearchImageType := 1       ; 搜图模型 (1=OpenCV, 2=RMT搜图)，新建搜图指令默认值
         this.CheckForeground := false   ; 是否仅前台窗口运行宏
 
         ; ========== 字体/语言 ==========
@@ -372,8 +373,8 @@ class MainConfig {
         ; ============================================================
 
         ; ---------- 工具检测：热键 ----------
-        this.ToolCheckHotKey := ""          ; 鼠标信息检测快捷键
-        this.ToolRecordMacroHotKey := ""    ; 指令录制快捷键
+        this.ToolCheckHotKey := "!o"        ; 鼠标信息检测快捷键（Alt+O）
+        this.ToolRecordMacroHotKey := "!r"  ; 指令录制快捷键（Alt+R）
         this.ToolTextFilterHotKey := ""     ; 文本提取快捷键
         this.ScreenShotHotKey := ""         ; 屏幕截图快捷键 (工具页)
         this.FreePasteHotKey := ""          ; 自由贴快捷键
@@ -1100,6 +1101,16 @@ class MoveData {
     }
 }
 
+; 设置-系统-搜图模型：1 OpenCV  2 RMT搜图；新建搜图指令默认用该值
+SearchImageDefaultType() {
+    v := 1
+    try {
+        if (IsSet(MainSoftData) && MainSoftData.HasProp("SearchImageType") && IsNumber(MainSoftData.SearchImageType))
+            v := Integer(MainSoftData.SearchImageType)
+    }
+    return (v == 2) ? 2 : 1
+}
+
 class SearchData {
     __New() {
         this.SerialStr := ""
@@ -1111,7 +1122,7 @@ class SearchData {
         this.SearchImagePath := ""
         this.Similar := 90 ; 图片搜索模糊匹配度100  - 50
         this.OCRType := 1   ;1中文  2英文
-        this.SearchImageType := 1 ; 1 opencv 2 rmt
+        this.SearchImageType := SearchImageDefaultType() ; 1 OpenCV  2 RMT搜图
         this.StartPosX := 0
         this.StartPosY := 0
         this.EndPosX := A_ScreenWidth

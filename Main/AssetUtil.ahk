@@ -1205,9 +1205,9 @@ LoadMainSetting() {
     MainSoftData.IsToolCheck := CfgRead(SettingFile, SettingSection, "IsToolCheck", false)
     MainSoftData.ToolCheckHotKey := CfgRead(SettingFile, SettingSection, "ToolCheckHotKey", "!o")
     MainSoftData.ToolRecordMacroHotKey := CfgRead(SettingFile, SettingSection, "RecordMacroHotKey", "!r")
-    MainSoftData.ToolTextFilterHotKey := CfgRead(SettingFile, SettingSection, "ToolTextFilterHotKey", "!u")
-    MainSoftData.ScreenShotHotKey := CfgRead(SettingFile, SettingSection, "ScreenShotHotKey", "!y")
-    MainSoftData.FreePasteHotKey := CfgRead(SettingFile, SettingSection, "FreePasteHotKey", "!t")
+    MainSoftData.ToolTextFilterHotKey := CfgRead(SettingFile, SettingSection, "ToolTextFilterHotKey", "")
+    MainSoftData.ScreenShotHotKey := CfgRead(SettingFile, SettingSection, "ScreenShotHotKey", "")
+    MainSoftData.FreePasteHotKey := CfgRead(SettingFile, SettingSection, "FreePasteHotKey", "")
     MainSoftData.RecordKeyboard := CfgRead(SettingFile, SettingSection, "RecordKeyboard", true)
     MainSoftData.RecordMouse := CfgRead(SettingFile, SettingSection, "RecordMouse", true)
     MainSoftData.RecordJoy := CfgRead(SettingFile, SettingSection, "RecordJoy", false)
@@ -1284,6 +1284,9 @@ LoadMainSetting() {
     MainSoftData.MacroStopType := Integer(CfgRead(SettingFile, SettingSection, "MacroStopType", 1))
     if (MainSoftData.MacroStopType != 1 && MainSoftData.MacroStopType != 2)
         MainSoftData.MacroStopType := 1
+    MainSoftData.SearchImageType := Integer(CfgRead(SettingFile, SettingSection, "SearchImageType", 1))
+    if (MainSoftData.SearchImageType != 1 && MainSoftData.SearchImageType != 2)
+        MainSoftData.SearchImageType := 1
     MainSoftData.SoftBGColor := CfgRead(SettingFile, SettingSection, "SoftBGColor", "f0f0f0")
     ; §11 主界面背景图（全局配置，空=不启用）
     MainSoftData.BackImagePath := CfgRead(SettingFile, SettingSection, "BackImagePath", "")
@@ -2904,8 +2907,8 @@ FormatHotkeyDisplay(key) {
         rest := SubStr(rest, 2)
 
     mainKey := rest
-    if (StrLen(mainKey) == 1)
-        mainKey := StrUpper(mainKey)
+    if (mainKey != "")
+        mainKey := StrUpper(SubStr(mainKey, 1, 1)) SubStr(mainKey, 2)
 
     result := ""
     for modName in mods {

@@ -5361,7 +5361,7 @@ class MainWin {
             . '</StackPanel>'
     }
 
-    ; ============ 全局页：系统 / 宏执行 / 显示页签 / 交互界面 / AI 助手 ============
+    ; ============ 全局页：系统 / 宏 / 显示页签 / 界面 / AI 助手 ============
     BuildSettingTab() {
         ; §23 Panel_ 编号 = TableInfo 位置：表集合新增「网络宏」后 Setting 起顺延 +1，改按 Symbol 动态取位
         p := "Panel_" GetTableIndexByID("Setting")
@@ -5391,17 +5391,35 @@ class MainWin {
             . '<Style x:Key="SetTabButton" TargetType="CheckBox"><Setter Property="Width" Value="85"/><Setter Property="Height" Value="32"/><Setter Property="Margin" Value="0,4,8,4"/><Setter Property="Cursor" Value="Hand"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox"><Border x:Name="Bd" CornerRadius="6" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1"><Grid><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/><Ellipse x:Name="Dot" Visibility="Collapsed" Width="7" Height="7" Fill="{DynamicResource Accent}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,5,6,0"/></Grid></Border><ControlTemplate.Triggers><Trigger Property="IsChecked" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}"/><Setter TargetName="Bd" Property="Background" Value="{DynamicResource EditHoverBg}"/><Setter TargetName="Dot" Property="Visibility" Value="Visible"/><Setter Property="FontWeight" Value="Bold"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
 
         ; ---------- 行/卡片构建 ----------
-        dot(tip) {
-            return tip == "" ? "" : '<Button Content="?" Width="24" Height="24" MinHeight="24" Padding="4,2" Margin="6,0,0,0" FontSize="11" FontWeight="Bold" VerticalAlignment="Center" Cursor="Hand" ToolTip="' this._XmlEsc(tip) '"/>'
+        this._setHelpMap := Map()
+        this._setHelpSeq := 0
+        helpFnByLabel := Map()
+        helpFnByLabel[GetLang("多线程数")] := OnClickMutiThreadHelpBtn
+        helpFnByLabel[GetLang("模态子窗口")] := OnClickModalSubGuiHelpBtn
+        helpFnByLabel[GetLang("仅前台运行宏")] := OnClickCheckForegroundHelpBtn
+        helpFnByLabel[GetLang("管理员启动")] := OnClickAdminStartHelpBtn
+        helpFnByLabel[GetLang("重复按下行为")] := OnClickKeyDownDownHelpBtn
+        helpFnByLabel[GetLang("宏终止方式")] := OnClickMacroStopHelpBtn
+        helpFnByLabel[GetLang("自动松开修饰键")] := OnClickAutoLoosenModifierHelpBtn
+        helpFnByLabel[GetLang("连续触发")] := OnClickContinuousTriggerHelpBtn
+        helpFnByLabel[GetLang("宏手柄类型")] := OnClickMacroJoyTypeHelpBtn
+        helpFnByLabel[GetLang("手柄映射")] := OnClickTriggerJoyTypeHelpBtn
+        dot(tip, title := "") {
+            if (tip == "")
+                return ""
+            this._setHelpSeq += 1
+            name := "BtnSetHelp_" this._setHelpSeq
+            this._setHelpMap[name] := {title: title != "" ? title : GetLang("说明"), text: tip, fn: helpFnByLabel.Has(title) ? helpFnByLabel[title] : ""}
+            return '<Button Name="' name '" Content="?" Width="24" Height="24" MinHeight="24" Padding="4,2" Margin="6,0,0,0" FontSize="11" FontWeight="Bold" VerticalAlignment="Center" Cursor="Hand"/>'
         }
         row(label, ctrl, tip := "", w := "104", lblName := "") {
             return '<Border Height="48" MinHeight="48" Padding="0,5" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="0,0,0,0.5"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="' w '"/><ColumnDefinition Width="30"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>'
-                . '<DockPanel VerticalAlignment="Center" LastChildFill="True">' (tip == "" ? "" : StrReplace(dot(tip), "<Button ", '<Button DockPanel.Dock="Right" ')) '<TextBlock' (lblName == "" ? "" : ' Name="' lblName '"') ' Text="' this._XmlEsc(label) '" TextWrapping="Wrap" FontWeight="SemiBold" Foreground="{DynamicResource TextMain}" FontSize="13"/></DockPanel>'
+                . '<DockPanel VerticalAlignment="Center" LastChildFill="True">' (tip == "" ? "" : StrReplace(dot(tip, label), "<Button ", '<Button DockPanel.Dock="Right" ')) '<TextBlock' (lblName == "" ? "" : ' Name="' lblName '"') ' Text="' this._XmlEsc(label) '" TextWrapping="Wrap" FontWeight="SemiBold" Foreground="{DynamicResource TextMain}" FontSize="13"/></DockPanel>'
                 . '<Grid Grid.Column="2" VerticalAlignment="Center">' ctrl '</Grid></Grid></Border>'
         }
         tog(label, name, val, desc := "", tip := "", w := "104", lblName := "") {
-            inner := desc == "" ? "" : '<TextBlock' (lblName == "" ? "" : ' Name="' lblName '_Desc"') ' Text="' this._XmlEsc(desc) '" FontSize="12" Foreground="{DynamicResource TextSub}" VerticalAlignment="Center" TextWrapping="Wrap"/>'
-            return row(label, '<CheckBox Name="' name '" IsChecked="' (val ? "True" : "False") '" Style="{StaticResource SetSwitch}">' inner '</CheckBox>', tip, w, lblName)
+            help := tip != "" ? tip : desc
+            return row(label, '<CheckBox Name="' name '" IsChecked="' (val ? "True" : "False") '" Style="{StaticResource SetSwitch}"/>', help, w, lblName)
         }
         togI(label, name, val) {
             return '<CheckBox Name="' name '" Content="' this._XmlEsc(label) '" IsChecked="' (val ? "True" : "False") '" Style="{StaticResource SetTabButton}" ToolTip="' GetLang("隐藏的页签不影响宏触发，保存后重启生效。") '"/>'
@@ -5421,7 +5439,7 @@ class MainWin {
         num(label, name, val, tip := "", w := "104", boxW := "96") {
             return row(label, '<TextBox Name="' name '" Text="' this._XmlEsc(String(val)) '" Height="33" MinHeight="33" Padding="10,0" VerticalContentAlignment="Center" TextAlignment="Center" FontSize="12" Foreground="{DynamicResource InputText}" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1"/>', tip, w)
         }
-        ; 宏执行的浮动值：标签与问号右移，输入框延展至右边缘。
+        ; 随机浮动：标签与问号右移，输入框延展至右边缘。
         numCompact(label, name, val, tip) {
             return row(label, '<TextBox Name="' name '" Text="' this._XmlEsc(String(val)) '" Height="33" MinHeight="33" Padding="10,0" VerticalContentAlignment="Center" TextAlignment="Center" FontSize="12" Foreground="{DynamicResource InputText}" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1"/>', tip, "188")
         }
@@ -5447,7 +5465,8 @@ class MainWin {
                 . '<StackPanel Grid.Row="1" Margin="15,6,15,11">' body '</StackPanel></Grid></Border>'
         }
         twoCol(l, r) {
-            return '<Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="18"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><StackPanel Grid.Column="0">' l '</StackPanel><StackPanel Grid.Column="2">' r '</StackPanel></Grid>'
+            ; 左右两列各自垂直堆叠，互不卡行高，避免中间断层。整行模块（如主题颜色）放在 twoCol 外面。
+            return '<Grid VerticalAlignment="Top"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="18"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><StackPanel Grid.Column="0" VerticalAlignment="Top">' l '</StackPanel><StackPanel Grid.Column="2" VerticalAlignment="Top">' r '</StackPanel></Grid>'
         }
         navItem(id, glyph, text, checked := false) {
             return '<RadioButton Name="SetNav_' id '" GroupName="SetNav" Style="{StaticResource SetNavItem}"' (checked ? ' IsChecked="True"' : '') '><StackPanel Orientation="Horizontal" Margin="12,0,0,0"><TextBlock Text="' glyph '" FontFamily="' iconFont '" FontSize="14" Foreground="{DynamicResource Accent}" Margin="0,0,9,0" VerticalAlignment="Center"/><TextBlock Name="SetNavText_' id '" Text="' this._XmlEsc(text) '" VerticalAlignment="Center" FontSize="13"/></StackPanel></RadioButton>'
@@ -5472,41 +5491,45 @@ class MainWin {
         ltRtDesc := Format(GetLang("开启后 {} 当普通按键；关闭则当扳机轴，可设 0~100。"), ltRtIsPs5 ? "L2/R2" : "LT/RT")
         behaviorPage := page("behavior"
             , twoCol(
-                card(GetLang("启动与权限"), "&#xE72E;", tog(GetLang("开机自启"), "ChkBootStart", MainSoftData.IsBootStart, GetLang("Windows 登录后自动启动 RMT"))
-                    . tog(GetLang("管理员启动"), "ChkAdminStart", MainSoftData.IsAdminStart, GetLang("部分后台键鼠与游戏按键模拟需要管理员权限"))
-                    . row(GetLang("权限说明"), '<TextBlock Text="' GetLang("不要通过程序兼容性强制管理员运行；请使用本选项，才能与开机自启一起生效。") '" TextWrapping="Wrap" Foreground="{DynamicResource TextSub}" FontSize="13"/>'), "0", "", "boot")
-                , card(GetLang("界面与编辑"), "&#xE70F;", cmb(GetLang("界面语言"), "CmbLang", MainSoftData.LangArr, MainSoftData.Lang)
+                card(GetLang("软件"), "&#xE74C;", tog(GetLang("开机自启"), "ChkBootStart", MainSoftData.IsBootStart, GetLang("Windows 登录后自动启动 RMT"))
+                    . tog(GetLang("管理员启动"), "ChkAdminStart", MainSoftData.IsAdminStart, GetLang("后台功能与部分按键类型需要管理员权限"))
+                    . row(GetLang("权限说明"), '<TextBlock Text="' GetLang("不要通过程序兼容性强制管理员运行；请使用本选项，才能与开机自启一起生效。") '" TextWrapping="Wrap" Foreground="{DynamicResource TextSub}" FontSize="13"/>')
+                    . cmb(GetLang("语言"), "CmbLang", MainSoftData.LangArr, MainSoftData.Lang)
                     . cmb(GetLang("首选编辑器"), "CmbPreferredEditor", GetLangArr(["逻辑树", "图形节点"]), MainSoftData.PreferredMacroEditor)
-                    . tog(GetLang("模态子窗口"), "ChkModalSubGui", MainSoftData.IsModalSubGui, GetLang("打开指令编辑等子窗口时禁用主窗口")), "0", "", "uiEdit"))
-            . twoCol(
-                card(GetLang("通用"), "&#xE713;", cmb(GetLang("截图工具"), "CmbScreenShot", GetLangArr(["微软截图", "RMT截图", "SC截图"]), MainSoftData.ScreenShotType)
+                    . tog(GetLang("模态子窗口"), "ChkModalSubGui", MainSoftData.IsModalSubGui, GetLang("打开指令编辑等子窗口时禁用主窗口")), "0", "", "soft")
+                . card(GetLang("显示页签"), "&#xE8A5;", tabsBody, "0,18,0,0", "", "tabs")
+                , card(GetLang("通用"), "&#xE713;", cmb(GetLang("截图工具"), "CmbScreenShot", GetLangArr(["微软截图", "RMT截图", "SC截图"]), MainSoftData.ScreenShotType)
+                    . cmb(GetLang("搜图模型"), "CmbSearchImage", GetLangArr(["OpenCV", "RMT搜图"]), MainSoftData.SearchImageType)
                     . num(GetLang("多线程数"), "EditMutiThreadNum", MainSoftData.MutiThreadNum, GetLang("-1：动态多线程；0：单线程；n：固定线程数（推荐 3~5）"))
-                    . cmb(GetLang("宏终止方式"), "CmbMacroStop", GetLangArr(["智能终止", "强制终止"]), MainSoftData.MacroStopType), "0,18,0,0", "", "general")
-                , card(GetLang("触发"), "&#xE8D4;", tog(GetLang("仅前台运行宏"), "ChkForeground", MainSoftData.CheckForeground, GetLang("窗口不匹配则终止运行的宏"))
-                    . tog(GetLang("自动松开修饰键"), "ChkAutoLoosen", MainSoftData.AutoLoosenModifier, GetLang("组合键触发前先松开修饰键"))
-                    . tog(GetLang("连续触发"), "ChkContinuous", MainSoftData.ContinuousTrigger, GetLang("按住触发键期间允许连续触发")), "0,18,0,0", "", "trig"))
-            . twoCol(
-                card(GetLang("显示页签"), "&#xE8A5;", tabsBody, "0,18,0,0", "", "tabs")
-                    . card(GetLang("网络宏"), "&#xE8D4;", num(GetLang("监听端口"), "EditNetPort", MainSoftData.NetworkPort, GetLang("网络宏端口 1-65535，默认 16888；仅监听本机回环地址。")), "0,18,0,0", "", "network")
-                , card(GetLang("手柄"), "&#xE7FC;", cmb(GetLang("手柄映射"), "CmbTriggerJoyType", ["Xbox", "PS5"], MainSoftData.TriggerJoyType)
+                    . num(GetLang("网络宏端口"), "EditNetPort", MainSoftData.NetworkPort, GetLang("网络宏端口 1-65535，默认 16888；仅监听本机回环地址。"))
+                    . cmb(GetLang("指令备注生成"), "CmbRemarkAuto", GetLangArr(["不生成", "自动生成", "覆盖生成"]), MainSoftData.RemarkAutoType), "0", "", "general")
+                . card(GetLang("手柄"), "&#xE7FC;", cmb(GetLang("手柄映射"), "CmbTriggerJoyType", ["Xbox", "PS5"], MainSoftData.TriggerJoyType)
                     . cmb(GetLang("宏手柄类型"), "CmbJoyType", ["Xbox", "PS5"], MainSoftData.JoyType)
-                    . tog(ltRtLabel, "ChkJoyLtRtAsButton", MainSoftData.JoyLtRtAsButton, ltRtDesc, "", "128", "LblJoyLtRtAsButton"), "0,18,0,0", "", "joy")
-            ), true)
+                    . '<Border MinHeight="48" Padding="0,5" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="0,0,0,0.5"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="128"/><ColumnDefinition Width="30"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>'
+                    . '<TextBlock Name="LblJoyLtRtAsButton" Text="' this._XmlEsc(ltRtLabel) '" TextWrapping="Wrap" FontWeight="SemiBold" Foreground="{DynamicResource TextMain}" FontSize="13" VerticalAlignment="Center"/>'
+                    . '<Grid Grid.Column="2" VerticalAlignment="Center"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>'
+                    . '<CheckBox Name="ChkJoyLtRtAsButton" IsChecked="' (MainSoftData.JoyLtRtAsButton ? "True" : "False") '" Style="{StaticResource SetSwitch}" VerticalAlignment="Center"/>'
+                    . '<TextBlock Grid.Column="1" Name="LblJoyLtRtAsButton_Desc" Text="' this._XmlEsc(ltRtDesc) '" Margin="10,0,0,0" FontSize="12" Foreground="{DynamicResource TextSub}" TextWrapping="Wrap" VerticalAlignment="Center"/>'
+                    . '</Grid></Grid></Border>', "0,18,0,0", "", "joy"))
+            , true)
 
-        ; ---------- 页：宏执行 ----------
+        ; ---------- 页：宏 ----------
         macroPage := page("macro", twoCol(
-            card(GetLang("时间与坐标浮动"), "&#xE823;", numCompact(GetLang("点击时间浮动（%）"), "EditHoldFloat", MainSoftData.HoldFloat, GetLang("点击指令时，按下或等待时长可随机上下浮动的百分比。"))
-                . numCompact(GetLang("每次间隔浮动（%）"), "EditPreIntervalFloat", MainSoftData.PreIntervalFloat, GetLang("两次宏执行之间的间隔可随机上下浮动的百分比。"))
-                . numCompact(GetLang("间隔指令浮动（%）"), "EditIntervalFloat", MainSoftData.IntervalFloat, GetLang("间隔指令本身的时长可随机上下浮动的百分比。"))
-                . numCompact(GetLang("坐标 X 浮动 (px)"), "EditCoordXFloat", MainSoftData.CoordXFloat, GetLang("鼠标坐标 X 轴可随机上下偏移的像素值。"))
-                . numCompact(GetLang("坐标 Y 浮动 (px)"), "EditCoordYFloat", MainSoftData.CoordYFloat, GetLang("鼠标坐标 Y 轴可随机上下偏移的像素值。")), "0", "", "float")
-            , card(GetLang("按键与备注"), "&#xE765;", cmb(GetLang("重复按下行为"), "CmbKeyDownDown", GetLangArr(["自动松开", "忽略重复按下", "允许重复按下"]), MainSoftData.KeyDownDownType)
-                . cmb(GetLang("指令备注生成"), "CmbRemarkAuto", GetLangArr(["不生成", "自动生成", "覆盖生成"]), MainSoftData.RemarkAutoType)
-                . tog(GetLang("无变量提醒"), "ChkNoVariable", MainSoftData.NoVariableTip, GetLang("变量为空时提示")), "0", "", "keyRemark")))
+                card(GetLang("通用"), "&#xE8D4;", tog(GetLang("仅前台运行宏"), "ChkForeground", MainSoftData.CheckForeground, GetLang("窗口不匹配则终止运行的宏"))
+                    . tog(GetLang("自动松开修饰键"), "ChkAutoLoosen", MainSoftData.AutoLoosenModifier, GetLang("组合键触发前先松开修饰键"))
+                    . tog(GetLang("连续触发"), "ChkContinuous", MainSoftData.ContinuousTrigger, GetLang("按住触发键期间允许连续触发"))
+                    . cmb(GetLang("宏终止方式"), "CmbMacroStop", GetLangArr(["智能终止", "强制终止"]), MainSoftData.MacroStopType)
+                    . cmb(GetLang("重复按下行为"), "CmbKeyDownDown", GetLangArr(["自动松开", "忽略重复按下", "允许重复按下"]), MainSoftData.KeyDownDownType)
+                    . tog(GetLang("无变量提醒"), "ChkNoVariable", MainSoftData.NoVariableTip, GetLang("变量为空时提示")), "0", "", "trig")
+                , card(GetLang("随机浮动"), "&#xE823;", numCompact(GetLang("点击时间浮动（%）"), "EditHoldFloat", MainSoftData.HoldFloat, GetLang("点击指令时，按下或等待时长可随机上下浮动的百分比。"))
+                    . numCompact(GetLang("每次间隔浮动（%）"), "EditPreIntervalFloat", MainSoftData.PreIntervalFloat, GetLang("两次宏执行之间的间隔可随机上下浮动的百分比。"))
+                    . numCompact(GetLang("间隔指令浮动（%）"), "EditIntervalFloat", MainSoftData.IntervalFloat, GetLang("间隔指令本身的时长可随机上下浮动的百分比。"))
+                    . numCompact(GetLang("坐标 X 浮动 (px)"), "EditCoordXFloat", MainSoftData.CoordXFloat, GetLang("鼠标坐标 X 轴可随机上下偏移的像素值。"))
+                    . numCompact(GetLang("坐标 Y 浮动 (px)"), "EditCoordYFloat", MainSoftData.CoordYFloat, GetLang("鼠标坐标 Y 轴可随机上下偏移的像素值。")), "0", "", "float")))
 
         ; ---------- 页：指令录制 ----------
         recordPage := page("record", twoCol(
-            card(GetLang("录制通用"), "&#xE7C8;", tog(GetLang("录制显示边框"), "ShowBorderCon", MainSoftData.RecordShowBorder, GetLang("录制时显示范围边框"))
+            card(GetLang("通用"), "&#xE7C8;", tog(GetLang("录制显示边框"), "ShowBorderCon", MainSoftData.RecordShowBorder, GetLang("录制时显示范围边框"))
                 . tog(GetLang("长按多次录制"), "HoldMutiCon", MainSoftData.RecordHoldMuti, GetLang("按住时连续录制"))
                 . tog(GetLang("结束自动添加按键松开"), "AutoLoosenCon", MainSoftData.RecordAutoLoosen, GetLang("录制结束后补充松开指令")), "0", "", "recCommon")
             . card(GetLang("键盘"), "&#xE765;", tog(GetLang("键盘录制"), "KeyboardTogCon", MainSoftData.RecordKeyboard, GetLang("记录键盘操作")), "0,18,0,0", "", "recKey")
@@ -5528,8 +5551,8 @@ class MainWin {
                 {f: "ScreenShotHotKey", l: "屏幕截图", t: false},
                 {f: "FreePasteHotKey", l: "自由贴", t: false},
                 {f: "ToolCheckHotkey", l: "鼠标信息", t: false},
-                {f: "DebugRunHotkey", l: "继续（仅触发键）", t: true},
-                {f: "DebugStepHotkey", l: "步入（仅触发键）", t: true}]}
+                {f: "DebugRunHotkey", l: "继续", t: true},
+                {f: "DebugStepHotkey", l: "步入", t: true}]}
         ]
         hotkeyCards := []
         for hi, hg in hotkeyGroups {
@@ -5561,18 +5584,18 @@ class MainWin {
                 . tog(GetLang("业务日志"), "ChkBusinessLog", MainSoftData.BusinessLog, GetLang("记录宏运行流水"))
                 . btnRow(GetLang("日志中心"), '<Button Name="BtnLogCenter" Content="' GetLang("打开日志中心") ' ↗" HorizontalAlignment="Left" Padding="10,0"/>'), "0", "", "logErr")))
 
-        ; ---------- 页：交互界面 ----------
+        ; ---------- 页：界面 ----------
         triggerPage := page("trigger"
             , twoCol(
-                card(GetLang("菜单轮盘"), "&#xE700;", tog(GetLang("固定位置"), "WheelFixedPosCon", MainSoftData.FixedMenuWheel, GetLang("固定在屏幕中下方"))
+                card(GetLang("菜单宏-轮盘"), "&#xE700;", tog(GetLang("固定位置"), "WheelFixedPosCon", MainSoftData.FixedMenuWheel, GetLang("固定在屏幕中下方"))
                     . tog(GetLang("显示扇区名称提示"), "WheelShowTooltipCon", MainSoftData.MenuWheelShowTooltip, GetLang("悬停显示扇区名称"))
                     . cmb(GetLang("选择模式"), "WheelSelectModeCon", GetLangArr(["点击选择", "划线选择"]), MainSoftData.MenuWheelSelectMode)
                     . sld(GetLang("轮盘大小"), "WheelScaleCon", "WheelScaleVal", MainSoftData.MenuWheelScale, 50, 200, 10), "0", "", "wheel")
-                    . card(GetLang("倒计时"), "&#xE916;", cmb(GetLang("样式"), "CountDownStyleCon", GetLangArr(["时分秒", "智能", "秒"]), MainSoftData.CountDownStyle)
+                    . card(GetLang("时间-倒计时"), "&#xE916;", cmb(GetLang("样式"), "CountDownStyleCon", GetLangArr(["时分秒", "智能", "秒"]), MainSoftData.CountDownStyle)
                         . tog(GetLang("补零"), "CountDownPadCon", MainSoftData.CountDownPadZero, GetLang("如 1:30:9 显示为 01:30:09；仅秒不补"))
                         . sld(GetLang("透明度"), "CountDownAlphaCon", "CountDownAlphaVal", MainSoftData.CountDownAlpha, 0, 100, 1)
                         . sld(GetLang("字体大小"), "CountDownFontCon", "CountDownFontVal", MainSoftData.CountDownFontSize, 8, 72, 1), "0,18,0,0", "", "countdown")
-                , card(GetLang("界面浮窗"), "&#xE737;", sld(GetLang("按钮宽度"), "UIPanelBtnWidthCon", "UIPanelBtnWidthVal", MainSoftData.UIPanelBtnWidth, 40, 250, 5)
+                , card(GetLang("界面宏-浮窗"), "&#xE737;", sld(GetLang("按钮宽度"), "UIPanelBtnWidthCon", "UIPanelBtnWidthVal", MainSoftData.UIPanelBtnWidth, 40, 250, 5)
                     . sld(GetLang("按钮高度"), "UIPanelBtnHeightCon", "UIPanelBtnHeightVal", MainSoftData.UIPanelBtnHeight, 20, 60, 2)
                     . sld(GetLang("字体大小"), "UIPanelFontSizeCon", "UIPanelFontSizeVal", MainSoftData.UIPanelFontSize, 8, 24, 1)
                     . sld(GetLang("每行个数"), "UIPanelColsCon", "UIPanelColsVal", MainSoftData.UIPanelCols, 1, 6, 1), "0", "", "uipanel")
@@ -5623,9 +5646,9 @@ class MainWin {
         aiPage := page("ai"
             , twoCol(
                 card(GetLang("大模型"), "&#xE99A;", cmb(GetLang("模型商"), "AiProviderCon", aiProviderNames, AiAssist.ProviderIndex(MainSoftData.AiProvider) - 1, true)
-                    . txt(GetLang("API URL"), "AiBaseUrlCon", MainSoftData.AiApiBaseUrl, GetLang("OpenAI 兼容接口，例如 https://api.openai.com/v1"))
-                    . row(GetLang("API Key"), '<PasswordBox Name="AiApiKeyCon" Password="' this._XmlEsc(MainSoftData.AiApiKey) '" Height="33" Padding="10,0" VerticalContentAlignment="Center" Background="{DynamicResource InputBg}" Foreground="{DynamicResource InputText}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1"/>')
-                    . row(GetLang("模型列表"), '<Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><ComboBox Name="AiModelCon" IsEditable="True" Text="' this._XmlEsc(MainSoftData.AiModel) '" Height="33" MinHeight="33" VerticalContentAlignment="Center" FontSize="12" Foreground="{DynamicResource InputText}" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1">' aiModelXaml '</ComboBox><Button Grid.Column="1" Name="BtnAiRefreshModels" Content="' GetLang("刷新") '" Height="33" MinHeight="33" Padding="10,0" Margin="8,0,0,0"/></Grid>'), "0", "", "aiModel")
+                    . row(GetLang("API URL"), '<TextBox Name="AiBaseUrlCon" Text="' this._XmlEsc(MainSoftData.AiApiBaseUrl) '" Height="33" MinHeight="33" Padding="6,0,18,0" VerticalContentAlignment="Center" FontSize="12" Foreground="{DynamicResource InputText}" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1"/>', GetLang("OpenAI 兼容接口，例如 https://api.openai.com/v1"))
+                    . row(GetLang("API Key"), '<PasswordBox Name="AiApiKeyCon" Password="' this._XmlEsc(MainSoftData.AiApiKey) '" Height="33" MinHeight="33" Padding="6,0,18,0" VerticalContentAlignment="Center" FontSize="12" Background="{DynamicResource InputBg}" Foreground="{DynamicResource InputText}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1"/>')
+                    . row(GetLang("模型列表"), '<Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><ComboBox Name="AiModelCon" IsEditable="True" Text="' this._XmlEsc(MainSoftData.AiModel) '" Height="33" MinHeight="33" VerticalContentAlignment="Center" FontSize="12" Foreground="{DynamicResource InputText}" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1">' aiModelXaml '</ComboBox><Button Grid.Column="1" Name="BtnAiRefreshModels" Content="&#xE72C;" FontFamily="' iconFont '" FontSize="14" Width="33" Height="33" MinWidth="33" MinHeight="33" Padding="0" Margin="8,0,0,0" ToolTip="' this._XmlEsc(GetLang("刷新")) '"/></Grid>'), "0", "", "aiModel")
                 , card(GetLang("权限"), "&#xE72E;", cmb(GetLang("写入权限"), "AiAccessCon", aiAccessNames, MainSoftData.AiAccessMode - 1, true, GetLang("只读：只能读取；工作区：写入仅限软件目录；完全访问：无读写限制。"))
                     . cmb(GetLang("指令审批"), "AiApprovalCon", aiApprovalNames, MainSoftData.AiApprovalMode - 1, true)
                     . row(GetLang("权限说明"), '<TextBlock Text="' GetLang("只读：只能读取；工作区：写入仅限软件目录；完全访问：无读写限制。") '" TextWrapping="Wrap" Foreground="{DynamicResource TextSub}"/>'), "0", "", "aiPerm")
@@ -5633,7 +5656,7 @@ class MainWin {
         )
 
         ; ---------- 组装：左侧导航 + 右侧页面 ----------
-        navDefs := [["behavior", "&#xE713;", "系统"], ["macro", "&#xE768;", "宏执行"], ["record", "&#xE7C8;", "指令录制"], ["trigger", "&#xE8D4;", "交互界面"], ["hotkey", "&#xE765;", "快捷键"], ["appearance", "&#xE790;", "主题"], ["ai", "&#xE99A;", "AI 助手"], ["diagnostic", "&#xE81C;", "日志"]]
+        navDefs := [["behavior", "&#xE713;", "系统"], ["macro", "&#xE768;", "宏"], ["record", "&#xE7C8;", "指令录制"], ["trigger", "&#xE8D4;", "界面"], ["hotkey", "&#xE765;", "快捷键"], ["appearance", "&#xE790;", "主题"], ["ai", "&#xE99A;", "AI 助手"], ["diagnostic", "&#xE81C;", "日志"]]
         navSep := '<Border Height="1" Background="{DynamicResource OutlineStroke}" Margin="0,0,-9,0" HorizontalAlignment="Stretch"/>'
         navAll := navSep
         for ni, nd in navDefs {
@@ -5670,6 +5693,7 @@ class MainWin {
         this._Bind("CmbLang", "SelectionChanged", ObjBindMethod(this, "OnComboText", "Lang"))
         this._Bind("CmbPreferredEditor", "SelectionChanged", ObjBindMethod(this, "OnComboIndex", "PreferredMacroEditor"))
         this._Bind("CmbScreenShot", "SelectionChanged", ObjBindMethod(this, "OnComboIndex", "ScreenShotType"))
+        this._Bind("CmbSearchImage", "SelectionChanged", ObjBindMethod(this, "OnComboIndex", "SearchImageType"))
         this._Bind("CmbTriggerJoyType", "SelectionChanged", ObjBindMethod(this, "OnTriggerJoyTypeChanged"))
         this._Bind("CmbJoyType", "SelectionChanged", ObjBindMethod(this, "OnComboText", "JoyType"))
         this._Bind("ChkJoyLtRtAsButton", "Click", ObjBindMethod(this, "OnCheckEdit", "JoyLtRtAsButton"))
@@ -5701,6 +5725,10 @@ class MainWin {
         for hg in hotkeyGroups
             for hd in hg.defs
                 this._Bind("BtnEdit_" hd.f, "Click", ObjBindMethod(this, "OnSettingEditHotkey", hd.f, hd.t))
+        if (this.HasProp("_setHelpMap")) {
+            for helpName, _ in this._setHelpMap
+                this._Bind(helpName, "Click", ObjBindMethod(this, "OnSettingHelpClick", helpName))
+        }
 
         ; ---- 设置中心：日志 ----
         this._Bind("CmbLogLevel", "SelectionChanged", ObjBindMethod(this, "OnComboText", "SysLogMinLevel"))
@@ -5724,7 +5752,7 @@ class MainWin {
         this._Bind("CmdTipLogPathCon", "LostFocus", ObjBindMethod(this, "OnTextEdit", "CMDLogFilePath"))
         this._Bind("CmdTipAutoClearCon", "SelectionChanged", ObjBindMethod(this, "OnComboIndex0", "CMDLogAutoClear"))
 
-        ; ---- 设置中心：交互界面 ----
+        ; ---- 设置中心：界面 ----
         this._Bind("WheelFixedPosCon", "Click", ObjBindMethod(this, "OnCheckEdit", "FixedMenuWheel"))
         this._Bind("WheelShowTooltipCon", "Click", ObjBindMethod(this, "OnCheckEdit", "MenuWheelShowTooltip"))
         this._Bind("WheelSelectModeCon", "SelectionChanged", ObjBindMethod(this, "OnComboIndex", "MenuWheelSelectMode"))
@@ -5783,11 +5811,11 @@ class MainWin {
 
     MarkSettingDirty(ctrl := "") {
         pageId := ""
-        if (RegExMatch(ctrl, "i)^(Edit(Hold|PreInterval|Interval|Coord)|CmbKeyDown|CmbRemark|ChkNoVariable)"))
+        if (RegExMatch(ctrl, "i)^(Edit(Hold|PreInterval|Interval|Coord)|CmbKeyDown|CmbMacroStop|ChkNoVariable|ChkForeground|ChkContinuous|ChkAutoLoosen)"))
             pageId := "macro"
         else if (RegExMatch(ctrl, "i)^(Wheel|UIPanel|CountDown)") )
             pageId := "trigger"
-        else if (RegExMatch(ctrl, "i)^(ShowBorder|HoldMuti|AutoLoosen|KeyboardTog|MouseTog|MouseTrail|JoyTog|JoyInterval)") )
+        else if (RegExMatch(ctrl, "i)^(ShowBorder|HoldMuti|AutoLoosenCon|KeyboardTog|MouseTog|MouseTrail|JoyTog|JoyInterval)") )
             pageId := "record"
         else if (RegExMatch(ctrl, "i)^(CmbLog|ChkLog|ChkBusiness|ChkCMD|CmdTip|Val_)") )
             pageId := (InStr(ctrl, "Val_") = 1) ? "hotkey" : "diagnostic"
@@ -5795,20 +5823,20 @@ class MainWin {
             pageId := ctrl == "ThemePresetCon" ? "appearance" : "ai"
         else if (RegExMatch(ctrl, "i)^(CmbFont|ThemeFont|Palette)") )
             pageId := "appearance"
-        else if (RegExMatch(ctrl, "i)^(ChkBoot|ChkAdmin|ChkForeground|ChkContinuous|ChkAutoLoosen|ChkModal|CmbLang|CmbPreferred|CmbScreen|CmbMacroStop|CmbTriggerJoy|CmbJoy|ChkJoy|EditMuti|TabVisible)") )
+        else if (RegExMatch(ctrl, "i)^(ChkBoot|ChkAdmin|ChkModal|CmbLang|CmbPreferred|CmbScreen|CmbSearchImage|CmbRemark|CmbTriggerJoy|CmbJoy|ChkJoy|EditMuti|TabVisible)") )
             pageId := "behavior"
         else if (ctrl == "EditNetPort")
             pageId := "behavior"
         if (pageId != "") {
             this._settingDirty[pageId] := true
-            labels := Map("behavior", "系统", "macro", "宏执行", "record", "指令录制", "trigger", "交互界面", "hotkey", "快捷键", "appearance", "主题", "ai", "AI 助手", "diagnostic", "日志")
+            labels := Map("behavior", "系统", "macro", "宏", "record", "指令录制", "trigger", "界面", "hotkey", "快捷键", "appearance", "主题", "ai", "AI 助手", "diagnostic", "日志")
             try this.ui.Update("SetNavText_" pageId, "Text", GetLang(labels[pageId]) " *")
         }
         this._RefreshAllSettingModules()
     }
 
     ClearSettingDirty() {
-        labels := Map("behavior", "系统", "macro", "宏执行", "record", "指令录制", "trigger", "交互界面", "hotkey", "快捷键", "appearance", "主题", "ai", "AI 助手", "diagnostic", "日志")
+        labels := Map("behavior", "系统", "macro", "宏", "record", "指令录制", "trigger", "界面", "hotkey", "快捷键", "appearance", "主题", "ai", "AI 助手", "diagnostic", "日志")
         this._settingDirty := Map()
         for pageId, label in labels
             try this.ui.Update("SetNavText_" pageId, "Text", GetLang(label))
@@ -5819,21 +5847,18 @@ class MainWin {
         for sym in ["Normal", "String", "Menu", "UI", "Voice", "Timing", "SubMacro", "Replace", "Network"]
             tabFields.Push({key: sym, def: true, ctrl: "TabVisible_" sym, kind: "tab"})
         this._setMods := [
-            {id: "boot", fields: [{key: "IsBootStart", def: false, ctrl: "ChkBootStart", kind: "chk", hook: "boot"}, {key: "IsAdminStart", def: false, ctrl: "ChkAdminStart", kind: "chk", hook: "admin"}]},
-            {id: "uiEdit", fields: [{key: "Lang", def: "中文", ctrl: "CmbLang", kind: "cmbText"}, {key: "PreferredMacroEditor", def: 1, ctrl: "CmbPreferredEditor", kind: "cmb"}, {key: "IsModalSubGui", def: true, ctrl: "ChkModalSubGui", kind: "chk"}]},
-            {id: "general", fields: [{key: "ScreenShotType", def: 3, ctrl: "CmbScreenShot", kind: "cmb"}, {key: "MutiThreadNum", def: -1, ctrl: "EditMutiThreadNum", kind: "num"}, {key: "MacroStopType", def: 1, ctrl: "CmbMacroStop", kind: "cmb"}]},
-            {id: "trig", fields: [{key: "CheckForeground", def: false, ctrl: "ChkForeground", kind: "chk"}, {key: "AutoLoosenModifier", def: true, ctrl: "ChkAutoLoosen", kind: "chk"}, {key: "ContinuousTrigger", def: true, ctrl: "ChkContinuous", kind: "chk"}]},
+            {id: "soft", fields: [{key: "IsBootStart", def: false, ctrl: "ChkBootStart", kind: "chk", hook: "boot"}, {key: "IsAdminStart", def: false, ctrl: "ChkAdminStart", kind: "chk", hook: "admin"}, {key: "Lang", def: "中文", ctrl: "CmbLang", kind: "cmbText"}, {key: "PreferredMacroEditor", def: 1, ctrl: "CmbPreferredEditor", kind: "cmb"}, {key: "IsModalSubGui", def: true, ctrl: "ChkModalSubGui", kind: "chk"}]},
+            {id: "general", fields: [{key: "ScreenShotType", def: 3, ctrl: "CmbScreenShot", kind: "cmb"}, {key: "SearchImageType", def: 1, ctrl: "CmbSearchImage", kind: "cmb"}, {key: "MutiThreadNum", def: -1, ctrl: "EditMutiThreadNum", kind: "num"}, {key: "NetworkPort", def: 16888, ctrl: "EditNetPort", kind: "num"}, {key: "RemarkAutoType", def: 2, ctrl: "CmbRemarkAuto", kind: "cmb"}]},
+            {id: "trig", fields: [{key: "CheckForeground", def: false, ctrl: "ChkForeground", kind: "chk"}, {key: "AutoLoosenModifier", def: true, ctrl: "ChkAutoLoosen", kind: "chk"}, {key: "ContinuousTrigger", def: true, ctrl: "ChkContinuous", kind: "chk"}, {key: "MacroStopType", def: 1, ctrl: "CmbMacroStop", kind: "cmb"}, {key: "KeyDownDownType", def: 1, ctrl: "CmbKeyDownDown", kind: "cmb"}, {key: "NoVariableTip", def: false, ctrl: "ChkNoVariable", kind: "chk"}]},
             {id: "tabs", fields: tabFields},
-            {id: "network", fields: [{key: "NetworkPort", def: 16888, ctrl: "EditNetPort", kind: "num"}]},
             {id: "joy", fields: [{key: "TriggerJoyType", def: "Xbox", ctrl: "CmbTriggerJoyType", kind: "cmbText"}, {key: "JoyType", def: "Xbox", ctrl: "CmbJoyType", kind: "cmbText"}, {key: "JoyLtRtAsButton", def: true, ctrl: "ChkJoyLtRtAsButton", kind: "chk"}]},
             {id: "float", fields: [{key: "HoldFloat", def: 0, ctrl: "EditHoldFloat", kind: "num"}, {key: "PreIntervalFloat", def: 0, ctrl: "EditPreIntervalFloat", kind: "num"}, {key: "IntervalFloat", def: 0, ctrl: "EditIntervalFloat", kind: "num"}, {key: "CoordXFloat", def: 0, ctrl: "EditCoordXFloat", kind: "num"}, {key: "CoordYFloat", def: 0, ctrl: "EditCoordYFloat", kind: "num"}]},
-            {id: "keyRemark", fields: [{key: "KeyDownDownType", def: 1, ctrl: "CmbKeyDownDown", kind: "cmb"}, {key: "RemarkAutoType", def: 2, ctrl: "CmbRemarkAuto", kind: "cmb"}, {key: "NoVariableTip", def: false, ctrl: "ChkNoVariable", kind: "chk"}]},
             {id: "recCommon", fields: [{key: "RecordShowBorder", def: true, ctrl: "ShowBorderCon", kind: "chk"}, {key: "RecordHoldMuti", def: true, ctrl: "HoldMutiCon", kind: "chk"}, {key: "RecordAutoLoosen", def: true, ctrl: "AutoLoosenCon", kind: "chk"}]},
             {id: "recKey", fields: [{key: "RecordKeyboard", def: true, ctrl: "KeyboardTogCon", kind: "chk"}]},
             {id: "recMouse", fields: [{key: "RecordMouse", def: true, ctrl: "MouseTogCon", kind: "chk"}, {key: "RecordMouseTrail", def: 1, ctrl: "MouseTrailModeCon", kind: "cmb0"}, {key: "RecordMouseTrailSpeed", def: 95, ctrl: "MouseTrailSpeedCon", kind: "num"}]},
             {id: "recJoy", fields: [{key: "RecordJoy", def: false, ctrl: "JoyTogCon", kind: "chk"}, {key: "RecordJoyInterval", def: 100, ctrl: "JoyIntervalCon", kind: "num"}]},
-            {id: "hk1", fields: [{key: "SuspendHotkey", def: "", ctrl: "Val_SuspendHotkey", kind: "hk"}, {key: "PauseHotkey", def: "", ctrl: "Val_PauseHotkey", kind: "hk"}, {key: "KillMacroHotkey", def: "", ctrl: "Val_KillMacroHotkey", kind: "hk"}, {key: "ToolRecordMacroHotKey", def: "", ctrl: "Val_ToolRecordMacroHotKey", kind: "hk"}, {key: "ToolTextFilterHotKey", def: "", ctrl: "Val_ToolTextFilterHotKey", kind: "hk"}]},
-            {id: "hk2", fields: [{key: "ScreenShotHotKey", def: "", ctrl: "Val_ScreenShotHotKey", kind: "hk"}, {key: "FreePasteHotKey", def: "", ctrl: "Val_FreePasteHotKey", kind: "hk"}, {key: "ToolCheckHotkey", def: "", ctrl: "Val_ToolCheckHotkey", kind: "hk"}, {key: "DebugRunHotkey", def: "f5", ctrl: "Val_DebugRunHotkey", kind: "hk"}, {key: "DebugStepHotkey", def: "f11", ctrl: "Val_DebugStepHotkey", kind: "hk"}]},
+            {id: "hk1", fields: [{key: "SuspendHotkey", def: "!p", ctrl: "Val_SuspendHotkey", kind: "hk"}, {key: "PauseHotkey", def: "!i", ctrl: "Val_PauseHotkey", kind: "hk"}, {key: "KillMacroHotkey", def: "!k", ctrl: "Val_KillMacroHotkey", kind: "hk"}, {key: "ToolRecordMacroHotKey", def: "!r", ctrl: "Val_ToolRecordMacroHotKey", kind: "hk"}, {key: "ToolTextFilterHotKey", def: "", ctrl: "Val_ToolTextFilterHotKey", kind: "hk"}]},
+            {id: "hk2", fields: [{key: "ScreenShotHotKey", def: "", ctrl: "Val_ScreenShotHotKey", kind: "hk"}, {key: "FreePasteHotKey", def: "", ctrl: "Val_FreePasteHotKey", kind: "hk"}, {key: "ToolCheckHotkey", def: "!o", ctrl: "Val_ToolCheckHotkey", kind: "hk"}, {key: "DebugRunHotkey", def: "f5", ctrl: "Val_DebugRunHotkey", kind: "hk"}, {key: "DebugStepHotkey", def: "f11", ctrl: "Val_DebugStepHotkey", kind: "hk"}]},
             {id: "cmdTip", fields: [{key: "CMDTip", def: false, ctrl: "ChkCMDTip", kind: "chkMy", hook: "cmdtip"}, {key: "CMDWidth", defFn: "cmdW", ctrl: "CmdTipWidthCon", kind: "sld", val: "CmdTipWidthVal"}, {key: "CMDHeight", def: 300, ctrl: "CmdTipHeightCon", kind: "sld", val: "CmdTipHeightVal"}, {key: "CMDPosX", defFn: "cmdX", ctrl: "CmdTipPosXCon", kind: "num"}, {key: "CMDPosY", def: 0, ctrl: "CmdTipPosYCon", kind: "num"}, {key: "CMDFontSize", def: 12, ctrl: "CmdTipFontCon", kind: "sld", val: "CmdTipFontVal"}, {key: "CMDTransparency", def: 50, ctrl: "CmdTipAlphaCon", kind: "sld", val: "CmdTipAlphaVal"}, {key: "CMDLogToFile", def: false, ctrl: "CmdTipLogFileCon", kind: "chk"}, {key: "CMDLogFilePath", def: "", ctrl: "CmdTipLogPathCon", kind: "txt"}, {key: "CMDLogAutoClear", def: 0, ctrl: "CmdTipAutoClearCon", kind: "cmb0"}]},
             {id: "logErr", fields: [{key: "SysLogMinLevel", def: "info", ctrl: "CmbLogLevel", kind: "cmbText"}, {key: "LogWarnBubble", def: true, ctrl: "ChkLogWarnBubble", kind: "chk"}, {key: "LogErrorBadge", def: true, ctrl: "ChkLogErrorBadge", kind: "chk"}, {key: "BusinessLog", def: false, ctrl: "ChkBusinessLog", kind: "chk", hook: "blog"}]},
             {id: "wheel", fields: [{key: "FixedMenuWheel", def: false, ctrl: "WheelFixedPosCon", kind: "chk"}, {key: "MenuWheelShowTooltip", def: false, ctrl: "WheelShowTooltipCon", kind: "chk"}, {key: "MenuWheelSelectMode", def: 2, ctrl: "WheelSelectModeCon", kind: "cmb"}, {key: "MenuWheelScale", def: 100, ctrl: "WheelScaleCon", kind: "sld", val: "WheelScaleVal"}]},
@@ -6130,7 +6155,7 @@ class MainWin {
             Toast.Warning(GetLang("请先填写 API Key 与 API URL"))
             return
         }
-        try this.ui.Update("BtnAiRefreshModels", "Content", GetLang("刷新中…"))
+        try this.ui.Update("BtnAiRefreshModels", "IsEnabled", "False")
         try {
             ids := AiAssist.FetchModels(baseUrl, apiKey)
             if (ids.Length < 1)
@@ -6149,7 +6174,7 @@ class MainWin {
         } catch as e {
             Toast.Error(e.Message)
         } finally {
-            try this.ui.Update("BtnAiRefreshModels", "Content", GetLang("刷新"))
+            try this.ui.Update("BtnAiRefreshModels", "IsEnabled", "True")
         }
     }
 
@@ -6503,6 +6528,17 @@ class MainWin {
     OnBackImageClear(state, ctrl, event) {
         MainSoftData.BackImagePath := ""
         this.ui.Update("EditBackImage", "Text", "")
+    }
+
+    OnSettingHelpClick(name, state := "", ctrl := "", event := "") {
+        if (!this.HasProp("_setHelpMap") || !this._setHelpMap.Has(name))
+            return
+        item := this._setHelpMap[name]
+        if (item.HasProp("fn") && item.fn != "") {
+            item.fn()
+            return
+        }
+        RmtDialog.Info(item.text, item.title)
     }
 
     OnCheckEdit(fieldName, state, ctrl, event) {

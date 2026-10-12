@@ -91,6 +91,7 @@ OnSaveSetting(*) {
     CheckAndAddDirty("IsAdminStart", MainSoftData.IsAdminStart)
     CheckAndAddDirty("CMDTip", MySoftData.CMDTip)
     CheckAndAddDirty("ScreenShotType", MainSoftData.ScreenShotType)
+    CheckAndAddDirty("SearchImageType", MainSoftData.SearchImageType)
     CheckAndAddDirty("KeyDownDown", MainSoftData.KeyDownDownType)
     CheckAndAddDirty("AutoLoosenModifier", MainSoftData.AutoLoosenModifier ? 1 : 0)
     CheckAndAddDirty("ContinuousTrigger", MainSoftData.ContinuousTrigger ? 1 : 0)

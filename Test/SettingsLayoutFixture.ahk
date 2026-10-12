@@ -9,6 +9,7 @@ MainSoftData.Lang := 1
 MainSoftData.PreferredMacroEditor := 1
 MainSoftData.IsModalSubGui := 1
 MainSoftData.ScreenShotType := 1
+MainSoftData.SearchImageType := 1
 MainSoftData.MutiThreadNum := 1
 MainSoftData.MacroStopType := 1
 MainSoftData.CheckForeground := 1

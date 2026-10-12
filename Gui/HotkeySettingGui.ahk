@@ -20,9 +20,9 @@ class HotkeySettingGui {
         {Field: "PauseHotkey", Label: "暂停宏", OnlyTrigger: false, Default: "!i"},
         {Field: "KillMacroHotkey", Label: "终止宏", OnlyTrigger: false, Default: "!k"},
         {Field: "ToolRecordMacroHotKey", Label: "指令录制", OnlyTrigger: false, Default: "!r"},
-        {Field: "ToolTextFilterHotKey", Label: "文本提取", OnlyTrigger: false, Default: "!u"},
-        {Field: "ScreenShotHotKey", Label: "屏幕截图", OnlyTrigger: false, Default: "!y"},
-        {Field: "FreePasteHotKey", Label: "自由贴", OnlyTrigger: false, Default: "!t"},
+        {Field: "ToolTextFilterHotKey", Label: "文本提取", OnlyTrigger: false, Default: ""},
+        {Field: "ScreenShotHotKey", Label: "屏幕截图", OnlyTrigger: false, Default: ""},
+        {Field: "FreePasteHotKey", Label: "自由贴", OnlyTrigger: false, Default: ""},
         {Field: "ToolCheckHotkey", Label: "鼠标信息", OnlyTrigger: false, Default: "!o"},
         {Field: "DebugRunHotkey", Label: "继续", OnlyTrigger: true, Default: "f5"},
         {Field: "DebugStepHotkey", Label: "步入", OnlyTrigger: true, Default: "f11"}
