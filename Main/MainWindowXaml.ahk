@@ -6680,13 +6680,15 @@ class MainWin {
         this._FlushLinks()
     }
 
-    _HelpCard(title, glyph, body, hint := "", margin := "0", warning := false) {
+    _HelpCard(title, glyph, body, hint := "", margin := "0", warning := false, headH := 42) {
         ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"'
         accent := warning ? '{DynamicResource Accent}' : '{DynamicResource OutlineStroke}'
+        titleSize := headH <= 30 ? "12" : "13"
+        glyphSize := headH <= 30 ? "13" : "14"
         hintXaml := hint == "" ? "" : '<TextBlock Grid.Column="1" Text="' this._XmlEsc(hint) '" Foreground="{DynamicResource TextSub}" FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Right"/>'
         return '<Border ' ns ' Margin="' margin '" Background="{DynamicResource ControlBg}" BorderBrush="' accent '" BorderThickness="1.25" CornerRadius="8" Padding="0">'
-            . '<Grid><Grid.RowDefinitions><RowDefinition Height="42"/><RowDefinition Height="*"/></Grid.RowDefinitions>'
-            . '<Border Grid.Row="0" Background="{DynamicResource EditHoverBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="0,0,0,1" CornerRadius="7,7,0,0" Padding="13,0"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel Orientation="Horizontal" VerticalAlignment="Center"><TextBlock Text="' glyph '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14" Foreground="{DynamicResource Accent}" Margin="0,0,8,0" VerticalAlignment="Center"/><TextBlock Text="' this._XmlEsc(title) '" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" Foreground="{DynamicResource TextMain}"/></StackPanel>' hintXaml '</Grid></Border>'
+            . '<Grid><Grid.RowDefinitions><RowDefinition Height="' headH '"/><RowDefinition Height="*"/></Grid.RowDefinitions>'
+            . '<Border Grid.Row="0" Background="{DynamicResource EditHoverBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="0,0,0,1" CornerRadius="7,7,0,0" Padding="13,0"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel Orientation="Horizontal" VerticalAlignment="Center"><TextBlock Text="' glyph '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="' glyphSize '" Foreground="{DynamicResource Accent}" Margin="0,0,8,0" VerticalAlignment="Center"/><TextBlock Text="' this._XmlEsc(title) '" FontWeight="Bold" FontSize="' titleSize '" VerticalAlignment="Center" Foreground="{DynamicResource TextMain}"/></StackPanel>' hintXaml '</Grid></Border>'
             . '<Border Grid.Row="1" Padding="13,11">' body '</Border></Grid></Border>'
     }
 
@@ -6715,11 +6717,14 @@ class MainWin {
         return '<Button Name="' name '" Cursor="Hand" Background="Transparent" BorderThickness="0" Padding="0" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"><Grid Margin="10"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="34"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Border Width="26" Height="26" CornerRadius="6" Background="{DynamicResource EditHoverBg}"><TextBlock Text="' glyph '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Foreground="{DynamicResource Accent}" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><TextBlock Grid.Column="1" Text="' this._XmlEsc(title) '" FontWeight="Bold" FontSize="12" VerticalAlignment="Center" Foreground="{DynamicResource TextMain}"/><TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="' this._XmlEsc(description) '" TextWrapping="Wrap" FontSize="10" Foreground="{DynamicResource TextSub}" Margin="0,7,0,0"/></Grid></Button>'
     }
 
-    _HelpLinkButton(url, text) {
+    _HelpLinkButton(url, text, accent := false) {
         this._linkCounter := this._linkCounter + 1
         name := "HelpLink_" this._linkCounter
         this._linkQueue.Push({ name: name, url: url, event: "Click" })
-        return '<Button Name="' name '" Cursor="Hand" HorizontalAlignment="Left" MinHeight="25" Padding="8,0" VerticalContentAlignment="Center" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1"><Grid VerticalAlignment="Center"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="' this._XmlEsc(text) '" FontSize="10" Foreground="{DynamicResource TextMain}" VerticalAlignment="Center"/><TextBlock Grid.Column="1" Text="&#xE8A7;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="9" Foreground="{DynamicResource Accent}" Margin="5,0,0,0" VerticalAlignment="Center"/></Grid></Button>'
+        bg := accent ? "{DynamicResource EditHoverBg}" : "{DynamicResource InputBg}"
+        fg := accent ? "{DynamicResource Accent}" : "{DynamicResource TextMain}"
+        weight := accent ? "Bold" : "Normal"
+        return '<Button Name="' name '" Cursor="Hand" HorizontalAlignment="Left" MinHeight="25" Padding="8,0" VerticalContentAlignment="Center" Background="' bg '" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1"><Grid VerticalAlignment="Center"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="' this._XmlEsc(text) '" FontSize="10" FontWeight="' weight '" Foreground="' fg '" VerticalAlignment="Center"/><TextBlock Grid.Column="1" Text="&#xE8A7;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="9" Foreground="{DynamicResource Accent}" Margin="5,0,0,0" VerticalAlignment="Center"/></Grid></Button>'
     }
 
     _Para(text) {
@@ -6755,8 +6760,12 @@ class MainWin {
         countStr := FormatIntegerWithCommas(MySoftData.MacroTotalCount)
         weiXinImg := StrReplace(A_WorkingDir "\Images\Soft\WeiXin.png", "\", "/")
         zhiFuBaoImg := StrReplace(A_WorkingDir "\Images\Soft\ZhiFuBao.png", "\", "/")
-        ; 爱发电二维码通过 FileInstall 编译进主程序，运行时不读取 Images\Soft 下的同名文件。
-        aiFaDianImg := this._GetBuiltInAiFaDianImage()
+        ; 赞助二维码通过 FileInstall 编译进主程序，运行时不读取 Images\Soft 下的同名文件。
+        aiFaDianImg := this._GetBuiltInSupportQr("aifadian")
+        stripe10Img := this._GetBuiltInSupportQr("stripe10")
+        stripe30Img := this._GetBuiltInSupportQr("stripe30")
+        stripe10Url := this._ReadQrUrl(stripe10Img)
+        stripe30Url := this._ReadQrUrl(stripe30Img)
         ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
         hero := '<Border ' ns ' Margin="0,2,0,14" Padding="18,15" Background="{DynamicResource EditHoverBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1.25" CornerRadius="8"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="' this._XmlEsc(GetLang("感谢每一位支持 RMT 的守护者")) '" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextMain}"/><TextBlock Text="' this._XmlEsc(GetLang("RMT 始终免费、开源。若它为你节省了时间，欢迎用一杯咖啡的心意支持开发与维护。")) '" TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource TextSub}" Margin="0,7,14,0"/><TextBlock Text="' this._XmlEsc(GetLang("若暂时不方便，分享给朋友同样是珍贵的支持。开发不易，感谢你的每一份温暖！")) '" TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource TextSub}" Margin="0,5,14,0"/><Border HorizontalAlignment="Left" Margin="0,8,0,0" Padding="8,3" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1" CornerRadius="5"><TextBlock Text="' this._XmlEsc(GetLang("完全自愿 · 量力而行")) '" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource TextMain}"/></Border></StackPanel><StackPanel Grid.Column="1" VerticalAlignment="Center"><Border Padding="12,8" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1" CornerRadius="7"><StackPanel Orientation="Horizontal" VerticalAlignment="Center"><Border Width="28" Height="28" CornerRadius="14" Background="{DynamicResource EditHoverBg}" Margin="0,0,8,0"><TextBlock Text="&#xE823;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Foreground="{DynamicResource Accent}" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><StackPanel><TextBlock Text="' this._XmlEsc(GetLang("RMT 已累计执行")) '" FontSize="10" Foreground="{DynamicResource TextMain}"/><StackPanel Orientation="Horizontal"><TextBlock Text="' countStr '" TextWrapping="NoWrap" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource Accent}" VerticalAlignment="Center"/><TextBlock Text="' this._XmlEsc(GetLang("次宏指令")) '" FontSize="10" Foreground="{DynamicResource TextMain}" VerticalAlignment="Center" Margin="5,3,0,0"/></StackPanel></StackPanel></StackPanel></Border></StackPanel></Grid></Border>'
         Add(hero)
@@ -6770,46 +6779,119 @@ class MainWin {
             . this._SupportAfterCard(0, 0, 1, "&#xE902;", GetLang("领取守护者称号"), GetLang("完成赞助后，可通过 RMT 论坛或 RMT QQ 交流群私信联系，领取论坛和 QQ 交流群的“守护者”称号。"), guardianButtons, "0,0,0,10")
             . this._SupportAfterCard(1, 0, 1, "&#xE8A5;", GetLang("若梦星河"), GetLang("赞助后的留言会展示在若梦星河，感谢每一位让 RMT 走得更远的朋友。"), this._HelpLinkButton("https://docs.ruomengtu.com/supporters/", GetLang("打开若梦星河")), "0", GetLang("提示：名单会在版本更新时统一更新。"))
             . '</StackPanel>'
-        aiFaDian := '<Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>' this._SupportAiFaDianCard(0, 0, 1, aiFaDianImg, "0") '</Grid>'
-        supportLayout := '<Grid ' ns ' Margin="0,0,0,14"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Border Grid.Row="0" Grid.Column="0" Margin="0,0,7,7">'
-            . this._HelpCard(GetLang("推荐的单次赞助"), "&#xE8C7;", singleSupport, GetLang("微信与支付宝"), "0")
-            . '</Border><Border Grid.Row="1" Grid.Column="0" Margin="0,7,7,0">'
-            . this._HelpCard(GetLang("爱发电 · 月度守护"), "&#xE8C8;", aiFaDian, GetLang("可按月赞助"), "0")
-            . '</Border><Border Grid.Row="0" Grid.RowSpan="2" Grid.Column="1" Margin="7,0,0,0" VerticalAlignment="Top">'
-            . this._HelpCard(GetLang("支持后的感谢与权益"), "&#xE9CE;", benefits, GetLang("让每份心意被看见"), "0")
-            . '</Border></Grid>'
+        stripeSupport := '<Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>'
+            . this._SupportQrCard(0, 0, 1, stripe10Img, GetLang("10 美元 / 月"), GetLang("扫码或打开链接，用一份持续的心意陪伴 RMT。"), "0,0,5,0", "", stripe10Url, GetLang("打开订阅页"), true)
+            . this._SupportQrCard(0, 1, 1, stripe30Img, GetLang("30 美元 / 月"), GetLang("扫码或打开链接，以更深的心意，陪伴 RMT 走过更多精彩旅程。"), "5,0,0,0", "", stripe30Url, GetLang("打开订阅页"), true)
+            . '</Grid>'
+        aiFaDian := this._SupportAiFaDianSideCard(aiFaDianImg)
+        supportLayout := '<Grid ' ns ' Margin="0,0,0,14"><Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>'
+            . '<StackPanel Grid.Column="0" Margin="0,0,7,0">'
+            . this._HelpCard(GetLang("推荐的单次赞助"), "&#xE8C7;", singleSupport, GetLang("微信与支付宝"), "0,0,0,14", false, 30)
+            . this._HelpCard(GetLang("Stripe订阅"), "&#xE8C8;", stripeSupport, GetLang("国际卡按月"), "0,0,0,14", false, 30)
+            . this._HelpCard(GetLang("爱发电 · 月度守护"), "&#xE8C8;", aiFaDian, GetLang("国内按月"), "0", false, 30)
+            . '</StackPanel><StackPanel Grid.Column="1" Margin="7,0,0,0">'
+            . this._HelpCard(GetLang("感谢与留念"), "&#xE9CE;", benefits, GetLang("让每份心意被看见"), "0", false, 30)
+            . '</StackPanel></Grid>'
         Add(supportLayout)
         this._FlushLinks()
     }
 
-    _SupportQrCard(row, col, span, image, title, description, margin) {
-        return '<Border Grid.Row="' row '" Grid.Column="' col '" Grid.ColumnSpan="' span '" Margin="' margin '" MinHeight="166" Padding="16" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1" CornerRadius="7"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="138"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Border Width="132" Height="132" Padding="5" Background="{DynamicResource ControlBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1" CornerRadius="7"><Image Source="' image '" Stretch="Uniform"/></Border><StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="' this._XmlEsc(title) '" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource TextMain}"/><TextBlock Text="' this._XmlEsc(description) '" TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource TextSub}" Margin="0,10,0,12"/><Border HorizontalAlignment="Left" Padding="8,4" Background="{DynamicResource EditHoverBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1" CornerRadius="4"><TextBlock Text="' this._XmlEsc(GetLang("推荐 · 单次赞助")) '" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource Accent}"/></Border></StackPanel></Grid></Border>'
-    }
-
-    _SupportAiFaDianCard(row, col, span, image, margin) {
-        return '<Border Grid.Row="' row '" Grid.Column="' col '" Grid.ColumnSpan="' span '" Margin="' margin '" MinHeight="182" Padding="16" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1" CornerRadius="7"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="156"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Border Width="148" Height="148" Padding="6" Background="{DynamicResource ControlBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1" CornerRadius="7"><Image Source="' image '" Stretch="Uniform"/></Border><StackPanel Grid.Column="1" VerticalAlignment="Center"><StackPanel Orientation="Horizontal"><Border Width="26" Height="26" CornerRadius="6" Background="{DynamicResource EditHoverBg}" Margin="0,0,7,0"><TextBlock Text="&#xE8C8;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Foreground="{DynamicResource Accent}" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><TextBlock Text="' this._XmlEsc(GetLang("爱发电 · 月度守护")) '" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" Foreground="{DynamicResource TextMain}"/></StackPanel><TextBlock Text="' this._XmlEsc(GetLang("使用爱发电可选择按月赞助，适合希望长期陪伴 RMT 成长的朋友。平台会收取约 6% 的手续费；如更希望支持尽可能直接用于项目维护，可优先选择微信或支付宝的单次赞助。")) '" TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource TextSub}" Margin="0,10,0,12"/><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>' this._SupportFact(0, GetLang("按月支持"), GetLang("适合长期守护与持续支持。"), "0,0,5,0") this._SupportFact(1, GetLang("平台手续费"), GetLang("爱发电会收取约 6% 手续费。"), "5,0,0,0") '</Grid></StackPanel></Grid></Border>'
-    }
-
-    _GetBuiltInAiFaDianImage() {
-        static imagePath := ""
-        if (imagePath != "")
-            return imagePath
-        ; 第三个参数为覆盖：每次启动都用 exe 内嵌资源恢复二维码，避免运行目录文件被替换后生效。
-        tempPath := A_Temp "\RMT_AiFaDian.png"
-        try FileInstall("Images\Soft\AiFaDian.png", tempPath, 1)
-        if (!FileExist(tempPath)) {
-            ; 脚本模式 / 临时文件占用时回退到工作目录源图，避免赞助页拖垮 PopulateAll
-            src := A_WorkingDir "\Images\Soft\AiFaDian.png"
-            if (FileExist(src))
-                return StrReplace(src, "\", "/")
-            return ""
+    _SupportQrCard(row, col, span, image, title, description, margin, badge := "", url := "", btnText := "", accentBtn := false) {
+        badgeXaml := ""
+        if (url == "") {
+            if (badge == "")
+                badge := GetLang("推荐 · 单次赞助")
+            badgeXaml := '<Border HorizontalAlignment="Left" Padding="8,4" Background="{DynamicResource EditHoverBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1" CornerRadius="4"><TextBlock Text="' this._XmlEsc(badge) '" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource Accent}"/></Border>'
         }
-        imagePath := StrReplace(tempPath, "\", "/")
-        return imagePath
+        btnXaml := url == "" ? "" : '<Border Margin="0,10,0,0">' this._HelpLinkButton(url, btnText, accentBtn) '</Border>'
+        descMargin := url == "" ? "0,10,0,12" : "0,10,0,0"
+        return '<Border Grid.Row="' row '" Grid.Column="' col '" Grid.ColumnSpan="' span '" Margin="' margin '" MinHeight="166" Padding="16" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1" CornerRadius="7"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="138"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Border Width="132" Height="132" Padding="5" Background="{DynamicResource ControlBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1" CornerRadius="7"><Image Source="' image '" Stretch="Uniform"/></Border><StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="' this._XmlEsc(title) '" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource TextMain}"/><TextBlock Text="' this._XmlEsc(description) '" TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource TextSub}" Margin="' descMargin '"/>' badgeXaml btnXaml '</StackPanel></Grid></Border>'
     }
 
-    _SupportFact(col, title, description, margin) {
-        return '<Border Grid.Column="' col '" Margin="' margin '" Padding="9,7" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1" CornerRadius="5"><StackPanel><TextBlock Text="' this._XmlEsc(title) '" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource TextMain}"/><TextBlock Text="' this._XmlEsc(description) '" TextWrapping="Wrap" FontSize="10" Foreground="{DynamicResource TextSub}" Margin="0,3,0,0"/></StackPanel></Border>'
+    _SupportAiFaDianSideCard(image) {
+        return '<Border MinHeight="166" Padding="16" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1" CornerRadius="7"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="138"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Border Width="132" Height="132" Padding="5" Background="{DynamicResource ControlBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1" CornerRadius="7"><Image Source="' image '" Stretch="Uniform"/></Border><StackPanel Grid.Column="1" VerticalAlignment="Center">' this._SupportFactBox(GetLang("按月支持"), GetLang("长期守护与支持"), "0,0,0,8") this._SupportFactBox(GetLang("手续费"), GetLang("每笔6%手续费"), "0") '</StackPanel></Grid></Border>'
+    }
+
+    _SupportFactBox(title, description, margin) {
+        return '<Border Margin="' margin '" Padding="9,7" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1" CornerRadius="5"><StackPanel><TextBlock Text="' this._XmlEsc(title) '" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource TextMain}"/><TextBlock Text="' this._XmlEsc(description) '" TextWrapping="Wrap" FontSize="10" Foreground="{DynamicResource TextSub}" Margin="0,3,0,0"/></StackPanel></Border>'
+    }
+
+    _GetBuiltInSupportQr(kind) {
+        static paths := Map()
+        if (paths.Has(kind))
+            return paths[kind]
+        switch kind {
+            case "stripe10":
+                tempPath := A_Temp "\RMT_Stripe10.png"
+                try FileInstall("Images\Soft\Stripe10.png", tempPath, 1)
+                src := A_WorkingDir "\Images\Soft\Stripe10.png"
+            case "stripe30":
+                tempPath := A_Temp "\RMT_Stripe30.png"
+                try FileInstall("Images\Soft\Stripe30.png", tempPath, 1)
+                src := A_WorkingDir "\Images\Soft\Stripe30.png"
+            default:
+                tempPath := A_Temp "\RMT_AiFaDian.png"
+                try FileInstall("Images\Soft\AiFaDian.png", tempPath, 1)
+                src := A_WorkingDir "\Images\Soft\AiFaDian.png"
+        }
+        if (FileExist(tempPath)) {
+            paths[kind] := StrReplace(tempPath, "\", "/")
+            return paths[kind]
+        }
+        ; 脚本模式 / 临时文件占用时回退到工作目录源图，避免赞助页拖垮 PopulateAll
+        if (FileExist(src))
+            return StrReplace(src, "\", "/")
+        return ""
+    }
+
+    _GetQrDecodeExe() {
+        static exePath := ""
+        if (exePath != "" && FileExist(exePath))
+            return exePath
+        dir := A_Temp "\RMT_SupportQr"
+        DirCreate(dir)
+        destExe := dir "\QrDecode.exe"
+        destDll := dir "\zxing.dll"
+        try FileInstall("Plugins\SupportQr\QrDecode.exe", destExe, 1)
+        try FileInstall("Plugins\SupportQr\zxing.dll", destDll, 1)
+        if (!FileExist(destExe)) {
+            srcExe := A_WorkingDir "\Plugins\SupportQr\QrDecode.exe"
+            srcDll := A_WorkingDir "\Plugins\SupportQr\zxing.dll"
+            if (FileExist(srcExe)) {
+                FileCopy(srcExe, destExe, 1)
+                if (FileExist(srcDll))
+                    FileCopy(srcDll, destDll, 1)
+            }
+        }
+        if (FileExist(destExe))
+            exePath := destExe
+        return exePath
+    }
+
+    _ReadQrUrl(imagePath) {
+        static cache := Map()
+        if (imagePath == "")
+            return ""
+        if (cache.Has(imagePath))
+            return cache[imagePath]
+        exe := this._GetQrDecodeExe()
+        if (exe == "")
+            return ""
+        winPath := StrReplace(imagePath, "/", "\")
+        if (!FileExist(winPath))
+            return ""
+        dir := A_Temp "\RMT_SupportQr"
+        outFile := dir "\out.txt"
+        try FileDelete(outFile)
+        cmd := Format('"{1}" /c ""{2}" "{3}" > "{4}""', A_ComSpec, exe, winPath, outFile)
+        try RunWait(cmd, dir, "Hide")
+        if (!FileExist(outFile))
+            return ""
+        url := Trim(FileRead(outFile, "UTF-8"), " `t`r`n")
+        if (!RegExMatch(url, "i)^https?://"))
+            return ""
+        cache[imagePath] := url
+        return url
     }
 
     _SupportAfterCard(row, col, span, glyph, title, description, footer, margin, note := "") {

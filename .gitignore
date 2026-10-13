@@ -22,3 +22,5 @@ _bmad
 _bmad-output
 .self/
 .dsh/
+Plugins/SupportQr/bin/
+Plugins/SupportQr/obj/
