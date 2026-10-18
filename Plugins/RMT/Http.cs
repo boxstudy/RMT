@@ -33,7 +33,7 @@ namespace RMT
         /// 异步拉取服务器状态（不阻塞调用线程）。
         /// AHK：BeginGetStatus → 定时器轮询 GetStatusState，为 2 时 TakeStatusResult。
         /// </summary>
-        public void BeginGetStatus(string version = "")
+        public void BeginGetStatus(string version = "", string language = "")
         {
             int seq;
             lock (_statusLock)
@@ -47,12 +47,13 @@ namespace RMT
             }
 
             string ver = version ?? "";
+            string lang = language ?? "";
             Task.Run(async () =>
             {
                 string result = "";
                 try
                 {
-                    result = await GetStatusCoreAsync(ver).ConfigureAwait(false);
+                    result = await GetStatusCoreAsync(ver, lang).ConfigureAwait(false);
                 }
                 catch
                 {
@@ -93,11 +94,11 @@ namespace RMT
         /// <summary>
         /// 同步获取状态（兼容旧调用；会阻塞，优先用 BeginGetStatus）。
         /// </summary>
-        public string GetStatus(string version = "")
+        public string GetStatus(string version = "", string language = "")
         {
             try
             {
-                return GetStatusCoreAsync(version ?? "").ConfigureAwait(false).GetAwaiter().GetResult() ?? "";
+                return GetStatusCoreAsync(version ?? "", language ?? "").ConfigureAwait(false).GetAwaiter().GetResult() ?? "";
             }
             catch
             {
@@ -105,7 +106,7 @@ namespace RMT
             }
         }
 
-        private static async Task<string> GetStatusCoreAsync(string version)
+        private static async Task<string> GetStatusCoreAsync(string version, string language)
         {
             string deviceId = Device.GetDeviceId();
             if (deviceId == "")
@@ -114,8 +115,9 @@ namespace RMT
             if (!NetworkInterface.GetIsNetworkAvailable())
                 return "";
 
-            string url = "http://39.108.96.160:3000/getstatus?id=" + Uri.EscapeDataString(deviceId)
-                + "&version=" + Uri.EscapeDataString(version ?? "");
+            string url = "https://rmt.ruomengtu.com/getstatus?id=" + Uri.EscapeDataString(deviceId)
+                + "&version=" + Uri.EscapeDataString(version ?? "")
+                + "&language=" + Uri.EscapeDataString(language ?? "");
 
             HttpResponseMessage response = await SharedClient.GetAsync(url).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
@@ -127,7 +129,7 @@ namespace RMT
         /// </summary>
         public string UploadFile(string filePath)
         {
-            string uploadUrl = "http://39.108.96.160:3000/upload";
+            string uploadUrl = "https://rmt.ruomengtu.com/upload";
             string formDataName = "file";
             string deviceId = Device.GetDeviceId();
 

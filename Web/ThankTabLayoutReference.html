@@ -25,9 +25,13 @@
     .developer-card { min-height:205px; }
     .community-card { min-height:198px; }
     .cocreate-card { min-height:198px; }
-    .card-head { display:flex; align-items:center; justify-content:space-between; min-height:50px; padding:0 16px; border-bottom:1px solid #f5e4bd; background:#fff3d8; }
-    .card-head h2 { display:flex; gap:8px; align-items:center; margin:0; font-size:16px; } .card-head small { color:var(--muted); font-size:11px; }
+    .card-head { display:flex; align-items:center; justify-content:space-between; min-height:36px; padding:0 14px; border-bottom:1px solid #f5e4bd; background:#fff3d8; }
+    .card-head h2 { display:flex; gap:8px; align-items:center; margin:0; font-size:13px; } .card-head small { color:var(--muted); font-size:11px; }
     .card-body { padding:14px 16px 16px; }
+    .sponsor-logos { display:flex; flex-wrap:wrap; justify-content:center; gap:16px 24px; }
+    .sponsor-logo-btn { position:relative; display:grid; place-items:center; width:100px; height:100px; border:0; background:transparent; color:#9b541a; font-size:22px; font-weight:800; text-decoration:none; }
+    .sponsor-logo-btn .sponsor-name { position:absolute; left:50%; bottom:calc(100% + 8px); transform:translateX(-50%); padding:3px 8px; border:1px solid #f0d29a; border-radius:4px; background:#fffdf8; color:var(--ink); font-size:11px; font-weight:400; white-space:nowrap; opacity:0; pointer-events:none; }
+    .sponsor-logo-btn:hover .sponsor-name { opacity:1; }
     .people { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
     .person { display:flex; gap:9px; align-items:center; min-height:54px; padding:9px; border:1px solid #f0d29a; border-radius:8px; background:#fffdf8; }
     .person .open { margin-left:auto; }
@@ -54,6 +58,15 @@
       <section class="wall">
         <div><h1><span class="fluent" style="color:var(--accent)">&#xE8A5;</span>若梦星河</h1><p>这里会逐步收录支持者留言、开发者贡献与开源项目，也会记录让 RMT 持续成长的每一份善意与协作。<strong>提示：收录数据会在版本更新时统一更新。</strong></p></div>
         <a class="button" href="https://docs.ruomengtu.com/supporters/"><span class="fluent">&#xE8A5;</span>打开若梦星河 <span class="fluent">&#xE8A7;</span></a>
+      </section>
+
+      <section class="card" style="margin-bottom:18px">
+        <header class="card-head"><h2><span class="fluent" style="color:var(--accent)">&#xE731;</span>企业赞助</h2><small>感谢支持</small></header>
+        <div class="card-body sponsor-logos">
+          <a class="sponsor-logo-btn" href="https://example.com/sponsor-a">A<span class="sponsor-name">测试企业A</span></a>
+          <a class="sponsor-logo-btn" href="https://example.com/sponsor-b">B<span class="sponsor-name">测试企业B</span></a>
+          <a class="sponsor-logo-btn" href="https://example.com/sponsor-c">C<span class="sponsor-name">测试企业C</span></a>
+        </div>
       </section>
 
       <div class="layout">

@@ -105,6 +105,18 @@ LangRemoveRepeat() {
     MsgBox("中文Key去重成功")
 }
 
+; getstatus 的 language：中文 zh，英文 en，其它语言包用文件名（小写、去空格）
+GetClientLanguageCode() {
+    lang := ""
+    try lang := MainSoftData.Lang
+    if (lang == "" || lang == "无语言" || lang == "中文")
+        return "zh"
+    if (lang == "English")
+        return "en"
+    code := StrLower(StrReplace(lang, " ", ""))
+    return code == "" ? "zh" : code
+}
+
 GetLang(Key) {
     ;中文或者LangKeyMap不存在时 直接返回key就行
     if (MainSoftData.Lang == "中文" || LangKeyMap.Count == 0)

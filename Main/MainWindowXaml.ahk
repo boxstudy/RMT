@@ -174,6 +174,12 @@ class MainWin {
         this._shareVerifyTick := "" ; 非空 = 正在用 key 校验 /session/current.json
         this._linkCounter := 0
         this._linkQueue := []
+        this._thankReady := false
+        this._thankSponsorShown := false
+        this._sponsorLogos := []
+        this._sponsorLayoutKey := ""
+        this._sponsorLaying := false
+        this._sponsorLayoutWait := ""
         ; 每页已渲染的宏条目索引（供 RefreshItemColorUI 判断是否需更新色点）
         this.RenderedItems := Map()
         ; Epic5 虚拟列表：宏/模块显示区全走 _vl 渲染（模板已支持全部表类型：
@@ -5412,9 +5418,25 @@ class MainWin {
             this._setHelpMap[name] := {title: title != "" ? title : GetLang("说明"), text: tip, fn: helpFnByLabel.Has(title) ? helpFnByLabel[title] : ""}
             return '<Button Name="' name '" Content="?" Width="24" Height="24" MinHeight="24" Padding="4,2" Margin="6,0,0,0" FontSize="11" FontWeight="Bold" VerticalAlignment="Center" Cursor="Hand"/>'
         }
+        afterHint(ctrl, hint) {
+            if (InStr(ctrl, "<Slider"))
+                return '<Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>'
+                    . ctrl
+                    . '<TextBlock Grid.Column="1" Text="' this._XmlEsc(hint) '" MaxWidth="200" Margin="10,0,0,0" FontSize="12" Foreground="{DynamicResource TextSub}" TextWrapping="Wrap" VerticalAlignment="Center"/></Grid>'
+            return '<Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>'
+                . ctrl
+                . '<TextBlock Grid.Column="1" Text="' this._XmlEsc(hint) '" Margin="10,0,0,0" FontSize="12" Foreground="{DynamicResource TextSub}" TextWrapping="Wrap" VerticalAlignment="Center"/></Grid>'
+        }
         row(label, ctrl, tip := "", w := "104", lblName := "") {
-            return '<Border Height="48" MinHeight="48" Padding="0,5" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="0,0,0,0.5"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="' w '"/><ColumnDefinition Width="30"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>'
-                . '<DockPanel VerticalAlignment="Center" LastChildFill="True">' (tip == "" ? "" : StrReplace(dot(tip, label), "<Button ", '<Button DockPanel.Dock="Right" ')) '<TextBlock' (lblName == "" ? "" : ' Name="' lblName '"') ' Text="' this._XmlEsc(label) '" TextWrapping="Wrap" FontWeight="SemiBold" Foreground="{DynamicResource TextMain}" FontSize="13"/></DockPanel>'
+            helpBtn := ""
+            if (tip != "") {
+                if (helpFnByLabel.Has(label) || InStr(tip, "`n"))
+                    helpBtn := StrReplace(dot(tip, label), "<Button ", '<Button DockPanel.Dock="Right" ')
+                else
+                    ctrl := afterHint(ctrl, tip)
+            }
+            return '<Border MinHeight="48" Padding="0,5" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="0,0,0,0.5"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="' w '"/><ColumnDefinition Width="30"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>'
+                . '<DockPanel VerticalAlignment="Center" LastChildFill="True">' helpBtn '<TextBlock' (lblName == "" ? "" : ' Name="' lblName '"') ' Text="' this._XmlEsc(label) '" TextWrapping="Wrap" FontWeight="SemiBold" Foreground="{DynamicResource TextMain}" FontSize="13"/></DockPanel>'
                 . '<Grid Grid.Column="2" VerticalAlignment="Center">' ctrl '</Grid></Grid></Border>'
         }
         tog(label, name, val, desc := "", tip := "", w := "104", lblName := "") {
@@ -5491,9 +5513,10 @@ class MainWin {
         ltRtDesc := Format(GetLang("开启后 {} 当普通按键；关闭则当扳机轴，可设 0~100。"), ltRtIsPs5 ? "L2/R2" : "LT/RT")
         behaviorPage := page("behavior"
             , twoCol(
-                card(GetLang("软件"), "&#xE74C;", tog(GetLang("开机自启"), "ChkBootStart", MainSoftData.IsBootStart, GetLang("Windows 登录后自动启动 RMT"))
+                card(GetLang("软件"), "&#xE74C;", tog(GetLang("开机自启"), "ChkBootStart", MainSoftData.IsBootStart)
                     . tog(GetLang("管理员启动"), "ChkAdminStart", MainSoftData.IsAdminStart, GetLang("后台功能与部分按键类型需要管理员权限"))
                     . row(GetLang("权限说明"), '<TextBlock Text="' GetLang("不要通过程序兼容性强制管理员运行；请使用本选项，才能与开机自启一起生效。") '" TextWrapping="Wrap" Foreground="{DynamicResource TextSub}" FontSize="13"/>')
+                    . tog(GetLang("在线功能"), "ChkDataReport", MainSoftData.IsDataReport, GetLang("获取版本更新、AI 智能助手"))
                     . cmb(GetLang("语言"), "CmbLang", MainSoftData.LangArr, MainSoftData.Lang)
                     . cmb(GetLang("首选编辑器"), "CmbPreferredEditor", GetLangArr(["逻辑树", "图形节点"]), MainSoftData.PreferredMacroEditor)
                     . tog(GetLang("模态子窗口"), "ChkModalSubGui", MainSoftData.IsModalSubGui, GetLang("打开指令编辑等子窗口时禁用主窗口")), "0", "", "soft")
@@ -5690,6 +5713,7 @@ class MainWin {
         this._Bind("ChkNoVariable", "Click", ObjBindMethod(this, "OnCheckEdit", "NoVariableTip"))
         this._Bind("ChkBusinessLog", "Click", ObjBindMethod(this, "OnBusinessLogToggle"))
         this._Bind("ChkModalSubGui", "Click", ObjBindMethod(this, "OnCheckEdit", "IsModalSubGui"))
+        this._Bind("ChkDataReport", "Click", ObjBindMethod(this, "OnCheckEdit", "IsDataReport"))
         this._Bind("CmbLang", "SelectionChanged", ObjBindMethod(this, "OnComboText", "Lang"))
         this._Bind("CmbPreferredEditor", "SelectionChanged", ObjBindMethod(this, "OnComboIndex", "PreferredMacroEditor"))
         this._Bind("CmbScreenShot", "SelectionChanged", ObjBindMethod(this, "OnComboIndex", "ScreenShotType"))
@@ -5823,7 +5847,7 @@ class MainWin {
             pageId := ctrl == "ThemePresetCon" ? "appearance" : "ai"
         else if (RegExMatch(ctrl, "i)^(CmbFont|ThemeFont|Palette)") )
             pageId := "appearance"
-        else if (RegExMatch(ctrl, "i)^(ChkBoot|ChkAdmin|ChkModal|CmbLang|CmbPreferred|CmbScreen|CmbSearchImage|CmbRemark|CmbTriggerJoy|CmbJoy|ChkJoy|EditMuti|TabVisible)") )
+        else if (RegExMatch(ctrl, "i)^(ChkBoot|ChkAdmin|ChkData|ChkModal|CmbLang|CmbPreferred|CmbScreen|CmbSearchImage|CmbRemark|CmbTriggerJoy|CmbJoy|ChkJoy|EditMuti|TabVisible)") )
             pageId := "behavior"
         else if (ctrl == "EditNetPort")
             pageId := "behavior"
@@ -5847,7 +5871,7 @@ class MainWin {
         for sym in ["Normal", "String", "Menu", "UI", "Voice", "Timing", "SubMacro", "Replace", "Network"]
             tabFields.Push({key: sym, def: true, ctrl: "TabVisible_" sym, kind: "tab"})
         this._setMods := [
-            {id: "soft", fields: [{key: "IsBootStart", def: false, ctrl: "ChkBootStart", kind: "chk", hook: "boot"}, {key: "IsAdminStart", def: false, ctrl: "ChkAdminStart", kind: "chk", hook: "admin"}, {key: "Lang", def: "中文", ctrl: "CmbLang", kind: "cmbText"}, {key: "PreferredMacroEditor", def: 1, ctrl: "CmbPreferredEditor", kind: "cmb"}, {key: "IsModalSubGui", def: true, ctrl: "ChkModalSubGui", kind: "chk"}]},
+            {id: "soft", fields: [{key: "IsBootStart", def: false, ctrl: "ChkBootStart", kind: "chk", hook: "boot"}, {key: "IsAdminStart", def: false, ctrl: "ChkAdminStart", kind: "chk", hook: "admin"}, {key: "IsDataReport", def: true, ctrl: "ChkDataReport", kind: "chk"}, {key: "Lang", def: "中文", ctrl: "CmbLang", kind: "cmbText"}, {key: "PreferredMacroEditor", def: 1, ctrl: "CmbPreferredEditor", kind: "cmb"}, {key: "IsModalSubGui", def: true, ctrl: "ChkModalSubGui", kind: "chk"}]},
             {id: "general", fields: [{key: "ScreenShotType", def: 3, ctrl: "CmbScreenShot", kind: "cmb"}, {key: "SearchImageType", def: 1, ctrl: "CmbSearchImage", kind: "cmb"}, {key: "MutiThreadNum", def: -1, ctrl: "EditMutiThreadNum", kind: "num"}, {key: "NetworkPort", def: 16888, ctrl: "EditNetPort", kind: "num"}, {key: "RemarkAutoType", def: 2, ctrl: "CmbRemarkAuto", kind: "cmb"}]},
             {id: "trig", fields: [{key: "CheckForeground", def: false, ctrl: "ChkForeground", kind: "chk"}, {key: "AutoLoosenModifier", def: true, ctrl: "ChkAutoLoosen", kind: "chk"}, {key: "ContinuousTrigger", def: true, ctrl: "ChkContinuous", kind: "chk"}, {key: "MacroStopType", def: 1, ctrl: "CmbMacroStop", kind: "cmb"}, {key: "KeyDownDownType", def: 1, ctrl: "CmbKeyDownDown", kind: "cmb"}, {key: "NoVariableTip", def: false, ctrl: "ChkNoVariable", kind: "chk"}]},
             {id: "tabs", fields: tabFields},
@@ -6681,11 +6705,11 @@ class MainWin {
     }
 
     _HelpCard(title, glyph, body, hint := "", margin := "0", warning := false, headH := 42) {
-        ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"'
+        ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
         accent := warning ? '{DynamicResource Accent}' : '{DynamicResource OutlineStroke}'
         titleSize := headH <= 30 ? "12" : "13"
         glyphSize := headH <= 30 ? "13" : "14"
-        hintXaml := hint == "" ? "" : '<TextBlock Grid.Column="1" Text="' this._XmlEsc(hint) '" Foreground="{DynamicResource TextSub}" FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Right"/>'
+        hintXaml := hint == "" ? "" : '<TextBlock Grid.Column="1" Text="' this._XmlEsc(hint) '" Foreground="{DynamicResource TextSub}" FontSize="11" FontWeight="Normal" VerticalAlignment="Center" HorizontalAlignment="Right"/>'
         return '<Border ' ns ' Margin="' margin '" Background="{DynamicResource ControlBg}" BorderBrush="' accent '" BorderThickness="1.25" CornerRadius="8" Padding="0">'
             . '<Grid><Grid.RowDefinitions><RowDefinition Height="' headH '"/><RowDefinition Height="*"/></Grid.RowDefinitions>'
             . '<Border Grid.Row="0" Background="{DynamicResource EditHoverBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="0,0,0,1" CornerRadius="7,7,0,0" Padding="13,0"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel Orientation="Horizontal" VerticalAlignment="Center"><TextBlock Text="' glyph '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="' glyphSize '" Foreground="{DynamicResource Accent}" Margin="0,0,8,0" VerticalAlignment="Center"/><TextBlock Text="' this._XmlEsc(title) '" FontWeight="Bold" FontSize="' titleSize '" VerticalAlignment="Center" Foreground="{DynamicResource TextMain}"/></StackPanel>' hintXaml '</Grid></Border>'
@@ -6762,12 +6786,12 @@ class MainWin {
         zhiFuBaoImg := StrReplace(A_WorkingDir "\Images\Soft\ZhiFuBao.png", "\", "/")
         ; 赞助二维码通过 FileInstall 编译进主程序，运行时不读取 Images\Soft 下的同名文件。
         aiFaDianImg := this._GetBuiltInSupportQr("aifadian")
-        stripe10Img := this._GetBuiltInSupportQr("stripe10")
-        stripe30Img := this._GetBuiltInSupportQr("stripe30")
-        stripe10Url := this._ReadQrUrl(stripe10Img)
-        stripe30Url := this._ReadQrUrl(stripe30Img)
+        stripe2Img := this._GetBuiltInSupportQr("stripe2")
+        stripe5Img := this._GetBuiltInSupportQr("stripe5")
+        stripe2Url := this._ReadQrUrl(stripe2Img)
+        stripe5Url := this._ReadQrUrl(stripe5Img)
         ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
-        hero := '<Border ' ns ' Margin="0,2,0,14" Padding="18,15" Background="{DynamicResource EditHoverBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1.25" CornerRadius="8"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="' this._XmlEsc(GetLang("感谢每一位支持 RMT 的守护者")) '" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextMain}"/><TextBlock Text="' this._XmlEsc(GetLang("RMT 始终免费、开源。若它为你节省了时间，欢迎用一杯咖啡的心意支持开发与维护。")) '" TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource TextSub}" Margin="0,7,14,0"/><TextBlock Text="' this._XmlEsc(GetLang("若暂时不方便，分享给朋友同样是珍贵的支持。开发不易，感谢你的每一份温暖！")) '" TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource TextSub}" Margin="0,5,14,0"/><Border HorizontalAlignment="Left" Margin="0,8,0,0" Padding="8,3" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1" CornerRadius="5"><TextBlock Text="' this._XmlEsc(GetLang("完全自愿 · 量力而行")) '" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource TextMain}"/></Border></StackPanel><StackPanel Grid.Column="1" VerticalAlignment="Center"><Border Padding="12,8" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1" CornerRadius="7"><StackPanel Orientation="Horizontal" VerticalAlignment="Center"><Border Width="28" Height="28" CornerRadius="14" Background="{DynamicResource EditHoverBg}" Margin="0,0,8,0"><TextBlock Text="&#xE823;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Foreground="{DynamicResource Accent}" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><StackPanel><TextBlock Text="' this._XmlEsc(GetLang("RMT 已累计执行")) '" FontSize="10" Foreground="{DynamicResource TextMain}"/><StackPanel Orientation="Horizontal"><TextBlock Text="' countStr '" TextWrapping="NoWrap" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource Accent}" VerticalAlignment="Center"/><TextBlock Text="' this._XmlEsc(GetLang("次宏指令")) '" FontSize="10" Foreground="{DynamicResource TextMain}" VerticalAlignment="Center" Margin="5,3,0,0"/></StackPanel></StackPanel></StackPanel></Border></StackPanel></Grid></Border>'
+        hero := '<Border ' ns ' Margin="0,2,0,14" Padding="18,15" Background="{DynamicResource EditHoverBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1.25" CornerRadius="8"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="' this._XmlEsc(GetLang("感谢每一位支持 RMT 的守护者")) '" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextMain}"/><TextBlock Text="' this._XmlEsc(GetLang("RMT 始终免费、开源。若它为你节省了时间，欢迎用一杯咖啡的心意支持开发与维护。")) '" TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource TextSub}" Margin="0,7,14,0"/><TextBlock Text="' this._XmlEsc(GetLang("若暂时不方便，分享给朋友同样是珍贵的支持。开发不易，感谢你的每一份温暖！")) '" TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource TextSub}" Margin="0,5,14,0"/><Border HorizontalAlignment="Left" Margin="0,8,0,0" Padding="8,3" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1" CornerRadius="5"><TextBlock Text="' this._XmlEsc(GetLang("功能无限制，赞助自愿")) '" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource TextMain}"/></Border></StackPanel><StackPanel Grid.Column="1" VerticalAlignment="Center"><Border Padding="12,8" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1" CornerRadius="7"><StackPanel Orientation="Horizontal" VerticalAlignment="Center"><Border Width="28" Height="28" CornerRadius="14" Background="{DynamicResource EditHoverBg}" Margin="0,0,8,0"><TextBlock Text="&#xE823;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Foreground="{DynamicResource Accent}" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><StackPanel><TextBlock Text="' this._XmlEsc(GetLang("已累计执行")) '" FontSize="10" Foreground="{DynamicResource TextMain}"/><TextBlock Text="' countStr '" TextWrapping="NoWrap" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource Accent}" Margin="0,2,0,0"/></StackPanel></StackPanel></Border></StackPanel></Grid></Border>'
         Add(hero)
 
         singleSupport := '<Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>'
@@ -6780,20 +6804,33 @@ class MainWin {
             . this._SupportAfterCard(1, 0, 1, "&#xE8A5;", GetLang("若梦星河"), GetLang("赞助后的留言会展示在若梦星河，感谢每一位让 RMT 走得更远的朋友。"), this._HelpLinkButton("https://docs.ruomengtu.com/supporters/", GetLang("打开若梦星河")), "0", GetLang("提示：名单会在版本更新时统一更新。"))
             . '</StackPanel>'
         stripeSupport := '<Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>'
-            . this._SupportQrCard(0, 0, 1, stripe10Img, GetLang("10 美元 / 月"), GetLang("扫码或打开链接，用一份持续的心意陪伴 RMT。"), "0,0,5,0", "", stripe10Url, GetLang("打开订阅页"), true)
-            . this._SupportQrCard(0, 1, 1, stripe30Img, GetLang("30 美元 / 月"), GetLang("扫码或打开链接，以更深的心意，陪伴 RMT 走过更多精彩旅程。"), "5,0,0,0", "", stripe30Url, GetLang("打开订阅页"), true)
+            . this._SupportQrCard(0, 0, 1, stripe2Img, GetLang("2 美元 / 月"), GetLang("扫码或打开链接，用一份持续的心意陪伴 RMT。"), "0,0,5,0", "", stripe2Url, GetLang("打开订阅页"), true)
+            . this._SupportQrCard(0, 1, 1, stripe5Img, GetLang("5 美元 / 月"), GetLang("扫码或打开链接，以更深的心意，陪伴 RMT 走过更多精彩旅程。"), "5,0,0,0", "", stripe5Url, GetLang("打开订阅页"), true)
             . '</Grid>'
         aiFaDian := this._SupportAiFaDianSideCard(aiFaDianImg)
+        enterprise := this._SupportEnterpriseCard()
         supportLayout := '<Grid ' ns ' Margin="0,0,0,14"><Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>'
             . '<StackPanel Grid.Column="0" Margin="0,0,7,0">'
-            . this._HelpCard(GetLang("推荐的单次赞助"), "&#xE8C7;", singleSupport, GetLang("微信与支付宝"), "0,0,0,14", false, 30)
+            . this._HelpCard(GetLang("个人赞助"), "&#xE8C7;", singleSupport, GetLang("微信与支付宝"), "0,0,0,14", false, 30)
             . this._HelpCard(GetLang("Stripe订阅"), "&#xE8C8;", stripeSupport, GetLang("国际卡按月"), "0,0,0,14", false, 30)
             . this._HelpCard(GetLang("爱发电 · 月度守护"), "&#xE8C8;", aiFaDian, GetLang("国内按月"), "0", false, 30)
             . '</StackPanel><StackPanel Grid.Column="1" Margin="7,0,0,0">'
+            . this._HelpCard(GetLang("企业赞助"), "&#xE731;", enterprise, "", "0,0,0,14", false, 30)
             . this._HelpCard(GetLang("感谢与留念"), "&#xE9CE;", benefits, GetLang("让每份心意被看见"), "0", false, 30)
             . '</StackPanel></Grid>'
         Add(supportLayout)
+        this._Bind("RewardSponsorMailCopy", "Click", ObjBindMethod(this, "OnCopySponsorMail"))
         this._FlushLinks()
+    }
+
+    _SupportEnterpriseCard() {
+        mail := "ruomengtu@gmail.com"
+        return '<StackPanel><TextBlock Text="' this._XmlEsc(GetLang("欢迎企业、工作室及团队支持 RMT 开源项目的长期发展。")) '" TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource TextSub}"/><TextBlock Text="' this._XmlEsc(GetLang("非诚勿扰")) '" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource Accent}" Margin="0,6,0,0"/><WrapPanel Margin="0,10,0,0"><TextBlock Text="' this._XmlEsc(GetLang("联系邮箱：")) '" FontSize="11" Foreground="{DynamicResource TextMain}" VerticalAlignment="Center"/><TextBlock Text="' this._XmlEsc(mail) '" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextMain}" VerticalAlignment="Center" Margin="0,0,8,0"/><Button Name="RewardSponsorMailCopy" Cursor="Hand" Width="25" Height="25" Padding="0" VerticalAlignment="Center" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1" ToolTip="' this._XmlEsc(GetLang("复制")) '"><TextBlock Text="&#xE8C8;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" Foreground="{DynamicResource Accent}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Button></WrapPanel></StackPanel>'
+    }
+
+    OnCopySponsorMail(*) {
+        A_Clipboard := "ruomengtu@gmail.com"
+        try Toast.Success(GetLang("已复制"))
     }
 
     _SupportQrCard(row, col, span, image, title, description, margin, badge := "", url := "", btnText := "", accentBtn := false) {
@@ -6821,14 +6858,14 @@ class MainWin {
         if (paths.Has(kind))
             return paths[kind]
         switch kind {
-            case "stripe10":
-                tempPath := A_Temp "\RMT_Stripe10.png"
-                try FileInstall("Images\Soft\Stripe10.png", tempPath, 1)
-                src := A_WorkingDir "\Images\Soft\Stripe10.png"
-            case "stripe30":
-                tempPath := A_Temp "\RMT_Stripe30.png"
-                try FileInstall("Images\Soft\Stripe30.png", tempPath, 1)
-                src := A_WorkingDir "\Images\Soft\Stripe30.png"
+            case "stripe2":
+                tempPath := A_Temp "\RMT_Stripe2.png"
+                try FileInstall("Images\Soft\Stripe2.png", tempPath, 1)
+                src := A_WorkingDir "\Images\Soft\Stripe2.png"
+            case "stripe5":
+                tempPath := A_Temp "\RMT_Stripe5.png"
+                try FileInstall("Images\Soft\Stripe5.png", tempPath, 1)
+                src := A_WorkingDir "\Images\Soft\Stripe5.png"
             default:
                 tempPath := A_Temp "\RMT_AiFaDian.png"
                 try FileInstall("Images\Soft\AiFaDian.png", tempPath, 1)
@@ -6907,6 +6944,7 @@ class MainWin {
         ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
         wall := '<Border ' ns ' Margin="0,2,0,14" Padding="16,14" Background="{DynamicResource ControlBg}" BorderBrush="{DynamicResource Accent}" BorderThickness="1.25" CornerRadius="8"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE734;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Foreground="{DynamicResource Accent}" FontSize="15" Margin="0,0,8,0"/><TextBlock Text="' this._XmlEsc(GetLang("若梦星河")) '" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource TextMain}"/></StackPanel><TextBlock Text="' this._XmlEsc(GetLang("这里会逐步收录支持者留言、开发者贡献与开源项目，也会记录让 RMT 持续成长的每一份善意与协作。")) '" TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource TextSub}" Margin="0,7,16,0"/><TextBlock Text="' this._XmlEsc(GetLang("提示：收录数据会在版本更新时统一更新。")) '" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource Accent}" Margin="0,5,0,0"/></StackPanel><Border Grid.Column="1" VerticalAlignment="Center" Margin="10,0,0,0">' this._ThankLinkButton("https://docs.ruomengtu.com/supporters/", GetLang("打开若梦星河"), "&#xE734;") '</Border></Grid></Border>'
         Add(wall)
+        Add('<ContentControl ' ns ' Name="ThankSponsorHost" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Visibility="Collapsed"/>')
 
         dev := '<Grid><Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="*"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>'
             . this._ThankContributor(0, 0, "yun", "yun", this._GetBuiltInThankAvatar("yun"), "https://github.com/yunkuangao", "0,0,5,5")
@@ -6935,16 +6973,128 @@ class MainWin {
             . '</WrapPanel></StackPanel>'
 
         layout := '<Grid ' ns ' Margin="0,0,0,14"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="1.55*"/><ColumnDefinition Width="0.85*"/></Grid.ColumnDefinitions><Border Grid.Row="0" Grid.Column="0" Margin="0,0,7,7">'
-            . this._HelpCard(GetLang("开发贡献者"), "&#xE77B;", dev, GetLang("感谢同行"), "0")
+            . this._HelpCard(GetLang("开发贡献者"), "&#xE77B;", dev, GetLang("感谢同行"), "0", false, 30)
             . '</Border><Border Grid.Row="1" Grid.Column="0" Margin="0,7,7,0">'
-            . this._HelpCard(GetLang("开源项目支持"), "&#xE8B7;", oss, GetLang("致谢以下开源项目"), "0")
+            . this._HelpCard(GetLang("开源项目支持"), "&#xE8B7;", oss, GetLang("致谢以下开源项目"), "0", false, 30)
             . '</Border><Border Grid.Row="0" Grid.Column="1" Margin="7,0,0,7">'
-            . this._HelpCard(GetLang("守护与共创"), "&#xE8D4;", cocreate, "", "0")
+            . this._HelpCard(GetLang("守护与共创"), "&#xE8D4;", cocreate, "", "0", false, 30)
             . '</Border><Border Grid.Row="1" Grid.Column="1" Margin="7,7,0,0" VerticalAlignment="Top">'
-            . this._HelpCard(GetLang("社区活跃伙伴"), "&#xE902;", community, GetLang("QQ 昵称"), "0")
+            . this._HelpCard(GetLang("社区活跃伙伴"), "&#xE902;", community, GetLang("QQ 昵称"), "0", false, 30)
             . '</Border></Grid>'
         Add(layout)
+        this._thankReady := true
         this._FlushLinks()
+        this.ApplyThankSponsors()
+    }
+
+    ; 有赞助时显示在开发贡献者上方。回包晚于页面构建时，由 ApplyRMTServerRsp 再调用。
+    ApplyThankSponsors() {
+        global RMT_Sponsors
+        if (!this._thankReady || this._thankSponsorShown)
+            return
+        if (!IsSet(RMT_Sponsors) || !(RMT_Sponsors is Array) || RMT_Sponsors.Length < 1)
+            return
+        queued := this._linkQueue.Length
+        shown := []
+        for sp in RMT_Sponsors {
+            localPath := EnsureSponsorLogo(sp.Has("logo") ? sp["logo"] : "")
+            if (localPath == "")
+                continue
+            shown.Push(Map(
+                "name", sp.Has("name") ? sp["name"] : "",
+                "logo", StrReplace(localPath, "\", "/"),
+                "url", sp.Has("url") ? sp["url"] : ""
+            ))
+        }
+        if (shown.Length < 1)
+            return
+        this._sponsorLogos := shown
+        this._sponsorLayoutKey := ""
+        ; 「感谢支持」与「QQ 昵称」同走提示文字：字号 11、常规字重
+        body := '<StackPanel Name="ThankSponsorLogos" HorizontalAlignment="Stretch"/>'
+        card := this._HelpCard(GetLang("企业赞助"), "&#xE731;", body, GetLang("感谢支持"), "0,0,0,14", false, 30)
+        try {
+            this.ui.Update("ThankSponsorHost", "AddXamlItem", card)
+            this.ui.Update("ThankSponsorHost", "Visibility", "Visible")
+        } catch {
+            while (this._linkQueue.Length > queued)
+                this._linkQueue.Pop()
+            return
+        }
+        this._thankSponsorShown := true
+        this._Bind("ThankSponsorLogos", "SizeChanged", ObjBindMethod(this, "LayoutThankSponsors"))
+        this.LayoutThankSponsors()
+    }
+
+    ; 按当前宽度均分行列：多出来的名额放在上面几行（n+1），其余为 n
+    LayoutThankSponsors(*) {
+        if (this._sponsorLaying || this._sponsorLogos.Length < 1)
+            return
+        w := ""
+        try w := this.ui.Query("ThankSponsorLogos>ActualWidth")
+        if (w == "" || !IsNumber(w))
+            return
+        w := Integer(Floor(Number(w)))
+        if (w < 80) {
+            if (!this._sponsorLayoutWait) {
+                this._sponsorLayoutWait := ObjBindMethod(this, "LayoutThankSponsors")
+                SetTimer(this._sponsorLayoutWait, -120)
+            }
+            return
+        }
+        slot := 124
+        cap := Integer(Floor(w / slot))
+        if (cap < 1)
+            cap := 1
+        n := this._sponsorLogos.Length
+        if (cap > n)
+            cap := n
+        rows := Integer(Ceil(n / cap))
+        key := cap "|" rows "|" n
+        if (key == this._sponsorLayoutKey)
+            return
+        this._sponsorLaying := true
+        this._sponsorLayoutKey := key
+        try {
+            base := n // rows
+            extra := Mod(n, rows)
+            ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
+            this.ui.Update("ThankSponsorLogos", "ClearItems", "")
+            idx := 1
+            loop rows {
+                take := base + (A_Index <= extra ? 1 : 0)
+                rowXaml := '<StackPanel ' ns ' Orientation="Horizontal" HorizontalAlignment="Center">'
+                loop take {
+                    rowXaml .= this._ThankSponsorLogo(this._sponsorLogos[idx])
+                    idx++
+                }
+                rowXaml .= '</StackPanel>'
+                this.ui.Update("ThankSponsorLogos", "AddXamlItem", rowXaml)
+            }
+            this._FlushLinks()
+        } finally {
+            this._sponsorLaying := false
+        }
+    }
+
+    ; 无边框 100×100 logo，悬停时在指针上方弹出企业名称，点击打开链接
+    _ThankSponsorLogo(sp) {
+        name := sp["name"] != "" ? sp["name"] : GetLang("企业赞助")
+        logo := sp["logo"]
+        url := sp["url"]
+        tip := '<Button.ToolTip><ToolTip Placement="Mouse" HorizontalOffset="12" VerticalOffset="-32" Padding="8,3" FontSize="11" Background="{DynamicResource ControlBg}" Foreground="{DynamicResource TextMain}" BorderBrush="{DynamicResource OutlineStroke}" BorderThickness="1"><TextBlock Text="' this._XmlEsc(name) '" FontSize="11"/></ToolTip></Button.ToolTip>'
+        img := '<Image Width="100" Height="100" Source="' this._XmlEsc(logo) '" Stretch="Uniform"/>'
+        tpl := '<Button.Template><ControlTemplate TargetType="Button"><ContentPresenter/></ControlTemplate></Button.Template>'
+        cursor := "Arrow"
+        btnName := ""
+        if (url != "") {
+            this._linkCounter := this._linkCounter + 1
+            btnName := "ThankSponsor_" this._linkCounter
+            this._linkQueue.Push({ name: btnName, url: url, event: "Click" })
+            cursor := "Hand"
+        }
+        nameAttr := btnName == "" ? "" : ' Name="' btnName '"'
+        return '<Button' nameAttr ' Cursor="' cursor '" Background="Transparent" BorderThickness="0" Padding="0" Margin="12,8" FocusVisualStyle="{x:Null}">' tpl tip img '</Button>'
     }
 
     _ThankLinkButton(url, text, glyph := "&#xE8A7;") {

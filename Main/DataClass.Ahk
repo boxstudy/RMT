@@ -214,6 +214,7 @@ class MainConfig {
         ; ========== 启动与窗口设置 ==========
         this.IsBootStart := false       ; 是否开机自启
         this.IsAdminStart := false      ; 是否以管理员权限启动
+        this.IsDataReport := true       ; 打开软件时是否访问 getstatus 上报
         this.IsMinStart := false        ; 是否最小化启动（常驻托盘）
         this.SoftBGColor := "f0f0f0"    ; 软件背景颜色 (6位HEX)
         this.BackImagePath := ""        ; §11 主界面背景图（全局配置，空=不启用；保存重启生效）

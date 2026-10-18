@@ -67,6 +67,7 @@ OnSaveSetting(*) {
     CheckAndAddDirty("DebugRunHotkey", MainSoftData.HasProp("DebugRunHotkey") ? MainSoftData.DebugRunHotkey : "f5")
     CheckAndAddDirty("DebugStepHotkey", MainSoftData.HasProp("DebugStepHotkey") ? MainSoftData.DebugStepHotkey : "f11")
     CheckAndAddDirty("IsBootStart", MainSoftData.IsBootStart)
+    CheckAndAddDirty("IsDataReport", MainSoftData.HasProp("IsDataReport") ? MainSoftData.IsDataReport : true)
     CheckAndAddDirty("ShowSplitLine", MainSoftData.ShowSplitLine)
     CheckAndAddDirty("IsModalSubGui", MainSoftData.IsModalSubGui)
     CheckAndAddDirty("BackImagePath", MainSoftData.BackImagePath)   ; §11 主界面背景图
@@ -327,6 +328,7 @@ InitRMTHttpPlugin() {
     global RMT_ASM := ""
     global RMT_Discourse := ""
     global RMT_IsForbidUpdate := false
+    global RMT_Sponsors := []
     global RMT_HasDotNet := HasDotNetFramework()
     global RMT_StatusPollFn := ""
     if (!RMT_HasDotNet)
@@ -339,10 +341,13 @@ InitRMTHttpPlugin() {
         try RMT_Ai := RMT_ASM.CreateInstance("RMT.AiAssist")
         catch
             RMT_Ai := ""
-        ; GetStatus 异步：不阻塞启动主线程
-        RMT_Http.BeginGetStatus(RMT_VERSION_DISPLAY)
-        RMT_StatusPollFn := PollRMTServerStatus
-        SetTimer(RMT_StatusPollFn, 200)
+        ; GetStatus 异步：不阻塞启动主线程。language 供服务端语言统计。
+        ; 只在打开软件时上报一次。关闭「在线功能」，或本次是应用内重载，都不访问 getstatus。
+        if (ShouldReportOnOpen()) {
+            RMT_Http.BeginGetStatus(RMT_VERSION_DISPLAY, GetClientLanguageCode())
+            RMT_StatusPollFn := PollRMTServerStatus
+            SetTimer(RMT_StatusPollFn, 200)
+        }
     } catch as e {
         RMT_Http := ""
         RMT_Ai := ""
@@ -350,6 +355,22 @@ InitRMTHttpPlugin() {
         RMT_HasDotNet := false
         JoyDebugLog(Format("RMT Http 插件初始化失败：{} | {} | {}", e.Message, e.What, A_ScriptDir "\Plugins\RMT\RMT.dll"), "init")
     }
+}
+
+; 打开软件才上报。关闭开关，或本次启动来自应用内重载，都不访问 getstatus。
+ShouldReportOnOpen() {
+    global SettingFile, SettingSection
+    skip := false
+    try {
+        raw := String(CfgRead(SettingFile, SettingSection, "SkipDataReport", false))
+        skip := (raw = "1" || raw = "true")
+        if (skip)
+            CfgDelete(SettingFile, SettingSection, "SkipDataReport")
+    } catch {
+    }
+    if (!MainSoftData.HasProp("IsDataReport") || !MainSoftData.IsDataReport)
+        return false
+    return !skip
 }
 
 ; 轮询异步 GetStatus 结果
@@ -372,7 +393,7 @@ PollRMTServerStatus(*) {
     if (RMT_StatusPollFn != "")
         SetTimer(RMT_StatusPollFn, 0)
     if (st = 2) {
-        try ApplyRMTServerStatus(RMT_Http.TakeStatusResult())
+        try ApplyRMTServerRsp(RMT_Http.TakeStatusResult())
         catch {
         }
     }
@@ -454,15 +475,157 @@ SetShareAuth(apiUser, apiKey) {
     CfgWrite(apiKey, SettingFile, SettingSection, "ShareApiKey")
 }
 
-ApplyRMTServerStatus(statusStr) {
-    global RMT_IsForbidUpdate
-    if (statusStr = "")
+ApplyRMTServerRsp(rspStr) {
+    global RMT_IsForbidUpdate, RMT_Sponsors, MyMainWin
+    if (rspStr = "")
         return
     try {
-        statusObj := JSON.parse(statusStr)
-        if (statusObj.Has("isForbidUpdate"))
-            RMT_IsForbidUpdate := !!statusObj["isForbidUpdate"]
+        rsp := JSON.parse(rspStr)
+        if (rsp.Has("isForbidUpdate"))
+            RMT_IsForbidUpdate := !!rsp["isForbidUpdate"]
+        if (rsp.Has("sponsors"))
+            RMT_Sponsors := ParseSponsorList(rsp["sponsors"])
+        if (IsObject(MyMainWin))
+            MyMainWin.ApplyThankSponsors()
     }
+}
+
+; 赞助 logo 文件名对应资源仓库 Common 标签下的图片
+GetSponsorLogoBaseUrl() {
+    return "https://gh-proxy.com/https://github.com/zclucas/RMTAssets/releases/download/Common/"
+}
+
+GetSponsorLogoDir() {
+    return A_WorkingDir "\Images\Sponsor"
+}
+
+; 回包 logo 只取文件名，例如 12324.png
+SponsorLogoFileName(logo) {
+    logo := Trim(logo)
+    if (logo == "")
+        return ""
+    if (RegExMatch(logo, "i)^https?://")) {
+        logo := RegExReplace(logo, "\?.*$", "")
+        pos := InStr(logo, "/", , -1)
+        if (pos)
+            logo := SubStr(logo, pos + 1)
+    }
+    logo := RegExReplace(logo, "^[\\/]+")
+    if (InStr(logo, "/") || InStr(logo, "\") || InStr(logo, ".."))
+        return ""
+    if (!RegExMatch(logo, "i)\.(png|jpe?g|gif|webp|bmp)$"))
+        return ""
+    if (RegExMatch(logo, "[<>:|?*]"))
+        return ""
+    return logo
+}
+
+; 本地 Images\Sponsor 已有则直接用，否则从 Common 发布地址下载
+EnsureSponsorLogo(logo) {
+    name := SponsorLogoFileName(logo)
+    if (name == "")
+        return ""
+    dir := GetSponsorLogoDir()
+    if (!DirExist(dir)) {
+        try DirCreate(dir)
+        catch
+            return ""
+    }
+    path := dir "\" name
+    if (FileExist(path)) {
+        try {
+            if (FileGetSize(path) > 0)
+                return path
+        }
+    }
+    if (FileExist(path))
+        try FileDelete(path)
+    if (!DownloadSponsorLogo(GetSponsorLogoBaseUrl() . name, path))
+        return ""
+    if (!FileExist(path))
+        return ""
+    try {
+        if (FileGetSize(path) <= 0) {
+            FileDelete(path)
+            return ""
+        }
+    } catch {
+        return ""
+    }
+    return path
+}
+
+DownloadSponsorLogo(url, savePath) {
+    try {
+        req := ComObject("Msxml2.XMLHTTP")
+        req.open("GET", url, true)
+        req.send()
+        start := A_TickCount
+        while (req.readyState != 4) {
+            if (A_TickCount - start > 12000)
+                return false
+            Sleep(50)
+        }
+        if (req.status != 200)
+            return false
+        stream := ComObject("ADODB.Stream")
+        stream.Type := 1
+        stream.Open()
+        stream.Write(req.responseBody)
+        stream.SaveToFile(savePath, 2)
+        stream.Close()
+        return true
+    } catch {
+        if (FileExist(savePath))
+            try FileDelete(savePath)
+        return false
+    }
+}
+
+_RspText(v) {
+    if (v == "" || IsObject(v))
+        return ""
+    return Trim(String(v))
+}
+
+_RspMapText(m, key) {
+    if (!(m is Map) || !m.Has(key))
+        return ""
+    return _RspText(m[key])
+}
+
+; 归一化 getstatus.sponsors：name / logo / url / desc / ext[{key,value}]
+ParseSponsorList(arr) {
+    list := []
+    if (!(arr is Array))
+        return list
+    for item in arr {
+        if (!(item is Map))
+            continue
+        name := _RspMapText(item, "name")
+        desc := _RspMapText(item, "desc")
+        logo := SponsorLogoFileName(_RspMapText(item, "logo"))
+        url := _RspMapText(item, "url")
+        if (!RegExMatch(url, "i)^https?://"))
+            url := ""
+        if (name == "" && desc == "" && logo == "")
+            continue
+        tags := []
+        if (item.Has("ext") && item["ext"] is Array) {
+            for e in item["ext"] {
+                if (!(e is Map))
+                    continue
+                k := _RspMapText(e, "key")
+                val := _RspMapText(e, "value")
+                if (k == "" && val == "")
+                    continue
+                tags.Push(k != "" && val != "" ? (k . ": " . val) : (val != "" ? val : k))
+            }
+        }
+        id := item.Has("id") ? item["id"] : ""
+        list.Push(Map("id", id, "name", name, "logo", logo, "url", url, "desc", desc, "ext", tags))
+    }
+    return list
 }
 
 HasDotNetFramework() {

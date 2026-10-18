@@ -1232,6 +1232,8 @@ LoadMainSetting() {
         MainSoftData.IsAdminStart := false
     else
         MainSoftData.IsAdminStart := !!MainSoftData.IsAdminStart
+    reportRaw := String(CfgRead(SettingFile, SettingSection, "IsDataReport", true))
+    MainSoftData.IsDataReport := !(reportRaw = "0" || reportRaw = "false")
     MainSoftData.ShowSplitLine := CfgRead(SettingFile, SettingSection, "ShowSplitLine", false)
     MainSoftData.FixedMenuWheel := CfgRead(SettingFile, SettingSection, "FixedMenuWheel", false)
     MainSoftData.MenuWheelSelectMode := CfgRead(SettingFile, SettingSection, "MenuWheelSelectMode", 2)
@@ -4199,6 +4201,8 @@ CheckOcrIdle() {
 }
 
 SafeReload() {
+    ; 重载是同一次使用里的重启，不算再次打开软件，跳过下一次 getstatus
+    try CfgWrite(true, SettingFile, SettingSection, "SkipDataReport")
     if (A_IsAdmin) {
         Run('"' A_ScriptFullPath '" -elevated')
         ExitApp()

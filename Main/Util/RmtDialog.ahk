@@ -73,6 +73,14 @@ class RmtDialog {
         return px
     }
 
+    ; 多行说明段落之间补空行，避免挤成一团；已有空行的保持原样
+    static _LoosenLines(msg) {
+        msg := String(msg)
+        if (!InStr(msg, "`n") || InStr(msg, "`n`n"))
+            return msg
+        return StrReplace(msg, "`n", "`n`n")
+    }
+
     ; 短句按最长行收窗宽，避免左右大块留白；超过 2 行走宽窗 + 边框
     static _MsgLayout(msg, fs := 15) {
         nl := 1
@@ -104,6 +112,7 @@ class RmtDialog {
 
         titleHeight := "30"
         fs := XAMLHost.FontSize()
+        msg := RmtDialog._LoosenLines(msg)
         lay := RmtDialog._MsgLayout(msg, fs)
         winW := lay.WinW
         fontFamily := ""
@@ -139,7 +148,7 @@ class RmtDialog {
             msgTb := box.Add("TextBox").Name("DlgMsgText").Text(msg).Foreground("{DynamicResource TextMain}").FontSize(fs)
                 .Background("Transparent").BorderThickness("0").Padding("0")
                 .IsReadOnly("True").IsReadOnlyCaretVisible("True").AcceptsReturn("True")
-                .TextWrapping("Wrap").MaxHeight(340)
+                .TextWrapping("Wrap").MaxHeight(440)
                 .HorizontalScrollBarVisibility("Disabled").VerticalScrollBarVisibility("Auto")
                 .CaretBrush("{DynamicResource TextMain}")
             msgTb.InjectResources(roStyle)
